@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { PackageCheck, CalendarDays, Pause, Play, SkipForward, Ban, RotateCcw, Repeat } from "lucide-react";
+import { PackageCheck, CalendarDays, Pause, Play, SkipForward, Ban, RotateCcw, Repeat, CreditCard } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
 import { apiGet, apiRequest, queryClient } from "@/lib/queryClient";
@@ -44,6 +44,7 @@ interface SubItem {
 
 interface Cycle {
   id: number;
+  orderId?: number | null;
   deliveryDate: string;
   deliveryDay: string;
   status: string;
@@ -158,6 +159,23 @@ export default function MySubscriptions() {
   const cancelMut = useLifecycleAction("cancel", "Subscription cancelled");
   const reactivateMut = useLifecycleAction("reactivate", "Subscription reactivated");
 
+  const payCycleMut = useMutation({
+    mutationFn: async (orderId: number) => {
+      const res = await apiRequest("POST", "/api/payments/initiate", { orderId });
+      return res.json() as Promise<{ paymentId: number; merchantOrderId: string; redirectUrl: string; simulated: boolean }>;
+    },
+    onSuccess: (pay) => {
+      if (pay.redirectUrl.startsWith("http")) {
+        window.location.href = pay.redirectUrl;
+      } else {
+        const hashIdx = pay.redirectUrl.indexOf("#");
+        const target = hashIdx >= 0 ? pay.redirectUrl.slice(hashIdx + 1) : pay.redirectUrl;
+        window.location.hash = target.startsWith("/") ? target : `/${target}`;
+      }
+    },
+    onError: () => toast({ title: "Could not start payment", description: "Please try again.", variant: "destructive" }),
+  });
+
   const changePlanMut = useMutation({
     mutationFn: async ({ id, planId }: { id: number; planId: number }) => {
       await apiRequest("POST", `/api/subscriptions/${id}/change-plan`, { planId });
@@ -252,14 +270,28 @@ export default function MySubscriptions() {
                       <div className="mt-3">
                         <p className="text-xs font-semibold text-muted-foreground mb-1">Upcoming cycles</p>
                         <ul className="text-sm space-y-1" data-testid={`cycles-subscription-${s.id}`}>
-                          {futureCycles.map((c) => (
-                            <li key={c.id} className="flex justify-between border-b border-card-border pb-1 last:border-b-0">
+                          {futureCycles.map((c) => {
+                            const payable = c.orderId != null && !["paid", "delivered", "skipped"].includes(c.status);
+                            return (
+                            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-card-border pb-1 last:border-b-0">
                               <span>{c.deliveryDay} · {new Date(c.deliveryDate).toLocaleDateString("en-IN")}</span>
                               <span className="flex items-center gap-2">
                                 <Badge variant="outline">{c.status}</Badge> {formatINR(Number(c.amount))}
+                                {payable && (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-3"
+                                    onClick={() => payCycleMut.mutate(c.orderId!)}
+                                    disabled={payCycleMut.isPending}
+                                    data-testid={`button-pay-cycle-${c.id}`}
+                                  >
+                                    <CreditCard size={13} className="mr-1" /> Pay now
+                                  </Button>
+                                )}
                               </span>
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
