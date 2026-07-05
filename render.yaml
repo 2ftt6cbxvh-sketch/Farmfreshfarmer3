@@ -16,7 +16,7 @@ services:
     runtime: node
     plan: free # change to "starter" for always-on (free spins down when idle)
     region: singapore # closest to India; also: oregon, frankfurt, ohio, virginia
-    buildCommand: npm install && npm run build && npm run db:setup
+    buildCommand: npm install --include=dev && npm run build && npm run db:setup
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
