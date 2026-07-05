@@ -1,0 +1,66 @@
+# Render.com Blueprint for FarmFreshFarmer
+# ------------------------------------------------------------------
+# One-click infrastructure: a managed PostgreSQL database + a Node web
+# service that serves the API and the built React client.
+#
+# To use: push this repo to GitHub, then in Render click
+#   New +  ->  Blueprint  ->  pick this repo.
+# Render reads this file, creates both resources, and wires DATABASE_URL
+# automatically from the database into the web service.
+#
+# After the first deploy, set your PhonePe env vars in the Render dashboard
+# (Web Service -> Environment). See docs/RENDER.md.
+services:
+  - type: web
+    name: farmfreshfarmer
+    runtime: node
+    plan: free # change to "starter" for always-on (free spins down when idle)
+    region: singapore # closest to India; also: oregon, frankfurt, ohio, virginia
+    buildCommand: npm install && npm run build
+    # Run DB migrations + reporting views + seed once, right before each deploy
+    # goes live. Idempotent, so it is safe on every deploy.
+    preDeployCommand: npm run db:setup
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render injects PORT automatically; the app already reads process.env.PORT.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: farmfresh-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true # Render generates a strong random value
+      - key: COOKIE_SECURE
+        value: "true" # Render serves HTTPS by default
+      - key: PGSSL
+        value: "true"
+      - key: APP_BASE_URL
+        sync: false # set to your Render URL after first deploy, e.g. https://farmfreshfarmer.onrender.com
+      - key: PHONEPE_ENV
+        value: sandbox
+      - key: PHONEPE_CLIENT_ID
+        sync: false
+      - key: PHONEPE_CLIENT_SECRET
+        sync: false
+      - key: PHONEPE_CLIENT_VERSION
+        value: "1"
+      - key: PHONEPE_MERCHANT_ID
+        sync: false
+      - key: PHONEPE_WEBHOOK_USERNAME
+        sync: false
+      - key: PHONEPE_WEBHOOK_PASSWORD
+        sync: false
+      # Set to "true" ONLY if you want the built-in payment simulator on a live
+      # deploy without real PhonePe keys (for demos). Leave unset for real use.
+      # - key: PHONEPE_ALLOW_SIMULATION
+      #   value: "true"
+
+databases:
+  - name: farmfresh-db
+    databaseName: farmfreshfarmer
+    plan: free # free Postgres expires after 30 days; use "basic" for persistence
+    region: singapore
+    postgresMajorVersion: "16"
