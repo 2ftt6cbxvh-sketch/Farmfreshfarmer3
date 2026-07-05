@@ -16,10 +16,7 @@ services:
     runtime: node
     plan: free # change to "starter" for always-on (free spins down when idle)
     region: singapore # closest to India; also: oregon, frankfurt, ohio, virginia
-    buildCommand: npm install && npm run build
-    # Run DB migrations + reporting views + seed once, right before each deploy
-    # goes live. Idempotent, so it is safe on every deploy.
-    preDeployCommand: npm run db:setup
+    buildCommand: npm install && npm run build && npm run db:setup
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
