@@ -6,7 +6,7 @@
  * route and the subscription weekly-generation job produce consistent orders.
  */
 import { storage } from "../storage";
-import { computePrice, resolveLines, type CartLine, type PriceResult } from "./pricing";
+import { computePrice, resolveLines, parseDeliveryRules, type CartLine, type PriceResult } from "./pricing";
 import { settleReferralForOrder, recordRewardSpend } from "./referral";
 
 export interface PlaceOrderInput {
@@ -22,6 +22,7 @@ export interface PlaceOrderInput {
   orderType?: string;             // normal | subscription
   subscriptionId?: number | null;
   deliveryDay?: string | null;
+  city?: string | null;           // delivery city chosen at checkout
 }
 
 export interface PlacedOrder {
@@ -43,12 +44,27 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     throw Object.assign(new Error("Cart is empty"), { status: 400 });
   }
 
+  // Require a serviceable city for normal orders when delivery rules are on.
+  // (Subscription cycle orders bypass this — their delivery is handled per plan.)
+  const isSubscription = (input.orderType || "normal") === "subscription";
+  if (!isSubscription) {
+    const rules = parseDeliveryRules(await storage.settings.get("delivery_rules"));
+    if (rules.enabled && rules.cities.length > 0) {
+      const chosen = input.city?.trim() || null;
+      const match = chosen && rules.cities.find((c) => c.name.toLowerCase() === chosen.toLowerCase());
+      if (!match) {
+        throw Object.assign(new Error("Please select a serviceable delivery city"), { status: 400 });
+      }
+    }
+  }
+
   const price = await computePrice({
     userId: input.userId,
     items: lines,
     couponCode: input.couponCode,
     referralCode: input.referralCode,
     redeemReward: input.redeemReward,
+    city: input.city ?? null,
   });
 
   const paymentMethod = input.paymentMethod || "COD";

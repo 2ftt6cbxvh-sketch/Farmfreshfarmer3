@@ -13,6 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 interface CouponResult {
   valid: boolean;
@@ -21,11 +29,13 @@ interface CouponResult {
   message?: string;
 }
 
+
 interface ReferralValidateResult {
   valid: boolean;
   code?: string;
   message?: string;
 }
+
 
 interface ReferralSummary {
   code: string;
@@ -37,11 +47,13 @@ interface ReferralSummary {
   rewards: unknown[];
 }
 
+
 interface PriceBreakdownLine {
   ruleType: string;
   label: string;
   amount: number;
 }
+
 
 interface PriceQuote {
   subtotal: number;
@@ -51,8 +63,11 @@ interface PriceQuote {
   referralDiscount: number;
   referralRewardApplied: number;
   couponDiscount: number;
+  deliveryFee: number;
+  deliveryCity: string | null;
   breakdown: PriceBreakdownLine[];
 }
+
 
 interface InitiatePaymentResult {
   paymentId: number;
@@ -61,7 +76,21 @@ interface InitiatePaymentResult {
   simulated: boolean;
 }
 
+
+// Per-city delivery config surfaced from GET /api/delivery-rules.
+interface DeliveryCity {
+  name: string;
+  charge: number;
+  freeAbove: number;
+}
+interface DeliveryRules {
+  enabled: boolean;
+  cities: DeliveryCity[];
+}
+
+
 type PaymentMethod = "COD" | "PHONEPE";
+
 
 export default function Cart() {
   const { items, setQty, remove, subtotal, clear } = useCart();
@@ -69,19 +98,33 @@ export default function Cart() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
+
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
+
 
   const [referralInput, setReferralInput] = useState("");
   const [referralValidated, setReferralValidated] = useState<string | null>(null);
   const [redeemReward, setRedeemReward] = useState(false);
 
+
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [city, setCity] = useState<string>("");
+
 
   const [quote, setQuote] = useState<PriceQuote | null>(null);
+
+
+  // Per-city delivery rules (public). Drives the city dropdown + fee display.
+  const { data: deliveryRules } = useQuery<DeliveryRules>({
+    queryKey: ["/api/delivery-rules"],
+    queryFn: () => apiGet<DeliveryRules>("/api/delivery-rules"),
+  });
+  const deliveryEnabled = !!deliveryRules?.enabled && (deliveryRules?.cities?.length ?? 0) > 0;
+
 
   // Referral summary (only meaningful for logged-in users) to surface the "use my reward" toggle.
   const { data: referralSummary } = useQuery<ReferralSummary>({
@@ -90,6 +133,7 @@ export default function Cart() {
     enabled: !!user,
   });
 
+
   const quoteMutation = useMutation({
     mutationFn: () =>
       apiRequest("POST", "/api/price/quote", {
@@ -97,21 +141,26 @@ export default function Cart() {
         couponCode: coupon?.code || undefined,
         referralCode: referralInput.trim() || undefined,
         redeemReward,
+        city: city || undefined,
       }).then((r) => r.json() as Promise<PriceQuote>),
     onSuccess: (data) => setQuote(data),
     onError: () => setQuote(null),
   });
 
-  // Re-fetch the live quote whenever items/coupon/referral/redeem toggle change.
+
+  // Re-fetch the live quote whenever items/coupon/referral/redeem/city change.
   useEffect(() => {
     if (items.length === 0) return;
     quoteMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward]);
+  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city]);
+
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
+  const displayDeliveryFee = quote ? Number(quote.deliveryFee || 0) : 0;
   const displayTotal = quote ? Number(quote.total) : Math.round((subtotal - displayDiscount) * 100) / 100;
+
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
@@ -127,6 +176,7 @@ export default function Cart() {
     onError: () => toast({ title: "Invalid coupon", variant: "destructive" }),
   });
 
+
   const validateReferral = useMutation({
     mutationFn: () => apiGet<ReferralValidateResult>(`/api/referral/validate?code=${encodeURIComponent(referralInput.trim())}`),
     onSuccess: (res) => {
@@ -141,12 +191,14 @@ export default function Cart() {
     onError: () => toast({ title: "Could not validate referral code", variant: "destructive" }),
   });
 
+
   const initiatePayment = useMutation({
     mutationFn: async (orderId: number) => {
       const res = await apiRequest("POST", "/api/payments/initiate", { orderId });
       return res.json() as Promise<InitiatePaymentResult>;
     },
   });
+
 
   const placeOrder = useMutation({
     mutationFn: async () => {
@@ -160,6 +212,7 @@ export default function Cart() {
         referralCode: referralInput.trim() || undefined,
         redeemReward,
         paymentMethod,
+        city: city || undefined,
       };
       const res = await apiRequest("POST", "/api/orders", payload);
       return res.json() as Promise<{ id: number }>;
@@ -189,13 +242,19 @@ export default function Cart() {
     onError: () => toast({ title: "Could not place order", description: "Please try again.", variant: "destructive" }),
   });
 
+
   function handleCheckout() {
     if (!name.trim() || !phone.trim() || !address.trim()) {
       toast({ title: "Please fill all delivery details", variant: "destructive" });
       return;
     }
+    if (deliveryEnabled && !city) {
+      toast({ title: "Please select your delivery city", description: "We need it to calculate delivery charges.", variant: "destructive" });
+      return;
+    }
     placeOrder.mutate();
   }
+
 
   if (items.length === 0) {
     return (
@@ -212,7 +271,9 @@ export default function Cart() {
     );
   }
 
+
   const availableBalance = referralSummary ? Number(referralSummary.availableBalance) : 0;
+
 
   return (
     <Layout>
@@ -245,6 +306,7 @@ export default function Cart() {
             ))}
           </div>
 
+
           {/* Summary + checkout */}
           <div className="space-y-4">
             <div className="rounded-xl border border-card-border bg-card p-4">
@@ -261,6 +323,7 @@ export default function Cart() {
                 </Button>
               </div>
 
+
               <div className="flex items-center gap-2 mb-3">
                 <Input
                   placeholder="Referral code (optional)"
@@ -276,6 +339,28 @@ export default function Cart() {
                 <p className="text-xs text-primary mb-3" data-testid="text-referral-valid">Referral code {referralValidated} will be applied on your first order.</p>
               )}
 
+
+              {/* Delivery city selector — only when admin has enabled per-city delivery. */}
+              {deliveryEnabled && (
+                <div className="mb-3">
+                  <Label htmlFor="ck-city" className="text-xs mb-1 block">Delivery city</Label>
+                  <Select value={city} onValueChange={setCity}>
+                    <SelectTrigger id="ck-city" data-testid="select-delivery-city">
+                      <SelectValue placeholder="Select your city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryRules!.cities.map((c) => (
+                        <SelectItem key={c.name} value={c.name} data-testid={`option-city-${c.name}`}>
+                          {c.name}
+                          {c.freeAbove > 0 ? ` · free above ${formatINR(c.freeAbove)}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+
               {!!user && availableBalance > 0 && (
                 <div className="flex items-center gap-2 mb-3 rounded-lg bg-secondary p-2">
                   <Checkbox
@@ -290,8 +375,10 @@ export default function Cart() {
                 </div>
               )}
 
+
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd data-testid="text-subtotal">{formatINR(displaySubtotal)}</dd></div>
+
 
                 {quote ? (
                   quote.breakdown.map((line, idx) => (
@@ -307,12 +394,21 @@ export default function Cart() {
                   )
                 )}
 
-                <div className="flex justify-between"><dt className="text-muted-foreground">Delivery</dt><dd className="text-primary">Free</dd></div>
+
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Delivery{quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
+                  {displayDeliveryFee > 0 ? (
+                    <dd data-testid="text-delivery-fee">{formatINR(displayDeliveryFee)}</dd>
+                  ) : (
+                    <dd className="text-primary" data-testid="text-delivery-fee">Free</dd>
+                  )}
+                </div>
                 <div className="flex justify-between border-t border-card-border pt-2 mt-2 font-bold text-base">
                   <dt>Total</dt><dd data-testid="text-total">{formatINR(displayTotal)}</dd>
                 </div>
               </dl>
             </div>
+
 
             <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
               <h2 className="font-semibold">Delivery details</h2>
@@ -328,6 +424,7 @@ export default function Cart() {
                 <Label htmlFor="ck-address" className="text-xs">Delivery address</Label>
                 <Textarea id="ck-address" value={address} onChange={(e) => setAddress(e.target.value)} data-testid="input-address" />
               </div>
+
 
               <div>
                 <Label className="text-xs mb-2 block">Payment method</Label>
@@ -346,6 +443,7 @@ export default function Cart() {
                   </div>
                 </RadioGroup>
               </div>
+
 
               <Button className="w-full" onClick={handleCheckout} disabled={placeOrder.isPending || initiatePayment.isPending} data-testid="button-place-order">
                 {placeOrder.isPending || initiatePayment.isPending ? "Placing order…" : `Place order · ${formatINR(displayTotal)}`}
