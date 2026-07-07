@@ -282,7 +282,7 @@ export function ShippingPage() {
 
       <H2>2. Delivery timelines</H2>
       <p>
-        We aim for <strong>same-day delivery</strong> within Visakhapatnam for orders placed during
+        We aim for <strong>same-day delivery</strong> within {CITY} for orders placed during
         working hours. Subscription orders are delivered on their scheduled days (for example,
         Saturday and/or Sunday). All timelines are estimates and may be affected by weather, traffic,
         stock or operational factors.
