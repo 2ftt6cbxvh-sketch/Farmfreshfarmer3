@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 
 const BUSINESS = "FarmFreshFarmer";
 const EMAIL = "admin@farmfreshfarmer.com";
-const PHONE = "+91 79897 93663";
+const PHONE = "+91 79897 93669";
 const CITY = "Vijayawada";
 const LAST_UPDATED = "07 July 2026";
 
