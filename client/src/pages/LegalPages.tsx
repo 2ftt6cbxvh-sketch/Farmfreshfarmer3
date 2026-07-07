@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 const BUSINESS = "FarmFreshFarmer";
 const EMAIL = "admin@farmfreshfarmer.com";
 const PHONE = "+91 79897 93663";
-const CITY = "Vijayawada, Andhra Pradesh, India";
+const CITY = "Vijayawada";
 const LAST_UPDATED = "07 July 2026";
 
 /** Shared page shell so all four policies look consistent. */
