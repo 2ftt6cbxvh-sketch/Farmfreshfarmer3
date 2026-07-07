@@ -13,7 +13,6 @@
  *   - Discounts       /api/admin/discounts (rules CRUD)
  *   - Payments        /api/payments/* (initiate, callback, webhook, status, refund)
  *   - Reporting       /api/admin/reporting/*
- *   - Delivery        /api/delivery-rules  (public per-city delivery config)
  *   - Health          /health
  *
  * Order placement is routed through the business engine (`placeOrder`) so
@@ -42,7 +41,6 @@ import {
   handleWebhook, verifyWebhookAuth, isPhonePeConfigured,
 } from "./services/phonepe";
 
-
 // Session typing
 declare module "express-session" {
   interface SessionData {
@@ -51,14 +49,11 @@ declare module "express-session" {
   }
 }
 
-
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-
 
 function publicUser(u: any) {
   return { id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone, address: u.address };
 }
-
 
 /** Wrap async handlers so rejected promises become clean 500s instead of crashes. */
 function h(fn: (req: Request, res: Response) => Promise<any>) {
@@ -70,16 +65,13 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
   };
 }
 
-
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Ensure a fresh database is immediately usable; no-op once seeded.
   await ensureSeeded({ log: true }).catch((e) => console.error("[seed] skipped:", e?.message || e));
 
-
   // Behind the Elastic Beanstalk load balancer / nginx we trust the first proxy
   // hop so secure cookies are honoured when TLS terminates upstream.
   app.set("trust proxy", 1);
-
 
   // Secure cookies require HTTPS. In real production (EB + HTTPS listener) leave
   // COOKIE_SECURE unset/true. For local HTTP testing set COOKIE_SECURE=false.
@@ -87,7 +79,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     process.env.COOKIE_SECURE != null
       ? process.env.COOKIE_SECURE === "true"
       : process.env.NODE_ENV === "production";
-
 
   app.use(
     session({
@@ -104,7 +95,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }),
   );
 
-
   function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (!req.session.userId) return res.status(401).json({ message: "Not logged in" });
     next();
@@ -113,7 +103,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!req.session.userId || req.session.role !== "admin") return res.status(403).json({ message: "Admin only" });
     next();
   }
-
 
   /* ============================ HEALTH ============================= */
   // Lightweight liveness + DB readiness probe for AWS EB / load balancers.
@@ -127,7 +116,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       time: new Date().toISOString(),
     });
   }));
-
 
   /* ============================= AUTH ============================== */
   app.post("/api/register", h(async (req, res) => {
@@ -169,7 +157,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ user: publicUser(user) });
   }));
 
-
   app.post("/api/login", h(async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: "Missing credentials" });
@@ -185,18 +172,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ user: publicUser(user) });
   }));
 
-
   app.post("/api/logout", (req, res) => {
     req.session.destroy(() => res.json({ ok: true }));
   });
-
 
   app.get("/api/me", h(async (req, res) => {
     if (!req.session.userId) return res.json({ user: null });
     const user = await storage.users.get(req.session.userId);
     res.json({ user: user ? publicUser(user) : null });
   }));
-
 
   app.post("/api/change-password", requireAuth, h(async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
@@ -220,12 +204,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ ok: true });
   }));
 
-
   /* =========================== CATEGORIES ========================== */
   app.get("/api/categories", h(async (_req, res) => {
     res.json(await storage.categories.list());
   }));
-
 
   /* ============================ PRODUCTS =========================== */
   app.get("/api/products", h(async (req, res) => {
@@ -235,20 +217,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.products.list({ category, q, featured }));
   }));
 
-
   app.get("/api/products/:id", h(async (req, res) => {
     const p = await storage.products.get(Number(req.params.id));
     if (!p) return res.status(404).json({ message: "Not found" });
     res.json(p);
   }));
 
-
   app.post("/api/products", requireAdmin, h(async (req, res) => {
     const parsed = insertProductSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid product", errors: parsed.error.flatten() });
     res.json(await storage.products.create(parsed.data));
   }));
-
 
   app.patch("/api/products/:id", requireAdmin, h(async (req, res) => {
     const parsed = insertProductSchema.partial().safeParse(req.body);
@@ -258,12 +237,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   }));
 
-
   app.delete("/api/products/:id", requireAdmin, h(async (req, res) => {
     await storage.products.remove(Number(req.params.id));
     res.json({ ok: true });
   }));
-
 
   /* =========================== IMAGE UPLOAD ======================== */
   app.post("/api/upload", requireAdmin, upload.single("image"), (req, res) => {
@@ -272,14 +249,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
   });
 
-
   /* ============================= REVIEWS =========================== */
   app.get("/api/reviews", h(async (req, res) => {
     const productId = Number(req.query.productId);
     if (!productId) return res.json([]);
     res.json(await storage.reviews.listForProduct(productId, { onlyApproved: true }));
   }));
-
 
   app.post("/api/reviews", requireAuth, h(async (req, res) => {
     const user = await storage.users.get(req.session.userId!);
@@ -296,12 +271,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.reviews.create(body));
   }));
 
-
   /* ============================= COUPONS =========================== */
   app.get("/api/coupons", requireAdmin, h(async (_req, res) => {
     res.json(await storage.coupons.list());
   }));
-
 
   app.post("/api/coupons", requireAdmin, h(async (req, res) => {
     const parsed = insertCouponSchema.safeParse({ ...req.body, code: String(req.body.code || "").toUpperCase() });
@@ -311,7 +284,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.coupons.create(parsed.data));
   }));
 
-
   app.patch("/api/coupons/:id", requireAdmin, h(async (req, res) => {
     const parsed = insertCouponSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid coupon" });
@@ -320,12 +292,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   }));
 
-
   app.delete("/api/coupons/:id", requireAdmin, h(async (req, res) => {
     await storage.coupons.remove(Number(req.params.id));
     res.json({ ok: true });
   }));
-
 
   app.get("/api/coupons/validate", h(async (req, res) => {
     const code = String(req.query.code || "").toUpperCase();
@@ -339,20 +309,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ valid: true, code: coupon.code, discountPercent: coupon.discountPercent });
   }));
 
-
-  /* ========================= DELIVERY RULES ======================= */
-  // Public: per-city delivery charge configuration for the checkout dropdown.
-  // Returns { enabled, cities: [{ name, charge, freeAbove }] } from the
-  // `delivery_rules` settings value (JSON). Falls back to disabled if unset.
-  app.get("/api/delivery-rules", h(async (_req, res) => {
-    const raw = await storage.settings.get("delivery_rules");
-    res.json(parseDeliveryRules(raw));
-  }));
-
-
   /* =========================== PRICE QUOTE ========================= */
   // Live price preview so the cart can show first-order/referral/reward
-  // discounts (and per-city delivery fee) before the customer commits.
+  // discounts before the customer commits.
   app.post("/api/price/quote", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];
     if (!items.length) return res.status(400).json({ message: "No items" });
@@ -367,6 +326,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(price);
   }));
 
+  /* ===================== DELIVERY RULES (public) =================== */
+  // Lets the checkout page list serviceable cities + their charges. Only the
+  // city NAME and charge/threshold are exposed — the fee is still recomputed
+  // server-side at order time so it can't be spoofed.
+  app.get("/api/delivery-rules", h(async (_req, res) => {
+    const rules = parseDeliveryRules(await storage.settings.get("delivery_rules"));
+    res.json(rules);
+  }));
 
   /* ============================== ORDERS =========================== */
   app.post("/api/orders", h(async (req, res) => {
@@ -386,7 +353,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       city: req.body.city ?? null,
     });
 
-
     // For PhonePe, initiate payment and return the redirect URL.
     if (paymentMethod === "PHONEPE") {
       const pay = await initiatePayment({
@@ -404,11 +370,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ id: order.id, total: order.total, price });
   }));
 
-
   app.get("/api/orders/mine", requireAuth, h(async (req, res) => {
     res.json(await storage.orders.listByUser(req.session.userId!));
   }));
-
 
   app.get("/api/orders/:id", requireAuth, h(async (req, res) => {
     const order = await storage.orders.get(Number(req.params.id));
@@ -425,13 +389,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   }));
 
-
   app.get("/api/orders", requireAdmin, h(async (req, res) => {
     const status = req.query.status ? String(req.query.status) : undefined;
     const type = req.query.type ? String(req.query.type) : undefined;
     res.json(await storage.orders.list({ status, type }));
   }));
-
 
   app.patch("/api/orders/:id", requireAdmin, h(async (req, res) => {
     const status = String(req.body.status || "");
@@ -441,19 +403,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   }));
 
-
   /* ============================== USERS ============================ */
   app.get("/api/users", requireAdmin, h(async (_req, res) => {
     const users = await storage.users.list();
     res.json(users.map((u) => ({ ...u, password: undefined })));
   }));
 
-
   /* ============================= REFERRAL ========================== */
   app.get("/api/referral/summary", requireAuth, h(async (req, res) => {
     res.json(await referralSummary(req.session.userId!));
   }));
-
 
   app.get("/api/referral/validate", h(async (req, res) => {
     const code = String(req.query.code || "").trim().toUpperCase();
@@ -466,7 +425,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ valid: true, code });
   }));
 
-
   /* =========================== SUBSCRIPTIONS ======================= */
   // Public: list active plans (with items) so customers can subscribe.
   app.get("/api/plans", h(async (_req, res) => {
@@ -476,7 +434,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     );
     res.json(withItems);
   }));
-
 
   app.get("/api/subscriptions/mine", requireAuth, h(async (req, res) => {
     const subs = await storage.subscriptions.listByUser(req.session.userId!);
@@ -490,7 +447,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ subscriptions: detailed, upcomingDeliveries: upcomingDeliveryDates(new Date(), 2) });
   }));
 
-
   // Subscribe to a plan (optionally with custom add-on items).
   app.post("/api/subscriptions", requireAuth, h(async (req, res) => {
     const planId = Number(req.body.planId);
@@ -498,7 +454,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!plan || !plan.active) return res.status(400).json({ message: "Invalid plan" });
     const deliveryDays = String(req.body.deliveryDays || req.body.deliveryDay || "both"); // saturday | sunday | both
     const extraItems: { productId: number; qty: number }[] = Array.isArray(req.body.items) ? req.body.items : [];
-
 
     // Compute weekly price = plan base + add-ons.
     const planItems = await storage.plans.items(planId);
@@ -521,7 +476,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(sub);
   }));
 
-
   // Lifecycle actions (customer on own sub; admin on any).
   async function guardSub(req: Request, res: Response): Promise<any | null> {
     const sub = await storage.subscriptions.get(Number(req.params.id));
@@ -532,7 +486,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     return sub;
   }
   const actorOf = (req: Request): "customer" | "admin" => (req.session.role === "admin" ? "admin" : "customer");
-
 
   app.post("/api/subscriptions/:id/pause", requireAuth, h(async (req, res) => {
     if (!(await guardSub(req, res))) return;
@@ -562,7 +515,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await changePlan(Number(req.params.id), newPlanId, actorOf(req)));
   }));
 
-
   /* ===================== ADMIN: subscriptions ====================== */
   app.get("/api/admin/subscriptions", requireAdmin, h(async (req, res) => {
     const status = req.query.status ? String(req.query.status) : undefined;
@@ -576,7 +528,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(detailed);
   }));
 
-
   app.get("/api/admin/subscriptions/:id", requireAdmin, h(async (req, res) => {
     const sub = await storage.subscriptions.get(Number(req.params.id));
     if (!sub) return res.status(404).json({ message: "Not found" });
@@ -588,7 +539,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   }));
 
-
   // Admin: generate upcoming Sat/Sun billing cycles (idempotent).
   app.post("/api/admin/subscriptions/generate-cycles", requireAdmin, h(async (req, res) => {
     const weeks = Number(req.body.weeks) || 2;
@@ -597,14 +547,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(result);
   }));
 
-
   /* ===================== ADMIN: plans (CRUD) ====================== */
   app.get("/api/admin/plans", requireAdmin, h(async (_req, res) => {
     const plans = await storage.plans.list({ includeInactive: true });
     const withItems = await Promise.all(plans.map(async (p) => ({ ...p, items: await storage.plans.items(p.id) })));
     res.json(withItems);
   }));
-
 
   app.post("/api/admin/plans", requireAdmin, h(async (req, res) => {
     const { name, description, price, deliveryDays, active } = req.body || {};
@@ -618,7 +566,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(plan);
   }));
 
-
   app.patch("/api/admin/plans/:id", requireAdmin, h(async (req, res) => {
     const items = Array.isArray(req.body.items) ? req.body.items : undefined;
     const updated = await storage.plans.update(Number(req.params.id), req.body, items);
@@ -626,12 +573,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   }));
 
-
   app.delete("/api/admin/plans/:id", requireAdmin, h(async (req, res) => {
     await storage.plans.remove(Number(req.params.id));
     res.json({ ok: true });
   }));
-
 
   /* ===================== ADMIN: categories (CRUD) ================= */
   app.get("/api/admin/categories", requireAdmin, h(async (_req, res) => {
@@ -650,7 +595,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ ok: true });
   }));
 
-
   /* ===================== ADMIN: inventory ========================= */
   app.get("/api/admin/inventory/low-stock", requireAdmin, h(async (_req, res) => {
     res.json(await storage.products.lowStock());
@@ -667,7 +611,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     );
     res.json(product);
   }));
-
 
   /* ===================== ADMIN: customers ========================= */
   app.get("/api/admin/customers", requireAdmin, h(async (_req, res) => {
@@ -690,13 +633,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(detailed);
   }));
 
-
   app.post("/api/admin/customers/:id/status", requireAdmin, h(async (req, res) => {
     const status = String(req.body.status || "");
     if (!["active", "blocked"].includes(status)) return res.status(400).json({ message: "Invalid status" });
     res.json(await storage.users.updateStatus(Number(req.params.id), status));
   }));
-
 
   /* ===================== ADMIN: review moderation ================= */
   app.get("/api/admin/reviews", requireAdmin, h(async (req, res) => {
@@ -708,7 +649,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!["approve", "reject", "hide"].includes(action)) return res.status(400).json({ message: "Invalid action" });
     res.json(await storage.reviews.setModeration(Number(req.params.id), action as any, req.session.userId));
   }));
-
 
   /* ===================== ADMIN: discount rules =================== */
   app.get("/api/admin/discounts", requireAdmin, h(async (_req, res) => {
@@ -723,7 +663,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   }));
 
-
   /* ===================== ADMIN: settings ========================= */
   app.get("/api/admin/settings", requireAdmin, h(async (_req, res) => {
     res.json(await storage.settings.all());
@@ -735,7 +674,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     );
     res.json(await storage.settings.all());
   }));
-
 
   /* ===================== ADMIN: sales summary ==================== */
   app.get("/api/admin/sales-summary", requireAdmin, h(async (_req, res) => {
@@ -758,7 +696,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   }));
 
-
   /* ===================== ADMIN: reporting (Power BI helpers) ===== */
   // JSON convenience endpoints mirroring the SQL reporting views, in case
   // Power BI is pointed at the API instead of directly at PostgreSQL.
@@ -768,7 +705,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/admin/reporting/payments", requireAdmin, h(async (_req, res) => {
     res.json(await storage.payments.list());
   }));
-
 
   /* ============================= PAYMENTS ========================= */
   // Initiate a payment for an existing order (e.g. retry after COD->PhonePe,
@@ -788,13 +724,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(pay);
   }));
 
-
   // Redirect target after PhonePe checkout: verify + reconcile, then report.
   app.get("/api/payments/status/:merchantOrderId", h(async (req, res) => {
     const result = await checkAndReconcile(String(req.params.merchantOrderId));
     res.json(result);
   }));
-
 
   // Simulator resolve (dev/preview only — no live credentials).
   app.post("/api/payments/simulate", h(async (req, res) => {
@@ -804,7 +738,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(result);
   }));
 
-
   // Webhook (server-to-server from PhonePe). Verified via Authorization header.
   app.post("/api/payments/webhook", h(async (req, res) => {
     if (!verifyWebhookAuth(req.headers["authorization"] as string | undefined)) {
@@ -813,7 +746,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     await handleWebhook(req.body);
     res.json({ ok: true });
   }));
-
 
   // Admin: refund a payment.
   app.post("/api/admin/payments/:merchantOrderId/refund", requireAdmin, h(async (req, res) => {
@@ -825,12 +757,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(result);
   }));
 
-
   // Admin: list payments.
   app.get("/api/admin/payments", requireAdmin, h(async (_req, res) => {
     res.json(await storage.payments.list());
   }));
-
 
   return httpServer;
 }
