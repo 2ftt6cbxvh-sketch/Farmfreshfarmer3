@@ -1,8 +1,8 @@
 import { Layout } from "@/components/Layout";
 
 const BUSINESS = "FarmFreshFarmer";
-const EMAIL = "hello@farmfreshfarmer.com";
-const PHONE = "+91 90000 00000";
+const EMAIL = "admin@farmfreshfarmer.com";
+const PHONE = "+91 79897 93663";
 const CITY = "Visakhapatnam, Andhra Pradesh, India";
 const LAST_UPDATED = "07 July 2026";
 
