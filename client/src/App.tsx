@@ -18,6 +18,7 @@ import PaymentCallback from "@/pages/PaymentCallback";
 import { PaymentSuccess, PaymentFailure } from "@/pages/PaymentResult";
 import MySubscriptions from "@/pages/MySubscriptions";
 import MyReferrals from "@/pages/MyReferrals";
+import { TermsPage, PrivacyPage, RefundPage, ShippingPage } from "@/pages/LegalPages";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminCategories from "@/pages/admin/AdminCategories";
@@ -49,6 +50,10 @@ function AppRouter() {
       <Route path="/payment/failure/:merchantOrderId" component={PaymentFailure} />
       <Route path="/account/subscriptions" component={MySubscriptions} />
       <Route path="/account/referrals" component={MyReferrals} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/refund-policy" component={RefundPage} />
+      <Route path="/shipping-policy" component={ShippingPage} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/admin/categories" component={AdminCategories} />

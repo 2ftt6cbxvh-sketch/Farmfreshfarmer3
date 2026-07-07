@@ -22,7 +22,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-10 grid gap-8 md:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-4 py-10 grid gap-8 md:grid-cols-5">
         <div>
           <Logo />
           <p className="mt-4 text-sm text-sidebar-foreground/70 max-w-xs">
@@ -51,14 +51,24 @@ export function Footer() {
         </div>
 
         <div>
+          <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide">Legal</h4>
+          <ul className="space-y-2 text-sm text-sidebar-foreground/80" role="list">
+            <li><Link href="/terms" className="hover:text-sidebar-primary">Terms & Conditions</Link></li>
+            <li><Link href="/privacy" className="hover:text-sidebar-primary">Privacy Policy</Link></li>
+            <li><Link href="/refund-policy" className="hover:text-sidebar-primary">Refund & Cancellation</Link></li>
+            <li><Link href="/shipping-policy" className="hover:text-sidebar-primary">Shipping & Delivery</Link></li>
+          </ul>
+        </div>
+
+        <div>
           <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide">Contact</h4>
           <ul className="space-y-3 text-sm text-sidebar-foreground/80" role="list">
             <li className="flex items-start gap-2"><MapPin size={16} className="mt-0.5 shrink-0" /> Visakhapatnam, Andhra Pradesh</li>
-            <li className="flex items-center gap-2"><Phone size={16} /> +91 79 89 79 3669</li>
-            <li className="flex items-center gap-2"><Mail size={16} /> admin@farmfreshfarmer.com</li>
+            <li className="flex items-center gap-2"><Phone size={16} /> +91 90000 00000</li>
+            <li className="flex items-center gap-2"><Mail size={16} /> hello@farmfreshfarmer.com</li>
           </ul>
           <div className="flex gap-3 mt-4">
-            <a href="https://www.instagram.com/farmfreshfarmer/" aria-label="Instagram" className="p-2 rounded-full bg-sidebar-accent hover-elevate"><Instagram size={16} /></a>
+            <a href="#" aria-label="Instagram" className="p-2 rounded-full bg-sidebar-accent hover-elevate"><Instagram size={16} /></a>
             <a href="#" aria-label="Facebook" className="p-2 rounded-full bg-sidebar-accent hover-elevate"><Facebook size={16} /></a>
           </div>
         </div>
