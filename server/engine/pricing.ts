@@ -45,6 +45,36 @@ export interface PriceRequest {
   couponCode?: string | null;
   referralCode?: string | null;  // code entered at checkout
   redeemReward?: boolean;        // referrer wants to spend their reward credit
+  city?: string | null;          // delivery city chosen at checkout
+}
+
+/** One admin-configured delivery rule per city. */
+export interface DeliveryCity {
+  name: string;
+  charge: number;      // delivery fee in INR
+  freeAbove: number;   // subtotal at/above which delivery is free (0 = never free)
+}
+export interface DeliveryRules {
+  enabled: boolean;
+  cities: DeliveryCity[];
+}
+
+/** Parse the delivery_rules JSON setting, tolerating a missing/invalid value. */
+export function parseDeliveryRules(raw: string | undefined): DeliveryRules {
+  if (!raw) return { enabled: false, cities: [] };
+  try {
+    const p = JSON.parse(raw);
+    const cities: DeliveryCity[] = Array.isArray(p?.cities)
+      ? p.cities.map((c: any) => ({
+          name: String(c?.name ?? "").trim(),
+          charge: Math.max(0, Number(c?.charge) || 0),
+          freeAbove: Math.max(0, Number(c?.freeAbove) || 0),
+        })).filter((c: DeliveryCity) => c.name)
+      : [];
+    return { enabled: p?.enabled !== false, cities };
+  } catch {
+    return { enabled: false, cities: [] };
+  }
 }
 
 export interface DiscountLine {
@@ -56,6 +86,8 @@ export interface DiscountLine {
 export interface PriceResult {
   subtotal: number;
   discount: number;               // total discount
+  deliveryFee: number;            // delivery charge added to the total
+  deliveryCity: string | null;    // resolved delivery city
   total: number;
   couponCode: string | null;
   firstOrderDiscount: number;
@@ -239,10 +271,34 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   // ---- Total, clamped so it never goes below zero ----
   let discount = round2(firstOrderDiscount + referralDiscount + couponDiscount + referralRewardApplied);
   if (discount > subtotal) discount = subtotal;
-  const total = round2(subtotal - discount);
+  const afterDiscount = round2(subtotal - discount);
+
+  // ---- Delivery fee (per-city, admin configurable) ----
+  // The charge is resolved server-side from the chosen city so the client can
+  // never spoof it. If the city has a free-delivery threshold and the subtotal
+  // reaches it, delivery is free.
+  const deliveryRules = parseDeliveryRules(settings.delivery_rules);
+  let deliveryFee = 0;
+  let deliveryCity: string | null = null;
+  const chosenCity = req.city?.trim() || null;
+  if (deliveryRules.enabled && chosenCity) {
+    const rule = deliveryRules.cities.find(
+      (c) => c.name.toLowerCase() === chosenCity.toLowerCase(),
+    );
+    if (rule) {
+      deliveryCity = rule.name;
+      const qualifiesFree = rule.freeAbove > 0 && subtotal >= rule.freeAbove;
+      deliveryFee = qualifiesFree ? 0 : round2(rule.charge);
+      if (deliveryFee > 0) {
+        breakdown.push({ ruleType: "delivery", label: `Delivery charge (${rule.name})`, amount: deliveryFee });
+      }
+    }
+  }
+
+  const total = round2(afterDiscount + deliveryFee);
 
   return {
-    subtotal, discount, total, couponCode,
+    subtotal, discount, deliveryFee, deliveryCity, total, couponCode,
     firstOrderDiscount, referralDiscount, referralRewardApplied,
     referralCodeUsed: referralValid ? referralCodeResolved : null,
     breakdown,
