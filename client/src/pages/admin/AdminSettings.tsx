@@ -155,6 +155,9 @@ const REFERRAL_KEYS = [
 ];
 const DELIVERY_KEYS = [
   { key: "subscription_delivery_days", label: "Subscription delivery days", type: "delivery_days" as const },
+  { key: "flat_delivery_enabled", label: "Charge a standard delivery fee on all orders", type: "bool" as const },
+  { key: "flat_delivery_fee", label: "Standard delivery fee (₹)", type: "amount" as const },
+  { key: "flat_delivery_free_above", label: "Standard delivery free above (₹, 0 = never)", type: "amount" as const },
 ];
 const STORE_KEYS = [
   { key: "store_name", label: "Store name", type: "text" as const },
@@ -169,7 +172,7 @@ function FieldRow({
   value,
   onChange,
 }: {
-  field: { key: string; label: string; type: "bool" | "percent" | "text" | "delivery_days" };
+  field: { key: string; label: string; type: "bool" | "percent" | "amount" | "text" | "delivery_days" };
   value: string | undefined;
   onChange: (key: string, value: string) => void;
 }) {
@@ -219,6 +222,25 @@ function FieldRow({
             data-testid={`input-setting-${field.key}`}
           />
           <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+  if (field.type === "amount") {
+    return (
+      <div className="py-2">
+        <Label htmlFor={`set-${field.key}`}>{field.label}</Label>
+        <div className="relative mt-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+          <Input
+            id={`set-${field.key}`}
+            type="number"
+            min={0}
+            value={v}
+            onChange={(e) => onChange(field.key, e.target.value)}
+            className="pl-7"
+            data-testid={`input-setting-${field.key}`}
+          />
         </div>
       </div>
     );

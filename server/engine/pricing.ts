@@ -273,24 +273,46 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   if (discount > subtotal) discount = subtotal;
   const afterDiscount = round2(subtotal - discount);
 
-  // ---- Delivery fee (per-city, admin configurable) ----
-  // The charge is resolved server-side from the chosen city so the client can
-  // never spoof it. If the city has a free-delivery threshold and the subtotal
-  // reaches it, delivery is free.
+  // ---- Delivery fee ----
+  // Resolution order (server-side, so the client can never spoof it):
+  //   1. Per-city delivery (if enabled AND the chosen city has a rule) — the
+  //      most specific charge wins, with its own free-above threshold.
+  //   2. Flat/standard delivery (if enabled) — a single fee applied to EVERY
+  //      order regardless of city, with an optional global free-above threshold.
+  // Per-city takes precedence over the flat fee when both apply to an order.
   const deliveryRules = parseDeliveryRules(settings.delivery_rules);
   let deliveryFee = 0;
   let deliveryCity: string | null = null;
+  let cityChargeResolved = false;
   const chosenCity = req.city?.trim() || null;
   if (deliveryRules.enabled && chosenCity) {
     const rule = deliveryRules.cities.find(
       (c) => c.name.toLowerCase() === chosenCity.toLowerCase(),
     );
     if (rule) {
+      cityChargeResolved = true;
       deliveryCity = rule.name;
       const qualifiesFree = rule.freeAbove > 0 && subtotal >= rule.freeAbove;
       deliveryFee = qualifiesFree ? 0 : round2(rule.charge);
       if (deliveryFee > 0) {
         breakdown.push({ ruleType: "delivery", label: `Delivery charge (${rule.name})`, amount: deliveryFee });
+      }
+    }
+  }
+
+  // Flat/standard delivery fee — applies to all orders when a per-city charge
+  // was NOT resolved for this order. Set flat_delivery_enabled="true" and
+  // flat_delivery_fee to the amount; flat_delivery_free_above (optional, 0 =
+  // never) makes delivery free once the subtotal reaches that threshold.
+  if (!cityChargeResolved) {
+    const flatEnabled = settings.flat_delivery_enabled === "true";
+    const flatFee = Math.max(0, Number(settings.flat_delivery_fee) || 0);
+    const flatFreeAbove = Math.max(0, Number(settings.flat_delivery_free_above) || 0);
+    if (flatEnabled && flatFee > 0) {
+      const qualifiesFree = flatFreeAbove > 0 && subtotal >= flatFreeAbove;
+      deliveryFee = qualifiesFree ? 0 : round2(flatFee);
+      if (deliveryFee > 0) {
+        breakdown.push({ ruleType: "delivery", label: "Delivery charge", amount: deliveryFee });
       }
     }
   }
