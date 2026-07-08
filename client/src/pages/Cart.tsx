@@ -102,6 +102,21 @@ export default function Cart() {
   });
   const deliveryEnabled = !!deliveryRules?.enabled && (deliveryRules?.cities.length ?? 0) > 0;
 
+  // Checkout config — whether Cash on Delivery is offered (admin toggle).
+  const { data: checkoutConfig } = useQuery<{ codEnabled: boolean }>({
+    queryKey: ["/api/checkout-config"],
+    queryFn: () => apiGet<{ codEnabled: boolean }>("/api/checkout-config"),
+  });
+  const codEnabled = checkoutConfig?.codEnabled !== false;
+
+  // If COD is disabled, make sure the selected method isn't COD.
+  useEffect(() => {
+    if (checkoutConfig && !codEnabled && paymentMethod === "COD") {
+      setPaymentMethod("PHONEPE");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutConfig, codEnabled]);
+
   const [quote, setQuote] = useState<PriceQuote | null>(null);
 
   // Referral summary (only meaningful for logged-in users) to surface the "use my reward" toggle.
@@ -383,12 +398,14 @@ export default function Cart() {
               <div>
                 <Label className="text-xs mb-2 block">Payment method</Label>
                 <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-2" data-testid="radio-payment-method">
-                  <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
-                    <RadioGroupItem value="COD" id="pay-cod" data-testid="radio-payment-cod" />
-                    <Label htmlFor="pay-cod" className="flex items-center gap-2 cursor-pointer text-sm">
-                      <Wallet size={15} /> Cash on Delivery
-                    </Label>
-                  </div>
+                  {codEnabled && (
+                    <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
+                      <RadioGroupItem value="COD" id="pay-cod" data-testid="radio-payment-cod" />
+                      <Label htmlFor="pay-cod" className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Wallet size={15} /> Cash on Delivery
+                      </Label>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
                     <RadioGroupItem value="PHONEPE" id="pay-phonepe" data-testid="radio-payment-phonepe" />
                     <Label htmlFor="pay-phonepe" className="flex items-center gap-2 cursor-pointer text-sm">

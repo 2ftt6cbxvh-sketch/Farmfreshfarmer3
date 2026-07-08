@@ -335,11 +335,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rules);
   }));
 
+  /* =================== CHECKOUT CONFIG (public) =================== */
+  // Public flags the checkout page needs. COD is ON unless the admin has
+  // explicitly disabled it (cod_enabled === "false").
+  app.get("/api/checkout-config", h(async (_req, res) => {
+    const codEnabled = (await storage.settings.get("cod_enabled")) !== "false";
+    res.json({ codEnabled });
+  }));
+
   /* ============================== ORDERS =========================== */
   app.post("/api/orders", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];
     if (items.length === 0) return res.status(400).json({ message: "Cart is empty" });
     const paymentMethod = String(req.body.paymentMethod || "COD").toUpperCase();
+    // Enforce the admin COD toggle server-side so it can't be bypassed.
+    if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
+      return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
+    }
     const { order, price } = await placeOrder({
       userId: req.session.userId ?? null,
       customerName: String(req.body.customerName || ""),

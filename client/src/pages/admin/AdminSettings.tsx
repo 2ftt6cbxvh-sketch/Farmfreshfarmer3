@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiGet, apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/store";
@@ -162,9 +162,12 @@ const DELIVERY_KEYS = [
 const STORE_KEYS = [
   { key: "store_name", label: "Store name", type: "text" as const },
 ];
+const PAYMENT_KEYS = [
+  { key: "cod_enabled", label: "Allow Cash on Delivery at checkout", type: "bool" as const },
+];
 
 const ALL_KNOWN_KEYS = [
-  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS,
+  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS,
 ].map((k) => k.key).concat("delivery_rules");
 
 function FieldRow({
@@ -272,7 +275,9 @@ export default function AdminSettings() {
   const [form, setForm] = useState<SettingsMap>({});
 
   useEffect(() => {
-    if (settingsData) setForm(settingsData);
+    // COD defaults to enabled when unset, so show the toggle ON unless the
+    // admin has explicitly saved "false".
+    if (settingsData) setForm({ cod_enabled: "true", ...settingsData });
   }, [settingsData]);
 
   function setField(key: string, value: string) {
@@ -383,6 +388,20 @@ export default function AdminSettings() {
                   value={form["delivery_rules"]}
                   onChange={(json) => setField("delivery_rules", json)}
                 />
+              </section>
+
+              <section>
+                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
+                  <CreditCard size={16} /> Payments
+                </div>
+                <div className="divide-y divide-card-border">
+                  {PAYMENT_KEYS.map((f) => (
+                    <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When off, customers must pay online (PhonePe) and Cash on Delivery is hidden at checkout.
+                </p>
               </section>
 
               <section>
