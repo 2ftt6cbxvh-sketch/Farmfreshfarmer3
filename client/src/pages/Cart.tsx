@@ -356,7 +356,7 @@ export default function Cart() {
                   </dd>
                 </div>
                 <div className="flex justify-between border-t border-card-border pt-2 mt-2 font-bold text-base">
-                  <dt>Total</dt><dd data-testid="text-total">{formatINR(displayTotal)}</dd>
+                  <dt>Grand total</dt><dd data-testid="text-total">{formatINR(displayTotal)}</dd>
                 </div>
               </dl>
             </div>

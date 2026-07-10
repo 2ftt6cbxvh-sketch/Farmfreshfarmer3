@@ -294,9 +294,6 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
       deliveryCity = rule.name;
       const qualifiesFree = rule.freeAbove > 0 && subtotal >= rule.freeAbove;
       deliveryFee = qualifiesFree ? 0 : round2(rule.charge);
-      if (deliveryFee > 0) {
-        breakdown.push({ ruleType: "delivery", label: `Delivery charge (${rule.name})`, amount: deliveryFee });
-      }
     }
   }
 
@@ -311,9 +308,6 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     if (flatEnabled && flatFee > 0) {
       const qualifiesFree = flatFreeAbove > 0 && subtotal >= flatFreeAbove;
       deliveryFee = qualifiesFree ? 0 : round2(flatFee);
-      if (deliveryFee > 0) {
-        breakdown.push({ ruleType: "delivery", label: "Delivery charge", amount: deliveryFee });
-      }
     }
   }
 
