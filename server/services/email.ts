@@ -131,25 +131,39 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
 /** Helper: Generate HTML Template for OTP Code Email */
 export function buildOtpEmailHtml(otpCode: string, name = "Valued Customer"): string {
   return `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 550px; margin: 0 auto; background-color: #092615; color: #ffffff; padding: 32px; border-radius: 24px; border: 1px solid #15803d;">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <h1 style="color: #86efac; font-size: 26px; margin: 0; font-family: Georgia, serif;">🌿 FarmFreshFarmer</h1>
-        <p style="color: #94a3b8; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;">Organic · Farm to Home</p>
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #061c10; color: #ffffff; padding: 36px 28px; border-radius: 24px; border: 1px solid #16a34a; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+      <div style="text-align: center; margin-bottom: 28px;">
+        <h1 style="color: #4ade80; font-size: 28px; margin: 0; font-family: Georgia, serif; font-weight: bold;">🌿 FarmFreshFarmer</h1>
+        <p style="color: #a7f3d0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-top: 6px; font-weight: 600;">Fresh Organic Produce · Directly From Local Farmers</p>
       </div>
 
-      <div style="background-color: #0f172a; padding: 24px; border-radius: 16px; border: 1px solid #334155; text-align: center; margin-bottom: 24px;">
-        <h2 style="color: #ffffff; font-size: 20px; margin-top: 0;">Your Verification OTP Code</h2>
-        <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">Hello ${name}, use the 6-digit code below to complete your authentication:</p>
+      <div style="background-color: #0f172a; padding: 28px 24px; border-radius: 20px; border: 1px solid #334155; text-align: center; margin-bottom: 24px;">
+        <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; font-weight: bold;">Your Verification Code (OTP)</h2>
+        <p style="color: #e2e8f0; font-size: 15px; margin-bottom: 24px; line-height: 1.6;">
+          Hello <strong style="color: #4ade80;">${name}</strong>,<br/>
+          Welcome to <strong>FarmFreshFarmer</strong>! Use the 6-digit One-Time Password (OTP) below to authorize your account action:
+        </p>
 
-        <div style="background-color: #15803d; color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px; border-radius: 12px; display: inline-block; font-family: monospace;">
+        <div style="background-color: #15803d; color: #ffffff; font-size: 36px; font-weight: 900; letter-spacing: 10px; padding: 18px 28px; border-radius: 16px; display: inline-block; font-family: 'Courier New', monospace; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
           ${otpCode}
         </div>
 
-        <p style="color: #94a3b8; font-size: 12px; margin-top: 16px;">This OTP code expires in <strong>10 minutes</strong>. Do not share it with anyone.</p>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 20px; line-height: 1.5;">
+          ⏱️ This OTP code is valid for <strong>10 minutes</strong>.<br/>
+          🔒 For your security, never share this code with anyone, including FarmFresh staff.
+        </p>
       </div>
 
-      <div style="text-align: center; color: #64748b; font-size: 12px;">
-        <p>© ${new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</p>
+      <div style="background-color: #092615; padding: 16px 20px; border-radius: 14px; border: 1px solid #15803d; margin-bottom: 24px; text-align: left;">
+        <p style="color: #86efac; font-size: 12px; margin: 0 0 6px 0; font-weight: bold;">🛡️ Security Notice:</p>
+        <p style="color: #cbd5e1; font-size: 11px; margin: 0; line-height: 1.5;">
+          If you did not request this OTP code or attempt to log in to FarmFreshFarmer, please ignore this email or reach out to our security support team immediately.
+        </p>
+      </div>
+
+      <div style="text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #1e293b; padding-top: 20px;">
+        <p style="margin: 0 0 6px 0;">Need help? Visit <a href="https://farmfreshfarmer.com" style="color: #4ade80; text-decoration: none;">farmfreshfarmer.com</a> or contact support.</p>
+        <p style="margin: 0;">© ${new Date().getFullYear()} FarmFreshFarmer Inc. All rights reserved.</p>
       </div>
     </div>
   `;
