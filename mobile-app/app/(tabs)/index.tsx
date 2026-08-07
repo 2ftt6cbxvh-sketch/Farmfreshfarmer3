@@ -137,10 +137,10 @@ export default function HomeScreen() {
       <Animated.View style={[styles.headerBg, isDark && styles.headerBgDark, { transform: [{ translateY: headerParallaxY }], paddingTop: insets.top + 12 }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={[styles.headerTitle, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={styles.versionTag}><Text style={styles.versionTagText}>v1.4.2</Text></View>
+            <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.6</Text></View>
           </View>
-          <TouchableOpacity style={styles.themeToggleBtn} onPress={toggleTheme}>
+          <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={toggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
           </TouchableOpacity>
         </View>
@@ -157,7 +157,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText}>
-              📍 {resolution?.locationArea || (resolution?.pincode ? 'PIN ' + resolution.pincode : 'Visakhapatnam City (530003)')}
+              📍 {resolution?.locationArea && !resolution.locationArea.includes('°') ? resolution.locationArea : (resolution?.pincode ? 'PIN ' + resolution.pincode : 'Visakhapatnam City (530003)')}
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>

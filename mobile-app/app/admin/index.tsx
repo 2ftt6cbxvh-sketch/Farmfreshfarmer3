@@ -17,18 +17,37 @@ export default function AdminDashboardScreen() {
   const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'pincodes'>('orders');
+  const tabs = [
+    { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'products', label: '📦 Products' },
+    { id: 'categories', label: '🏷️ Categories' },
+    { id: 'inventory', label: '🌾 Inventory' },
+    { id: 'orders', label: '🧾 Orders' },
+    { id: 'subscriptions', label: '🔄 Subscriptions' },
+    { id: 'payments', label: '💳 Payments' },
+    { id: 'customers', label: '👥 Customers' },
+    { id: 'reviews', label: '⭐ Reviews' },
+    { id: 'coupons', label: '🎟️ Coupons' },
+    { id: 'discounts', label: '🏷️ Discounts' },
+    { id: 'referrals', label: '🎁 Referrals' },
+    { id: 'settings', label: '⚙️ Settings' },
+    { id: 'security', label: '🔒 Security' },
+    { id: 'warehouses', label: '🏬 Warehouses' },
+    { id: 'delivery', label: '🚚 Delivery & Geo' }
+  ];
+
+  const [activeTab, setActiveTab] = useState(tabs[0].id);
 
   const { data: orders, isLoading: ordersLoading } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: () => api.get('/api/admin/orders').then(r => r.data),
-    enabled: activeTab === 'orders'
+    enabled: activeTab === 'orders' || activeTab === 'dashboard'
   });
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: () => api.get('/api/products').then(r => r.data),
-    enabled: activeTab === 'inventory'
+    enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard'
   });
 
   const updateOrderStatus = useMutation({
@@ -45,10 +64,9 @@ export default function AdminDashboardScreen() {
     }
   });
 
-  const statuses = ['placed', 'confirmed', 'packed', 'out_for_delivery', 'delivered'];
+  const statuses = ['placed', 'packed', 'out_for_delivery', 'delivered'];
   const statusLabels: Record<string, string> = {
     'placed': 'Placed',
-    'confirmed': 'Confirmed',
     'packed': 'Packed',
     'out_for_delivery': 'Out for delivery',
     'delivered': 'Delivered'
@@ -64,25 +82,48 @@ export default function AdminDashboardScreen() {
         <View style={{ width: 60 }} />
       </View>
 
-      <View style={styles.tabs}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'orders' && styles.tabActive]} onPress={() => setActiveTab('orders')}>
-          <Text style={[styles.tabText, activeTab === 'orders' && styles.tabTextActive]}>📦 Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'inventory' && styles.tabActive]} onPress={() => setActiveTab('inventory')}>
-          <Text style={[styles.tabText, activeTab === 'inventory' && styles.tabTextActive]}>🌾 Stock</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'pincodes' && styles.tabActive]} onPress={() => setActiveTab('pincodes')}>
-          <Text style={[styles.tabText, activeTab === 'pincodes' && styles.tabTextActive]}>🚚 Pincodes</Text>
-        </TouchableOpacity>
+      <View style={styles.tabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+          {tabs.map((tab) => (
+            <TouchableOpacity 
+              key={tab.id}
+              style={[styles.tab, activeTab === tab.id && styles.tabActive]} 
+              onPress={() => setActiveTab(tab.id)}
+            >
+              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView style={styles.content}>
+        {activeTab === 'dashboard' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Revenue total</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>₹{(orders || []).reduce((acc: number, o: any) => acc + (o.total || 0), 0)}</Text>
+            </View>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Active orders count</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>{(orders || []).filter((o: any) => o.status !== 'delivered').length}</Text>
+            </View>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Products count</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>{(products || []).length}</Text>
+            </View>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Active customers</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>Manage Users Module</Text>
+            </View>
+          </View>
+        )}
+
         {activeTab === 'orders' && (
           <View style={styles.tabContent}>
             {ordersLoading ? <ActivityIndicator size="large" color="#10b981" /> : (orders || []).map((order: any) => (
               <View key={order.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>Order #{order.id}</Text>
-                <Text style={[styles.cardSubtitle, { color: mutedColor }]}>{order.customerName}</Text>
+                <Text style={[styles.cardSubtitle, { color: mutedColor }]}>{order.customerName || 'Guest'}</Text>
                 <View style={styles.statusBadge}>
                   <Text style={styles.statusText}>{statusLabels[order.status] || order.status}</Text>
                 </View>
@@ -104,25 +145,27 @@ export default function AdminDashboardScreen() {
             {productsLoading ? <ActivityIndicator size="large" color="#10b981" /> : (products || []).map((product: any) => (
               <View key={product.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>{product.name}</Text>
-                <Text style={[styles.stockText, { color: textColor }]}>{product.stock} units remaining</Text>
+                <Text style={[styles.stockText, { color: product.stock < 20 ? '#ef4444' : textColor }]}>
+                  {product.stock} units remaining {product.stock < 20 && '⚠️ Low Stock'}
+                </Text>
                 <View style={styles.row}>
                   <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: -10 })}>
                     <Text style={[styles.outlineBtnText, { color: textColor }]}>-10 Stock</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: 50 })}>
-                    <Text style={[styles.outlineBtnText, { color: textColor }]}>+50 Stock</Text>
+                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: 10 })}>
+                    <Text style={[styles.outlineBtnText, { color: textColor }]}>+10 Stock</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </View>
         )}
-
-        {activeTab === 'pincodes' && (
+        
+        {['products', 'categories', 'subscriptions', 'payments', 'customers', 'reviews', 'coupons', 'discounts', 'referrals', 'settings', 'security', 'warehouses', 'delivery'].includes(activeTab) && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>Manage Delivery Pincodes</Text>
-              <Text style={[styles.cardSubtitle, { color: mutedColor }]}>This feature is currently configured via web admin panel settings. Mobile pincode manager coming soon.</Text>
+              <Text style={[styles.cardTitle, { color: textColor }]}>{tabs.find(t => t.id === activeTab)?.label} Manager</Text>
+              <Text style={[styles.cardSubtitle, { color: mutedColor }]}>This module allows managing {activeTab}. Full mobile implementation coming soon; manage via web dashboard.</Text>
             </View>
           </View>
         )}
@@ -137,8 +180,9 @@ const styles = StyleSheet.create({
   backBtn: { backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
   backBtnText: { color: '#10b981', fontWeight: 'bold', fontSize: 13 },
   navTitle: { fontSize: 18, fontWeight: '700' },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(16, 185, 129, 0.25)' },
-  tab: { flex: 1, paddingVertical: 14, alignItems: 'center' },
+  tabsContainer: { borderBottomWidth: 1, borderBottomColor: 'rgba(16, 185, 129, 0.25)' },
+  tabs: { paddingHorizontal: 8 },
+  tab: { paddingHorizontal: 16, paddingVertical: 14, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#10b981' },
   tabText: { fontSize: 14, fontWeight: '600', color: '#94a3b8' },
   tabTextActive: { color: '#10b981', fontWeight: 'bold' },
