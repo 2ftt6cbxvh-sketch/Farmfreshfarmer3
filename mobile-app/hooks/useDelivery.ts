@@ -5,7 +5,7 @@ import type { DeliveryResolution, LockdownStatus } from '../lib/types';
 
 export function useDelivery() {
   const [resolution, setResolution] = useState<DeliveryResolution | null>({
-    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Farm Fresh Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
+    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Visakhapatnam Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -13,7 +13,18 @@ export function useDelivery() {
     setIsLoading(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setResolution({
+          pincode: '530003',
+          locationArea: 'Visakhapatnam City',
+          etaMinutes: 30,
+          warehouseName: 'Visakhapatnam Hub',
+          packingTimeMinutes: 15,
+          travelTimeMinutes: 15,
+          serviceable: true
+        });
+        return;
+      }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
@@ -45,17 +56,25 @@ export function useDelivery() {
         setResolution({ ...res.data, serviceable: true, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
       } else {
         setResolution({
-          pincode,
-          locationArea,
+          pincode: pincode || '530003',
+          locationArea: locationArea === 'GPS Location' ? 'Visakhapatnam City' : locationArea,
           etaMinutes: 30,
-          warehouseName: 'Farm Fresh Hub',
+          warehouseName: 'Visakhapatnam Hub',
           packingTimeMinutes: 15,
           travelTimeMinutes: 15,
           serviceable: true
         });
       }
     } catch {
-      // GPS failed
+      setResolution({
+        pincode: '530003',
+        locationArea: 'Visakhapatnam City',
+        etaMinutes: 30,
+        warehouseName: 'Visakhapatnam Hub',
+        packingTimeMinutes: 15,
+        travelTimeMinutes: 15,
+        serviceable: true
+      });
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +84,7 @@ export function useDelivery() {
     setIsLoading(true);
     try {
       const res = await api.post('/api/delivery/resolve', { pincode });
-      setResolution({ ...res.data, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
+      setResolution({ ...res.data, warehouseName: res.data.warehouseName || 'Visakhapatnam Hub' });
     } catch {
       // Pincode failed
     } finally {

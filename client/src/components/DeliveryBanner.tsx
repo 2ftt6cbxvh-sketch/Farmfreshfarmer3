@@ -44,10 +44,31 @@ export default function DeliveryBanner() {
   });
 
   const requestGpsLocation = () => {
-    if (!navigator.geolocation) { setShowPincodeInput(true); return; }
+    const fallbackResolution = {
+      serviceable: true,
+      fee: 0,
+      etaMinutes: 30,
+      packingTimeMinutes: 15,
+      travelTimeMinutes: 15,
+      warehouseName: 'Visakhapatnam Hub',
+      locationArea: 'Visakhapatnam City',
+      pincode: '530003'
+    };
+
+    if (!navigator.geolocation) {
+      setResolution(fallbackResolution);
+      localStorage.setItem("deliveryResolution", JSON.stringify(fallbackResolution));
+      setShowPincodeInput(false);
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => resolveMutation.mutate({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setShowPincodeInput(true),
+      () => {
+        setResolution(fallbackResolution);
+        localStorage.setItem("deliveryResolution", JSON.stringify(fallbackResolution));
+        setShowPincodeInput(false);
+      },
       { timeout: 8000 }
     );
   };
@@ -82,7 +103,7 @@ export default function DeliveryBanner() {
         <div className="flex flex-wrap items-center gap-3 sm:gap-6 mx-auto max-w-7xl w-full">
           <span className="flex items-center gap-1.5 font-bold text-amber-400">
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>Delivering to: <strong className="text-white">{resolution.locationArea || "Your Area"}</strong></span>
+            <span>Delivering to: <strong className="text-white">{resolution.locationArea || "Your Area"}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
           </span>
 
           <span className="flex items-center gap-1.5 text-emerald-200">
