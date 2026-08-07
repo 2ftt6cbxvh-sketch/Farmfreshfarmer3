@@ -24,9 +24,11 @@ import session from "express-session";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { ensureSeeded } from "./seed-runner";
 import {
-  insertProductSchema, insertCouponSchema, insertReviewSchema,
+  insertProductSchema, insertCouponSchema, insertReviewSchema, users,
 } from "@shared/schema";
 import { z } from "zod";
 import { computePrice, parseDeliveryRules, type CartLine } from "./engine/pricing";
