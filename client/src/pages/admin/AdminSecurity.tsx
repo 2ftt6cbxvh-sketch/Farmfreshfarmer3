@@ -266,6 +266,27 @@ export default function AdminSecurity() {
               {testAlertMutation.isPending ? "Sending..." : "🔔 Send Test Security Alert"}
             </Button>
           </div>
+
+          {/* Quick Telegram Commands Guide */}
+          <div className="p-3.5 rounded-xl bg-secondary/30 border border-emerald-500/20 text-xs space-y-2">
+            <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>📱 Remote Telegram Commands (Send to your bot):</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/lock on [reason]</span>
+                <span className="text-muted-foreground text-[10px]">Turn on emergency lockdown</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/lock off</span>
+                <span className="text-muted-foreground text-[10px]">Turn off platform lockdown</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/lock or /status</span>
+                <span className="text-muted-foreground text-[10px]">Check live system status</span>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

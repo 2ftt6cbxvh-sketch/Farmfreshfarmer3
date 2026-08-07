@@ -72,22 +72,29 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     return { handled: false };
   }
 
-  if (text.startsWith("/lockdown on")) {
-    const reason = text.slice(12).trim() || "Emergency remote lockdown via Telegram";
+  const lowerText = text.toLowerCase();
+
+  if (lowerText.startsWith("/lock on") || lowerText.startsWith("/lockdown on") || lowerText.startsWith("/lockon")) {
+    let reason = "";
+    if (lowerText.startsWith("/lock on")) reason = text.slice(8).trim();
+    else if (lowerText.startsWith("/lockdown on")) reason = text.slice(12).trim();
+    else if (lowerText.startsWith("/lockon")) reason = text.slice(7).trim();
+
+    reason = reason || "Emergency remote lockdown via Telegram";
     await setLockdown(true, reason, 1);
     const reply = `🔴 <b>SYSTEM LOCKED DOWN</b>\nReason: ${reason}\n\nAll customer API routes are returning 423 (Locked).`;
     await sendTelegramAlert(reply);
     return { handled: true, reply };
   }
 
-  if (text.startsWith("/lockdown off")) {
+  if (lowerText.startsWith("/lock off") || lowerText.startsWith("/lockdown off") || lowerText.startsWith("/lockoff")) {
     await setLockdown(false, "", 1);
     const reply = `🟢 <b>SYSTEM LOCKDOWN DEACTIVATED</b>\nPlatform is now operational.`;
     await sendTelegramAlert(reply);
     return { handled: true, reply };
   }
 
-  if (text === "/status") {
+  if (lowerText === "/status" || lowerText === "/lock") {
     const { getLockdownStatus } = await import("./lockdown");
     const status = await getLockdownStatus();
     const reply = `ℹ️ <b>SYSTEM STATUS</b>\nLockdown: ${status.active ? "🔴 ACTIVE" : "🟢 ONLINE"}\n${status.reason ? `Reason: ${status.reason}` : ""}`;
