@@ -154,12 +154,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       const price = effectivePrice(Number(product.price), Number(product.discountPercent));
+      const maxStock = Number(product.stock || 0);
       let next: CartItem[];
       if (existing) {
+        const targetQty = Math.min(maxStock > 0 ? maxStock : 999, existing.qty + qty);
         next = prev.map((i) =>
-          i.productId === product.id ? { ...i, qty: i.qty + qty } : i
+          i.productId === product.id ? { ...i, qty: targetQty } : i
         );
       } else {
+        const targetQty = Math.min(maxStock > 0 ? maxStock : 999, qty);
+        if (targetQty <= 0) return prev;
         next = [
           ...prev,
           {
@@ -168,7 +172,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             unit: product.unit,
             price,
             image: product.image,
-            qty,
+            qty: targetQty,
           },
         ];
       }

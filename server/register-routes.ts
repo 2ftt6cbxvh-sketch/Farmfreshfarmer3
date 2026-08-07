@@ -287,8 +287,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   }));
 
+  app.get("/api/auth/methods", h(async (_req, res) => {
+    const emailEnabled = (await storage.settings.get("auth_email_enabled")) !== "false";
+    const googleEnabled = (await storage.settings.get("auth_google_enabled")) !== "false";
+    res.json({ emailEnabled, googleEnabled });
+  }));
+
   /* ============================= AUTH ============================== */
   app.post("/api/register", h(async (req, res) => {
+    if ((await storage.settings.get("auth_email_enabled")) === "false") {
+      return res.status(400).json({ message: "Email login is currently disabled by Admin. Please log in using Google." });
+    }
     const schema = z.object({
       name: z.string().min(1),
       email: z.string().email(),

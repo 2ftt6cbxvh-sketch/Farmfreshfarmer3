@@ -999,6 +999,93 @@ function SmtpEmailCustomizer() {
   );
 }
 
+function AuthMethodsCustomizer() {
+  const { toast } = useToast();
+  const [emailAuthEnabled, setEmailAuthEnabled] = useState(true);
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(true);
+
+  const { data: settingsData, refetch } = useQuery<Record<string, string>>({
+    queryKey: ["/api/admin/settings"],
+    queryFn: () => apiGet<Record<string, string>>("/api/admin/settings"),
+  });
+
+  useEffect(() => {
+    if (settingsData) {
+      if (settingsData.auth_email_enabled !== undefined) {
+        setEmailAuthEnabled(settingsData.auth_email_enabled !== "false");
+      }
+      if (settingsData.auth_google_enabled !== undefined) {
+        setGoogleAuthEnabled(settingsData.auth_google_enabled !== "false");
+      }
+    }
+  }, [settingsData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/admin/settings", {
+        auth_email_enabled: emailAuthEnabled ? "true" : "false",
+        auth_google_enabled: googleAuthEnabled ? "true" : "false",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/methods"] });
+      toast({
+        title: "✨ Auth Controls Updated!",
+        description: `Email Login is ${emailAuthEnabled ? "ENABLED" : "DISABLED"} | Google Login is ${googleAuthEnabled ? "ENABLED" : "DISABLED"}.`,
+      });
+      refetch();
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/30 bg-card p-6 space-y-6 shadow-xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-xl font-bold flex items-center gap-2 text-foreground">
+            <span>🔐 Customer Login & Authentication Method Controls</span>
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Enable or disable Email/OTP login and Google One-Tap authentication methods across the platform.
+          </p>
+        </div>
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold">
+          <Save className="w-4 h-4 mr-1.5" /> Save Auth Controls
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-bold text-foreground block">Email & 6-Digit OTP Login</Label>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Allow users to register and log in using Email + Password / 6-Digit OTP.
+            </p>
+          </div>
+          <Switch
+            checked={emailAuthEnabled}
+            onCheckedChange={setEmailAuthEnabled}
+          />
+        </div>
+
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-bold text-foreground block">Google One-Tap & OAuth Login</Label>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Allow 1-click Google Sign-In button on the login screen.
+            </p>
+          </div>
+          <Switch
+            checked={googleAuthEnabled}
+            onCheckedChange={setGoogleAuthEnabled}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1185,6 +1272,9 @@ export default function AdminSettings() {
 
         {/* Website Badges, Pills & Headlines Customizer */}
         <SiteTextCustomizer />
+
+        {/* Customer Login Method Controls (Email / OTP / Google) */}
+        <AuthMethodsCustomizer />
 
         {/* Production Email & SMTP Settings */}
         <SmtpEmailCustomizer />

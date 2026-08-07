@@ -124,6 +124,12 @@ export async function resolveLines(
       if (!p || !p.active) {
         throw Object.assign(new Error(`Product ${i.productId} is unavailable`), { status: 400 });
       }
+      if (qty > p.stock) {
+        throw Object.assign(
+          new Error(`Insufficient stock for "${p.name}". Only ${p.stock} unit(s) remaining in stock (requested ${qty}).`),
+          { status: 400 }
+        );
+      }
       lines.push({
         productId: p.id,
         name: p.name,

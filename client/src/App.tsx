@@ -95,7 +95,7 @@ function AppRouter() {
   );
 }
 
-function App() {
+function AppContent() {
   const [lockdownActive, setLockdownActive] = useState(false);
   const [lockdownReason, setLockdownReason] = useState("");
 
@@ -121,24 +121,45 @@ function App() {
       }
     };
     checkLockdown();
-    const interval = setInterval(checkLockdown, 30000); // poll every 30s
+    const interval = setInterval(checkLockdown, 5000); // poll every 5s for fast Telegram response
     return () => clearInterval(interval);
   }, []);
 
+  // Check if current user is admin via token/localStorage or on admin route
+  const isHashAdmin = window.location.hash.startsWith("#/admin") || window.location.pathname.startsWith("/admin");
+  const storedUser = (() => {
+    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+  })();
+  const isAdminUser = storedUser && (storedUser.role === "admin" || storedUser.role === "superadmin" || storedUser.isPrimaryAdmin);
+
+  // If lockdown is active and user is NOT an authorized admin, completely UNMOUNT the app DOM
+  // so inspecting or removing elements via Web Inspector reveals ZERO content.
+  if (lockdownActive && !isAdminUser && !isHashAdmin) {
+    return <LockdownOverlay active={true} reason={lockdownReason} />;
+  }
+
+  return (
+    <>
+      <LockdownOverlay active={lockdownActive} reason={lockdownReason} />
+      <TooltipProvider>
+        <AuthProvider>
+          <CartProvider>
+            <Toaster />
+            <Router hook={useHashLocation}>
+              <AppRouter />
+            </Router>
+          </CartProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </>
+  );
+}
+
+function App() {
   return (
     <ThemeProvider defaultTheme="system">
       <QueryClientProvider client={queryClient}>
-        <LockdownOverlay active={lockdownActive} reason={lockdownReason} />
-        <TooltipProvider>
-          <AuthProvider>
-            <CartProvider>
-              <Toaster />
-              <Router hook={useHashLocation}>
-                <AppRouter />
-              </Router>
-            </CartProvider>
-          </AuthProvider>
-        </TooltipProvider>
+        <AppContent />
       </QueryClientProvider>
     </ThemeProvider>
   );

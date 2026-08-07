@@ -54,7 +54,13 @@ export async function setLockdown(active: boolean, reason: string, adminUserId?:
 }
 
 export async function lockdownMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
-  if (req.path === "/health" || req.path.startsWith("/api/admin") || req.path.startsWith("/api/auth")) {
+  if (
+    req.path === "/health" ||
+    req.path.startsWith("/api/admin") ||
+    req.path.startsWith("/api/auth") ||
+    req.path.startsWith("/api/telegram") ||
+    req.path.startsWith("/telegram")
+  ) {
     return next();
   }
   try {

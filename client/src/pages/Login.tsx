@@ -8,12 +8,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest, apiGet } from "@/lib/queryClient";
 
 export default function Login() {
   const { login, register, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  const { data: authMethods } = useQuery<{ emailEnabled: boolean; googleEnabled: boolean }>({
+    queryKey: ["/api/auth/methods"],
+    queryFn: () => apiGet<{ emailEnabled: boolean; googleEnabled: boolean }>("/api/auth/methods"),
+  });
+
+  const emailEnabled = authMethods?.emailEnabled !== false;
+  const googleEnabled = authMethods?.googleEnabled !== false;
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [method, setMethod] = useState<"password" | "otp">("otp"); // Default to Email OTP
@@ -237,156 +246,171 @@ export default function Login() {
           </div>
 
           {/* Google Sign-In Option */}
-          <div className="space-y-3 flex flex-col items-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => toast({ title: "Google Sign-In Error", description: "Failed to sign in.", variant: "destructive" })}
-              useOneTap
-            />
+          {googleEnabled && (
+            <div className="space-y-3 flex flex-col items-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => toast({ title: "Google Sign-In Error", description: "Failed to sign in.", variant: "destructive" })}
+                useOneTap
+              />
 
-            <div className="relative flex items-center justify-center my-4">
-              <div className="border-t border-card-border w-full" />
-              <span className="bg-card px-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest absolute">Or</span>
+              {emailEnabled && (
+                <div className="relative flex items-center justify-center my-4 w-full">
+                  <div className="border-t border-card-border w-full" />
+                  <span className="bg-card px-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest absolute">Or</span>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Authentication Method Selector (OTP vs Password) */}
-          <div className="grid grid-cols-2 p-1 bg-secondary/50 rounded-xl border border-card-border text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setMethod("otp")}
-              className={`py-2 rounded-lg transition-all ${method === "otp" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}
-            >
-              ✉️ Email OTP Code
-            </button>
-            <button
-              type="button"
-              onClick={() => setMethod("password")}
-              className={`py-2 rounded-lg transition-all ${method === "password" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}
-            >
-              🔒 Password
-            </button>
-          </div>
+          {!emailEnabled && (
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1">
+              <p className="text-xs font-bold text-amber-500">⚠️ Email & OTP Login Currently Disabled</p>
+              <p className="text-[11px] text-muted-foreground">Please sign in with your Google account above.</p>
+            </div>
+          )}
 
-          {/* Method 1: Email OTP Login Flow */}
-          {method === "otp" ? (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div>
-                <Label htmlFor="otp-email" className="text-xs font-bold">Email Address</Label>
-                <Input
-                  id="otp-email"
-                  type="email"
-                  placeholder="you@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={otpSent}
-                  required
-                  className="mt-1 rounded-xl"
-                />
+          {emailEnabled && (
+            <>
+              {/* Authentication Method Selector (OTP vs Password) */}
+              <div className="grid grid-cols-2 p-1 bg-secondary/50 rounded-xl border border-card-border text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setMethod("otp")}
+                  className={`py-2 rounded-lg transition-all ${method === "otp" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}
+                >
+                  ✉️ Email OTP Code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMethod("password")}
+                  className={`py-2 rounded-lg transition-all ${method === "password" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"}`}
+                >
+                  🔒 Password
+                </button>
               </div>
 
-              {!otpSent ? (
-                <Button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={busy || !email}
-                  className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-primary font-bold shadow-lg"
-                >
-                  {busy ? "Sending Code…" : "Send 6-Digit Verification OTP"}
-                </Button>
+              {/* Method 1: Email OTP Login Flow */}
+              {method === "otp" ? (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div>
+                    <Label htmlFor="otp-email" className="text-xs font-bold">Email Address</Label>
+                    <Input
+                      id="otp-email"
+                      type="email"
+                      placeholder="you@gmail.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={otpSent}
+                      required
+                      className="mt-1 rounded-xl"
+                    />
+                  </div>
+
+                  {!otpSent ? (
+                    <Button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={busy || !email}
+                      className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-primary font-bold shadow-lg"
+                    >
+                      {busy ? "Sending Code…" : "Send 6-Digit Verification OTP"}
+                    </Button>
+                  ) : (
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <Label htmlFor="otp-code" className="text-xs font-bold text-emerald-400">Enter 6-Digit OTP Code</Label>
+                          <button
+                            type="button"
+                            onClick={() => setOtpSent(false)}
+                            className="text-[11px] text-primary underline"
+                          >
+                            Change Email
+                          </button>
+                        </div>
+                        <Input
+                          id="otp-code"
+                          type="text"
+                          placeholder="e.g. 123456"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value)}
+                          required
+                          className="text-center font-mono text-xl tracking-[0.3em] font-extrabold rounded-xl border-emerald-500/50"
+                        />
+                        {devOtp && (
+                          <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
+                            DEV OTP CODE: {devOtp}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={busy || otpCode.length < 6}
+                        className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 font-bold shadow-lg shadow-emerald-900/30"
+                      >
+                        {busy ? "Verifying…" : "Verify OTP & Log In"}
+                      </Button>
+                    </div>
+                  )}
+                </form>
               ) : (
-                <div className="space-y-3 pt-1">
+                /* Method 2: Standard Password Form */
+                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  {mode === "signup" && (
+                    <div>
+                      <Label htmlFor="name" className="text-xs font-bold">Full Name</Label>
+                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 rounded-xl" />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="email" className="text-xs font-bold">Email Address</Label>
+                    <Input id="email" type="email" placeholder="you@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 rounded-xl" />
+                  </div>
+                  {mode === "signup" && (
+                    <div>
+                      <Label htmlFor="phone" className="text-xs font-bold">Mobile Number *</Label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+                        <input
+                          id="phone"
+                          type="tel"
+                          placeholder="10-digit mobile number"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          className="w-full rounded-xl border border-input bg-background pl-10 pr-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">Required for delivery updates via SMS/WhatsApp</p>
+                    </div>
+                  )}
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <Label htmlFor="otp-code" className="text-xs font-bold text-emerald-400">Enter 6-Digit OTP Code</Label>
-                      <button
-                        type="button"
-                        onClick={() => setOtpSent(false)}
-                        className="text-[11px] text-primary underline"
-                      >
-                        Change Email
-                      </button>
+                      <Label htmlFor="password" className="text-xs font-bold">Password</Label>
+                      {mode === "login" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForgotEmail(email);
+                            setShowForgotModal(true);
+                          }}
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
+                        >
+                          🔑 Forgot Password?
+                        </button>
+                      )}
                     </div>
-                    <Input
-                      id="otp-code"
-                      type="text"
-                      placeholder="e.g. 123456"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      required
-                      className="text-center font-mono text-xl tracking-[0.3em] font-extrabold rounded-xl border-emerald-500/50"
-                    />
-                    {devOtp && (
-                      <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
-                        DEV OTP CODE: {devOtp}
-                      </p>
-                    )}
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="rounded-xl" />
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={busy || otpCode.length < 6}
-                    className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 font-bold shadow-lg shadow-emerald-900/30"
-                  >
-                    {busy ? "Verifying…" : "Verify OTP & Log In"}
+                  <Button type="submit" className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg" disabled={busy}>
+                    {busy ? "Please wait…" : mode === "login" ? "Log In with Password" : "Create Account"}
                   </Button>
-                </div>
+                </form>
               )}
-            </form>
-          ) : (
-            /* Method 2: Standard Password Form */
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              {mode === "signup" && (
-                <div>
-                  <Label htmlFor="name" className="text-xs font-bold">Full Name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 rounded-xl" />
-                </div>
-              )}
-              <div>
-                <Label htmlFor="email" className="text-xs font-bold">Email Address</Label>
-                <Input id="email" type="email" placeholder="you@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1 rounded-xl" />
-              </div>
-              {mode === "signup" && (
-                <div>
-                  <Label htmlFor="phone" className="text-xs font-bold">Mobile Number *</Label>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
-                    <input
-                      id="phone"
-                      type="tel"
-                      placeholder="10-digit mobile number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      className="w-full rounded-xl border border-input bg-background pl-10 pr-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-                      required
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Required for delivery updates via SMS/WhatsApp</p>
-                </div>
-              )}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <Label htmlFor="password" className="text-xs font-bold">Password</Label>
-                  {mode === "login" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForgotEmail(email);
-                        setShowForgotModal(true);
-                      }}
-                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
-                    >
-                      🔑 Forgot Password?
-                    </button>
-                  )}
-                </div>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="rounded-xl" />
-              </div>
-              <Button type="submit" className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg" disabled={busy}>
-                {busy ? "Please wait…" : mode === "login" ? "Log In with Password" : "Create Account"}
-              </Button>
-            </form>
+            </>
           )}
 
           <div className="pt-2 border-t border-card-border space-y-2">

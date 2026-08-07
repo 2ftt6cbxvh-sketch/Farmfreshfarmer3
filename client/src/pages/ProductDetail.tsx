@@ -136,23 +136,36 @@ export default function ProductDetail() {
             </div>
 
             {product.stock > 0 ? (
-              <div className="flex items-center gap-3 pt-4">
-                <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1">
-                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Decrease"><Minus size={16} /></button>
-                  <span className="w-10 text-center font-bold">{qty}</span>
-                  <button onClick={() => setQty((q) => q + 1)} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
+              <div className="space-y-2 pt-4">
+                <p className="text-xs font-bold text-emerald-500">In Stock: {product.stock} unit(s) available</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1">
+                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Decrease"><Minus size={16} /></button>
+                    <span className="w-10 text-center font-bold">{qty}</span>
+                    <button onClick={() => {
+                      if (qty >= product.stock) {
+                        toast({ title: "Stock Limit Reached", description: `Only ${product.stock} unit(s) in stock.`, variant: "destructive" });
+                        return;
+                      }
+                      setQty((q) => Math.min(product.stock, q + 1));
+                    }} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
+                  </div>
+                  <Button onClick={() => { 
+                    if (!user) {
+                      toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
+                      setLocation("/login");
+                      return;
+                    }
+                    if (qty > product.stock) {
+                      toast({ title: "Stock Limit Exceeded", description: `Only ${product.stock} unit(s) available in stock.`, variant: "destructive" });
+                      return;
+                    }
+                    add(product, qty); 
+                    toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); 
+                  }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
+                    <ShoppingCart size={18} /> Add to Cart
+                  </Button>
                 </div>
-                <Button onClick={() => { 
-                  if (!user) {
-                    toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
-                    setLocation("/login");
-                    return;
-                  }
-                  add(product, qty); 
-                  toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); 
-                }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
-                  <ShoppingCart size={18} /> Add to Cart
-                </Button>
               </div>
             ) : (
               <p className="font-extrabold text-destructive pt-4">Out of Stock</p>

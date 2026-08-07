@@ -37,6 +37,18 @@ export function ProductCard({ product }: { product: Product }) {
       setLocation("/login");
       return;
     }
+    if (outOfStock) {
+      toast({ title: "Out of Stock", description: "This product is currently out of stock", variant: "destructive" });
+      return;
+    }
+    if (inCartQty + qty > product.stock) {
+      toast({
+        title: "Stock Limit Exceeded",
+        description: `Only ${product.stock} unit(s) available in stock. (${inCartQty} already in your cart)`,
+        variant: "destructive",
+      });
+      return;
+    }
     setAnimating(true);
     add(product, qty);
     toast({
@@ -61,6 +73,14 @@ export function ProductCard({ product }: { product: Product }) {
   function handleIncrementCart(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (inCartQty + 1 > product.stock) {
+      toast({
+        title: "Stock Limit Exceeded",
+        description: `Only ${product.stock} unit(s) available in stock for ${product.name}`,
+        variant: "destructive",
+      });
+      return;
+    }
     setCartQty(product.id, inCartQty + 1);
   }
 
@@ -80,7 +100,15 @@ export function ProductCard({ product }: { product: Product }) {
   function handleIncQty(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    setQty((q) => q + 1);
+    if (qty + inCartQty >= product.stock) {
+      toast({
+        title: "Stock Limit Exceeded",
+        description: `Only ${product.stock} unit(s) available in stock.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setQty((q) => Math.min(product.stock, q + 1));
   }
 
   return (

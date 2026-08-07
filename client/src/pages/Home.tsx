@@ -87,13 +87,17 @@ export default function Home() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
-              <Link
-                href="/category/fruits"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-8 py-4 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300"
+              <a
+                href="#categories-section"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById("categories-section")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-8 py-4 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300 cursor-pointer"
                 data-testid="button-shop-now"
               >
                 Explore Categories <ArrowRight size={18} />
-              </Link>
+              </a>
             </div>
 
             {/* Sleek Feature Bar */}
@@ -121,7 +125,7 @@ export default function Home() {
               {showcaseMode === "custom_image" ? (
                 <img
                   src={heroConfig?.customImageUrl || "/images/p-mango.jpg"}
-                  alt="Organic Harvest"
+                  alt="Hero Showcase"
                   className="w-full h-80 sm:h-96 rounded-2xl object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               ) : featuredHeroList.length > 0 ? (
@@ -183,7 +187,7 @@ export default function Home() {
       </section>
 
       {/* 3D Glassmorphic Category Showcase */}
-      <section className="mx-auto max-w-7xl px-4 py-16">
+      <section id="categories-section" className="mx-auto max-w-7xl px-4 py-16 scroll-mt-8">
         <div className="text-center space-y-2 mb-12">
           <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30">
             Curated Categories
