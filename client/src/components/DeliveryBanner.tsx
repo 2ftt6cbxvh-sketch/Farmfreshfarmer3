@@ -124,7 +124,7 @@ export default function DeliveryBanner() {
         <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
           <span className="flex items-center gap-2 font-semibold">
             <Compass className="w-4 h-4 text-amber-400" />
-            Delivery not available for <strong className="text-white">{resolution.locationArea || resolution.pincode ? `${resolution.locationArea || 'Area'} (${resolution.pincode || ''})` : 'this area'}</strong> right now.
+            Delivery not available for <strong className="text-white font-extrabold">{resolution.locationArea || resolution.pincode || "your location"}</strong> right now.
           </span>
           <div className="flex items-center gap-3">
             <DetectLocationBtn />

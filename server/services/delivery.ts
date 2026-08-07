@@ -165,33 +165,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
 }
 
 export async function resolveByCoords(lat: number, lng: number, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
-  const allWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
-  if (allWarehouses.length === 0) return { serviceable: false, fee: 0, etaMinutes: 0, reason: "No active warehouses configured" };
-
-  let nearestWarehouse = allWarehouses[0];
-  let minDistance = haversineDistanceKm(lat, lng, parseFloat(nearestWarehouse.latitude), parseFloat(nearestWarehouse.longitude));
-  for (const wh of allWarehouses.slice(1)) {
-    const d = haversineDistanceKm(lat, lng, parseFloat(wh.latitude), parseFloat(wh.longitude));
-    if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
-  }
-
-  const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
-  const maxRange = rules.length > 0 ? Math.max(...rules.map((r) => parseFloat(r.maxDistanceKm))) : 100;
-  if (minDistance > maxRange) {
-    await logResolution({ userId, latitude: lat, longitude: lng, serviceable: false, resolvedWarehouseId: nearestWarehouse.id });
-    return { serviceable: false, fee: 0, etaMinutes: 0, reason: "Distance exceeds maximum delivery radius", distanceKm: Math.round(minDistance * 10) / 10 };
-  }
-
-  const speedKmph = parseFloat(nearestWarehouse.averageSpeedKmph) || 30;
-  const packingTimeMinutes = 30;
-  const distanceKm = Math.round(minDistance * 10) / 10;
-  const travelTimeMinutes = Math.ceil((distanceKm / speedKmph) * 60);
-  const etaMinutes = packingTimeMinutes + travelTimeMinutes;
-  const fee = await calculateFee(distanceKm, orderValue);
-
-  await logResolution({ userId, latitude: lat, longitude: lng, source: "gps", serviceable: true, resolvedWarehouseId: nearestWarehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
-
-  // Reverse lookup closest pincode from PINCODE_GEO_DB
+  // Reverse lookup closest pincode and area from PINCODE_GEO_DB
   let detectedPincode = "530017";
   let detectedArea = "Visakhapatnam Area";
   let minPinDist = Infinity;
@@ -205,8 +179,52 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     }
   }
 
-  // If distance to nearest PIN centroid is within 25km, use it; otherwise state coordinates
-  const locationArea = minPinDist < 25 ? `${detectedArea} (${detectedPincode})` : `GPS Area (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+  const locationArea = minPinDist < 50
+    ? `${detectedArea} (${detectedPincode})`
+    : `GPS Location (${lat.toFixed(3)}°, ${lng.toFixed(3)}°)`;
+
+  const allWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
+  if (allWarehouses.length === 0) {
+    return {
+      serviceable: false,
+      fee: 0,
+      etaMinutes: 0,
+      pincode: minPinDist < 50 ? detectedPincode : undefined,
+      locationArea,
+      reason: "No active warehouses configured"
+    };
+  }
+
+  let nearestWarehouse = allWarehouses[0];
+  let minDistance = haversineDistanceKm(lat, lng, parseFloat(nearestWarehouse.latitude), parseFloat(nearestWarehouse.longitude));
+  for (const wh of allWarehouses.slice(1)) {
+    const d = haversineDistanceKm(lat, lng, parseFloat(wh.latitude), parseFloat(wh.longitude));
+    if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
+  }
+
+  const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
+  const maxRange = rules.length > 0 ? Math.max(...rules.map((r) => parseFloat(r.maxDistanceKm))) : 100;
+  if (minDistance > maxRange) {
+    await logResolution({ userId, latitude: lat, longitude: lng, serviceable: false, resolvedWarehouseId: nearestWarehouse.id });
+    return {
+      serviceable: false,
+      fee: 0,
+      etaMinutes: 0,
+      pincode: minPinDist < 50 ? detectedPincode : undefined,
+      locationArea,
+      reason: "Distance exceeds maximum delivery radius",
+      distanceKm: Math.round(minDistance * 10) / 10
+    };
+  }
+
+  const speedKmph = parseFloat(nearestWarehouse.averageSpeedKmph) || 30;
+  const packingTimeMinutes = 30;
+  const distanceKm = Math.round(minDistance * 10) / 10;
+  const travelTimeMinutes = Math.ceil((distanceKm / speedKmph) * 60);
+  const etaMinutes = packingTimeMinutes + travelTimeMinutes;
+  const fee = await calculateFee(distanceKm, orderValue);
+
+  await logResolution({ userId, latitude: lat, longitude: lng, source: "gps", serviceable: true, resolvedWarehouseId: nearestWarehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
 
   return {
     serviceable: true,
@@ -215,7 +233,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
-    pincode: minPinDist < 25 ? detectedPincode : undefined,
+    pincode: minPinDist < 50 ? detectedPincode : undefined,
     warehouseId: nearestWarehouse.id,
     warehouseName: nearestWarehouse.name,
     locationArea,
