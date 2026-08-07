@@ -96,35 +96,24 @@ export default function DeliveryBanner() {
   if (resolution?.serviceable) {
     return (
       <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between text-xs text-emerald-100 backdrop-blur-2xl z-40 relative shadow-xl animate-mobile-drawer">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-6 mx-auto max-w-7xl w-full">
-          <span className="flex items-center gap-1.5 font-bold text-amber-400">
-            <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
-          </span>
-
-          <span className="flex items-center gap-1.5 text-emerald-200">
-            <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Warehouse: <strong className="text-emerald-300">{resolution.warehouseName}</strong></span>
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 mx-auto max-w-7xl w-full truncate">
+          <span className="flex items-center gap-1.5 font-bold text-amber-400 truncate w-full sm:w-auto justify-center sm:justify-start">
+            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate">Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
           </span>
 
           {resolution.etaMinutes > 0 && (
-            <span className="flex items-center gap-1.5 text-emerald-200">
-              <Clock className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Total ETA: <strong className="text-white">{resolution.etaMinutes} mins</strong> <span className="text-emerald-400/80 hidden sm:inline">({resolution.packingTimeMinutes}m pack + {resolution.travelTimeMinutes}m transit)</span></span>
+            <span className="flex items-center gap-1.5 text-emerald-200 truncate w-full sm:w-auto justify-center sm:justify-start">
+              <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <strong className="text-white truncate">⚡ {resolution.etaMinutes} Mins Express Delivery • {resolution.warehouseName}</strong>
             </span>
           )}
 
-          {resolution.fee === 0 ? (
-            <span className="bg-emerald-500/20 text-emerald-300 font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-500/30">Free Delivery</span>
-          ) : (
-            <span>Fee: <strong className="text-white">₹{resolution.fee}</strong></span>
-          )}
-
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
             <DetectLocationBtn />
             <button
               onClick={() => { setResolution(null); localStorage.removeItem("deliveryResolution"); setShowPincodeInput(true); }}
-              className="text-emerald-400 hover:text-white text-xs underline font-semibold"
+              className="text-emerald-400 hover:text-white text-xs underline font-semibold shrink-0"
             >
               Enter Pincode
             </button>
@@ -138,15 +127,15 @@ export default function DeliveryBanner() {
   if (resolution && !resolution.serviceable) {
     return (
       <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
-        <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
-          <span className="flex items-center gap-2 font-semibold">
-            <MapPin className="w-4 h-4 text-amber-400" />
-            <strong className="text-white font-extrabold">Select Delivery Location</strong>
-            <span className="ml-2">⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</span>
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
+          <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
+            <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+            <strong className="text-white font-extrabold shrink-0">Location Not Covered Yet</strong>
+            <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
             <DetectLocationBtn />
-            <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold">Try Pincode</button>
+            <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0">Try Pincode</button>
           </div>
         </div>
       </div>
@@ -194,15 +183,15 @@ export default function DeliveryBanner() {
   // DEFAULT PROMPT BANNER
   return (
     <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between text-xs text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
-      <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
-        <span className="flex items-center gap-2 font-semibold">
-          <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <strong className="text-white font-extrabold">Select Delivery Location</strong>
-          <span className="ml-2">⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</span>
+      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
+        <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
+          <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" />
+          <strong className="text-white font-extrabold shrink-0">Select Delivery Location</strong>
+          <span className="ml-2 truncate">Enter PIN code to check instant farm delivery ETA</span>
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
           <DetectLocationBtn />
-          <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold">Enter Pincode</button>
+          <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold shrink-0">Enter Pincode</button>
         </div>
       </div>
     </div>

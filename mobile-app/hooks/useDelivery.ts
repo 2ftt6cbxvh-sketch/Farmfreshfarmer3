@@ -4,9 +4,7 @@ import { api } from '../lib/api';
 import type { DeliveryResolution, LockdownStatus } from '../lib/types';
 
 export function useDelivery() {
-  const [resolution, setResolution] = useState<DeliveryResolution | null>({
-    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Visakhapatnam Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
-  });
+  const [resolution, setResolution] = useState<DeliveryResolution | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const resolveByGps = async () => {
@@ -15,13 +13,12 @@ export function useDelivery() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setResolution({
-          pincode: '530003',
-          locationArea: 'Visakhapatnam City',
-          etaMinutes: 30,
-          warehouseName: 'Visakhapatnam Hub',
-          packingTimeMinutes: 15,
-          travelTimeMinutes: 15,
-          serviceable: true
+          serviceable: false,
+          pincode: '',
+          locationArea: 'GPS Denied',
+          etaMinutes: 0,
+          fee: 0,
+          reason: 'Permission Denied'
         });
         return;
       }
@@ -56,24 +53,22 @@ export function useDelivery() {
         setResolution({ ...res.data, serviceable: true, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
       } else {
         setResolution({
-          pincode: pincode || '530003',
-          locationArea: locationArea === 'GPS Location' ? 'Visakhapatnam City' : locationArea,
-          etaMinutes: 30,
-          warehouseName: 'Visakhapatnam Hub',
-          packingTimeMinutes: 15,
-          travelTimeMinutes: 15,
-          serviceable: true
+          serviceable: false,
+          pincode: pincode || '',
+          locationArea: locationArea,
+          etaMinutes: 0,
+          fee: 0,
+          reason: 'Not Serviceable'
         });
       }
     } catch {
       setResolution({
-        pincode: '530003',
-        locationArea: 'Visakhapatnam City',
-        etaMinutes: 30,
-        warehouseName: 'Visakhapatnam Hub',
-        packingTimeMinutes: 15,
-        travelTimeMinutes: 15,
-        serviceable: true
+        serviceable: false,
+        pincode: '',
+        locationArea: 'Error',
+        etaMinutes: 0,
+        fee: 0,
+        reason: 'Error detecting location'
       });
     } finally {
       setIsLoading(false);

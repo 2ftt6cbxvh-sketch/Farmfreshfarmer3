@@ -161,7 +161,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.5.1</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.6.0</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -180,7 +180,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText} numberOfLines={1}>
-              📍 {resolution?.serviceable ? `${resolution?.locationArea} (PIN: ${resolution?.pincode})` : 'Select Delivery Location'}
+              📍 {resolution?.serviceable ? `Delivering to: ${resolution?.locationArea} (PIN: ${resolution?.pincode})` : 'Select Delivery Location'}
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>
@@ -192,7 +192,7 @@ export default function HomeScreen() {
               </View>
             </View>
           ) : (
-            <Text style={styles.pincodePrompt}>⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</Text>
+            <Text style={styles.pincodePrompt}>Enter PIN code or detect GPS to check instant delivery ETA</Text>
           )}
         </TouchableOpacity>
       </Animated.View>

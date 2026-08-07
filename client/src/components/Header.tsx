@@ -116,9 +116,9 @@ export function Header() {
         <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
 
         {/* Main Header Bar */}
-        <div className="px-4 py-3 flex items-center justify-between gap-4 relative z-10">
+        <div className="px-4 py-3 flex items-center justify-between gap-3 sm:gap-4 relative z-10">
           <button
-            className="lg:hidden p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
+            className="lg:hidden shrink-0 p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
             onClick={toggleMobileMenu}
             aria-label="Menu"
             data-testid="button-mobile-menu"
@@ -128,7 +128,7 @@ export function Header() {
             </div>
           </button>
 
-          <Link href="/" data-testid="link-home">
+          <Link href="/" data-testid="link-home" className="shrink-0">
             <Logo />
           </Link>
 
@@ -286,8 +286,8 @@ export function Header() {
 
         {/* Sleek Minimalist 3D Category Bar */}
         <nav className="hidden lg:block border-t border-emerald-500/15 bg-background/50 backdrop-blur-md relative z-0">
-          <div className="px-4 py-2">
-            <ul className="flex items-center justify-center gap-6 overflow-x-auto no-scrollbar" role="list">
+          <div className="px-4 py-2 w-full">
+            <ul className="flex items-center justify-start sm:justify-center gap-6 overflow-x-auto scrollbar-none whitespace-nowrap" role="list">
               {categories.map((c) => (
                 <li key={c.slug}>
                   <Link
