@@ -157,7 +157,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   const speedKmph = parseFloat(warehouse.averageSpeedKmph) || 30;
   const travelTimeMinutes = distanceKm > 0 ? Math.ceil((distanceKm / speedKmph) * 60) : 0;
 
-  const etaMinutes = packingTimeMinutes + travelTimeMinutes;
+  const etaMinutes = Math.max(30, packingTimeMinutes + travelTimeMinutes);
   const fee = await calculateFee(distanceKm, orderValue);
 
   await logResolution({ userId, pincode, serviceable: true, resolvedWarehouseId: warehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
@@ -232,7 +232,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
   const packingTimeMinutes = 30;
   const distanceKm = Math.round(minDistance * 10) / 10;
   const travelTimeMinutes = Math.ceil((distanceKm / speedKmph) * 60);
-  const etaMinutes = packingTimeMinutes + travelTimeMinutes;
+  const etaMinutes = Math.max(30, packingTimeMinutes + travelTimeMinutes);
   const fee = await calculateFee(distanceKm, orderValue);
 
   await logResolution({ userId, latitude: lat, longitude: lng, source: "gps", serviceable: true, resolvedWarehouseId: nearestWarehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });

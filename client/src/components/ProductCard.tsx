@@ -236,7 +236,7 @@ export function ProductCard({ product }: { product: Product }) {
                 type="button"
                 onClick={addToCart}
                 disabled={outOfStock}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 hover:from-emerald-500 hover:to-primary text-white text-xs font-bold py-2.5 px-3 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-50 relative z-30 ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-black py-2.5 px-3 shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.23)] border border-emerald-400/50 backdrop-blur-md hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-50 relative z-30 ${
                   animating ? "animate-pulse ring-4 ring-emerald-400/50" : ""
                 }`}
                 data-testid={`button-add-${product.id}`}

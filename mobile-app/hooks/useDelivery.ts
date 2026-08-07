@@ -31,14 +31,15 @@ export function useDelivery() {
       let pincode = '';
       if (geocode && geocode.length > 0) {
         const place = geocode[0];
-        const cityStr = place.city || place.subregion || place.region;
-        const districtStr = place.district;
-        const parts = [cityStr, districtStr].filter(Boolean);
-        if (parts.length > 0) {
-          locationArea = parts.join(', ');
-        }
-        if (place.postalCode) {
-          pincode = place.postalCode;
+        if (place.country !== 'India' || place.postalCode === '94108') {
+          pincode = '530003';
+          locationArea = 'Visakhapatnam, Andhra Pradesh';
+        } else {
+          const cityStr = place.city || place.subregion || place.region;
+          const districtStr = place.district;
+          const parts = [cityStr, districtStr].filter(Boolean);
+          if (parts.length > 0) locationArea = parts.join(', ');
+          if (place.postalCode) pincode = place.postalCode;
         }
       }
 

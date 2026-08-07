@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "../db";
-import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs } from "@shared/schema";
+import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, orders, carts } from "@shared/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
@@ -168,6 +168,11 @@ export function registerAuthJwtRoutes(app: Express) {
       if (user.status === "blocked") return res.status(403).json({ message: "Account is blocked." });
 
       await db.insert(oauthAccounts).values({ userId: user.id, provider: "google", providerUserId: googleUserId, providerEmail: email }).onConflictDoNothing();
+
+      if (req.session?.userId && req.session.userId !== user.id) {
+        await db.update(orders).set({ userId: user.id }).where(eq(orders.userId, req.session.userId)).catch(() => {});
+        await db.update(carts).set({ userId: user.id }).where(eq(carts.userId, req.session.userId)).catch(() => {});
+      }
 
       if (req.session) {
         req.session.userId = user.id;

@@ -95,7 +95,7 @@ export default function DeliveryBanner() {
   // RESOLVED SERVICEABLE BANNER
   if (resolution?.serviceable) {
     return (
-      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between text-xs text-emerald-100 backdrop-blur-2xl z-40 relative shadow-xl animate-mobile-drawer">
+      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl z-40 relative shadow-xl animate-mobile-drawer">
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 mx-auto max-w-7xl w-full truncate">
           <span className="flex items-center gap-1.5 font-bold text-amber-400 truncate w-full sm:w-auto justify-center sm:justify-start">
             <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -126,7 +126,7 @@ export default function DeliveryBanner() {
   // RESOLVED NON-SERVICEABLE BANNER
   if (resolution && !resolution.serviceable) {
     return (
-      <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
+      <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
           <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
             <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
@@ -145,7 +145,7 @@ export default function DeliveryBanner() {
   // SLEEK ANIMATED PINCODE INPUT BAR
   if (showPincodeInput) {
     return (
-      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 px-4 py-2.5 flex items-center justify-between text-xs text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
+      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
         <div className="flex flex-wrap items-center justify-between mx-auto max-w-7xl w-full gap-3">
           <span className="text-emerald-200 flex items-center gap-2 font-semibold">
             <MapPin className="w-4 h-4 text-emerald-400 animate-pulse" />
@@ -182,7 +182,7 @@ export default function DeliveryBanner() {
 
   // DEFAULT PROMPT BANNER
   return (
-    <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between text-xs text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
+    <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
       <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
         <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
           <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" />
