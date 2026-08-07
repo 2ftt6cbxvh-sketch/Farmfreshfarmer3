@@ -101,12 +101,14 @@ export function Header() {
         {/* Main Header Bar */}
         <div className="px-4 py-3 flex items-center justify-between gap-4 relative z-10">
           <button
-            className="lg:hidden p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary transition-colors"
+            className="lg:hidden p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Menu"
             data-testid="button-mobile-menu"
           >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            <div className={`transition-transform duration-300 ${mobileOpen ? "rotate-90 scale-110" : "rotate-0 scale-100"}`}>
+              {mobileOpen ? <X size={20} className="text-emerald-400" /> : <Menu size={20} />}
+            </div>
           </button>
 
           <Link href="/" data-testid="link-home">
@@ -289,32 +291,32 @@ export function Header() {
 
       {/* Mobile Navigation Menu */}
       {mobileOpen && (
-        <div className="lg:hidden mt-2 rounded-2xl border border-emerald-500/30 bg-card/95 backdrop-blur-2xl p-4 space-y-3 shadow-2xl">
+        <div className="lg:hidden mt-2.5 rounded-3xl border border-emerald-500/35 bg-card/95 backdrop-blur-3xl p-4 space-y-4 shadow-2xl shadow-emerald-950/40 animate-mobile-drawer">
           <form onSubmit={submitSearch}>
-            <div className="relative">
+            <div className="relative group/msearch">
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products…"
-                className="w-full rounded-xl border border-input bg-background pl-4 pr-11 py-2 text-sm"
+                placeholder="Search organic products…"
+                className="w-full rounded-2xl border border-emerald-500/30 bg-background/80 pl-4 pr-11 py-2.5 text-xs font-bold text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-200 shadow-inner"
                 data-testid="input-search-mobile"
               />
-              <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground p-1.5" aria-label="Search">
-                <Search size={16} />
+              <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-xl bg-gradient-to-r from-emerald-600 to-primary text-white p-2 shadow-md hover:scale-105 active:scale-95 transition-transform" aria-label="Search">
+                <Search size={14} />
               </button>
             </div>
           </form>
           <ul className="grid grid-cols-2 gap-2" role="list">
-            {categories.map((c) => (
-              <li key={c.slug}>
+            {categories.map((c, idx) => (
+              <li key={c.slug} className="animate-mobile-item" style={{ animationDelay: `${idx * 30}ms` }}>
                 <Link
                   href={`/category/${c.slug}`}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl bg-secondary/60 hover:bg-primary/20 transition-colors"
+                  className="flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-2xl bg-secondary/50 border border-emerald-500/15 hover:border-emerald-500/40 hover:bg-emerald-500/15 active:scale-95 transition-all duration-200 shadow-sm"
                   data-testid={`nav-mobile-${c.slug}`}
                 >
-                  <span>{c.name}</span>
+                  <span className="text-foreground">{c.name}</span>
                   <DietDot tag={c.dietTag} size={11} />
                 </Link>
               </li>

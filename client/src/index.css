@@ -397,4 +397,34 @@
   will-change: transform, opacity;
 }
 
+@keyframes mobileDrawerEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mobileItemStagger {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-mobile-drawer {
+  animation: mobileDrawerEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-mobile-item {
+  animation: mobileItemStagger 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 
