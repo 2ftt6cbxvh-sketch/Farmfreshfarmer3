@@ -191,6 +191,23 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
 
   await logResolution({ userId, latitude: lat, longitude: lng, source: "gps", serviceable: true, resolvedWarehouseId: nearestWarehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
 
+  // Reverse lookup closest pincode from PINCODE_GEO_DB
+  let detectedPincode = "530017";
+  let detectedArea = "Visakhapatnam Area";
+  let minPinDist = Infinity;
+
+  for (const [pin, info] of Object.entries(PINCODE_GEO_DB)) {
+    const d = haversineDistanceKm(lat, lng, info.lat, info.lng);
+    if (d < minPinDist) {
+      minPinDist = d;
+      detectedPincode = pin;
+      detectedArea = info.area;
+    }
+  }
+
+  // If distance to nearest PIN centroid is within 25km, use it; otherwise state coordinates
+  const locationArea = minPinDist < 25 ? `${detectedArea} (${detectedPincode})` : `GPS Area (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+
   return {
     serviceable: true,
     fee,
@@ -198,9 +215,10 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
+    pincode: minPinDist < 25 ? detectedPincode : undefined,
     warehouseId: nearestWarehouse.id,
     warehouseName: nearestWarehouse.name,
-    locationArea: `GPS Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+    locationArea,
   };
 }
 

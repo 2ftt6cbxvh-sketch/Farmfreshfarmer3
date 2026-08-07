@@ -1,7 +1,7 @@
 /**
  * DeliveryBanner — Clean, elegant top delivery status bar across the website.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { MapPin, Clock, X, ChevronRight, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,12 @@ export default function DeliveryBanner() {
       { timeout: 8000 }
     );
   };
+
+  useEffect(() => {
+    if (!localStorage.getItem("deliveryResolution") && navigator.geolocation) {
+      requestGpsLocation();
+    }
+  }, []);
 
   const handlePincodeSubmit = () => {
     if (pincode.length >= 4) resolveMutation.mutate({ pincode });
