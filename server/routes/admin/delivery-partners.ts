@@ -47,9 +47,11 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
 
     const isPrimary =
       role === "admin" ||
+      role === "superadmin" ||
       user?.role === "admin" ||
+      user?.role === "superadmin" ||
       user?.isPrimaryAdmin === true ||
-      user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user?.email?.toLowerCase().includes("admin") ||
       Number(userId) === 1 ||
       Number(userId) === 0;
 
