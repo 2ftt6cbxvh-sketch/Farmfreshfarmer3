@@ -5,13 +5,14 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../lib/store';
+import { tokenStorage } from '../../lib/storage';
 import { useThemeStore } from '../../lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BRAND } from '../../constants/config';
 import { api } from '../../lib/api';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, setUser } = useAuth();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
@@ -54,7 +55,10 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const res = await api.post('/api/auth/otp/verify', { email: email.trim().toLowerCase(), code: otpCode.trim() });
-      // update state
+      if (res.data?.accessToken) await tokenStorage.saveAccessToken(res.data.accessToken);
+      if (res.data?.refreshToken) await tokenStorage.saveRefreshToken(res.data.refreshToken);
+      setUser(res.data.user || res.data);
+      Alert.alert('Success', `Welcome back, ${res.data.user?.name || 'Customer'}! 🎉`);
       router.replace('/(tabs)');
     } catch (err: any) {
       Alert.alert('Error', 'Invalid or expired OTP');
@@ -66,7 +70,11 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      const res = await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      if (res.data?.accessToken) await tokenStorage.saveAccessToken(res.data.accessToken);
+      if (res.data?.refreshToken) await tokenStorage.saveRefreshToken(res.data.refreshToken);
+      setUser(res.data.user || res.data);
+      Alert.alert('Success', `Welcome back, ${res.data.user?.name || 'Customer'}! 🎉`);
       router.replace('/(tabs)');
     } catch (err: any) {
       Alert.alert('Error', 'Google Sign-In failed');

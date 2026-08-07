@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Login() {
-  const { login, register } = useAuth();
+  const { login, register, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -63,8 +63,11 @@ export default function Login() {
         code: otpCode.trim(),
       });
       const data = await res.json();
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      setUser(data.user || data);
       toast({ title: "✨ Verification Successful!", description: `Welcome ${data.user?.name || "back"}!` });
-      window.location.reload();
+      navigate("/");
     } catch (err: any) {
       toast({ title: "Invalid or Expired OTP", description: err.message || "Please check the code and try again.", variant: "destructive" });
     } finally {
@@ -80,8 +83,11 @@ export default function Login() {
         platform: "web",
       });
       const data = await res.json();
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      setUser(data.user || data);
       toast({ title: "✨ Signed in with Google!", description: `Welcome ${data.user?.name || ""}!` });
-      window.location.reload();
+      navigate("/");
     } catch (err: any) {
       toast({ title: "Google Sign-In Error", description: err.message || "Failed to sign in.", variant: "destructive" });
     } finally {
