@@ -27,6 +27,16 @@ export default function LoginScreen() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
 
+  const [authMethods, setAuthMethods] = useState<{ emailEnabled: boolean; googleEnabled: boolean }>({ emailEnabled: true, googleEnabled: true });
+
+  useEffect(() => {
+    api.get('/api/auth/methods')
+      .then((res) => {
+        if (res.data) setAuthMethods({ emailEnabled: res.data.emailEnabled !== false, googleEnabled: res.data.googleEnabled !== false });
+      })
+      .catch(() => {});
+  }, []);
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com',
   });
@@ -117,48 +127,63 @@ export default function LoginScreen() {
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
 
-          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()} disabled={!request || isLoading}>
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          <View style={styles.methodSelector}>
-            <TouchableOpacity onPress={() => setMethod('otp')} style={[styles.methodBtn, method === 'otp' && styles.methodBtnActive]}>
-              <Text style={[styles.methodBtnText, method === 'otp' && styles.methodBtnTextActive]}>Email OTP</Text>
+          {authMethods.googleEnabled && (
+            <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()} disabled={!request || isLoading}>
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMethod('password')} style={[styles.methodBtn, method === 'password' && styles.methodBtnActive]}>
-              <Text style={[styles.methodBtnText, method === 'password' && styles.methodBtnTextActive]}>Password</Text>
-            </TouchableOpacity>
-          </View>
+          )}
 
-          {method === 'otp' ? (
-            <View style={styles.formSpace}>
-              <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-              {!otpSent ? (
-                <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleSendOtp} disabled={isLoading}>
-                  {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Send Verification OTP 📩</Text>}
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.formSpace}>
-                  <TextInput style={styles.input} placeholder="Enter 6-digit OTP" placeholderTextColor="#666" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" maxLength={6} />
-                  <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleVerifyOtp} disabled={isLoading}>
-                    {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Verify & Sign In 🔑</Text>}
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.formSpace}>
-              <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-              <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#666" value={password} onChangeText={setPassword} secureTextEntry />
-              <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
-                {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
-              </TouchableOpacity>
+          {!authMethods.emailEnabled && (
+            <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.4)', borderRadius: 12, padding: 14, marginVertical: 10, alignItems: 'center' }}>
+              <Text style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }}>⚠️ Email & OTP Login Currently Disabled</Text>
+              <Text style={{ color: '#aaa', fontSize: 11, textAlign: 'center', marginTop: 4 }}>Please log in using Google Sign-In above.</Text>
             </View>
           )}
 
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
-            <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>
-          </TouchableOpacity>
+          {authMethods.emailEnabled && (
+            <>
+              <View style={styles.methodSelector}>
+                <TouchableOpacity onPress={() => setMethod('otp')} style={[styles.methodBtn, method === 'otp' && styles.methodBtnActive]}>
+                  <Text style={[styles.methodBtnText, method === 'otp' && styles.methodBtnTextActive]}>Email OTP</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setMethod('password')} style={[styles.methodBtn, method === 'password' && styles.methodBtnActive]}>
+                  <Text style={[styles.methodBtnText, method === 'password' && styles.methodBtnTextActive]}>Password</Text>
+                </TouchableOpacity>
+              </View>
+
+              {method === 'otp' ? (
+                <View style={styles.formSpace}>
+                  <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                  {!otpSent ? (
+                    <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleSendOtp} disabled={isLoading}>
+                      {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Send Verification OTP 📩</Text>}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.formSpace}>
+                      <TextInput style={styles.input} placeholder="Enter 6-digit OTP" placeholderTextColor="#666" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" maxLength={6} />
+                      <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleVerifyOtp} disabled={isLoading}>
+                        {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Verify & Sign In 🔑</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.formSpace}>
+                  <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                  <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#666" value={password} onChangeText={setPassword} secureTextEntry />
+                  <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
+                    {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+
+          {authMethods.emailEnabled && (
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
+              <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

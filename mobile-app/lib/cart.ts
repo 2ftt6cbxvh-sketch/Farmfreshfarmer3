@@ -47,10 +47,14 @@ export const useCartStore = create<CartStore>((set, get) => ({
     const items = get().items;
     const existing = items.find((i) => i.id === product.id);
     const price = parseFloat(product.price || product.effectivePrice || '0');
+    const maxStock = Number(product.stock !== undefined ? product.stock : (product.stockQuantity !== undefined ? product.stockQuantity : 999));
     let nextItems: CartItem[];
     if (existing) {
-      nextItems = items.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
+      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, existing.qty + 1);
+      nextItems = items.map((i) => (i.id === product.id ? { ...i, qty: targetQty } : i));
     } else {
+      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, 1);
+      if (targetQty <= 0) return;
       nextItems = [
         ...items,
         {
@@ -59,7 +63,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
           price: price > 0 ? price : 100,
           unit: product.unit || '1 Kg',
           image: product.image,
-          qty: 1,
+          qty: targetQty,
         },
       ];
     }

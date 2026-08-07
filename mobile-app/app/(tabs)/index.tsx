@@ -63,17 +63,27 @@ function ProductCard({ product }: { product: Product }) {
               {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
             </View>
             <TouchableOpacity 
-              style={styles.addBtn}
+              style={[styles.addBtn, product.stock !== undefined && Number(product.stock) <= 0 && { backgroundColor: '#444' }]}
               onPress={() => {
                 if (!user) {
                   Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
+                  return;
+                }
+                const stock = Number(product.stock !== undefined ? product.stock : 999);
+                if (stock <= 0) {
+                  Alert.alert('Out of Stock ⚠️', 'This item is currently out of stock.');
+                  return;
+                }
+                const currentQty = items.find((i) => i.id === product.id)?.qty || 0;
+                if (currentQty + 1 > stock) {
+                  Alert.alert('Stock Limit Reached ⚠️', `Only ${stock} unit(s) available in stock.`);
                   return;
                 }
                 addItem(product);
                 Alert.alert('Success', 'Added to Basket! 🎉');
               }}
             >
-              <Text style={styles.addBtnText}>Add</Text>
+              <Text style={styles.addBtnText}>{product.stock !== undefined && Number(product.stock) <= 0 ? 'Out' : 'Add'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -176,7 +186,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v2.1.0</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v2.1.1</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
