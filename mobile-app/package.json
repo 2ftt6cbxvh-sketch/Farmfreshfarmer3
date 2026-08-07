@@ -35,10 +35,10 @@
   },
   "scripts": {
     "postinstall": "node -e \"const fs=require('fs'); const p='node_modules/expo-modules-core/package.json'; if(fs.existsSync(p)){ const pkg=JSON.parse(fs.readFileSync(p)); pkg.main='build/index.js'; fs.writeFileSync(p, JSON.stringify(pkg,null,2)); }\"",
-    "start": "npm run postinstall && NODE_OPTIONS='--experimental-strip-types' expo start",
-    "android": "npm run postinstall && NODE_OPTIONS='--experimental-strip-types' expo start --android",
-    "ios": "npm run postinstall && NODE_OPTIONS='--experimental-strip-types' expo start --ios",
-    "web": "npm run postinstall && NODE_OPTIONS='--experimental-strip-types' expo start --web"
+    "start": "npm run postinstall && expo start",
+    "android": "npm run postinstall && expo start --android",
+    "ios": "npm run postinstall && expo start --ios",
+    "web": "npm run postinstall && expo start --web"
   },
   "private": true
 }
