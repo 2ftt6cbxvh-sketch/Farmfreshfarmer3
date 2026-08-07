@@ -67,7 +67,9 @@ export default function AdminSecurity() {
       const res = await apiRequest("GET", "/api/admin/security/telegram");
       const data = await res.json();
       if (!telegramLoaded) {
-        setBotToken(data.botToken || "");
+        if (data.botToken && !data.botToken.includes("...")) {
+          setBotToken(data.botToken);
+        }
         setChatId(data.chatId || "");
         setTelegramLoaded(true);
       }
@@ -215,7 +217,7 @@ export default function AdminSecurity() {
               <Input
                 id="bot-token"
                 type="password"
-                placeholder="e.g. 7123456789:AAFx..."
+                placeholder={telegramData?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 7123456789:AAFx..."}
                 value={botToken}
                 onChange={(e) => setBotToken(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"

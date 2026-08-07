@@ -129,8 +129,22 @@ export function registerAdminSecurityRoutes(app: Express) {
       const { botToken, chatId } = req.body || {};
       const { storage } = await import("../../storage");
 
-      if (botToken !== undefined) await storage.settings.set("telegram_bot_token", String(botToken).trim());
-      if (chatId !== undefined) await storage.settings.set("telegram_chat_id", String(chatId).trim());
+      if (chatId !== undefined && String(chatId).trim()) {
+        await storage.settings.set("telegram_chat_id", String(chatId).trim());
+      }
+
+      if (botToken !== undefined && String(botToken).trim()) {
+        const cleanToken = String(botToken).trim();
+        if (cleanToken.includes("...")) {
+          // Ignore masked string, keep existing real token in DB
+        } else if (!cleanToken.includes(":")) {
+          return res.status(400).json({
+            message: "Invalid Telegram Bot Token. Must be your full token from @BotFather (e.g. 7123456789:AAFx...)",
+          });
+        } else {
+          await storage.settings.set("telegram_bot_token", cleanToken);
+        }
+      }
 
       return res.json({ message: "Telegram security credentials saved successfully" });
     } catch (err: any) {
@@ -144,8 +158,10 @@ export function registerAdminSecurityRoutes(app: Express) {
       const { getTelegramCredentials } = await import("../../services/telegram");
       const { botToken } = await getTelegramCredentials();
 
-      if (!botToken) {
-        return res.status(400).json({ message: "Telegram Bot Token is not configured yet. Save token first." });
+      if (!botToken || botToken.includes("...")) {
+        return res.status(400).json({
+          message: "Please enter and save your full Telegram Bot Token from @BotFather (e.g. 7123456789:AAFx...) first.",
+        });
       }
 
       const host = req.headers.host || "farmfreshfarmer.com";
@@ -159,7 +175,10 @@ export function registerAdminSecurityRoutes(app: Express) {
       if (data.ok) {
         return res.json({ message: `✨ Telegram Webhook Auto-Registered Successfully! (${webhookUrl})`, details: data });
       } else {
-        return res.status(400).json({ message: data.description || "Failed to register webhook with Telegram API", details: data });
+        return res.status(400).json({
+          message: `Telegram API Error: ${data.description || "Failed to register webhook. Verify Bot Token."}`,
+          details: data,
+        });
       }
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Webhook auto-setup error" });
