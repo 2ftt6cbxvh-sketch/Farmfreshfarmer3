@@ -37,7 +37,7 @@ function Stars({ value, onChange }: { value: number; onChange?: (n: number) => v
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
   const id = Number(params?.id);
-  const { add } = useCart();
+  const { add, items } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();

@@ -108,7 +108,10 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     const { storage } = await import("../storage");
     const user = await storage.users.getByEmail(target);
     if (user) {
-      await storage.users.setStatus(user.id, "blocked");
+      const { db } = await import("../db");
+      const { users } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      await db.update(users).set({ status: "blocked" }).where(eq(users.id, user.id));
       const reply = `🚫 <b>USER/SUBADMIN BLOCKED</b>\nUser: ${user.name} (${user.email})\nRole: ${user.role}\nStatus: Blocked.`;
       await sendTelegramAlert(reply);
       return { handled: true, reply };
@@ -122,7 +125,10 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     const { storage } = await import("../storage");
     const user = await storage.users.getByEmail(target);
     if (user) {
-      await storage.users.setStatus(user.id, "active");
+      const { db } = await import("../db");
+      const { users } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      await db.update(users).set({ status: "active" }).where(eq(users.id, user.id));
       const reply = `✅ <b>USER/SUBADMIN UNBLOCKED</b>\nUser: ${user.name} (${user.email})\nStatus: Active.`;
       await sendTelegramAlert(reply);
       return { handled: true, reply };
@@ -132,8 +138,8 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
 
   if (lowerText === "/flush sessions" || lowerText === "/flush") {
     const { db } = await import("../db");
-    const { userRefreshTokens } = await import("@shared/schema");
-    await db.delete(userRefreshTokens);
+    const { refreshTokens } = await import("@shared/schema");
+    await db.delete(refreshTokens);
     const reply = `🧹 <b>ALL ACTIVE SESSIONS FLUSHED</b>\nAll user & sub-admin refresh tokens have been revoked. Users must re-authenticate.`;
     await sendTelegramAlert(reply);
     return { handled: true, reply };
