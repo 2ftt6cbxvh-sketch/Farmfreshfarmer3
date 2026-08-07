@@ -62,7 +62,7 @@ export function registerStaffRoutes(app: Express) {
   /** GET /api/admin/staff — List all staff & sub-admins (Primary Admin only) */
   app.get("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      // Return all users with role !== 'customer' OR isPrimaryAdmin === true
+      // Return all users with role !== 'customer' AND role !== 'delivery_partner'
       const staffList = await db.select({
         id: users.id,
         name: users.name,
@@ -75,7 +75,7 @@ export function registerStaffRoutes(app: Express) {
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
         createdAt: users.createdAt,
-      }).from(users).where(ne(users.role, "customer"));
+      }).from(users).where(and(ne(users.role, "customer"), ne(users.role, "delivery_partner")));
 
       // Parse JSON string permissions array for each staff member
       const formatted = staffList.map((s) => ({
