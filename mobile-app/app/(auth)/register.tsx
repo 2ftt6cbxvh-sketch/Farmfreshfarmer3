@@ -5,10 +5,15 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
+import { useThemeStore } from '../../lib/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BRAND } from '../../constants/config';
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,8 +35,13 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={[styles.container, isDark && styles.containerDark]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 12 }]} keyboardShouldPersistTaps="handled">
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(tabs)')}>
+          <Text style={[styles.backButtonText, isDark && styles.textWhite]}>← Back to Store</Text>
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <Text style={styles.logo}>🌿 {BRAND.name}</Text>
           <Text style={styles.tagline}>Create your account</Text>
@@ -56,7 +66,11 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  containerDark: { backgroundColor: '#000000' },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  backButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 20 },
+  backButtonText: { color: COLORS.text, fontWeight: '700', fontSize: 14 },
+  textWhite: { color: '#ffffff' },
   header: { alignItems: 'center', marginBottom: 32 },
   logo: { fontSize: 26, fontWeight: '800', color: COLORS.primaryDark, marginBottom: 4 },
   tagline: { fontSize: 14, color: COLORS.textMuted },

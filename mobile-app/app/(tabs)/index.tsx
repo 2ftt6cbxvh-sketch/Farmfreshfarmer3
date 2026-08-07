@@ -3,6 +3,7 @@ import {
   View, Text, Animated, TouchableOpacity, TextInput,
   StyleSheet, Image, RefreshControl, Modal, Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, resolveImgUrl } from '../../lib/api';
@@ -66,6 +67,7 @@ function ProductCard({ product }: { product: Product }) {
 export default function HomeScreen() {
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [pincodeModal, setPincodeModal] = useState(false);
@@ -132,7 +134,7 @@ export default function HomeScreen() {
       refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
     >
       {/* Scroll-Parallax Header */}
-      <Animated.View style={[styles.headerBg, isDark && styles.headerBgDark, { transform: [{ translateY: headerParallaxY }] }]}>
+      <Animated.View style={[styles.headerBg, isDark && styles.headerBgDark, { transform: [{ translateY: headerParallaxY }], paddingTop: insets.top + 12 }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
@@ -155,7 +157,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText}>
-              📍 {resolution?.locationArea || 'Set Delivery Location'}
+              📍 {resolution?.locationArea || (resolution?.pincode ? 'PIN ' + resolution.pincode : 'Visakhapatnam City (530003)')}
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>
@@ -262,7 +264,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   containerDark: { backgroundColor: '#050505' },
-  headerBg: { backgroundColor: '#064e3b', padding: 20, paddingTop: 60, paddingBottom: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#064e3b', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 10 },
+  headerBg: { backgroundColor: '#064e3b', padding: 20, paddingBottom: 24, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#064e3b', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 10 },
   headerBgDark: { backgroundColor: '#022c22', borderBottomWidth: 1, borderBottomColor: 'rgba(52, 211, 153, 0.3)', shadowColor: '#10b981', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 15 },
   headerTitle: { color: '#ffffff', fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
   versionTag: { backgroundColor: 'rgba(52, 211, 153, 0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.5)' },
