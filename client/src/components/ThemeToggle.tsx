@@ -1,4 +1,4 @@
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Zap } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +21,14 @@ export function ThemeToggle() {
           data-testid="button-theme-toggle"
           aria-label="Toggle theme"
         >
-          <Sun className="h-4 h-4 rotate-0 scale-100 transition-all duration-300 dark:-rotate-90 dark:scale-0 text-amber-500" />
-          <Moon className="absolute h-4 h-4 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100 text-emerald-400" />
+          {theme === "oled" ? (
+            <Zap className="h-4 w-4 text-yellow-400 transition-all duration-300" />
+          ) : (
+            <>
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all duration-300 dark:-rotate-90 dark:scale-0 text-amber-500" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100 text-emerald-400" />
+            </>
+          )}
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
@@ -38,6 +44,12 @@ export function ThemeToggle() {
           className={`gap-2 cursor-pointer ${theme === "dark" ? "bg-accent/10 font-semibold text-primary" : ""}`}
         >
           <Moon className="h-4 w-4 text-emerald-400" /> Dark Mode (Night)
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => setTheme("oled")}
+          className={`gap-2 cursor-pointer ${theme === "oled" ? "bg-accent/10 font-semibold text-primary" : ""}`}
+        >
+          <Zap className="h-4 w-4 text-yellow-400" /> OLED Super Dark (Pure Black)
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme("system")}

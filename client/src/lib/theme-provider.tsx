@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light" | "system";
+type Theme = "dark" | "oled" | "light" | "system";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
@@ -33,7 +33,7 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
-    root.classList.remove("light", "dark");
+    root.classList.remove("light", "dark", "oled");
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -43,7 +43,11 @@ export function ThemeProvider({
       return;
     }
 
-    root.classList.add(theme);
+    if (theme === "oled") {
+      root.classList.add("dark", "oled");
+    } else {
+      root.classList.add(theme);
+    }
   }, [theme]);
 
   const value = {
