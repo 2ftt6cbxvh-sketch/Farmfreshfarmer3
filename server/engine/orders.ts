@@ -92,6 +92,39 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     discountBreakdown: price.breakdown,
   });
 
+  // AUTO-ALLOCATION FCFS DISPATCH ENGINE:
+  // Allocate order to earliest available delivery partner who clicked "I am Available" first
+  try {
+    const { db } = await import("../db");
+    const { deliveryPartners, orders: ordersTable } = await import("@shared/schema");
+    const { eq, and, asc } = await import("drizzle-orm");
+
+    const availablePartners = await db.select().from(deliveryPartners).where(
+      and(
+        eq(deliveryPartners.availabilityStatus, "available"),
+        eq(deliveryPartners.isBlockedByAdmin, false)
+      )
+    ).orderBy(asc(deliveryPartners.lastAvailableAt)).limit(1);
+
+    if (availablePartners.length > 0) {
+      const partner = availablePartners[0];
+      await db.update(ordersTable).set({
+        assignedPartnerId: partner.id,
+        assignedAt: new Date(),
+        status: "Packed",
+      }).where(eq(ordersTable.id, order.id));
+
+      await db.update(deliveryPartners).set({
+        availabilityStatus: "busy",
+        updatedAt: new Date(),
+      }).where(eq(deliveryPartners.id, partner.id));
+
+      console.log(`[dispatch] Order #${order.id} auto-assigned FCFS to Delivery Partner ${partner.name} (ID #${partner.id})`);
+    }
+  } catch (err: any) {
+    console.warn("[dispatch] Auto-allocation error:", err?.message);
+  }
+
   // Decrement stock for known products (best-effort; never negative).
   for (const it of lines) {
     if (it.productId) {

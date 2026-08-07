@@ -40,6 +40,7 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 32 }),
   address: text("address"),
   role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin
+  customTitle: varchar("custom_title", { length: 128 }),
   permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
   isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
@@ -209,6 +210,8 @@ export const orders = pgTable("orders", {
   paymentMethod: varchar("payment_method", { length: 24 }).notNull().default("COD"), // COD | PHONEPE
   paymentStatus: varchar("payment_status", { length: 16 }).notNull().default("pending"), // pending | paid | failed | refunded
   status: varchar("status", { length: 24 }).notNull().default("Placed"), // Placed | Packed | Out for delivery | Delivered | Cancelled
+  assignedPartnerId: integer("assigned_partner_id"),
+  assignedAt: timestamp("assigned_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
@@ -218,6 +221,32 @@ export const orders = pgTable("orders", {
   createdIdx: index("orders_created_idx").on(t.createdAt),
 }));
 export type Order = typeof orders.$inferSelect;
+
+/* ======================== DELIVERY PARTNERS ========================= */
+export const deliveryPartners = pgTable("delivery_partners", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  partnerType: varchar("partner_type", { length: 32 }).notNull().default("local_delivery"), // local_delivery | inter_district | inter_state | international
+  name: text("name").notNull(),
+  idType: varchar("id_type", { length: 32 }).notNull().default("aadhar"), // aadhar | passport | pan | voter_id
+  idNumber: varchar("id_number", { length: 64 }).notNull(),
+  drivingLicenseNumber: varchar("driving_license_number", { length: 64 }),
+  vehicleNumber: varchar("vehicle_number", { length: 64 }).notNull(),
+  vehicleType: varchar("vehicle_type", { length: 32 }).notNull().default("bike"), // bike | auto | van | car | lorry
+  vehicleModel: varchar("vehicle_model", { length: 64 }),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  availabilityStatus: varchar("availability_status", { length: 24 }).notNull().default("offline"), // available | offline | busy
+  isBlockedByAdmin: boolean("is_blocked_by_admin").notNull().default(false),
+  lastAvailableAt: timestamp("last_available_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("delivery_partners_user_idx").on(t.userId),
+  typeIdx: index("delivery_partners_type_idx").on(t.partnerType),
+  availabilityIdx: index("delivery_partners_availability_idx").on(t.availabilityStatus),
+}));
+export type DeliveryPartner = typeof deliveryPartners.$inferSelect;
 
 // Order items normalised (replaces old items_json) for clean Power BI reporting.
 export const orderItems = pgTable("order_items", {

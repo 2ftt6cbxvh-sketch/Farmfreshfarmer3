@@ -46,6 +46,7 @@ export default function AdminStaff() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("custom_subadmin");
+  const [customTitle, setCustomTitle] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["/admin", "/admin/orders"]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -62,6 +63,7 @@ export default function AdminStaff() {
     setPhone("");
     setPassword("");
     setRole("custom_subadmin");
+    setCustomTitle("");
     setSelectedPermissions(["/admin", "/admin/orders"]);
     setModalOpen(true);
   };
@@ -72,7 +74,8 @@ export default function AdminStaff() {
     setEmail(staff.email || "");
     setPhone(staff.phone || "");
     setPassword(""); // Blank unless updating password
-    setRole(staff.role || "subadmin");
+    setRole(staff.role || "custom_subadmin");
+    setCustomTitle(staff.customTitle || "");
     setSelectedPermissions(Array.isArray(staff.permissions) ? staff.permissions : []);
     setModalOpen(true);
   };
@@ -137,6 +140,15 @@ export default function AdminStaff() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (role === "custom_subadmin" && !customTitle.trim()) {
+      toast({
+        title: "Custom Title Required",
+        description: "Please enter a custom designation title (e.g. Regional Manager, Inventory Lead) when selecting Custom Sub-Admin.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (editStaff) {
       updateMutation.mutate({
         id: editStaff.id,
@@ -145,6 +157,7 @@ export default function AdminStaff() {
           phone,
           ...(password ? { password } : {}),
           role,
+          customTitle: customTitle.trim(),
           permissions: selectedPermissions,
         },
       });
@@ -155,6 +168,7 @@ export default function AdminStaff() {
         phone,
         password,
         role,
+        customTitle: customTitle.trim(),
         permissions: selectedPermissions,
       });
     }
@@ -406,6 +420,26 @@ export default function AdminStaff() {
                   ))}
                 </select>
               </div>
+
+              {/* Custom Title Input for Custom Sub-Admin */}
+              {role === "custom_subadmin" && (
+                <div>
+                  <label className="text-xs font-extrabold text-amber-400 flex items-center gap-1">
+                    <span>Custom Designation / Role Title * (Compulsory)</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder="e.g. Regional Manager, Inventory Lead, Operations Head"
+                    className="w-full mt-1 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 placeholder:text-amber-500/50 focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Enter the exact custom designation to display on this sub-admin's profile and staff roster.
+                  </p>
+                </div>
+              )}
 
               {/* Customizable Menu Permissions Dropdown & Multi-Select Checkboxes */}
               <div>

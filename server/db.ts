@@ -75,10 +75,46 @@ export async function runAutoMigrations() {
     console.warn('[db] auto-migration warning:', e?.message);
   }
   try {
-    // Add permissions & is_primary_admin columns to users table if missing
+    // Add permissions, is_primary_admin, custom_title columns to users table if missing
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
-    console.log('[db] auto-migration: permissions and is_primary_admin columns ensured');
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)`);
+    console.log('[db] auto-migration: users columns ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+  try {
+    // Add assigned_partner_id & assigned_at columns to orders table if missing
+    await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_partner_id INTEGER`);
+    await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP WITH TIME ZONE`);
+    console.log('[db] auto-migration: orders assignment columns ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+  try {
+    // Create delivery_partners table if missing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS delivery_partners (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        partner_type VARCHAR(32) NOT NULL DEFAULT 'local_delivery',
+        name TEXT NOT NULL,
+        id_type VARCHAR(32) NOT NULL DEFAULT 'aadhar',
+        id_number VARCHAR(64) NOT NULL,
+        driving_license_number VARCHAR(64),
+        vehicle_number VARCHAR(64) NOT NULL,
+        vehicle_type VARCHAR(32) NOT NULL DEFAULT 'bike',
+        vehicle_model VARCHAR(64),
+        phone VARCHAR(32) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        availability_status VARCHAR(24) NOT NULL DEFAULT 'offline',
+        is_blocked_by_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        last_available_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updatedAt TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('[db] auto-migration: delivery_partners table ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }

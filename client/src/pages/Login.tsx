@@ -139,10 +139,15 @@ export default function Login() {
         await register({ name: name.trim(), email: email.trim().toLowerCase(), password, phone: phone.trim() || undefined });
         toast({ title: "Welcome to FarmFreshFarmer!" });
       } else {
-        await login(email.trim().toLowerCase(), password);
+        const u = await login(email.trim().toLowerCase(), password);
         toast({ title: "Welcome back!" });
-      }
-      navigate("/");
+        if (u?.role === "delivery_partner") {
+          navigate("/partner-portal");
+        } else if (u?.role && ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(u.role)) {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
     } catch (err: any) {
       const msg = String(err?.message || "");
       toast({

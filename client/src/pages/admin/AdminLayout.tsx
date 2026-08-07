@@ -31,6 +31,7 @@ const NAV = [
   ]},
   { section: "System", items: [
     { href: "/admin/staff", label: "Staff & Sub-Admins", icon: Shield },
+    { href: "/admin/delivery-partners", label: "Delivery Partners", icon: Truck },
     { href: "/admin/security", label: "Security Logs", icon: Key },
     { href: "/admin/settings", label: "Settings", icon: Settings },
     { href: "/admin/warehouses", label: "Warehouses", icon: Warehouse },
@@ -78,8 +79,8 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
   const navToDisplay = NAV.map((section) => {
     const filteredItems = section.items.filter((item) => {
-      // Security, Settings, and Staff menus are strictly reserved for Primary Admin
-      if (item.href === "/admin/staff" || item.href === "/admin/security" || item.href === "/admin/settings") {
+      // Security, Settings, Staff, and Delivery Partners menus are strictly reserved for Primary Admin
+      if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings") {
         return isPrimaryAdmin;
       }
       return isPrimaryAdmin || allowedHrefs.includes(item.href);

@@ -20,12 +20,17 @@ export default function AdminLogin() {
     setBusy(true);
     try {
       const u = await login(email.trim().toLowerCase(), password);
-      if (u.role !== "admin") {
-        toast({ title: "Not an admin account", description: "Use the admin email to sign in here.", variant: "destructive" });
+      if (u.role === "delivery_partner") {
+        toast({ title: "Welcome back, Delivery Partner!" });
+        navigate("/partner-portal");
         return;
       }
-      toast({ title: "Welcome, admin" });
-      navigate("/admin/products");
+      if (!["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(u.role)) {
+        toast({ title: "Not an authorized staff account", description: "Use valid staff credentials to sign in.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Welcome back, " + (u.name || "Admin") });
+      navigate("/admin");
     } catch {
       toast({ title: "Login failed", description: "Wrong email or password.", variant: "destructive" });
     } finally {
