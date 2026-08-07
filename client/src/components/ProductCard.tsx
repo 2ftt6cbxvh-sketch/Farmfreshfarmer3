@@ -221,12 +221,10 @@ export function ProductCard({ product }: { product: Product }) {
               </div>
               <button
                 type="button"
-                onClick={handleRemoveAll}
-                className="p-2.5 rounded-xl border border-red-500/30 bg-red-950/30 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors cursor-pointer shrink-0"
-                aria-label="Remove all from cart"
-                title="Remove completely from cart"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLocation("/cart"); }}
+                className="px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-md transition-all hover:scale-105 cursor-pointer shrink-0"
               >
-                <Trash2 size={16} />
+                Go to Cart ➔
               </button>
             </div>
           ) : (

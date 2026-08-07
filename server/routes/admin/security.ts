@@ -56,6 +56,71 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
 }
 
 export function registerAdminSecurityRoutes(app: Express) {
+  /** GET /api/admin/mfa/totp/setup — Generate TOTP secret & QR URI for Apple Passwords / Authenticator */
+  app.get("/api/admin/mfa/totp/setup", requireAdmin as any, async (req: Request, res: Response) => {
+    const { generateTotpSecret } = await import("../../services/totp");
+    const { storage } = await import("../../storage");
+
+    let secret = await storage.settings.get("admin_totp_secret");
+    if (!secret) {
+      const generated = generateTotpSecret();
+      secret = generated.secret;
+      await storage.settings.set("admin_totp_secret", secret);
+    }
+
+    const enabled = (await storage.settings.get("admin_totp_enabled")) === "true";
+    const uri = `otpauth://totp/FarmFreshFarmer:ChiefAdmin?secret=${secret}&issuer=FarmFreshFarmer`;
+
+    return res.json({
+      secret,
+      uri,
+      enabled,
+      accountName: "admin@farmfreshfarmer.com",
+    });
+  });
+
+  /** POST /api/admin/mfa/totp/verify — Confirm 6-Digit TOTP Code & Activate MFA */
+  app.post("/api/admin/mfa/totp/verify", requireAdmin as any, async (req: Request, res: Response) => {
+    const { code } = req.body || {};
+    const { verifyTotpCode } = await import("../../services/totp");
+    const { storage } = await import("../../storage");
+
+    const secret = await storage.settings.get("admin_totp_secret");
+    if (!secret) return res.status(400).json({ message: "TOTP secret not initialized. Refresh page." });
+
+    const valid = verifyTotpCode(secret, String(code || ""));
+    if (!valid) {
+      return res.status(400).json({ message: "Invalid 6-digit TOTP code. Check Apple Passwords or Authenticator App." });
+    }
+
+    await storage.settings.set("admin_totp_enabled", "true");
+    return res.json({ message: "✨ Chief Admin 2FA TOTP successfully verified and activated!" });
+  });
+
+  /** POST /api/admin/mfa/challenge — Verify 6-digit TOTP code during Admin login */
+  app.post("/api/admin/mfa/challenge", async (req: Request, res: Response) => {
+    const { code } = req.body || {};
+    const { verifyTotpCode } = await import("../../services/totp");
+    const { storage } = await import("../../storage");
+
+    const secret = await storage.settings.get("admin_totp_secret");
+    const enabled = (await storage.settings.get("admin_totp_enabled")) === "true";
+
+    // Emergency master bypass key fallback if not configured yet
+    if (!enabled && code === "123456") {
+      return res.json({ verified: true, mfaVerified: true });
+    }
+
+    if (secret) {
+      const valid = verifyTotpCode(secret, String(code || ""));
+      if (valid) {
+        return res.json({ verified: true, mfaVerified: true });
+      }
+    }
+
+    return res.status(400).json({ message: "Invalid 6-digit TOTP verification code" });
+  });
+
   app.get("/api/admin/security/lockdown", requireAdmin as any, async (_req: Request, res: Response) => {
     return res.json(await getLockdownStatus());
   });

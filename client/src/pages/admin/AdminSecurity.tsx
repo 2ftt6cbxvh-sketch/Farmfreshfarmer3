@@ -13,6 +13,94 @@ import { AdminLayout } from "./AdminLayout";
 
 import { apiRequest } from "@/lib/queryClient";
 
+function ChiefAdminTotpCard() {
+  const { toast } = useToast();
+  const [verifyCode, setVerifyCode] = useState("");
+
+  const { data: totpData, refetch } = useQuery({
+    queryKey: ["/api/admin/mfa/totp/setup"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/mfa/totp/setup")).json(),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/admin/mfa/totp/verify", { code: verifyCode })).json(),
+    onSuccess: (data) => {
+      toast({ title: "✨ 2FA TOTP Activated!", description: data.message });
+      setVerifyCode("");
+      refetch();
+    },
+    onError: (err: any) => toast({ title: "Verification Failed", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card className="border-emerald-500/40 bg-card shadow-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between text-foreground font-serif">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <span>Chief Admin 2FA TOTP & Apple Passwords / Biometric Security</span>
+          </div>
+          {totpData?.enabled ? (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">ACTIVE & PROTECTED</Badge>
+          ) : (
+            <Badge variant="outline" className="text-amber-400 border-amber-500/40">SETUP REQUIRED</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Enforce unbypassable 2FA verification for Chief Admin access. Compatible with <b>Apple Passwords</b> on Mac & iPhone, <b>Google Authenticator</b>, and 1Password.
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/20 space-y-3">
+            <Label className="text-xs font-bold text-foreground">Option A: Apple Passwords Auto-Setup</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Clicking below will launch Apple Passwords / Keychain to auto-bind 6-digit TOTP verification to your Mac Touch ID / iPhone Face ID.
+            </p>
+            <a
+              href={totpData?.uri || "#"}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition-all"
+            >
+              <span>🔑 Add Verification Code in Apple Passwords</span>
+            </a>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/20 space-y-3">
+            <Label className="text-xs font-bold text-foreground">Option B: Manual TOTP Secret Key</Label>
+            <div className="p-2.5 rounded-xl bg-black/60 border border-card-border font-mono text-xs text-amber-400 tracking-widest select-all text-center">
+              {totpData?.secret || "GENERATING..."}
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Copy & paste this secret key into Apple Passwords or Authenticator App.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 space-y-4">
+          <Label className="text-xs font-bold text-emerald-400 block">Verify & Enable Chief Admin 2FA</Label>
+          <div className="flex gap-3">
+            <Input
+              placeholder="Enter 6-digit TOTP code"
+              value={verifyCode}
+              onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              maxLength={6}
+              className="text-center font-mono text-lg font-bold tracking-widest max-w-xs"
+            />
+            <Button
+              onClick={() => verifyMutation.mutate()}
+              disabled={verifyMutation.isPending || verifyCode.length < 6}
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold"
+            >
+              {verifyMutation.isPending ? "Verifying..." : "Verify & Lock Down Chief Admin"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminSecurity() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -193,6 +281,9 @@ export default function AdminSecurity() {
           </Dialog>
         </CardContent>
       </Card>
+
+      {/* Chief Admin 2FA TOTP & Passkeys */}
+      <ChiefAdminTotpCard />
 
       {/* Telegram Security Bot Controller */}
       <Card className="border-emerald-500/30 bg-card shadow-xl overflow-hidden">

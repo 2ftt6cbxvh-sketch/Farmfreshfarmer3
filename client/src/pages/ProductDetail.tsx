@@ -165,6 +165,12 @@ export default function ProductDetail() {
                   }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
                     <ShoppingCart size={18} /> Add to Cart
                   </Button>
+
+                  {items.some(i => i.productId === product.id) && (
+                    <Button onClick={() => setLocation("/cart")} className="gap-2 px-6 py-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/20 border border-emerald-300 transition-all hover:scale-105" data-testid="button-go-to-cart">
+                      🛒 Go to Cart ➔
+                    </Button>
+                  )}
                 </div>
               </div>
             ) : (

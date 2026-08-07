@@ -63,10 +63,14 @@ function ProductCard({ product }: { product: Product }) {
               {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
             </View>
             <TouchableOpacity 
-              style={[styles.addBtn, product.stock !== undefined && Number(product.stock) <= 0 && { backgroundColor: '#444' }]}
+              style={[styles.addBtn, items.some(i => i.id === product.id) && { backgroundColor: '#10b981' }]}
               onPress={() => {
                 if (!user) {
                   Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
+                  return;
+                }
+                if (items.some(i => i.id === product.id)) {
+                  router.push('/(tabs)/cart');
                   return;
                 }
                 const stock = Number(product.stock !== undefined ? product.stock : 999);
@@ -83,7 +87,7 @@ function ProductCard({ product }: { product: Product }) {
                 Alert.alert('Success', 'Added to Basket! 🎉');
               }}
             >
-              <Text style={styles.addBtnText}>{product.stock !== undefined && Number(product.stock) <= 0 ? 'Out' : 'Add'}</Text>
+              <Text style={styles.addBtnText}>{items.some(i => i.id === product.id) ? 'Cart ➔' : 'Add'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -186,7 +190,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v2.1.1</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v2.2.0</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>

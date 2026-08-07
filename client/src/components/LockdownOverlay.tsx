@@ -77,15 +77,20 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
     setAudioPlaying(false);
   };
 
+  // Auto-play Web Audio API Police Siren Sound Effect on mount
   useEffect(() => {
+    if (active) {
+      startSirenAudio();
+    }
     return () => {
       stopSirenAudio();
     };
-  }, []);
+  }, [active]);
 
   if (!active) return null;
 
   const isRed = strobeState === "red";
+  const displayReason = reason || "Unauthorised activity detected";
 
   return (
     <div
@@ -113,24 +118,6 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
         }}
       />
 
-      {/* Top & Bottom Flashing Beacons */}
-      <div className="absolute top-0 inset-x-0 flex justify-between px-6 py-2 z-20">
-        <div
-          className="w-16 h-4 rounded-full transition-all duration-300"
-          style={{
-            backgroundColor: isRed ? "#ff0033" : "#111",
-            boxShadow: isRed ? "0 0 25px #ff0033" : "none",
-          }}
-        />
-        <div
-          className="w-16 h-4 rounded-full transition-all duration-300"
-          style={{
-            backgroundColor: !isRed ? "#0055ff" : "#111",
-            boxShadow: !isRed ? "0 0 25px #0055ff" : "none",
-          }}
-        />
-      </div>
-
       <div className="max-w-xl text-center px-6 space-y-6 relative z-10">
         {/* Animated Police Siren Shield Icon */}
         <div className="flex justify-center">
@@ -154,14 +141,12 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
         </div>
 
         {/* Reason Card */}
-        {reason && (
-          <div className="bg-gray-900/90 border border-red-900/60 rounded-xl p-4 text-sm text-gray-200 shadow-lg text-left">
-            <p className="font-semibold text-red-400 mb-1 text-xs uppercase tracking-wider">
-              Lockdown Reason:
-            </p>
-            <p className="font-mono text-gray-300">{reason}</p>
-          </div>
-        )}
+        <div className="bg-gray-900/90 border border-red-900/60 rounded-xl p-4 text-sm text-gray-200 shadow-lg text-left">
+          <p className="font-semibold text-red-400 mb-1 text-xs uppercase tracking-wider">
+            Lockdown Reason:
+          </p>
+          <p className="font-mono text-gray-300">{displayReason}</p>
+        </div>
 
         {/* Siren Sound Toggle */}
         <div className="flex justify-center">
@@ -189,17 +174,12 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
             <AlertTriangle className="w-4 h-4 text-amber-400" />
             Legal Notice & Activity Monitoring
           </p>
-          <p className="text-gray-300">
-            FarmFreshFarmer platform is currently in restricted emergency mode. All requests, IP addresses, and session fingerprints are actively logged.
+          <p className="text-gray-200 font-bold">
+            All customer and Sub-admin API routes returning 423 (Locked) except Chief Admin.
           </p>
-          <ul className="list-disc list-inside space-y-1 pl-1 text-gray-400">
-            <li>
-              <span className="text-gray-200 font-semibold">Information Technology Act, 2000</span> (Sections 43 & 66 — Data Tampering & Unauthorized Access)
-            </li>
-            <li>
-              <span className="text-gray-200 font-semibold">Bharatiya Nyaya Sanhita (BNS) 2023, Section 318</span> (Cheating & Criminal Breach)
-            </li>
-          </ul>
+          <p className="text-gray-300">
+            FarmFreshFarmer platform is currently in restricted emergency mode. All requests, IP addresses, and session fingerprints are actively logged under IT Act 2000 & BNS 2023.
+          </p>
         </div>
 
         <p className="text-gray-500 text-xs">

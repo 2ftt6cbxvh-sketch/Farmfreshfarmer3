@@ -80,16 +80,16 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     else if (lowerText.startsWith("/lockdown on")) reason = text.slice(12).trim();
     else if (lowerText.startsWith("/lockon")) reason = text.slice(7).trim();
 
-    reason = reason || "Emergency remote lockdown via Telegram";
+    reason = reason || "Unauthorised activity detected";
     await setLockdown(true, reason, 1);
-    const reply = `🔴 <b>SYSTEM LOCKED DOWN</b>\nReason: ${reason}\n\nAll customer API routes are returning 423 (Locked).`;
+    const reply = `🔴 <b>SYSTEM LOCKED DOWN</b>\nReason: ${reason}\n\nAll customer and Sub-admin API routes returning 423 (Locked) except Chief Admin.`;
     await sendTelegramAlert(reply);
     return { handled: true, reply };
   }
 
   if (lowerText.startsWith("/lock off") || lowerText.startsWith("/lockdown off") || lowerText.startsWith("/lockoff")) {
     await setLockdown(false, "", 1);
-    const reply = `🟢 <b>SYSTEM LOCKDOWN DEACTIVATED</b>\nPlatform is now operational.`;
+    const reply = `🟢 <b>SYSTEM LOCKDOWN DEACTIVATED</b>\nPlatform is now fully operational.`;
     await sendTelegramAlert(reply);
     return { handled: true, reply };
   }
@@ -98,6 +98,67 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     const { getLockdownStatus } = await import("./lockdown");
     const status = await getLockdownStatus();
     const reply = `ℹ️ <b>SYSTEM STATUS</b>\nLockdown: ${status.active ? "🔴 ACTIVE" : "🟢 ONLINE"}\n${status.reason ? `Reason: ${status.reason}` : ""}`;
+    await sendTelegramAlert(reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText.startsWith("/subadmin block") || lowerText.startsWith("/block ")) {
+    const target = text.replace("/subadmin block", "").replace("/block", "").trim().toLowerCase();
+    if (!target) return { handled: true, reply: "⚠️ Usage: <code>/subadmin block user@email.com</code>" };
+    const { storage } = await import("../storage");
+    const user = await storage.users.getByEmail(target);
+    if (user) {
+      await storage.users.setStatus(user.id, "blocked");
+      const reply = `🚫 <b>USER/SUBADMIN BLOCKED</b>\nUser: ${user.name} (${user.email})\nRole: ${user.role}\nStatus: Blocked.`;
+      await sendTelegramAlert(reply);
+      return { handled: true, reply };
+    }
+    return { handled: true, reply: `⚠️ User <code>${target}</code> not found.` };
+  }
+
+  if (lowerText.startsWith("/subadmin unblock") || lowerText.startsWith("/unblock ")) {
+    const target = text.replace("/subadmin unblock", "").replace("/unblock", "").trim().toLowerCase();
+    if (!target) return { handled: true, reply: "⚠️ Usage: <code>/subadmin unblock user@email.com</code>" };
+    const { storage } = await import("../storage");
+    const user = await storage.users.getByEmail(target);
+    if (user) {
+      await storage.users.setStatus(user.id, "active");
+      const reply = `✅ <b>USER/SUBADMIN UNBLOCKED</b>\nUser: ${user.name} (${user.email})\nStatus: Active.`;
+      await sendTelegramAlert(reply);
+      return { handled: true, reply };
+    }
+    return { handled: true, reply: `⚠️ User <code>${target}</code> not found.` };
+  }
+
+  if (lowerText === "/flush sessions" || lowerText === "/flush") {
+    const { db } = await import("../db");
+    const { userRefreshTokens } = await import("@shared/schema");
+    await db.delete(userRefreshTokens);
+    const reply = `🧹 <b>ALL ACTIVE SESSIONS FLUSHED</b>\nAll user & sub-admin refresh tokens have been revoked. Users must re-authenticate.`;
+    await sendTelegramAlert(reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText === "/users count" || lowerText === "/users") {
+    const { storage } = await import("../storage");
+    const allUsers = await storage.users.list();
+    const activeCount = allUsers.filter(u => u.status !== 'blocked').length;
+    const blockedCount = allUsers.filter(u => u.status === 'blocked').length;
+    const reply = `👥 <b>FARMFRESH USER METRICS</b>\nTotal Users: ${allUsers.length}\nActive: ${activeCount}\nBlocked: ${blockedCount}`;
+    await sendTelegramAlert(reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText === "/help" || lowerText === "/start") {
+    const reply = `🤖 <b>FARMFRESH SECURITY BOT COMMANDS</b>\n\n` +
+      `🔴 <code>/lock on [reason]</code> - Remote emergency lockdown\n` +
+      `🟢 <code>/lock off</code> - Deactivate platform lockdown\n` +
+      `ℹ️ <code>/status</code> or <code>/lock</code> - Check live system status\n` +
+      `🚫 <code>/subadmin block &lt;email&gt;</code> - Instantly block a sub-admin\n` +
+      `✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user/sub-admin\n` +
+      `🧹 <code>/flush sessions</code> - Revoke all active session tokens\n` +
+      `👥 <code>/users count</code> - Get total user statistics`;
+    await sendTelegramAlert(reply);
     return { handled: true, reply };
   }
 

@@ -53,7 +53,7 @@ function AppContent() {
           </View>
 
           <Text style={styles.legalNotice}>
-            🔒 All customer API routes are returning 423 (Locked). Unauthorized access attempts are monitored and recorded under IT Act 2000 & BNS 2023 Section 318.
+            🔒 All customer and Sub-admin API routes returning 423 (Locked) except Chief Admin. Unauthorized access attempts are monitored and recorded under IT Act 2000 & BNS 2023.
           </Text>
         </View>
       </View>
