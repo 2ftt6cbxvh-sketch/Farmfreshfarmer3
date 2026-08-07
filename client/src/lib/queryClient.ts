@@ -30,6 +30,9 @@ export async function apiRequest(
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (sessionStorage.getItem("admin_mfa_verified") === "true") {
+    headers["X-Admin-MFA-Verified"] = "true";
+  }
 
   const res = await fetch(`${API_BASE}${url}`, {
     method,
@@ -60,6 +63,9 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    if (sessionStorage.getItem("admin_mfa_verified") === "true") {
+      headers["X-Admin-MFA-Verified"] = "true";
+    }
 
     const res = await fetch(`${API_BASE}${queryKey.join("/")}`, {
       headers,

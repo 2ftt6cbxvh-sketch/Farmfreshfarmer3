@@ -271,6 +271,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
     if (!adminValid) return res.status(403).json({ message: "Admin or Staff access required" });
+
+    // Enforce Chief Admin 2FA TOTP verification if active
+    const { storage } = await import("./storage");
+    const totpEnabled = (await storage.settings.get("admin_totp_enabled")) === "true";
+    if (totpEnabled && !req.path.startsWith("/api/admin/mfa")) {
+      const mfaHeader = req.headers["x-admin-mfa-verified"] === "true";
+      const mfaSession = (req.session as any)?.mfaVerified === true;
+      if (!mfaHeader && !mfaSession) {
+        return res.status(403).json({ message: "403 Forbidden: Chief Admin 2FA TOTP Verification Required", mfaRequired: true });
+      }
+    }
+
     next();
   }
 

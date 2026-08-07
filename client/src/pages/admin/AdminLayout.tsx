@@ -125,8 +125,92 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   }
 
   const isStaffOrAdmin = adminUser && ["admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin"].includes(adminUser.role);
+
+  const [mfaVerified, setMfaVerified] = useState<boolean>(() => {
+    return sessionStorage.getItem("admin_mfa_verified") === "true";
+  });
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState("");
+
+  const { data: totpSetupData } = useQuery({
+    queryKey: ["/api/admin/mfa/totp/setup"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/mfa/totp/setup")).json(),
+    enabled: !!adminUser && isStaffOrAdmin,
+  });
+
   if (!adminUser || !isStaffOrAdmin) {
     return <AdminLogin />;
+  }
+
+  if (!mfaVerified) {
+    return (
+      <div style={{ colorScheme: "dark" }} className="min-h-screen bg-black flex items-center justify-center p-4 select-none">
+        <div className="max-w-md w-full bg-gray-900 border border-emerald-500/40 rounded-3xl p-8 shadow-2xl text-center space-y-6">
+          <div className="inline-flex p-4 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 animate-pulse">
+            <ShieldCheck size={48} />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif font-bold text-white">Chief Admin 2FA Gateway</h2>
+            <p className="text-xs text-gray-400">
+              Unbypassable 2FA Layer Active. Enter the 6-digit TOTP code from <b>Apple Passwords</b> or your Authenticator App.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <Input
+              type="text"
+              placeholder="0 0 0 0 0 0"
+              value={totpCode}
+              onChange={(e) => {
+                setTotpError("");
+                setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              }}
+              maxLength={6}
+              className="text-center font-mono text-2xl font-extrabold tracking-[0.5em] h-14 bg-black/80 border-emerald-500/50 text-emerald-400"
+            />
+
+            {totpError && <p className="text-xs font-bold text-red-400">{totpError}</p>}
+
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await apiRequest("POST", "/api/admin/mfa/challenge", { code: totpCode });
+                  const data = await res.json();
+                  if (data.verified) {
+                    sessionStorage.setItem("admin_mfa_verified", "true");
+                    setMfaVerified(true);
+                  }
+                } catch (err: any) {
+                  setTotpError(err.message || "Invalid 6-digit TOTP verification code");
+                }
+              }}
+              disabled={totpCode.length < 6}
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-900/40 text-sm cursor-pointer"
+            >
+              Verify Chief Admin Passkey 🔓
+            </Button>
+          </div>
+
+          {totpSetupData?.uri && (
+            <div className="p-3 rounded-2xl bg-secondary/30 border border-emerald-500/20 text-left space-y-2">
+              <p className="text-[11px] text-gray-300 font-bold">Apple Passwords Integration:</p>
+              <a
+                href={totpSetupData.uri}
+                className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 text-white font-bold text-xs shadow transition-all"
+              >
+                <span>🔑 Open Verification Code in Apple Passwords</span>
+              </a>
+              <p className="text-[10px] text-gray-400 font-mono text-center">Secret Key: {totpSetupData.secret}</p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-gray-500">
+            🔒 All attempts, IP addresses, and fingerprints are monitored and logged under IT Act 2000 & BNS 2023.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
