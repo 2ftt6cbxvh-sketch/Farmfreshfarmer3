@@ -69,6 +69,26 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
     return { areaName: info.area, lat: info.lat, lng: info.lng };
   }
 
+  const prefix = cleanPin.substring(0, 3);
+  const p = parseInt(prefix, 10);
+  let baseLat = 16.5;
+  let baseLng = 80.5;
+
+  if (p === 530 || p === 531) { baseLat = 17.6868; baseLng = 83.2185; }
+  else if (p === 532) { baseLat = 18.2949; baseLng = 83.8938; }
+  else if (p === 533) { baseLat = 16.9891; baseLng = 82.2475; }
+  else if (p === 534) { baseLat = 16.7107; baseLng = 81.1035; }
+  else if (p === 535) { baseLat = 18.1066; baseLng = 83.3955; }
+  else if (p === 520 || p === 521) { baseLat = 16.5062; baseLng = 80.6480; }
+  else if (p === 522) { baseLat = 16.3067; baseLng = 80.4365; }
+  else if (p === 523) { baseLat = 15.5057; baseLng = 80.0499; }
+  else if (p === 524) { baseLat = 14.4426; baseLng = 79.9865; }
+  else if (p === 515) { baseLat = 14.6819; baseLng = 77.6006; }
+  else if (p === 516) { baseLat = 14.4673; baseLng = 78.8242; }
+  else if (p === 517) { baseLat = 13.6288; baseLng = 79.4192; }
+  else if (p === 518) { baseLat = 15.8281; baseLng = 78.0373; }
+  else if (p >= 500 && p <= 509) { baseLat = 17.3850; baseLng = 78.4744; }
+
   // Try Postal Pincode India API fallback
   try {
     const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
@@ -76,14 +96,11 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
     if (Array.isArray(data) && data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
       const po = data[0].PostOffice[0];
       const areaName = `${po.Name}, ${po.District}`;
-      // Estimate coords based on district or pincode range
-      const districtLat = cleanPin.startsWith("522") ? 16.3067 : cleanPin.startsWith("520") ? 16.5062 : cleanPin.startsWith("530") ? 17.6868 : 16.5;
-      const districtLng = cleanPin.startsWith("522") ? 80.4365 : cleanPin.startsWith("520") ? 80.6480 : cleanPin.startsWith("530") ? 83.2185 : 80.5;
-      return { areaName, lat: districtLat, lng: districtLng };
+      return { areaName, lat: baseLat, lng: baseLng };
     }
   } catch {}
 
-  return { areaName: `PIN ${cleanPin}`, lat: 16.5, lng: 80.5 };
+  return { areaName: `PIN ${cleanPin}`, lat: baseLat, lng: baseLng };
 }
 
 export function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -162,10 +179,10 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   // Calculate distance from Warehouse Lat/Lng to Customer Lat/Lng
   const whLat = parseFloat(warehouse.latitude);
   const whLng = parseFloat(warehouse.longitude);
-  const distanceKm = Math.round(haversineDistanceKm(whLat, whLng, geo.lat, geo.lng) * 10) / 10;
+  const distanceKm = haversineDistanceKm(whLat, whLng, geo.lat, geo.lng);
 
   if (distanceKm > 30) {
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Delivery available within 30km radius of active warehouse only (Distance: " + distanceKm + "km)" };
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Location is " + Math.round(distanceKm) + "km away. Delivery available within 30km radius of active warehouse only" };
   }
 
   // Calculate Travel Duration using Warehouse Rider Speed

@@ -116,7 +116,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   /** GET /api/version — Version control telemetry */
   app.get("/api/version", (_req: Request, res: Response) => {
     return res.json({
-      version: "1.6.6",
+      version: "1.6.7",
       environment: process.env.NODE_ENV || "production",
       platform: "vercel",
       commitSha: process.env.VERCEL_GIT_COMMIT_SHA || "bbcccbe",
