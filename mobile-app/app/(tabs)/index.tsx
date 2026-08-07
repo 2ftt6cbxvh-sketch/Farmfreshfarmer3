@@ -96,7 +96,7 @@ export default function HomeScreen() {
   const [pincodeModal, setPincodeModal] = useState(false);
   const [inputPincode, setInputPincode] = useState('');
 
-  const { resolution, isLoading: deliveryLoading, resolveByPincode, resolveByGps } = useDelivery();
+  const { resolution, isLoading: deliveryLoading, resolveByPincode, resolveByGps, clearResolution } = useDelivery();
 
   // Scroll-Driven Parallax Animation
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -161,7 +161,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.3</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.4</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -182,15 +182,19 @@ export default function HomeScreen() {
             <Text style={styles.deliveryLocationText} numberOfLines={1}>
               📍 {resolution?.serviceable ? `Delivering to: ${resolution?.locationArea} (PIN: ${resolution?.pincode})` : 'Select Delivery Location'}
             </Text>
-            <Text style={styles.changeBtnText}>Change ✏️</Text>
+            <TouchableOpacity onPress={() => { clearResolution(); setPincodeModal(true); }}>
+              <Text style={styles.changeBtnText}>Change ✏️</Text>
+            </TouchableOpacity>
           </View>
 
           {resolution?.serviceable ? (
             <View style={styles.etaDetailsRow}>
               <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>⚡ {resolution?.etaMinutes} Mins Express Delivery • {resolution?.warehouseName}</Text>
+                <Text style={styles.etaBadgeText}>⚡ {resolution?.etaMinutes} Min{resolution?.etaMinutes !== 1 ? 's' : ''} Express Delivery • {resolution?.warehouseName}</Text>
               </View>
             </View>
+          ) : resolution ? (
+            <Text style={[styles.pincodePrompt, { color: '#ef4444' }]}>Location Not Covered Yet: {resolution?.reason}</Text>
           ) : (
             <Text style={styles.pincodePrompt}>Enter PIN code or detect GPS to check instant delivery ETA</Text>
           )}
@@ -263,7 +267,7 @@ export default function HomeScreen() {
             />
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={[styles.gpsBtn, isDark && styles.gpsBtnDark]} onPress={() => { resolveByGps(); setPincodeModal(false); }}>
-                <Text style={[styles.gpsBtnText, isDark && styles.textWhite]}>Use GPS 🛰️</Text>
+                <Text style={[styles.gpsBtnText, isDark && styles.textWhite]}>{deliveryLoading ? 'Detecting...' : 'Use GPS 🛰️'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={handlePincodeSubmit}>
                 <Text style={styles.submitBtnText}>Submit</Text>
