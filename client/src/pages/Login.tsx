@@ -148,6 +148,7 @@ export default function Login() {
         } else {
           navigate("/");
         }
+      }
     } catch (err: any) {
       const msg = String(err?.message || "");
       toast({
