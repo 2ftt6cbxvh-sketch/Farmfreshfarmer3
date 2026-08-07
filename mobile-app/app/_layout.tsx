@@ -22,14 +22,14 @@ function AppContent() {
         const res = await api.get('/api/delivery/status');
         if (res.status === 423 || res.data?.lockdown?.active) {
           setLockdownActive(true);
-          setLockdownReason(res.data?.reason || res.data?.lockdown?.reason || 'Emergency System Lockdown');
+          setLockdownReason(res.data?.reason || res.data?.lockdown?.reason || 'Unauthorised activity detected');
         } else {
           setLockdownActive(false);
         }
       } catch (err: any) {
         if (err.response?.status === 423) {
           setLockdownActive(true);
-          setLockdownReason(err.response?.data?.reason || 'Emergency System Lockdown');
+          setLockdownReason(err.response?.data?.reason || 'Unauthorised activity detected');
         }
       }
     };
