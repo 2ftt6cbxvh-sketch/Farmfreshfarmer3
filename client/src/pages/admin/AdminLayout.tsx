@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, Warehouse, Truck,
+  Shield, Warehouse, Truck, UserCheck, Key
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -30,8 +30,9 @@ const NAV = [
     { href: "/admin/referrals", label: "Referrals", icon: Gift },
   ]},
   { section: "System", items: [
+    { href: "/admin/staff", label: "Staff & Sub-Admins", icon: Shield },
+    { href: "/admin/security", label: "Security Logs", icon: Key },
     { href: "/admin/settings", label: "Settings", icon: Settings },
-    { href: "/admin/security", label: "Security", icon: Shield },
     { href: "/admin/warehouses", label: "Warehouses", icon: Warehouse },
     { href: "/admin/delivery", label: "Delivery & Geo", icon: Truck },
   ]},
@@ -50,18 +51,52 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       if (stored) {
         adminUser = JSON.parse(stored);
       } else if (typeof window !== 'undefined' && (localStorage.getItem("accessToken") || localStorage.getItem("token"))) {
-        adminUser = { id: 0, role: "admin", name: "Admin User", email: "admin@farmfreshfarmer.com" } as any;
+        adminUser = { id: 0, role: "admin", name: "Admin User", email: "admin@farmfreshfarmer.com", isPrimaryAdmin: true } as any;
       }
     } catch(e) {}
   }
 
+  const isPrimaryAdmin =
+    adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    adminUser?.isPrimaryAdmin === true ||
+    (adminUser?.role === "admin" && (adminUser?.id === 1 || adminUser?.id === 0));
+
+  let allowedHrefs: string[] = [];
+  if (isPrimaryAdmin) {
+    allowedHrefs = FLAT_NAV.map((n) => n.href);
+  } else {
+    const perms = adminUser?.permissions;
+    if (Array.isArray(perms)) {
+      allowedHrefs = perms;
+    } else if (typeof perms === "string") {
+      try { allowedHrefs = JSON.parse(perms); } catch { allowedHrefs = ["/admin"]; }
+    } else {
+      allowedHrefs = ["/admin"];
+    }
+    if (!allowedHrefs.includes("/admin")) allowedHrefs.push("/admin");
+  }
+
+  const navToDisplay = NAV.map((section) => {
+    const filteredItems = section.items.filter((item) => {
+      // Security, Settings, and Staff menus are strictly reserved for Primary Admin
+      if (item.href === "/admin/staff" || item.href === "/admin/security" || item.href === "/admin/settings") {
+        return isPrimaryAdmin;
+      }
+      return isPrimaryAdmin || allowedHrefs.includes(item.href);
+    });
+    return { ...section, items: filteredItems };
+  }).filter((section) => section.items.length > 0);
+
+  const flatDisplayed = navToDisplay.flatMap((s) => s.items);
+
   useEffect(() => {
-    if (user && user.role === "admin") {
-      localStorage.setItem("adminUser", JSON.stringify(user));
+    const isStaffOrAdmin = adminUser && ["admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin"].includes(adminUser.role);
+    if (isStaffOrAdmin) {
+      localStorage.setItem("adminUser", JSON.stringify(adminUser));
     } else if (user === null && !loading) {
       localStorage.removeItem("adminUser");
     }
-  }, [user, loading]);
+  }, [adminUser, user, loading]);
 
   const handleLogout = async () => {
     localStorage.removeItem("adminUser");
@@ -72,7 +107,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   if (loading && !adminUser) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
-  if (!adminUser || adminUser.role !== "admin") {
+
+  const isStaffOrAdmin = adminUser && ["admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin"].includes(adminUser.role);
+  if (!adminUser || !isStaffOrAdmin) {
     return <AdminLogin />;
   }
 
@@ -81,11 +118,19 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <div className="p-5 border-b border-sidebar-border">
-          <span className="font-serif text-lg font-bold">FarmFreshFarmer</span>
-          <p className="text-xs opacity-70">Admin panel</p>
+          <div className="flex items-center justify-between">
+            <span className="font-serif text-lg font-bold">FarmFreshFarmer</span>
+            {isPrimaryAdmin ? (
+              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">Superuser</span>
+            ) : (
+              <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full border border-primary/30 capitalize">{adminUser?.role?.replace("_", " ")}</span>
+            )}
+          </div>
+          <p className="text-xs opacity-70 mt-0.5">{adminUser?.name || "Admin Panel"}</p>
         </div>
+
         <nav className="flex-1 overflow-y-auto p-3 space-y-4" data-testid="nav-sidebar">
-          {NAV.map((section) => (
+          {navToDisplay.map((section) => (
             <div key={section.section}>
               <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider opacity-50">{section.section}</p>
               <div className="space-y-1">
@@ -107,6 +152,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             </div>
           ))}
         </nav>
+
         <div className="p-3 border-t border-sidebar-border space-y-1">
           <Link href="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover-elevate" data-testid="link-view-store">
             <Store size={18} /> View store
@@ -125,7 +171,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center gap-3 overflow-x-auto bg-sidebar text-sidebar-foreground px-3 py-2">
-          {FLAT_NAV.map((n) => (
+          {flatDisplayed.map((n) => (
             <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}>
               {n.label}
             </Link>

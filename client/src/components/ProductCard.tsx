@@ -34,7 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
         description: "Please log in to add items to cart",
         variant: "destructive",
       });
-      setLocation("/auth");
+      setLocation("/login");
       return;
     }
     setAnimating(true);

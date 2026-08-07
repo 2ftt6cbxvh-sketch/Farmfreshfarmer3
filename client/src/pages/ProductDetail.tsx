@@ -145,7 +145,7 @@ export default function ProductDetail() {
                 <Button onClick={() => { 
                   if (!user) {
                     toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
-                    setLocation("/auth");
+                    setLocation("/login");
                     return;
                   }
                   add(product, qty); 

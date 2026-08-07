@@ -41,6 +41,7 @@ import AdminWarehouses from "@/pages/admin/AdminWarehouses";
 import AdminDelivery from "@/pages/admin/AdminDelivery";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminStaff from "@/pages/admin/AdminStaff";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
 
@@ -83,6 +84,7 @@ function AppRouter() {
       <Route path="/admin/warehouses" component={AdminWarehouses} />
       <Route path="/admin/delivery" component={AdminDelivery} />
       <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/staff" component={AdminStaff} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>

@@ -310,16 +310,27 @@ export default function Login() {
             </form>
           )}
 
-          <p className="text-xs text-center text-muted-foreground pt-2 border-t border-card-border">
-            {mode === "login" ? "Don't have an account? " : "Already registered? "}
-            <button
-              type="button"
-              className="text-primary font-bold underline"
-              onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            >
-              {mode === "login" ? "Sign up now" : "Log in"}
-            </button>
-          </p>
+          <div className="pt-2 border-t border-card-border space-y-2">
+            <p className="text-xs text-center text-muted-foreground">
+              {mode === "login" ? "Don't have an account? " : "Already registered? "}
+              <button
+                type="button"
+                className="text-primary font-bold underline"
+                onClick={() => setMode(mode === "login" ? "signup" : "login")}
+              >
+                {mode === "login" ? "Sign up now" : "Log in"}
+              </button>
+            </p>
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/login")}
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
+              >
+                <span>🚚 Delivery Partner Login</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

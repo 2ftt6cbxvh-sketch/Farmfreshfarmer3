@@ -39,7 +39,9 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: varchar("phone", { length: 32 }),
   address: text("address"),
-  role: varchar("role", { length: 16 }).notNull().default("customer"), // customer | admin
+  role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin
+  permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
+  isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

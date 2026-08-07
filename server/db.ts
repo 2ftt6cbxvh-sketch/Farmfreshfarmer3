@@ -74,4 +74,12 @@ export async function runAutoMigrations() {
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }
+  try {
+    // Add permissions & is_primary_admin columns to users table if missing
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log('[db] auto-migration: permissions and is_primary_admin columns ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
 }

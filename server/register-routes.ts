@@ -55,6 +55,7 @@ import { registerAdminSecurityRoutes } from "./routes/admin/security";
 import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
 import { registerAdminDeliveryRoutes } from "./routes/admin/delivery-admin";
 import { registerAdminContentRoutes } from "./routes/admin/content";
+import { registerStaffRoutes } from "./routes/admin/staff";
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
   initiateRazorpayRefund, isRazorpayConfigured,
@@ -946,10 +947,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.payments.list());
   }));
 
-  // Admin security, warehouses, delivery routes
+  // Admin security, warehouses, delivery, staff routes
   registerAdminSecurityRoutes(app);
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
+  registerStaffRoutes(app);
 
   // ============================================================
   // RAZORPAY ROUTES
