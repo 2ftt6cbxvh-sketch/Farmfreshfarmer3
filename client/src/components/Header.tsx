@@ -114,7 +114,7 @@ export function Header() {
           </Link>
 
           {/* Search Bar with Live Predictions & Admin Recommendations */}
-          <div ref={searchRef} className="hidden md:block flex-1 max-w-lg mx-auto relative">
+          <div ref={searchRef} className="hidden md:block flex-1 max-w-lg mx-auto relative z-50">
             <form onSubmit={submitSearch} className="relative w-full group/search">
               <input
                 type="search"
@@ -122,7 +122,7 @@ export function Header() {
                 onChange={(e) => setSearch(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 placeholder="Search organic fruits, ghee sweets, avakaya pickles..."
-                className="w-full rounded-full border border-emerald-500/30 bg-background/80 backdrop-blur pl-5 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/80 transition-all shadow-inner"
+                className="w-full rounded-full border border-emerald-500/30 bg-background pl-5 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/80 transition-all shadow-inner"
                 data-testid="input-search"
               />
               <button
@@ -137,10 +137,10 @@ export function Header() {
 
             {/* Live Autocomplete Predictions & Admin Recommendations Overlay */}
             {searchFocused && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-card/95 backdrop-blur-2xl border border-emerald-500/30 rounded-2xl shadow-2xl z-50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-card border-2 border-emerald-500/40 rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.4)] z-[100] p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* Admin Promoted Recommendations */}
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-500 dark:text-amber-400 mb-2">
                     <TrendingUp className="w-3.5 h-3.5" />
                     <span>Admin Trending Recommendations</span>
                   </div>
@@ -153,7 +153,7 @@ export function Header() {
                           navigate(`/search?q=${encodeURIComponent(rec)}`);
                           setSearchFocused(false);
                         }}
-                        className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 text-foreground transition-all hover:scale-105"
+                        className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 text-foreground transition-all hover:scale-105 cursor-pointer"
                       >
                         {rec}
                       </button>
@@ -163,8 +163,8 @@ export function Header() {
 
                 {/* Live Predictions matching typed query */}
                 {search.trim().length > 0 && (
-                  <div className="pt-2 border-t border-emerald-500/20 space-y-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                  <div className="pt-3 border-t border-emerald-500/20 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Live Product Predictions</span>
                     </div>
@@ -180,13 +180,13 @@ export function Header() {
                               navigate(`/product/${p.id}`);
                               setSearchFocused(false);
                             }}
-                            className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 cursor-pointer transition-colors group/item"
+                            className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
                           >
                             <div className="flex items-center gap-3">
                               {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg object-cover" />
+                                <img src={p.image} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
                               ) : (
-                                <div className="w-8 h-8 rounded-lg bg-emerald-900/40 flex items-center justify-center text-xs">🌱</div>
+                                <div className="w-9 h-9 rounded-lg bg-emerald-900/40 flex items-center justify-center text-xs">🌱</div>
                               )}
                               <div>
                                 <p className="text-xs font-bold text-foreground group-hover/item:text-primary transition-colors">{p.name}</p>
@@ -266,7 +266,7 @@ export function Header() {
         </div>
 
         {/* 3D Glassmorphic Category Navigation Bar */}
-        <nav className="hidden lg:block border-t border-emerald-500/20 bg-secondary/30 relative z-10">
+        <nav className="hidden lg:block border-t border-emerald-500/20 bg-secondary/30 relative z-0">
           <div className="px-4 py-1.5">
             <ul className="flex items-center justify-center gap-2 overflow-x-auto" role="list">
               {categories.map((c) => (

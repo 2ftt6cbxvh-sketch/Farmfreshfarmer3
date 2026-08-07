@@ -15,6 +15,7 @@
     "db:migrate": "tsx script/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx script/seed.ts",
+    "seed": "tsx script/seed.ts",
     "db:views": "tsx script/apply-views.ts",
     "db:setup": "tsx script/migrate.ts && tsx script/apply-views.ts && tsx script/seed.ts"
   },

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Minus, Plus, ShoppingCart, Star } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Star, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { DietDot } from "@/components/DietDot";
+import { ProductCard } from "@/components/ProductCard";
 import type { Product, Review } from "@/lib/types";
 import { effectivePrice, formatINR } from "@/lib/types";
 import { useCart, useAuth } from "@/lib/store";
@@ -53,6 +54,23 @@ export default function ProductDetail() {
     queryFn: () => apiGet<Review[]>(`/api/reviews?productId=${id}`),
   });
 
+  // Similar Products Query (Matching Category)
+  const { data: categoryProducts = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products", "similar", product?.categorySlug],
+    queryFn: () => apiGet<Product[]>(`/api/products?category=${product?.categorySlug}`),
+    enabled: !!product?.categorySlug,
+  });
+
+  // Featured fallback if category has few items
+  const { data: featuredProducts = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products", "featured"],
+    queryFn: () => apiGet<Product[]>("/api/products?featured=1"),
+  });
+
+  const similarList = categoryProducts.filter((p) => p.id !== id);
+  const fallbackList = featuredProducts.filter((p) => p.id !== id && !similarList.some((s) => s.id === p.id));
+  const displaySimilar = [...similarList, ...fallbackList].slice(0, 4);
+
   const reviewMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/reviews", { productId: id, rating, comment });
@@ -79,92 +97,124 @@ export default function ProductDetail() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="rounded-xl overflow-hidden border border-card-border bg-secondary aspect-square">
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-12">
+        {/* Main Product Specs */}
+        <div className="grid md:grid-cols-2 gap-8 items-start">
+          <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group">
             {product.image ? (
-              <img src={imgUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
-            ) : <div className="h-full flex items-center justify-center text-muted-foreground">No image</div>}
+              <img src={imgUrl(product.image)} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            ) : <div className="h-full flex items-center justify-center text-muted-foreground font-bold">No image</div>}
+            {hasDiscount && (
+              <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-xs font-extrabold px-3.5 py-1 rounded-full shadow-lg border border-amber-300/40">
+                {Math.round(Number(product.discountPercent))}% OFF
+              </span>
+            )}
           </div>
 
-          <div>
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
               <DietDot tag={product.dietTag} size={16} />
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold">{product.name}</h1>
+              <h1 className="font-serif text-3xl sm:text-4xl font-extrabold text-foreground">{product.name}</h1>
             </div>
+
             {reviews.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2">
                 <Stars value={Math.round(avg)} />
-                <span className="text-sm text-muted-foreground">{avg.toFixed(1)} ({reviews.length})</span>
+                <span className="text-sm font-bold text-muted-foreground">{avg.toFixed(1)} ({reviews.length} reviews)</span>
               </div>
             )}
-            <p className="text-sm text-muted-foreground mt-3">{product.description || "Fresh and delivered with care."}</p>
-            <p className="text-xs text-muted-foreground mt-2">Pack: {product.unit}</p>
 
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className="text-2xl font-bold text-primary">{formatINR(price)}</span>
-              {hasDiscount && <span className="text-base text-muted-foreground line-through">{formatINR(Number(product.price))}</span>}
-              {hasDiscount && <span className="text-sm font-semibold text-accent-foreground bg-accent/30 rounded px-2">{Math.round(Number(product.discountPercent))}% OFF</span>}
+            <p className="text-sm text-muted-foreground leading-relaxed">{product.description || "Fresh farm produce delivered directly with care."}</p>
+            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full w-fit border border-emerald-500/20">
+              Pack Size: {product.unit}
+            </p>
+
+            <div className="flex items-baseline gap-3 pt-2">
+              <span className="text-3xl font-serif font-black text-primary">{formatINR(price)}</span>
+              {hasDiscount && <span className="text-lg text-muted-foreground line-through">{formatINR(Number(product.price))}</span>}
             </div>
 
             {product.stock > 0 ? (
-              <div className="mt-6 flex items-center gap-3">
-                <div className="flex items-center rounded-md border border-input">
-                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-3 py-2 hover-elevate" aria-label="Decrease"><Minus size={16} /></button>
-                  <span className="w-10 text-center">{qty}</span>
-                  <button onClick={() => setQty((q) => q + 1)} className="px-3 py-2 hover-elevate" aria-label="Increase"><Plus size={16} /></button>
+              <div className="flex items-center gap-3 pt-4">
+                <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1">
+                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Decrease"><Minus size={16} /></button>
+                  <span className="w-10 text-center font-bold">{qty}</span>
+                  <button onClick={() => setQty((q) => q + 1)} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
                 </div>
-                <Button onClick={() => { add(product, qty); toast({ title: "Added to cart" }); }} className="gap-2" data-testid="button-add-detail">
-                  <ShoppingCart size={16} /> Add to cart
+                <Button onClick={() => { add(product, qty); toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
+                  <ShoppingCart size={18} /> Add to Cart
                 </Button>
               </div>
             ) : (
-              <p className="mt-6 font-semibold text-destructive">Out of stock</p>
+              <p className="font-extrabold text-destructive pt-4">Out of Stock</p>
             )}
           </div>
         </div>
 
-        {/* Reviews */}
-        <div className="mt-12">
-          <h2 className="font-serif text-xl font-bold mb-4">Customer reviews</h2>
+        {/* Customer Reviews Section */}
+        <div className="rounded-3xl border border-emerald-500/20 bg-card p-6 sm:p-8 space-y-6 shadow-xl">
+          <h2 className="font-serif text-2xl font-bold">Customer Reviews ({reviews.length})</h2>
 
           {user ? (
-            <div className="rounded-xl border border-card-border bg-card p-4 mb-6">
-              <p className="text-sm font-medium mb-2">Write a review</p>
+            <div className="rounded-2xl border border-emerald-500/30 bg-secondary/30 p-4 space-y-3">
+              <p className="text-xs font-bold text-foreground">Write a Review</p>
               <Stars value={rating} onChange={setRating} />
               <Textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your experience…"
-                className="mt-3"
+                placeholder="Share your fresh harvest experience..."
+                className="bg-card border-emerald-500/20 text-sm"
                 data-testid="input-review"
               />
-              <Button onClick={() => reviewMutation.mutate()} disabled={reviewMutation.isPending} className="mt-3" data-testid="button-submit-review">
-                {reviewMutation.isPending ? "Posting…" : "Post review"}
+              <Button onClick={() => reviewMutation.mutate()} disabled={reviewMutation.isPending} className="bg-primary font-bold" data-testid="button-submit-review">
+                {reviewMutation.isPending ? "Posting..." : "Post Review"}
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground mb-6">
-              <Link href="/login" className="text-primary underline">Log in</Link> to write a review.
+            <p className="text-xs text-muted-foreground">
+              <Link href="/login" className="text-primary font-bold underline">Log in</Link> to write a review.
             </p>
           )}
 
           {reviews.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No reviews yet. Be the first!</p>
+            <p className="text-xs text-muted-foreground">No reviews yet. Be the first to review this produce!</p>
           ) : (
-            <ul className="space-y-4" role="list">
+            <ul className="space-y-3" role="list">
               {reviews.map((r) => (
-                <li key={r.id} className="rounded-xl border border-card-border bg-card p-4" data-testid={`review-${r.id}`}>
+                <li key={r.id} className="rounded-2xl border border-card-border bg-secondary/30 p-4 space-y-1" data-testid={`review-${r.id}`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm">{r.userName}</span>
+                    <span className="font-bold text-xs text-foreground">{r.userName}</span>
                     <Stars value={r.rating} />
                   </div>
-                  {r.comment && <p className="text-sm text-muted-foreground mt-2">{r.comment}</p>}
+                  {r.comment && <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{r.comment}</p>}
                 </li>
               ))}
             </ul>
           )}
         </div>
+
+        {/* Similar Products Section */}
+        {displaySimilar.length > 0 && (
+          <div className="space-y-6 pt-4 border-t border-emerald-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-widest text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                  Recommended For You
+                </span>
+                <h2 className="font-serif text-2xl sm:text-3xl font-extrabold text-foreground mt-2 flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-emerald-400" />
+                  Similar Organic Products
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {displaySimilar.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
