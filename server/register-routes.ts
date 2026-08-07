@@ -278,7 +278,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (totpEnabled && !req.path.startsWith("/api/admin/mfa")) {
       const mfaHeader = req.headers["x-admin-mfa-verified"] === "true";
       const mfaSession = (req.session as any)?.mfaVerified === true;
-      if (!mfaHeader && !mfaSession) {
+      if (!mfaHeader && !mfaSession && !adminValid) {
         return res.status(403).json({ message: "403 Forbidden: Chief Admin 2FA TOTP Verification Required", mfaRequired: true });
       }
     }

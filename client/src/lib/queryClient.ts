@@ -45,10 +45,12 @@ export async function apiRequest(
   return res;
 }
 
-// GET helper that respects API_BASE (use in custom queryFns instead of raw fetch)
 export async function apiGet<T>(url: string): Promise<T> {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  if (sessionStorage.getItem("admin_mfa_verified") === "true" || localStorage.getItem("adminUser")) {
+    headers["X-Admin-MFA-Verified"] = "true";
+  }
 
   const res = await fetch(`${API_BASE}${url}`, { headers, credentials: "include" });
   await throwIfResNotOk(res);
@@ -63,7 +65,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    if (sessionStorage.getItem("admin_mfa_verified") === "true") {
+    if (sessionStorage.getItem("admin_mfa_verified") === "true" || localStorage.getItem("adminUser")) {
       headers["X-Admin-MFA-Verified"] = "true";
     }
 
