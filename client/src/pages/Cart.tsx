@@ -89,9 +89,20 @@ export default function Cart() {
   const [referralValidated, setReferralValidated] = useState<string | null>(null);
   const [redeemReward, setRedeemReward] = useState(false);
 
+  const [deliveryRes, setDeliveryRes] = useState<any>(() => {
+    try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
+  });
+
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "");
+
+  useEffect(() => {
+    if (deliveryRes?.locationArea && !address) {
+      setAddress(deliveryRes.locationArea);
+    }
+  }, [deliveryRes]);
+
   const [city, setCity] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
 
@@ -227,7 +238,13 @@ export default function Cart() {
     onError: () => toast({ title: "Could not place order", description: "Please try again.", variant: "destructive" }),
   });
 
+  const isServiceable = !deliveryRes || deliveryRes.serviceable !== false;
+
   function handleCheckout() {
+    if (!isServiceable) {
+      toast({ title: "Delivery unavailable", description: "Your current location is not serviceable right now. Please change location to proceed.", variant: "destructive" });
+      return;
+    }
     if (!name.trim() || !phone.trim() || !address.trim()) {
       toast({ title: "Please fill all delivery details", variant: "destructive" });
       return;
@@ -379,30 +396,36 @@ export default function Cart() {
             <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
               <h2 className="font-semibold">Delivery details</h2>
 
-              {/* Warehouse Delivery Timing Breakdown Card */}
-              {(() => {
-                try {
-                  const res = JSON.parse(localStorage.getItem("deliveryResolution") || "null");
-                  if (res?.serviceable) {
-                    return (
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs space-y-1.5 shadow-sm">
-                        <div className="flex items-center justify-between font-bold text-emerald-400">
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                            {res.warehouseName || "Assigned Warehouse"}
-                          </span>
-                          <span className="text-emerald-300 font-extrabold">{res.etaMinutes} mins total</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 pt-1 text-muted-foreground border-t border-emerald-500/20">
-                          <div>📦 Packing: <span className="font-bold text-amber-300">{res.packingTimeMinutes || 30} mins</span></div>
-                          <div>🚚 Combined ETA: <span className="font-bold text-emerald-300">{res.etaMinutes} mins</span></div>
-                        </div>
-                      </div>
-                    );
-                  }
-                } catch {}
-                return null;
-              })()}
+              {/* Enhanced 3D Glass Delivery Breakdown Card */}
+              {deliveryRes && deliveryRes.serviceable !== false && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm shadow-lg backdrop-blur-md relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="flex items-center justify-between font-bold text-emerald-400 mb-2 relative z-10">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      🏢 {deliveryRes.warehouseName || "Assigned Warehouse"}
+                    </span>
+                    <span className="text-emerald-300 font-extrabold">⏱️ {deliveryRes.etaMinutes} mins</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 pt-2 text-emerald-200/80 border-t border-emerald-500/20 relative z-10 text-xs">
+                    <div>📍 Customer Area: <span className="font-medium text-emerald-100">{deliveryRes.locationArea || "Current Location"}</span></div>
+                    <div>⏱️ ETA Breakdown: <span className="font-medium text-emerald-100">{deliveryRes.packingTimeMinutes || 30}m packing + {deliveryRes.travelTimeMinutes || 0}m travel</span></div>
+                    <div>🚚 Delivery Fee: <span className="font-medium text-emerald-100">{quote && Number(quote.deliveryFee) > 0 ? formatINR(Number(quote.deliveryFee)) : "Free Delivery"}</span></div>
+                  </div>
+                </div>
+              )}
+              {/* Red Alert Card for Non-Serviceable Locations */}
+              {deliveryRes && deliveryRes.serviceable === false && (
+                <div className="rounded-2xl border border-red-500/40 bg-red-950/60 p-4 space-y-2 text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
+                  <div className="flex items-center gap-2 text-red-400 font-extrabold text-sm">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                    <span>Delivery Unavailable for this Location</span>
+                  </div>
+                  <p className="text-xs text-red-300">
+                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please change your pincode/GPS location in the top bar to place an order.
+                  </p>
+                </div>
+              )}
               <div>
                 <Label htmlFor="ck-name" className="text-xs">Full name</Label>
                 <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />
@@ -455,7 +478,7 @@ export default function Cart() {
                 </RadioGroup>
               </div>
 
-              <Button className="w-full" onClick={handleCheckout} disabled={placeOrder.isPending || initiatePayment.isPending} data-testid="button-place-order">
+              <Button className="w-full" onClick={handleCheckout} disabled={!isServiceable || placeOrder.isPending || initiatePayment.isPending} data-testid="button-place-order">
                 {placeOrder.isPending || initiatePayment.isPending ? "Placing order…" : `Place order · ${formatINR(displayTotal)}`}
               </Button>
               {!user && (
