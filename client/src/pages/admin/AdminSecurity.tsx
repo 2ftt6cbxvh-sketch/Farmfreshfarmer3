@@ -38,7 +38,7 @@ function ChiefAdminTotpCard() {
         <CardTitle className="flex items-center justify-between text-foreground font-serif">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <span>Chief Admin 2FA TOTP & Apple Passwords / Biometric Security</span>
+            <span>Chief Admin 2FA TOTP Security Layer</span>
           </div>
           {totpData?.enabled ? (
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">ACTIVE & PROTECTED</Badge>
@@ -49,32 +49,17 @@ function ChiefAdminTotpCard() {
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Enforce unbypassable 2FA verification for Chief Admin access. Compatible with <b>Apple Passwords</b> on Mac & iPhone, <b>Google Authenticator</b>, and 1Password.
+          Enforce unbypassable 2FA verification for Chief Admin access. Compatible with standard Authenticator Apps.
         </p>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/20 space-y-3">
-            <Label className="text-xs font-bold text-foreground">Option A: Apple Passwords Auto-Setup</Label>
-            <p className="text-[11px] text-muted-foreground">
-              Clicking below will launch Apple Passwords / Keychain to auto-bind 6-digit TOTP verification to your Mac Touch ID / iPhone Face ID.
-            </p>
-            <a
-              href={totpData?.uri || "#"}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition-all"
-            >
-              <span>🔑 Add Verification Code in Apple Passwords</span>
-            </a>
+        <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/20 space-y-3">
+          <Label className="text-xs font-bold text-foreground">TOTP Secret Key</Label>
+          <div className="p-2.5 rounded-xl bg-black/60 border border-card-border font-mono text-xs text-amber-400 tracking-widest select-all text-center">
+            {totpData?.secret || "GENERATING..."}
           </div>
-
-          <div className="p-4 rounded-2xl bg-secondary/30 border border-emerald-500/20 space-y-3">
-            <Label className="text-xs font-bold text-foreground">Option B: Manual TOTP Secret Key</Label>
-            <div className="p-2.5 rounded-xl bg-black/60 border border-card-border font-mono text-xs text-amber-400 tracking-widest select-all text-center">
-              {totpData?.secret || "GENERATING..."}
-            </div>
-            <p className="text-[10px] text-muted-foreground text-center">
-              Copy & paste this secret key into Apple Passwords or Authenticator App.
-            </p>
-          </div>
+          <p className="text-[10px] text-muted-foreground text-center">
+            Enter this secret key in your Authenticator App to generate 6-digit TOTP codes.
+          </p>
         </div>
 
         <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 space-y-4">

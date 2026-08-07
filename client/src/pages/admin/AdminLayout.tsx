@@ -173,7 +173,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="space-y-2">
             <h2 className="text-2xl font-serif font-bold text-white">Chief Admin 2FA Gateway</h2>
             <p className="text-xs text-gray-400">
-              Unbypassable 2FA Layer Active. Enter the 6-digit TOTP code from <b>Apple Passwords</b> or your Authenticator App.
+              Unbypassable 2FA Security Active. Enter your 6-digit TOTP authentication code.
             </p>
           </div>
 
@@ -236,7 +236,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v2.4.7
+              v2.4.8
             </span>
           </div>
         </div>
