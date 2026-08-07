@@ -10,7 +10,7 @@ export function Footer() {
         <div className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
             ["Farm Fresh", "Sourced daily from local farms"],
-            ["Instant Delivery", "Same-day in Visakhapatnam"],
+            ["Instant Delivery", "Same-day delivery"],
             ["Homemade", "Sweets & pickles made with love"],
             ["No Preservatives", "Pure, natural taste"],
           ].map(([t, d]) => (
@@ -26,7 +26,7 @@ export function Footer() {
         <div>
           <Logo />
           <p className="mt-4 text-sm text-sidebar-foreground/70 max-w-xs">
-            A new farm-fresh instant delivery business proudly serving Visakhapatnam, Andhra Pradesh.
+            A new farm-fresh instant delivery business proudly serving you.
           </p>
         </div>
 

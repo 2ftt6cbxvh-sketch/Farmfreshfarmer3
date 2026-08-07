@@ -153,6 +153,10 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   const whLng = parseFloat(warehouse.longitude);
   const distanceKm = Math.round(haversineDistanceKm(whLat, whLng, geo.lat, geo.lng) * 10) / 10;
 
+  if (distanceKm > 30) {
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Delivery available within 30km radius of active warehouse only (Distance: " + distanceKm + "km)" };
+  }
+
   // Calculate Travel Duration using Warehouse Rider Speed
   const speedKmph = parseFloat(warehouse.averageSpeedKmph) || 30;
   const travelTimeMinutes = distanceKm > 0 ? Math.ceil((distanceKm / speedKmph) * 60) : 0;
@@ -177,8 +181,8 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
 
 export async function resolveByCoords(lat: number, lng: number, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
   // Reverse lookup closest pincode and area from PINCODE_GEO_DB
-  let detectedPincode = "530017";
-  let detectedArea = "Visakhapatnam Area";
+  let detectedPincode = "";
+  let detectedArea = "";
   let minPinDist = Infinity;
 
   for (const [pin, info] of Object.entries(PINCODE_GEO_DB)) {
@@ -213,9 +217,9 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
   }
 
-  const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
-  const maxRange = rules.length > 0 ? Math.max(...rules.map((r) => parseFloat(r.maxDistanceKm))) : 100;
+  const maxRange = 30;
   if (minDistance > maxRange) {
+    const distanceKm = Math.round(minDistance * 10) / 10;
     await logResolution({ userId, latitude: lat, longitude: lng, serviceable: false, resolvedWarehouseId: nearestWarehouse.id });
     return {
       serviceable: false,
@@ -223,8 +227,8 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
       etaMinutes: 0,
       pincode: minPinDist < 50 ? detectedPincode : undefined,
       locationArea,
-      reason: "Distance exceeds maximum delivery radius",
-      distanceKm: Math.round(minDistance * 10) / 10
+      reason: "Delivery available within 30km radius of active warehouse only (Distance: " + distanceKm + "km)",
+      distanceKm
     };
   }
 

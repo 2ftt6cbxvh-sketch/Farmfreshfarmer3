@@ -31,16 +31,11 @@ export function useDelivery() {
       let pincode = '';
       if (geocode && geocode.length > 0) {
         const place = geocode[0];
-        if (place.country !== 'India' || place.postalCode === '94108') {
-          pincode = '530003';
-          locationArea = 'Visakhapatnam, Andhra Pradesh';
-        } else {
-          const cityStr = place.city || place.subregion || place.region;
-          const districtStr = place.district;
-          const parts = [cityStr, districtStr].filter(Boolean);
-          if (parts.length > 0) locationArea = parts.join(', ');
-          if (place.postalCode) pincode = place.postalCode;
-        }
+        const cityStr = place.city || place.subregion || place.region;
+        const districtStr = place.district;
+        const parts = [cityStr, districtStr].filter(Boolean);
+        if (parts.length > 0) locationArea = parts.join(', ');
+        if (place.postalCode) pincode = place.postalCode;
       }
 
       const res = await api.post('/api/delivery/resolve', {
@@ -80,7 +75,7 @@ export function useDelivery() {
     setIsLoading(true);
     try {
       const res = await api.post('/api/delivery/resolve', { pincode });
-      setResolution({ ...res.data, warehouseName: res.data.warehouseName || 'Visakhapatnam Hub' });
+      setResolution({ ...res.data, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
     } catch {
       // Pincode failed
     } finally {

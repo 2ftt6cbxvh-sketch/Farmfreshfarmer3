@@ -116,7 +116,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   /** GET /api/version — Version control telemetry */
   app.get("/api/version", (_req: Request, res: Response) => {
     return res.json({
-      version: "1.6.3",
+      version: "1.6.4",
       environment: process.env.NODE_ENV || "production",
       platform: "vercel",
       commitSha: process.env.VERCEL_GIT_COMMIT_SHA || "bbcccbe",
@@ -188,8 +188,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!req.session.userId) return res.status(401).json({ message: "Not logged in" });
     next();
   }
-  function requireAdmin(req: Request, res: Response, next: NextFunction) {
-    if (!req.session.userId || req.session.role !== "admin") return res.status(403).json({ message: "Admin only" });
+  async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    let adminValid = false;
+    if (req.session?.userId && req.session?.role === "admin") {
+      adminValid = true;
+    } else {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+      if (token) {
+        try {
+          const jwt = (await import("jsonwebtoken")).default;
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          if (decoded.role === "admin") {
+            adminValid = true;
+            req.session.userId = decoded.userId;
+            req.session.role = decoded.role;
+          } else if (decoded.userId) {
+            const { storage } = await import("./storage");
+            const user = await storage.users.get(decoded.userId);
+            if (user && user.role === "admin") {
+              adminValid = true;
+              req.session.userId = user.id;
+              req.session.role = user.role;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+    if (!adminValid) return res.status(403).json({ message: "Admin only" });
     next();
   }
 

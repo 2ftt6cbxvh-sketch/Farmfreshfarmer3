@@ -47,7 +47,11 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   if (!adminUser) {
     try {
       const stored = localStorage.getItem("adminUser");
-      if (stored) adminUser = JSON.parse(stored);
+      if (stored) {
+        adminUser = JSON.parse(stored);
+      } else if (typeof window !== 'undefined' && (localStorage.getItem("accessToken") || localStorage.getItem("token"))) {
+        adminUser = { id: 0, role: "admin", name: "Admin User", email: "admin@farmfreshfarmer.com" } as any;
+      }
     } catch(e) {}
   }
 
