@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
+  Shield, Warehouse, Truck,
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -30,6 +31,9 @@ const NAV = [
   ]},
   { section: "System", items: [
     { href: "/admin/settings", label: "Settings", icon: Settings },
+    { href: "/admin/security", label: "Security", icon: Shield },
+    { href: "/admin/warehouses", label: "Warehouses", icon: Warehouse },
+    { href: "/admin/delivery", label: "Delivery & Geo", icon: Truck },
   ]},
 ];
 
@@ -103,7 +107,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <button onClick={async () => { await logout(); navigate("/admin"); }} className="text-sm whitespace-nowrap px-2 py-1">Log out</button>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
+        <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden animate-page-enter-3d">
           <h1 className="font-serif text-xl font-bold mb-6">{title}</h1>
           {children}
         </main>

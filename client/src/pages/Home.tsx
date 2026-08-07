@@ -1,10 +1,12 @@
+import { useState, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, imgUrl } from "@/lib/queryClient";
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, Star, ShieldCheck, Zap, Package, Sparkles, ChevronRight, Award, Truck, HeartHandshake, Leaf } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { ProductCard } from "@/components/ProductCard";
 import { DietDot } from "@/components/DietDot";
+import { TiltCard } from "@/components/TiltCard";
 import type { Category, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -22,96 +24,291 @@ const CAT_IMAGES: Record<string, string> = {
 
 export default function Home() {
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
-  const { data: featured = [], isLoading } = useQuery<Product[]>({ queryKey: ["/api/products", "featured"], queryFn: () => apiGet<Product[]>("/api/products?featured=1") });
+  const { data: featured = [], isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products", "featured"],
+    queryFn: () => apiGet<Product[]>("/api/products?featured=1"),
+  });
+
+  // Dynamic Site Text & Badges Query
+  const { data: siteTextData } = useQuery({
+    queryKey: ["/api/content/site-text"],
+    queryFn: async () => {
+      const res = await fetch("/api/content/site-text");
+      return res.json();
+    },
+  });
+
+  const txt: Record<string, string> = siteTextData?.textMap || {};
+
+  // 3D Parallax Mouse Tracking State
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  const handleHeroMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 35;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 35;
+    setParallax({ x, y });
+  };
+
+  const handleHeroMouseLeave = () => {
+    setParallax({ x: 0, y: 0 });
+  };
 
   return (
     <Layout>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-secondary">
-        <img src={imgUrl("/images/hero.jpg")} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-transparent" />
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-24 max-w-full">
-          <div className="max-w-xl">
-            <span className="inline-block rounded-full bg-accent/20 text-accent-foreground text-xs font-semibold px-3 py-1 mb-4">
-              Now delivering in Visakhapatnam
-            </span>
-            <h1 className="font-serif text-4xl sm:text-5xl font-bold leading-tight text-foreground">
-              Fresh from the farm, <span className="text-primary">straight to your door</span>
+      {/* 3D Interactive Parallax Hero Section */}
+      <section
+        ref={heroRef}
+        onMouseMove={handleHeroMouseMove}
+        onMouseLeave={handleHeroMouseLeave}
+        className="relative overflow-hidden bg-gradient-to-b from-emerald-500/10 via-background to-background py-16 sm:py-24 border-b border-emerald-500/15 perspective-1000"
+      >
+        {/* Parallax Background Glowing Spheres */}
+        <div
+          className="pointer-events-none absolute -top-32 -left-32 w-[30rem] h-[30rem] rounded-full bg-emerald-500/15 blur-[120px] transition-transform duration-300 ease-out"
+          style={{ transform: `translate3d(${parallax.x * -1.4}px, ${parallax.y * -1.4}px, 0px)` }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 -right-32 w-[30rem] h-[30rem] rounded-full bg-amber-500/15 blur-[120px] transition-transform duration-300 ease-out"
+          style={{ transform: `translate3d(${parallax.x * 1.6}px, ${parallax.y * 1.6}px, 0px)` }}
+        />
+
+        <div className="relative mx-auto max-w-7xl px-4 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Hero Left Content */}
+          <div
+            className="lg:col-span-7 space-y-6 transition-transform duration-200 ease-out"
+            style={{ transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0px)` }}
+          >
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-black px-4 py-1.5 shadow-sm backdrop-blur-md">
+              <Sparkles size={14} className="text-amber-500 animate-pulse" />
+              <span>{txt.hero_badge_text || "Visakhapatnam's #1 Instant Organic Farm Delivery"}</span>
+            </div>
+
+            <h1 className="font-serif text-4xl sm:text-6xl font-extrabold leading-[1.1] text-foreground tracking-tight">
+              {txt.hero_headline_text || "Fresh from local farms, delivered straight to your doorstep."}
             </h1>
-            <p className="mt-4 text-base text-muted-foreground max-w-md">
-              Fruits, vegetables, homemade sweets, namkeen, pickles, millets, pulses & spices — instant delivery, naturally fresh.
+
+            <p className="text-base sm:text-lg text-muted-foreground max-w-xl leading-relaxed font-medium">
+              {txt.hero_subtitle_text || "Hand-picked organic fruits, vine-ripened vegetables, authentic ghee sweets, traditional Andhra pickles, millets & spices."}
             </p>
-            <div className="mt-6 flex gap-3">
-              <Link href="/category/fruits" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover-elevate" data-testid="button-shop-now">
-                Shop now <ArrowRight size={16} />
+
+            <div className="flex flex-wrap gap-4 pt-2">
+              <Link
+                href="/category/fruits"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-8 py-4 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300"
+                data-testid="button-shop-now"
+              >
+                Explore Categories <ArrowRight size={18} />
               </Link>
             </div>
+
+            {/* Floating 3D Trust Badges */}
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-emerald-500/20">
+              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
+                <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-foreground leading-tight">100% Naturally Grown</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
+                <Zap size={20} className="text-amber-500 shrink-0" />
+                <span className="text-xs font-bold text-foreground leading-tight">Instant Delivery ETA</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
+                <Package size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-foreground leading-tight">Zero Preservatives</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Right Interactive 3D Card Stack */}
+          <div
+            className="lg:col-span-5 transition-transform duration-200 ease-out"
+            style={{ transform: `translate3d(${parallax.x * -0.5}px, ${parallax.y * -0.5}px, 0px)` }}
+          >
+            <TiltCard maxTilt={12} perspective={1200}>
+              <div className="relative rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-card via-card/90 to-card/95 p-4 shadow-2xl overflow-hidden group">
+                <img
+                  src="/images/p-mango.jpg"
+                  alt="Organic Harvest"
+                  className="w-full h-80 sm:h-96 rounded-2xl object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+
+                <div className="absolute top-8 left-8 bg-card/90 backdrop-blur-xl border border-emerald-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Leaf size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-foreground">Direct Farm Harvest</p>
+                    <p className="text-[10px] text-muted-foreground">Picked this morning</p>
+                  </div>
+                </div>
+
+                <div className="absolute bottom-8 right-8 bg-card/90 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-foreground">Express Delivery</p>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Combined ETA calculated live</p>
+                  </div>
+                </div>
+              </div>
+            </TiltCard>
           </div>
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="mx-auto max-w-7xl px-4 py-12">
-        <div className="text-center mb-8">
-          <h2 className="font-serif text-2xl sm:text-3xl font-bold">Shop by category</h2>
-          <p className="text-muted-foreground text-sm mt-1">Everything fresh, all in one place</p>
+      {/* 3D Glassmorphic Category Showcase */}
+      <section className="mx-auto max-w-7xl px-4 py-16">
+        <div className="text-center space-y-2 mb-12">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30">
+            Curated Categories
+          </span>
+          <h2 className="font-serif text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+            Explore Our Organic Harvest
+          </h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6">
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/category/${c.slug}`}
-              className="group flex flex-col items-center text-center rounded-xl border border-card-border bg-card p-4 hover-elevate"
-              data-testid={`category-card-${c.slug}`}
-            >
-              <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-accent/20">
-                <img
-                  src={imgUrl(CAT_IMAGES[c.slug] || "")}
-                  alt={c.name}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="mt-3 flex items-center gap-1.5">
-                <h3 className="font-semibold text-sm sm:text-base">{c.name}</h3>
-                <DietDot tag={c.dietTag} size={13} />
-              </div>
-            </Link>
+            <TiltCard key={c.slug} maxTilt={10} perspective={1000}>
+              <Link
+                href={`/category/${c.slug}`}
+                className="group relative flex flex-col items-center text-center p-6 rounded-3xl border border-emerald-500/20 bg-card hover:bg-card/95 shadow-md hover:shadow-xl transition-all duration-300"
+                data-testid={`card-category-${c.slug}`}
+              >
+                <div className="relative w-28 h-28 rounded-full overflow-hidden mb-4 border-2 border-emerald-500/30 group-hover:border-primary transition-colors p-1 bg-gradient-to-b from-emerald-500/20 to-transparent">
+                  <img
+                    src={CAT_IMAGES[c.slug] || imgUrl(c.image)}
+                    alt={c.name}
+                    className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-115"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-serif text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                    {c.name}
+                  </h3>
+                  <DietDot tag={c.dietTag} size={15} />
+                </div>
+
+                <div className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                  <span>Browse Products</span>
+                  <ChevronRight size={14} />
+                </div>
+              </Link>
+            </TiltCard>
           ))}
         </div>
       </section>
 
-      {/* Featured products */}
-      <section className="mx-auto max-w-7xl px-4 py-8">
-        <div className="flex items-end justify-between mb-6">
-          <h2 className="font-serif text-2xl sm:text-3xl font-bold">Fresh picks for you</h2>
+      {/* Featured Products Section */}
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <div className="flex items-end justify-between mb-8 border-b border-emerald-500/20 pb-4">
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30">
+              Peak Season Favorites
+            </span>
+            <h2 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-2">
+              Fresh Picks for You
+            </h2>
+          </div>
         </div>
+
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-88 rounded-3xl" />
+            ))}
           </div>
         ) : featured.length === 0 ? (
           <p className="text-muted-foreground text-sm">No featured products yet.</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {featured.map((p) => <ProductCard key={p.id} product={p} />)}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {featured.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </div>
         )}
       </section>
 
-      {/* Story */}
-      <section className="bg-secondary/50 py-12">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="font-serif text-2xl font-bold">Our story</h2>
-          <p className="mt-3 text-muted-foreground">
-            FarmFreshFarmer is a brand-new business born in Visakhapatnam with a simple promise: get the freshest produce,
-            authentic homemade sweets, and traditional pickles from local farms and kitchens to your home — fast.
-            Every order is hand-picked and delivered with care.
-          </p>
-          <div className="mt-6 flex justify-center gap-1 text-accent">
-            {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={18} fill="currentColor" />)}
+      {/* 3D Glass Bento Grid Section — Our Farm-to-Home Promise */}
+      <section className="mx-auto max-w-7xl px-4 py-16">
+        <div className="rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl p-8 sm:p-14 shadow-2xl relative overflow-hidden">
+          {/* Subtle Glow Spheres */}
+          <div className="pointer-events-none absolute -top-20 -right-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-[90px]" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-amber-500/10 blur-[90px]" />
+
+          <div className="text-center space-y-3 max-w-2xl mx-auto mb-12 relative z-10">
+            <span className="text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 px-4 py-1.5 rounded-full border border-emerald-500/30">
+              {txt.promise_badge_text || "Visakhapatnam Farm to Fork"}
+            </span>
+            <h2 className="font-serif text-3xl sm:text-5xl font-extrabold text-foreground">
+              {txt.promise_title_text || "Our Farm-to-Home Promise"}
+            </h2>
+            <p className="text-muted-foreground text-sm sm:text-base font-medium">
+              {txt.promise_desc_text || "Connecting households directly with local organic farms and authentic Andhra kitchens. Zero chemicals, zero artificial ripening, and instant delivery right when you need it."}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Loved by our first customers in Vizag</p>
+
+          {/* Interactive 3D Bento Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
+            <TiltCard maxTilt={8} perspective={1000}>
+              <div className="h-full p-6 rounded-2xl border border-emerald-500/20 bg-secondary/40 hover:bg-secondary/70 backdrop-blur-md transition-all shadow-md hover:shadow-xl space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Leaf size={24} />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-foreground">{txt.promise_card1_title || "100% Organic"}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {txt.promise_card1_desc || "Sourced daily from certified local organic farms in Andhra Pradesh with zero chemical pesticides."}
+                </p>
+              </div>
+            </TiltCard>
+
+            <TiltCard maxTilt={8} perspective={1000}>
+              <div className="h-full p-6 rounded-2xl border border-emerald-500/20 bg-secondary/40 hover:bg-secondary/70 backdrop-blur-md transition-all shadow-md hover:shadow-xl space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <Truck size={24} />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-foreground">{txt.promise_card2_title || "Combined ETA"}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {txt.promise_card2_desc || "Haversine distance transit calculation + warehouse packing mins returned live for your PIN code."}
+                </p>
+              </div>
+            </TiltCard>
+
+            <TiltCard maxTilt={8} perspective={1000}>
+              <div className="h-full p-6 rounded-2xl border border-emerald-500/20 bg-secondary/40 hover:bg-secondary/70 backdrop-blur-md transition-all shadow-md hover:shadow-xl space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <HeartHandshake size={24} />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-foreground">{txt.promise_card3_title || "Authentic Recipes"}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {txt.promise_card3_desc || "Handcrafted ghee boondi laddus, spicy avakaya pickles, and namkeen made in small traditional batches."}
+                </p>
+              </div>
+            </TiltCard>
+
+            <TiltCard maxTilt={8} perspective={1000}>
+              <div className="h-full p-6 rounded-2xl border border-emerald-500/20 bg-secondary/40 hover:bg-secondary/70 backdrop-blur-md transition-all shadow-md hover:shadow-xl space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <Award size={24} />
+                </div>
+                <h3 className="font-serif text-lg font-bold text-foreground">{txt.promise_card4_title || "Rated 4.9/5 Stars"}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {txt.promise_card4_desc || "Trusted by 1,200+ households across Visakhapatnam and Vijayawada."}
+                </p>
+              </div>
+            </TiltCard>
+          </div>
+
+          <div className="flex items-center justify-center gap-1 text-amber-400 pt-8 relative z-10">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} size={22} fill="currentColor" />
+            ))}
+            <span className="text-xs font-black text-foreground ml-2">Rated 4.9/5 by 1,200+ Households</span>
+          </div>
         </div>
       </section>
     </Layout>

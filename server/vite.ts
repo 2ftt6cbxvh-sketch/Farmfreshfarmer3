@@ -1,18 +1,24 @@
-import type { Express } from 'express';
+import type { Express } from "express";
 import { createServer as createViteServer, createLogger } from "vite";
-import type { Server } from 'node:http';
+import type { Server } from "node:http";
 import viteConfig from "../vite.config";
 import fs from "node:fs";
 import path from "node:path";
-import { nanoid } from "nanoid";
+import { fileURLToPath } from "node:url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const viteLogger = createLogger();
 
 export async function setupVite(server: Server, app: Express) {
   const serverOptions = {
+    ...viteConfig.server,
     middlewareMode: true,
     hmr: { server, path: "/vite-hmr" },
     allowedHosts: true as const,
+    fs: {
+      strict: false,
+      allow: [path.resolve(__dirname, "..")],
+    },
   };
 
   const vite = await createViteServer({
@@ -29,25 +35,23 @@ export async function setupVite(server: Server, app: Express) {
     appType: "custom",
   });
 
-  app.use(vite.middlewares);
-
-  app.use("/{*path}", async (req, res, next) => {
+  // Handle HTML document requests FIRST before vite.middlewares directory checks
+  app.use(async (req, res, next) => {
     const url = req.originalUrl;
+    if (
+      url.startsWith("/api") ||
+      url.startsWith("/health") ||
+      url.startsWith("/src") ||
+      url.startsWith("/@") ||
+      url.startsWith("/node_modules") ||
+      url.includes(".")
+    ) {
+      return next();
+    }
 
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
-
-      // always reload the index.html file from disk incase it changes
+      const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -55,4 +59,6 @@ export async function setupVite(server: Server, app: Express) {
       next(e);
     }
   });
+
+  app.use(vite.middlewares);
 }

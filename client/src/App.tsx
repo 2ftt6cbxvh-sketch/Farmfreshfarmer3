@@ -5,6 +5,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, CartProvider } from "@/lib/store";
+import { useEffect, useState } from "react";
+import DeliveryBanner from "@/components/DeliveryBanner";
+import LockdownOverlay from "@/components/LockdownOverlay";
+import { ThemeProvider } from "@/lib/theme-provider";
 
 import Home from "@/pages/Home";
 import Category from "@/pages/Category";
@@ -32,6 +36,12 @@ import AdminDiscounts from "@/pages/admin/AdminDiscounts";
 import AdminReferrals from "@/pages/admin/AdminReferrals";
 import AdminPayments from "@/pages/admin/AdminPayments";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminSecurity from "@/pages/admin/AdminSecurity";
+import AdminWarehouses from "@/pages/admin/AdminWarehouses";
+import AdminDelivery from "@/pages/admin/AdminDelivery";
+import AdminLogin from "@/pages/admin/AdminLogin";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
 
 function AppRouter() {
@@ -43,6 +53,7 @@ function AppRouter() {
       <Route path="/product/:id" component={ProductDetail} />
       <Route path="/cart" component={Cart} />
       <Route path="/login" component={Login} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/orders" component={Orders} />
       <Route path="/payment/simulate" component={PaymentSimulate} />
       <Route path="/payment/callback" component={PaymentCallback} />
@@ -54,6 +65,7 @@ function AppRouter() {
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/refund-policy" component={RefundPage} />
       <Route path="/shipping-policy" component={ShippingPage} />
+      <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/admin/categories" component={AdminCategories} />
@@ -66,6 +78,10 @@ function AppRouter() {
       <Route path="/admin/discounts" component={AdminDiscounts} />
       <Route path="/admin/referrals" component={AdminReferrals} />
       <Route path="/admin/payments" component={AdminPayments} />
+      <Route path="/admin/security" component={AdminSecurity} />
+      <Route path="/admin/warehouses" component={AdminWarehouses} />
+      <Route path="/admin/delivery" component={AdminDelivery} />
+      <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
@@ -73,19 +89,52 @@ function AppRouter() {
 }
 
 function App() {
+  const [lockdownActive, setLockdownActive] = useState(false);
+  const [lockdownReason, setLockdownReason] = useState("");
+
+  useEffect(() => {
+    const checkLockdown = async () => {
+      try {
+        const res = await fetch("/api/delivery/status");
+        if (res.status === 423) {
+          const data = await res.json();
+          setLockdownActive(true);
+          setLockdownReason(data.reason || "");
+        } else if (res.ok) {
+          const data = await res.json();
+          if (data.lockdown?.active) {
+            setLockdownActive(true);
+            setLockdownReason(data.lockdown.reason || "");
+          } else {
+            setLockdownActive(false);
+          }
+        }
+      } catch {
+        // ignore network errors
+      }
+    };
+    checkLockdown();
+    const interval = setInterval(checkLockdown, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <CartProvider>
-            <Toaster />
-            <Router hook={useHashLocation}>
-              <AppRouter />
-            </Router>
-          </CartProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="system">
+      <QueryClientProvider client={queryClient}>
+        <LockdownOverlay active={lockdownActive} reason={lockdownReason} />
+        <TooltipProvider>
+          <AuthProvider>
+            <CartProvider>
+              <Toaster />
+              <Router hook={useHashLocation}>
+                <DeliveryBanner />
+                <AppRouter />
+              </Router>
+            </CartProvider>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

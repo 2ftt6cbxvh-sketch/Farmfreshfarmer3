@@ -242,13 +242,28 @@ export default function Cart() {
   if (items.length === 0) {
     return (
       <Layout>
-        <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-          <ShoppingBag className="mx-auto text-muted-foreground" size={48} />
-          <h1 className="font-serif text-2xl font-bold mt-4">Your cart is empty</h1>
-          <p className="text-muted-foreground mt-2">Add some fresh items to get started.</p>
-          <Link href="/" className="inline-block mt-6 rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover-elevate" data-testid="link-continue-shopping">
-            Continue shopping
-          </Link>
+        <div className="mx-auto max-w-3xl px-4 py-24 text-center space-y-6">
+          <div className="relative inline-flex items-center justify-center">
+            <div className="w-24 h-24 rounded-full bg-primary/10 animate-ping absolute" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary/20 to-accent/20 flex items-center justify-center text-primary shadow-xl border border-primary/30 relative z-10">
+              <ShoppingBag size={44} className="text-primary animate-bounce" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-serif text-3xl font-bold">Your Farm-Fresh Cart is Empty</h1>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+              You haven't added any fresh fruits, sweets, or pickles to your basket yet. Start exploring our daily harvest!
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-8 py-3.5 text-sm font-semibold shadow-lg hover:shadow-primary/30 hover:scale-105 transition-all duration-300"
+              data-testid="link-continue-shopping"
+            >
+              Start Shopping Now
+            </Link>
+          </div>
         </div>
       </Layout>
     );
@@ -363,6 +378,31 @@ export default function Cart() {
 
             <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
               <h2 className="font-semibold">Delivery details</h2>
+
+              {/* Warehouse Delivery Timing Breakdown Card */}
+              {(() => {
+                try {
+                  const res = JSON.parse(localStorage.getItem("deliveryResolution") || "null");
+                  if (res?.serviceable) {
+                    return (
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-xs space-y-1.5 shadow-sm">
+                        <div className="flex items-center justify-between font-bold text-emerald-400">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                            {res.warehouseName || "Assigned Warehouse"}
+                          </span>
+                          <span className="text-emerald-300 font-extrabold">{res.etaMinutes} mins total</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-muted-foreground border-t border-emerald-500/20">
+                          <div>📦 Packing: <span className="font-bold text-amber-300">{res.packingTimeMinutes || 30} mins</span></div>
+                          <div>🚚 Combined ETA: <span className="font-bold text-emerald-300">{res.etaMinutes} mins</span></div>
+                        </div>
+                      </div>
+                    );
+                  }
+                } catch {}
+                return null;
+              })()}
               <div>
                 <Label htmlFor="ck-name" className="text-xs">Full name</Label>
                 <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />

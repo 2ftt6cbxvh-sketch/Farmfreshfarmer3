@@ -1,14 +1,16 @@
 /**
  * PostgreSQL connection (Drizzle ORM + node-postgres Pool).
  * =========================================================
- * Uses DATABASE_URL from the environment (local Postgres or AWS RDS).
+ * Supports both:
+ *   - Neon serverless PostgreSQL (neon.tech) — recommended for Vercel
+ *   - Standard PostgreSQL (local / AWS RDS)
  *
  * Example DATABASE_URL values:
+ *   Neon:   postgres://user:pass@host.neon.tech/farmfreshfarmer?sslmode=require
  *   Local:  postgres://postgres:postgres@localhost:5432/farmfreshfarmer
  *   AWS RDS: postgres://USER:PASSWORD@your-db.xxxxx.ap-south-1.rds.amazonaws.com:5432/farmfreshfarmer
  *
- * SSL: RDS requires SSL. Set PGSSL=true (or DATABASE_URL with sslmode=require)
- * and we enable a relaxed SSL mode suitable for RDS's default certs.
+ * SSL: Neon and RDS require SSL. Auto-detected from connection string.
  */
 import "dotenv/config";
 import pg from "pg";
@@ -24,17 +26,21 @@ if (!connectionString) {
   );
 }
 
-// Enable SSL when talking to RDS / any managed Postgres.
-// PGSSL=true forces it; otherwise auto-enable when the host is an AWS RDS endpoint.
+// Enable SSL for Neon, RDS, or explicit sslmode=require
 const wantSsl =
   process.env.PGSSL === "true" ||
   /sslmode=require/i.test(connectionString) ||
-  /\.rds\.amazonaws\.com/i.test(connectionString);
+  /\.rds\.amazonaws\.com/i.test(connectionString) ||
+  /neon\.tech/i.test(connectionString);
 
 export const pool = new Pool({
   connectionString,
   ssl: wantSsl ? { rejectUnauthorized: false } : undefined,
-  max: Number(process.env.PG_POOL_MAX || 10),
+  // Neon serverless: keep pool small to avoid connection limits
+  max: Number(process.env.PG_POOL_MAX || (/neon\.tech/i.test(connectionString) ? 3 : 10)),
+  // Neon serverless: shorter idle timeout
+  idleTimeoutMillis: /neon\.tech/i.test(connectionString) ? 10000 : 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 export const db = drizzle(pool, { schema });
@@ -48,3 +54,7 @@ export async function pingDb(): Promise<boolean> {
     return false;
   }
 }
+
+/** Graceful shutdown — close pool on process exit. */
+process.on("SIGTERM", () => pool.end());
+process.on("SIGINT", () => pool.end());

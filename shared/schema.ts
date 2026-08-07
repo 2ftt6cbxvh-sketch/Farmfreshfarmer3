@@ -495,7 +495,7 @@ export const payments = pgTable("payments", {
   orderId: integer("order_id").references(() => orders.id, { onDelete: "set null" }),
   subscriptionCycleId: integer("subscription_cycle_id"),
   userId: integer("user_id"),
-  provider: varchar("provider", { length: 24 }).notNull().default("phonepe"), // phonepe | cod
+  provider: varchar("provider", { length: 24 }).notNull().default("phonepe"), // phonepe | razorpay | stripe | cod
   merchantOrderId: varchar("merchant_order_id", { length: 128 }).notNull().unique(), // our unique id sent to PhonePe
   providerTransactionId: varchar("provider_transaction_id", { length: 128 }), // PhonePe transactionId
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
@@ -541,3 +541,197 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
 });
 export type Setting = typeof settings.$inferSelect;
+
+/* ========================= REFRESH TOKENS (JWT) =================== */
+export const refreshTokens = pgTable("refresh_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  deviceId: varchar("device_id", { length: 255 }),
+  platform: varchar("platform", { length: 16 }).notNull().default("web"), // web | ios | android
+  ipAtIssue: varchar("ip_at_issue", { length: 64 }),
+  userAgent: text("user_agent"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("refresh_tokens_user_idx").on(t.userId),
+  hashIdx: index("refresh_tokens_hash_idx").on(t.tokenHash),
+}));
+export type RefreshToken = typeof refreshTokens.$inferSelect;
+
+/* ========================= OAUTH ACCOUNTS ========================= */
+export const oauthAccounts = pgTable("oauth_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { length: 32 }).notNull().default("google"), // google
+  providerUserId: varchar("provider_user_id", { length: 255 }).notNull(),
+  providerEmail: varchar("provider_email", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  providerIdx: uniqueIndex("oauth_accounts_provider_idx").on(t.provider, t.providerUserId),
+  userIdx: index("oauth_accounts_user_idx").on(t.userId),
+}));
+export type OauthAccount = typeof oauthAccounts.$inferSelect;
+
+/* ====================== DEVICE FINGERPRINTS ====================== */
+export const deviceFingerprints = pgTable("device_fingerprints", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  deviceHash: varchar("device_hash", { length: 255 }).notNull(),
+  platform: varchar("platform", { length: 16 }).notNull().default("web"), // web | ios | android
+  trusted: boolean("trusted").notNull().default(false),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("device_fingerprints_user_idx").on(t.userId),
+  hashIdx: index("device_fingerprints_hash_idx").on(t.deviceHash),
+}));
+export type DeviceFingerprint = typeof deviceFingerprints.$inferSelect;
+
+/* ===================== SECURITY AUDIT LOGS ======================= */
+export const securityAuditLogs = pgTable("security_audit_logs", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 64 }).notNull(), // login_success | login_failed | logout | token_refresh | rate_limit_trigger | lockdown_on | lockdown_off | google_login | otp_sent | otp_verified | session_revoked
+  userId: integer("user_id"),
+  ip: varchar("ip", { length: 64 }),
+  platform: varchar("platform", { length: 16 }).default("web"),
+  deviceHash: varchar("device_hash", { length: 255 }),
+  userAgent: text("user_agent"),
+  locationInfo: jsonb("location_info"), // { city, region, country } if available
+  actionTaken: text("action_taken"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  eventIdx: index("security_audit_logs_event_idx").on(t.eventType),
+  userIdx: index("security_audit_logs_user_idx").on(t.userId),
+  createdIdx: index("security_audit_logs_created_idx").on(t.createdAt),
+}));
+export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
+
+/* ============================ OTP CODES ========================== */
+export const otpCodes = pgTable("otp_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  codeHash: text("code_hash").notNull(), // bcrypt hash of 6-digit code
+  purpose: varchar("purpose", { length: 32 }).notNull().default("verify"), // verify | login | reset
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("otp_codes_user_idx").on(t.userId),
+}));
+export type OtpCode = typeof otpCodes.$inferSelect;
+
+/* ============================ WAREHOUSES ========================= */
+export const warehouses = pgTable("warehouses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
+  averageSpeedKmph: numeric("average_speed_kmph", { precision: 5, scale: 2 }).notNull().default("30"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const insertWarehouseSchema = createInsertSchema(warehouses, {
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  averageSpeedKmph: z.coerce.number().min(1).max(200).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertWarehouse = z.infer<typeof insertWarehouseSchema>;
+export type Warehouse = typeof warehouses.$inferSelect;
+
+/* ======================== WAREHOUSE PINCODES ===================== */
+export const warehousePincodes = pgTable("warehouse_pincodes", {
+  id: serial("id").primaryKey(),
+  warehouseId: integer("warehouse_id").notNull().references(() => warehouses.id, { onDelete: "cascade" }),
+  pincode: varchar("pincode", { length: 12 }).notNull(),
+  packingTimeMinutes: integer("packing_time_minutes").notNull().default(30),
+  active: boolean("active").notNull().default(true),
+}, (t) => ({
+  warehouseIdx: index("warehouse_pincodes_warehouse_idx").on(t.warehouseId),
+  pincodeIdx: index("warehouse_pincodes_pincode_idx").on(t.pincode),
+}));
+export const insertWarehousePincodeSchema = createInsertSchema(warehousePincodes, {
+  packingTimeMinutes: z.coerce.number().int().min(0).optional(),
+}).omit({ id: true });
+export type InsertWarehousePincode = z.infer<typeof insertWarehousePincodeSchema>;
+export type WarehousePincode = typeof warehousePincodes.$inferSelect;
+
+/* ====================== DELIVERY FEE RULES ======================= */
+export const deliveryFeeRules = pgTable("delivery_fee_rules", {
+  id: serial("id").primaryKey(),
+  minDistanceKm: numeric("min_distance_km", { precision: 8, scale: 2 }).notNull().default("0"),
+  maxDistanceKm: numeric("max_distance_km", { precision: 8, scale: 2 }).notNull(),
+  baseFee: numeric("base_fee", { precision: 10, scale: 2 }).notNull().default("0"),
+  perKmFee: numeric("per_km_fee", { precision: 8, scale: 2 }).notNull().default("0"),
+  maxFeeCap: numeric("max_fee_cap", { precision: 10, scale: 2 }),
+  freeDeliveryAboveOrderValue: numeric("free_delivery_above_order_value", { precision: 10, scale: 2 }),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const insertDeliveryFeeRuleSchema = createInsertSchema(deliveryFeeRules, {
+  minDistanceKm: z.coerce.number().min(0).optional(),
+  maxDistanceKm: z.coerce.number().min(0),
+  baseFee: z.coerce.number().min(0).optional(),
+  perKmFee: z.coerce.number().min(0).optional(),
+  maxFeeCap: z.coerce.number().min(0).optional(),
+  freeDeliveryAboveOrderValue: z.coerce.number().min(0).optional(),
+}).omit({ id: true, createdAt: true });
+export type InsertDeliveryFeeRule = z.infer<typeof insertDeliveryFeeRuleSchema>;
+export type DeliveryFeeRule = typeof deliveryFeeRules.$inferSelect;
+
+/* ====================== DELIVERY SETTINGS ======================== */
+export const deliverySettings = pgTable("delivery_settings", {
+  id: serial("id").primaryKey(),
+  featureEnabled: boolean("feature_enabled").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type DeliverySetting = typeof deliverySettings.$inferSelect;
+
+/* =================== CUSTOMER LOCATION LOGS ==================== */
+export const customerLocationLogs = pgTable("customer_location_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
+  pincode: varchar("pincode", { length: 12 }),
+  source: varchar("source", { length: 16 }).notNull().default("manual"), // gps | manual
+  resolvedWarehouseId: integer("resolved_warehouse_id"),
+  calculatedFee: numeric("calculated_fee", { precision: 10, scale: 2 }),
+  calculatedTimeMinutes: integer("calculated_time_minutes"),
+  serviceable: boolean("serviceable").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("customer_location_logs_user_idx").on(t.userId),
+  pincodeIdx: index("customer_location_logs_pincode_idx").on(t.pincode),
+  createdIdx: index("customer_location_logs_created_idx").on(t.createdAt),
+}));
+export type CustomerLocationLog = typeof customerLocationLogs.$inferSelect;
+
+/* ===================== GEOFENCE COUNTRIES ======================== */
+export const geofenceCountries = pgTable("geofence_countries", {
+  id: serial("id").primaryKey(),
+  countryCode: varchar("country_code", { length: 4 }).notNull().unique(), // ISO 2 or 3
+  countryName: varchar("country_name", { length: 128 }).notNull().default(""),
+  allowed: boolean("allowed").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  codeIdx: uniqueIndex("geofence_countries_code_idx").on(t.countryCode),
+}));
+export type GeofenceCountry = typeof geofenceCountries.$inferSelect;
+
+/* ======================= LOCKDOWN STATE ========================= */
+// Single-row table (id=1 always). Use upsert to toggle.
+export const lockdownState = pgTable("lockdown_state", {
+  id: serial("id").primaryKey(),
+  active: boolean("active").notNull().default(false),
+  reason: text("reason").notNull().default(""),
+  activatedBy: integer("activated_by"), // admin user id
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type LockdownState = typeof lockdownState.$inferSelect;

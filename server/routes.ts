@@ -41,6 +41,27 @@ import {
   handleWebhook, verifyWebhookAuth, isPhonePeConfigured,
 } from "./services/phonepe";
 
+import { registerAuthJwtRoutes } from "./routes/auth-jwt";
+import { registerDeliveryRoutes } from "./routes/delivery";
+import { registerPasswordResetRoutes } from "./routes/password-reset";
+import { registerSearchRoutes } from "./routes/search";
+import { registerCartRoutes } from "./routes/cart";
+import { authRateLimit, apiRateLimit } from "./middleware/rate-limit";
+import { lockdownMiddleware } from "./services/lockdown";
+import { processTelegramWebhook } from "./services/telegram";
+import { registerAdminSecurityRoutes } from "./routes/admin/security";
+import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
+import { registerAdminDeliveryRoutes } from "./routes/admin/delivery-admin";
+import { registerAdminContentRoutes } from "./routes/admin/content";
+import {
+  createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
+  initiateRazorpayRefund, isRazorpayConfigured,
+} from "./services/razorpay";
+import {
+  createPaymentIntent, retrievePaymentIntent, createStripeRefund,
+  verifyStripeWebhook, isStripeConfigured,
+} from "./services/stripe";
+
 // Session typing
 declare module "express-session" {
   interface SessionData {
@@ -72,6 +93,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Behind the Elastic Beanstalk load balancer / nginx we trust the first proxy
   // hop so secure cookies are honoured when TLS terminates upstream.
   app.set("trust proxy", 1);
+
+  // CORS — allow all local dev + production origins dynamically
+  const cors = (await import("cors")).default;
+  app.use(cors({ origin: true, credentials: true }));
+
+  // Apply general API rate limit
+  app.use("/api", apiRateLimit);
+
+  // Apply lockdown middleware (allows /health, /api/admin, /api/auth)
+  app.use("/api", lockdownMiddleware);
+
+  // Register JWT auth routes (parallel to session auth)
+  registerAuthJwtRoutes(app);
+
+  // Register delivery routes
+  registerDeliveryRoutes(app);
+  registerSearchRoutes(app);
+  registerCartRoutes(app);
 
   // Secure cookies require HTTPS. In real production (EB + HTTPS listener) leave
   // COOKIE_SECURE unset/true. For local HTTP testing set COOKIE_SECURE=false.
@@ -773,6 +812,120 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/admin/payments", requireAdmin, h(async (_req, res) => {
     res.json(await storage.payments.list());
   }));
+
+  // Admin security, warehouses, delivery routes
+  registerAdminSecurityRoutes(app);
+  registerAdminWarehouseRoutes(app);
+  registerAdminDeliveryRoutes(app);
+
+  // ============================================================
+  // RAZORPAY ROUTES
+  // ============================================================
+
+  /** POST /api/payments/razorpay/create-order */
+  app.post("/api/payments/razorpay/create-order", h(async (req, res) => {
+    if (!isRazorpayConfigured()) return res.status(503).json({ message: "Razorpay not configured" });
+    const { orderId, amount } = req.body;
+    if (!orderId || !amount) return res.status(400).json({ message: "orderId and amount required" });
+    const order = await createRazorpayOrder(parseFloat(amount), `fff_${orderId}`);
+    return res.json({ razorpayOrderId: order.id, amount: order.amount, currency: order.currency, keyId: process.env.RAZORPAY_KEY_ID });
+  }));
+
+  /** POST /api/payments/razorpay/verify */
+  app.post("/api/payments/razorpay/verify", h(async (req, res) => {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId } = req.body;
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ message: "razorpayOrderId, razorpayPaymentId, and razorpaySignature required" });
+    }
+    const valid = verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    if (!valid) return res.status(400).json({ message: "Payment signature verification failed" });
+    // Update payment record in DB
+    const { db: _db } = await import("./db");
+    const { payments } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    if (orderId) {
+      await _db.update(payments).set({ status: "success", providerTransactionId: razorpayPaymentId, updatedAt: new Date() }).where(eq(payments.orderId, parseInt(orderId)));
+    }
+    return res.json({ success: true, paymentId: razorpayPaymentId });
+  }));
+
+  /** POST /api/payments/razorpay/webhook */
+  app.post("/api/payments/razorpay/webhook", h(async (req, res) => {
+    const signature = req.headers["x-razorpay-signature"] as string;
+    const rawBody = typeof req.rawBody === "string" ? req.rawBody : JSON.stringify(req.body);
+    if (signature && process.env.RAZORPAY_WEBHOOK_SECRET) {
+      const valid = verifyRazorpayWebhookSignature(rawBody, signature);
+      if (!valid) return res.status(400).json({ message: "Invalid webhook signature" });
+    }
+    const event = req.body;
+    console.log(`[razorpay webhook] event: ${event.event}`);
+    // Handle payment.captured
+    if (event.event === "payment.captured") {
+      const payment = event.payload?.payment?.entity;
+      if (payment?.id) {
+        const { db: _db } = await import("./db");
+        const { payments } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        await _db.update(payments).set({ status: "success", updatedAt: new Date() }).where(eq(payments.providerTransactionId, payment.id));
+      }
+    }
+    return res.json({ status: "ok" });
+  }));
+
+  // ============================================================
+  // STRIPE ROUTES
+  // ============================================================
+
+  /** POST /api/payments/stripe/create-intent */
+  app.post("/api/payments/stripe/create-intent", h(async (req, res) => {
+    if (!isStripeConfigured()) return res.status(503).json({ message: "Stripe not configured" });
+    const { orderId, amount } = req.body;
+    if (!orderId || !amount) return res.status(400).json({ message: "orderId and amount required" });
+    const pi = await createPaymentIntent(parseFloat(amount), { orderId: String(orderId) });
+    return res.json({ clientSecret: pi.client_secret, publishableKey: process.env.STRIPE_PUBLISHABLE_KEY });
+  }));
+
+  /** POST /api/payments/stripe/webhook */
+  app.post("/api/payments/stripe/webhook", h(async (req, res) => {
+    const signature = req.headers["stripe-signature"] as string;
+    if (!signature) return res.status(400).json({ message: "stripe-signature header missing" });
+    try {
+      const rawBody = typeof req.rawBody === "Buffer" ? req.rawBody : Buffer.from(JSON.stringify(req.body));
+      const event = verifyStripeWebhook(rawBody as Buffer, signature);
+      if (event.type === "payment_intent.succeeded") {
+        const pi = event.data.object as any;
+        const orderId = pi.metadata?.orderId;
+        if (orderId) {
+          const { db: _db } = await import("./db");
+          const { payments } = await import("@shared/schema");
+          const { eq } = await import("drizzle-orm");
+          await _db.update(payments).set({ status: "success", providerTransactionId: pi.id, updatedAt: new Date() }).where(eq(payments.orderId, parseInt(orderId)));
+        }
+      }
+    } catch (err: any) {
+      return res.status(400).json({ message: err.message });
+    }
+    return res.json({ received: true });
+  }));
+
+  // Password reset routes
+  registerPasswordResetRoutes(app);
+  registerAdminContentRoutes(app);
+
+  // Telegram bot webhook endpoint for remote /lockdown commands
+  app.post("/api/telegram/webhook", h(async (req, res) => {
+    const result = await processTelegramWebhook(req.body);
+    return res.json(result);
+  }));
+
+  // Version information endpoint
+  app.get("/api/version", (_req, res) => {
+    return res.json({
+      version: process.env.VITE_APP_VERSION || process.env.npm_package_version || "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   return httpServer;
 }

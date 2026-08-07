@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift } from "lucide-react";
+import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles } from "lucide-react";
 import { Logo } from "./Logo";
 import { DietDot } from "./DietDot";
 import { useAuth, useCart } from "@/lib/store";
 import type { Category } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,112 +20,244 @@ export function Header() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const { count } = useCart();
   const { user, logout } = useAuth();
 
+  const [spotlight, setSpotlight] = useState({ x: 500, y: 30, opacity: 0 });
+  const headerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
+
+  // Live Search Predictions & Admin Recommendations Query
+  const { data: suggestionsData } = useQuery({
+    queryKey: ["/api/search/suggestions", search],
+    queryFn: async () => {
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(search.trim())}`);
+      return res.json();
+    },
+    enabled: searchFocused,
+  });
+
+  const predictions = suggestionsData?.predictions || [];
+  const recommendations: string[] = suggestionsData?.recommendations || [];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     if (search.trim()) {
       navigate(`/search?q=${encodeURIComponent(search.trim())}`);
+      setSearchFocused(false);
       setMobileOpen(false);
     }
   }
 
-  return (
-    <header className="sticky top-0 z-50">
-      {/* Delivery banner */}
-      <div className="bg-primary text-primary-foreground text-center text-xs sm:text-sm py-1.5 px-4">
-        Visakhapatnam: Instant Delivery · Other locations: 2–5 days · Fresh from the farm, naturally
-      </div>
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!headerRef.current) return;
+    const rect = headerRef.current.getBoundingClientRect();
+    setSpotlight({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      opacity: 1,
+    });
+  };
 
-      {/* Main bar */}
-      <div className="bg-card border-b border-card-border">
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-4">
+  const handleMouseLeave = () => {
+    setSpotlight((prev) => ({ ...prev, opacity: 0 }));
+  };
+
+  return (
+    <header className="sticky top-0 z-50 p-2 sm:p-3 max-w-7xl mx-auto">
+      {/* 3D Floating Glass Island Navigation Bar */}
+      <div
+        ref={headerRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 group"
+      >
+        {/* Desktop Interactive Mouse Spotlight Glow */}
+        <div
+          className="pointer-events-none absolute inset-0 rounded-3xl transition-opacity duration-300 z-0 hidden md:block overflow-hidden"
+          style={{
+            opacity: spotlight.opacity,
+            background: `radial-gradient(400px circle at ${spotlight.x}px ${spotlight.y}px, rgba(34, 197, 94, 0.15), transparent 80%)`,
+          }}
+        />
+
+        {/* Mobile Ambient Breathing Glow */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
+
+        {/* Main Header Bar */}
+        <div className="px-4 py-3 flex items-center justify-between gap-4 relative z-10">
           <button
-            className="lg:hidden p-1"
+            className="lg:hidden p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary transition-colors"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Menu"
             data-testid="button-mobile-menu"
           >
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
           <Link href="/" data-testid="link-home">
             <Logo />
           </Link>
 
-          {/* Search */}
-          <form onSubmit={submitSearch} className="hidden md:flex flex-1 max-w-xl mx-auto">
-            <div className="relative w-full">
+          {/* Search Bar with Live Predictions & Admin Recommendations */}
+          <div ref={searchRef} className="hidden md:block flex-1 max-w-lg mx-auto relative">
+            <form onSubmit={submitSearch} className="relative w-full group/search">
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search for fruits, sweets, pickles…"
-                className="w-full rounded-full border border-input bg-background pl-4 pr-11 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                onFocus={() => setSearchFocused(true)}
+                placeholder="Search organic fruits, ghee sweets, avakaya pickles..."
+                className="w-full rounded-full border border-emerald-500/30 bg-background/80 backdrop-blur pl-5 pr-12 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/80 transition-all shadow-inner"
                 data-testid="input-search"
               />
               <button
                 type="submit"
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground p-1.5"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white p-2 shadow-md hover:scale-105 active:scale-95 transition-transform"
                 aria-label="Search"
                 data-testid="button-search"
               >
-                <Search size={16} />
+                <Search size={15} />
               </button>
-            </div>
-          </form>
+            </form>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-3">
-            {/* Account */}
+            {/* Live Autocomplete Predictions & Admin Recommendations Overlay */}
+            {searchFocused && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-card/95 backdrop-blur-2xl border border-emerald-500/30 rounded-2xl shadow-2xl z-50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Admin Promoted Recommendations */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 mb-2">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Admin Trending Recommendations</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recommendations.map((rec) => (
+                      <button
+                        key={rec}
+                        onClick={() => {
+                          setSearch(rec);
+                          navigate(`/search?q=${encodeURIComponent(rec)}`);
+                          setSearchFocused(false);
+                        }}
+                        className="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 text-foreground transition-all hover:scale-105"
+                      >
+                        {rec}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Predictions matching typed query */}
+                {search.trim().length > 0 && (
+                  <div className="pt-2 border-t border-emerald-500/20 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Live Product Predictions</span>
+                    </div>
+
+                    {predictions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2">No matching products found.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {predictions.map((p: any) => (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              navigate(`/product/${p.id}`);
+                              setSearchFocused(false);
+                            }}
+                            className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/10 cursor-pointer transition-colors group/item"
+                          >
+                            <div className="flex items-center gap-3">
+                              {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg object-cover" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-emerald-900/40 flex items-center justify-center text-xs">🌱</div>
+                              )}
+                              <div>
+                                <p className="text-xs font-bold text-foreground group-hover/item:text-primary transition-colors">{p.name}</p>
+                                <p className="text-[10px] text-muted-foreground">{p.unit}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-black text-primary">₹{parseFloat(p.price).toFixed(0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Actions & Controls */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
+
+            {/* Account Menu */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2" data-testid="button-account">
-                    <UserIcon size={18} />
+                  <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs" data-testid="button-account">
+                    <UserIcon size={16} className="text-primary" />
                     <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/orders")} data-testid="menu-orders">
+                <DropdownMenuContent align="end" className="rounded-2xl border border-emerald-500/30 bg-card/95 backdrop-blur-xl p-2 shadow-2xl z-50">
+                  <DropdownMenuItem onClick={() => navigate("/orders")} className="rounded-xl font-medium" data-testid="menu-orders">
                     My Orders
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/account/subscriptions")} data-testid="menu-subscriptions">
-                    <PackageCheck size={15} className="mr-2" /> Subscriptions
+                  <DropdownMenuItem onClick={() => navigate("/account/subscriptions")} className="rounded-xl font-medium" data-testid="menu-subscriptions">
+                    <PackageCheck size={15} className="mr-2 text-emerald-400" /> Subscriptions
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/account/referrals")} data-testid="menu-referrals">
-                    <Gift size={15} className="mr-2" /> Referrals
+                  <DropdownMenuItem onClick={() => navigate("/account/referrals")} className="rounded-xl font-medium" data-testid="menu-referrals">
+                    <Gift size={15} className="mr-2 text-amber-400" /> Referrals
                   </DropdownMenuItem>
                   {user.role === "admin" && (
-                    <DropdownMenuItem onClick={() => navigate("/admin")} data-testid="menu-admin">
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="rounded-xl font-bold text-primary" data-testid="menu-admin">
                       <Shield size={15} className="mr-2" /> Admin Panel
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => logout()} data-testid="menu-logout">
+                  <DropdownMenuItem onClick={() => logout()} className="rounded-xl text-destructive font-medium" data-testid="menu-logout">
                     <LogOut size={15} className="mr-2" /> Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/login")} data-testid="button-login">
-                <UserIcon size={18} />
+              <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs" onClick={() => navigate("/login")} data-testid="button-login">
+                <UserIcon size={16} className="text-primary" />
                 <span className="hidden sm:inline">Login</span>
               </Button>
             )}
 
-            {/* Cart */}
+            {/* Cart Button */}
             <button
               onClick={() => navigate("/cart")}
-              className="relative flex items-center gap-2 rounded-full px-3 py-2 hover-elevate"
+              className="relative flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white px-4 py-2 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 group"
               data-testid="button-cart"
             >
-              <ShoppingCart size={20} />
-              <span className="hidden sm:inline text-sm font-medium">Cart</span>
+              <ShoppingCart size={18} className="group-hover:rotate-12 transition-transform" />
+              <span className="hidden sm:inline text-xs font-extrabold tracking-wide">Cart</span>
               {count > 0 && (
-                <span className="absolute -top-1 -right-1 bg-accent text-accent-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1" data-testid="text-cart-count">
+                <span
+                  className="absolute -top-1.5 -right-1.5 bg-amber-400 text-black text-[10px] font-black rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1 animate-bounce shadow-lg ring-2 ring-background"
+                  data-testid="text-cart-count"
+                >
                   {count}
                 </span>
               )}
@@ -132,18 +265,18 @@ export function Header() {
           </div>
         </div>
 
-        {/* Category nav */}
-        <nav className="hidden lg:block border-t border-card-border">
-          <div className="mx-auto max-w-7xl px-4">
-            <ul className="flex items-center gap-1 overflow-x-auto" role="list">
+        {/* 3D Glassmorphic Category Navigation Bar */}
+        <nav className="hidden lg:block border-t border-emerald-500/20 bg-secondary/30 relative z-10">
+          <div className="px-4 py-1.5">
+            <ul className="flex items-center justify-center gap-2 overflow-x-auto" role="list">
               {categories.map((c) => (
                 <li key={c.slug}>
                   <Link
                     href={`/category/${c.slug}`}
-                    className="flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium text-foreground hover:text-primary"
+                    className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-card/80 rounded-xl border border-transparent hover:border-emerald-500/30 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-sm"
                     data-testid={`nav-${c.slug}`}
                   >
-                    {c.name}
+                    <span>{c.name}</span>
                     <DietDot tag={c.dietTag} size={12} />
                   </Link>
                 </li>
@@ -153,9 +286,9 @@ export function Header() {
         </nav>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Navigation Menu */}
       {mobileOpen && (
-        <div className="lg:hidden bg-card border-b border-card-border px-4 py-3 space-y-3">
+        <div className="lg:hidden mt-2 rounded-2xl border border-emerald-500/30 bg-card/95 backdrop-blur-2xl p-4 space-y-3 shadow-2xl">
           <form onSubmit={submitSearch}>
             <div className="relative">
               <input
@@ -163,7 +296,7 @@ export function Header() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products…"
-                className="w-full rounded-full border border-input bg-background pl-4 pr-11 py-2 text-sm"
+                className="w-full rounded-xl border border-input bg-background pl-4 pr-11 py-2 text-sm"
                 data-testid="input-search-mobile"
               />
               <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-primary text-primary-foreground p-1.5" aria-label="Search">
@@ -171,16 +304,16 @@ export function Header() {
               </button>
             </div>
           </form>
-          <ul className="grid grid-cols-2 gap-1" role="list">
+          <ul className="grid grid-cols-2 gap-2" role="list">
             {categories.map((c) => (
               <li key={c.slug}>
                 <Link
                   href={`/category/${c.slug}`}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-1.5 px-2 py-2 text-sm rounded-md hover-elevate"
+                  className="flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl bg-secondary/60 hover:bg-primary/20 transition-colors"
                   data-testid={`nav-mobile-${c.slug}`}
                 >
-                  {c.name}
+                  <span>{c.name}</span>
                   <DietDot tag={c.dietTag} size={11} />
                 </Link>
               </li>

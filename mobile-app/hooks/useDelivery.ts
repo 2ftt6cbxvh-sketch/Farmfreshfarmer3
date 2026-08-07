@@ -1,0 +1,61 @@
+import { useState, useEffect } from 'react';
+import * as Location from 'expo-location';
+import { api } from '../lib/api';
+import type { DeliveryResolution, LockdownStatus } from '../lib/types';
+
+export function useDelivery() {
+  const [resolution, setResolution] = useState<DeliveryResolution | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const resolveByGps = async () => {
+    setIsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const res = await api.post('/api/delivery/resolve', {
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
+      });
+      setResolution(res.data);
+    } catch {
+      // GPS failed
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resolveByPincode = async (pincode: string) => {
+    setIsLoading(true);
+    try {
+      const res = await api.post('/api/delivery/resolve', { pincode });
+      setResolution(res.data);
+    } catch {
+      // Pincode failed
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { resolution, isLoading, resolveByGps, resolveByPincode };
+}
+
+export function useLockdown() {
+  const [lockdown, setLockdown] = useState<LockdownStatus>({ active: false, reason: '' });
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await api.get('/api/delivery/status');
+        if (res.data?.lockdown) setLockdown(res.data.lockdown);
+      } catch {
+        // ignore
+      }
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return lockdown;
+}

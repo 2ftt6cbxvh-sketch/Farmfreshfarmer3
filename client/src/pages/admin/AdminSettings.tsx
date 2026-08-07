@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard } from "lucide-react";
+import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiGet, apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/store";
@@ -137,6 +137,242 @@ function DeliveryRulesEditor({
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function SearchRecommendationsManager() {
+  const { toast } = useToast();
+  const [newTag, setNewTag] = useState("");
+
+  const { data, refetch } = useQuery({
+    queryKey: ["/api/admin/search-recommendations"],
+    queryFn: () => apiGet("/api/admin/search-recommendations"),
+  });
+
+  const recommendations: string[] = data?.recommendations || [];
+
+  const updateMutation = useMutation({
+    mutationFn: (recs: string[]) => apiRequest("POST", "/api/admin/search-recommendations", { recommendations: recs }),
+    onSuccess: () => {
+      toast({ title: "Search recommendations updated!" });
+      refetch();
+    },
+  });
+
+  const addTag = () => {
+    if (!newTag.trim()) return;
+    const next = [...recommendations, newTag.trim()];
+    updateMutation.mutate(next);
+    setNewTag("");
+  };
+
+  const removeTag = (idx: number) => {
+    const next = recommendations.filter((_, i) => i !== idx);
+    updateMutation.mutate(next);
+  };
+
+  return (
+    <div className="rounded-xl border border-emerald-500/30 bg-card p-6 space-y-4 shadow-md">
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-amber-400" />
+        <h2 className="font-serif text-lg font-bold">Search Recommendations Manager</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Customize trending search suggestions displayed when customers click or type in the header search bar.
+      </p>
+
+      <div className="flex gap-2">
+        <Input
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          placeholder="e.g. Alphonso Mango, Avakaya Pickle..."
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+        />
+        <Button onClick={addTag} className="bg-emerald-600 hover:bg-emerald-500 font-bold">
+          <Plus className="w-4 h-4 mr-1" /> Add Tag
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 pt-2">
+        {recommendations.map((tag, idx) => (
+          <span key={idx} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-full text-xs font-bold shadow-sm">
+            {tag}
+            <button onClick={() => removeTag(idx)} className="hover:text-destructive text-muted-foreground ml-1">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SiteTextCustomizer() {
+  const { toast } = useToast();
+  const [formText, setFormText] = useState<Record<string, string>>({});
+
+  const { data, refetch } = useQuery({
+    queryKey: ["/api/content/site-text"],
+    queryFn: () => apiGet("/api/content/site-text"),
+  });
+
+  useEffect(() => {
+    if (data?.textMap) setFormText(data.textMap);
+  }, [data]);
+
+  const updateMutation = useMutation({
+    mutationFn: (map: Record<string, string>) => apiRequest("POST", "/api/admin/content/site-text", { textMap: map }),
+    onSuccess: () => {
+      toast({ title: "✨ Site pills, badges & headlines updated live!" });
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["/api/content/site-text"] });
+    },
+  });
+
+  const handleChange = (key: string, val: string) => {
+    setFormText((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(formText);
+  };
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/30 bg-card p-6 space-y-6 shadow-xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-xl font-bold flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+            Website Badges, Pills & Headlines Customizer
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Customize all pill badges, hero headlines, promise text, and bento cards across the website.
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={updateMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold">
+          <Save className="w-4 h-4 mr-1.5" /> Save Site Text
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-bold text-emerald-400">Hero Section Pill Badge</Label>
+          <Input
+            value={formText.hero_badge_text || ""}
+            onChange={(e) => handleChange("hero_badge_text", e.target.value)}
+            placeholder="Visakhapatnam's #1 Instant Organic Farm Delivery"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs font-bold text-amber-400">Promise Section Pill Badge</Label>
+          <Input
+            value={formText.promise_badge_text || ""}
+            onChange={(e) => handleChange("promise_badge_text", e.target.value)}
+            placeholder="Visakhapatnam Farm to Fork"
+          />
+        </div>
+
+        <div className="space-y-1 md:col-span-2">
+          <Label className="text-xs font-bold">Hero Headline Text</Label>
+          <Input
+            value={formText.hero_headline_text || ""}
+            onChange={(e) => handleChange("hero_headline_text", e.target.value)}
+            placeholder="Fresh from local farms, delivered straight to your doorstep."
+          />
+        </div>
+
+        <div className="space-y-1 md:col-span-2">
+          <Label className="text-xs font-bold">Promise Section Title</Label>
+          <Input
+            value={formText.promise_title_text || ""}
+            onChange={(e) => handleChange("promise_title_text", e.target.value)}
+            placeholder="Our Farm-to-Home Promise"
+          />
+        </div>
+
+        <div className="space-y-1 md:col-span-2">
+          <Label className="text-xs font-bold">Promise Section Description</Label>
+          <Input
+            value={formText.promise_desc_text || ""}
+            onChange={(e) => handleChange("promise_desc_text", e.target.value)}
+            placeholder="Connecting households directly with local organic farms..."
+          />
+        </div>
+
+        {/* Bento Card 1 */}
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 1 Title</Label>
+          <Input
+            value={formText.promise_card1_title || ""}
+            onChange={(e) => handleChange("promise_card1_title", e.target.value)}
+            placeholder="100% Organic"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 1 Description</Label>
+          <Input
+            value={formText.promise_card1_desc || ""}
+            onChange={(e) => handleChange("promise_card1_desc", e.target.value)}
+            placeholder="Sourced daily from certified local organic farms..."
+          />
+        </div>
+
+        {/* Bento Card 2 */}
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 2 Title</Label>
+          <Input
+            value={formText.promise_card2_title || ""}
+            onChange={(e) => handleChange("promise_card2_title", e.target.value)}
+            placeholder="Combined ETA"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 2 Description</Label>
+          <Input
+            value={formText.promise_card2_desc || ""}
+            onChange={(e) => handleChange("promise_card2_desc", e.target.value)}
+            placeholder="Haversine distance transit calculation..."
+          />
+        </div>
+
+        {/* Bento Card 3 */}
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 3 Title</Label>
+          <Input
+            value={formText.promise_card3_title || ""}
+            onChange={(e) => handleChange("promise_card3_title", e.target.value)}
+            placeholder="Authentic Recipes"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 3 Description</Label>
+          <Input
+            value={formText.promise_card3_desc || ""}
+            onChange={(e) => handleChange("promise_card3_desc", e.target.value)}
+            placeholder="Handcrafted ghee boondi laddus..."
+          />
+        </div>
+
+        {/* Bento Card 4 */}
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 4 Title</Label>
+          <Input
+            value={formText.promise_card4_title || ""}
+            onChange={(e) => handleChange("promise_card4_title", e.target.value)}
+            placeholder="Rated 4.9/5 Stars"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-bold">Bento Card 4 Description</Label>
+          <Input
+            value={formText.promise_card4_desc || ""}
+            onChange={(e) => handleChange("promise_card4_desc", e.target.value)}
+            placeholder="Trusted by 1,200+ households..."
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -439,6 +675,12 @@ export default function AdminSettings() {
             </div>
           )}
         </div>
+
+        {/* Website Badges, Pills & Headlines Customizer */}
+        <SiteTextCustomizer />
+
+        {/* Search Recommendations Manager */}
+        <SearchRecommendationsManager />
 
         {/* Password change */}
         <div className="rounded-xl border border-card-border bg-card p-6">

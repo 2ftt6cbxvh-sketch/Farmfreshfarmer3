@@ -1,12 +1,18 @@
 import { ReactNode } from "react";
+import { useLocation } from "wouter";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 
 export function Layout({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden">
       <Header />
-      <main className="flex-1">{children}</main>
+      {/* 3D Parallax Page Transition Wrapper */}
+      <main key={location} className="flex-1 animate-page-enter-3d">
+        {children}
+      </main>
       <Footer />
     </div>
   );

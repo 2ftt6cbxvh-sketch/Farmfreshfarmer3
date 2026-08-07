@@ -29,7 +29,7 @@ function cfg() {
   const clientSecret = process.env.PHONEPE_CLIENT_SECRET || "";
   const clientVersion = process.env.PHONEPE_CLIENT_VERSION || "1";
   const merchantId = process.env.PHONEPE_MERCHANT_ID || "";
-  const appBaseUrl = (process.env.APP_BASE_URL || "http://localhost:5000").replace(/\/+$/, "");
+  const appBaseUrl = (process.env.APP_BASE_URL || "http://localhost:5001").replace(/\/+$/, "");
   const configured = Boolean(clientId && clientSecret);
   // Base hosts per PhonePe docs.
   const bases =

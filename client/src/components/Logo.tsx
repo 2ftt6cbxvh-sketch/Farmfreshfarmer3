@@ -1,26 +1,23 @@
+import { imgUrl } from "@/lib/queryClient";
+
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2 ${className}`} data-testid="logo">
-      <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0">
-        <rect width="32" height="32" rx="9" fill="hsl(var(--primary))" />
-        <path
-          d="M16 6c-6 2-9 6-9 11 0 4 3 8 9 9 0-7 1-12 7-16-3 0-5 .5-7 1.8C15 9 15 7.5 16 6Z"
-          fill="hsl(var(--accent))"
+    <div className={`flex items-center gap-3 group ${className}`} data-testid="logo">
+      {/* Official Generated FarmFreshFarmer App Icon Asset */}
+      <div className="relative shrink-0 w-10 h-10 rounded-xl overflow-hidden shadow-md group-hover:scale-105 group-hover:shadow-primary/30 transition-all duration-300 ring-2 ring-primary/20">
+        <img
+          src={imgUrl("/images/logo-icon.png")}
+          alt="FarmFreshFarmer Logo"
+          className="w-full h-full object-cover"
         />
-        <path
-          d="M11 24c2-6 5-9 10-11"
-          stroke="white"
-          strokeWidth="1.4"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="leading-none">
-        <span className="block font-serif text-lg font-bold text-primary tracking-tight">
+      </div>
+
+      <div className="leading-tight">
+        <span className="block font-serif text-lg font-extrabold text-foreground tracking-tight group-hover:text-primary transition-colors">
           FarmFresh<span className="text-accent">Farmer</span>
         </span>
-        <span className="block text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          Fresh from the farm
+        <span className="block text-[9px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+          Organic · Farm to Home
         </span>
       </div>
     </div>

@@ -87,18 +87,13 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  // On macOS/Windows, listening on 0.0.0.0 with reusePort throws ENOTSUP.
-  // Use localhost there; keep 0.0.0.0 for Linux/production hosting.
-  const isLocalMac = process.platform === "darwin" || process.platform === "win32";
-  const listenOptions = isLocalMac
-    ? { port, host: "127.0.0.1" }
-    : { port, host: "0.0.0.0", reusePort: true };
-  httpServer.listen(listenOptions, () => {
-    log(`serving on port ${port}`);
-  });
+  if (process.env.VERCEL !== "1") {
+    const port = parseInt(process.env.PORT || "5001", 10);
+    httpServer.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port} (http://localhost:${port})`);
+    });
+  }
 })();
+
+export default app;
+
