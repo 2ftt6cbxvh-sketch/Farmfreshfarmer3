@@ -478,15 +478,34 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ codEnabled });
   }));
 
-  /* ============================== ORDERS =========================== */
+  app.patch('/api/user/phone', requireAuth as any, h(async (req, res) => {
+    const { phone } = req.body || {};
+    if (!phone || !/^[6-9][0-9]{9}$/.test(phone.replace(/\s/g, ''))) {
+      return res.status(400).json({ message: 'Please enter a valid 10-digit Indian mobile number' });
+    }
+    const updated = await db.update(users).set({ phone: phone.trim() }).where(eq(users.id, req.session.userId!)).returning();
+    res.json({ user: publicUser(updated[0]) });
+  }));
+
+  /* ============================= ORDERS ============================ */
   app.post("/api/orders", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];
     if (items.length === 0) return res.status(400).json({ message: "Cart is empty" });
-    const paymentMethod = String(req.body.paymentMethod || "COD").toUpperCase();
+    const paymentMethod: PaymentMethod = req.body.paymentMethod === "PHONEPE" ? "PHONEPE" : "COD";
     // Enforce the admin COD toggle server-side so it can't be bypassed.
     if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
       return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
     }
+    const userId = req.session.userId;
+
+    // Require phone number for order
+    if (userId) {
+      const u = await storage.users.get(userId);
+      if (!u?.phone) {
+        return res.status(400).json({ message: 'Please add your phone number in account settings before placing an order. We need it to send delivery updates.' });
+      }
+    }
+
     const { order, price } = await placeOrder({
       userId: req.session.userId ?? null,
       customerName: String(req.body.customerName || ""),

@@ -156,9 +156,25 @@ export function useDelivery() {
   // Pincode-based resolution - shows error feedback on failure
   const resolveByPincode = async (pincode: string) => {
     if (!pincode || pincode.trim().length < 4) return;
+    
+    // Strict Indian pincode validation
+    const cleanPin = pincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+      await saveResolution({
+        serviceable: false,
+        pincode: cleanPin,
+        locationArea: 'Invalid PIN Code',
+        etaMinutes: 0,
+        fee: 0,
+        reason: 'Please enter a valid 6-digit Indian PIN code (e.g. 522001)',
+      });
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      const res = await api.post('/api/delivery/resolve', { pincode: pincode.trim() });
+      const res = await api.post('/api/delivery/resolve', { pincode: cleanPin });
       if (res?.data) {
         await saveResolution({
           ...res.data,

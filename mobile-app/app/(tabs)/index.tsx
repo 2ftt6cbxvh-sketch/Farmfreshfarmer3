@@ -150,10 +150,13 @@ export default function HomeScreen() {
   const products: Product[] = productsData?.products || productsData || [];
 
   const handlePincodeSubmit = () => {
-    if (inputPincode.length >= 4) {
-      resolveByPincode(inputPincode);
-      setPincodeModal(false);
+    const trimmed = inputPincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(trimmed)) {
+      Alert.alert('Invalid PIN Code', 'Please enter a valid 6-digit Indian PIN code (e.g. 522001)');
+      return;
     }
+    resolveByPincode(trimmed);
+    setPincodeModal(false);
   };
 
   return (
@@ -168,7 +171,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.6</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.7</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>

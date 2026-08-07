@@ -292,6 +292,14 @@ export default function Cart() {
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-6">Your cart</h1>
+
+        {user && !user.phone && (
+          <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 mb-4 flex items-center justify-between">
+            <span className="text-amber-500 font-bold text-sm">📱 Add your phone number to receive order delivery updates</span>
+            <button onClick={() => navigate('/account')} className="text-xs bg-amber-500 text-black font-black px-3 py-1.5 rounded-xl">Add Now</button>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Items */}
           <div className="lg:col-span-2 space-y-4">

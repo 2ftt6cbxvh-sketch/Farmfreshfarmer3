@@ -21,6 +21,7 @@ interface DeliveryResolution {
 
 export default function DeliveryBanner() {
   const [pincode, setPincode] = useState("");
+  const [pincodeError, setPincodeError] = useState('');
   const [showPincodeInput, setShowPincodeInput] = useState(false);
   const [resolution, setResolution] = useState<DeliveryResolution | null>(() => {
     try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
@@ -76,7 +77,13 @@ export default function DeliveryBanner() {
   }, []);
 
   const handlePincodeSubmit = () => {
-    if (pincode.trim().length >= 4) resolveMutation.mutate({ pincode: pincode.trim() });
+    const trimmed = pincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(trimmed)) {
+      setPincodeError('Enter a valid 6-digit Indian PIN code (e.g. 522001)');
+      return;
+    }
+    setPincodeError('');
+    resolveMutation.mutate({ pincode: trimmed });
   };
 
   // Reusable 'Detect My Location' Button Component
@@ -158,15 +165,18 @@ export default function DeliveryBanner() {
                 type="text"
                 maxLength={6}
                 value={pincode}
-                onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => { setPincode(e.target.value.replace(/\D/g, '')); setPincodeError(''); }}
                 placeholder="e.g. 522002"
                 className="w-32 h-8 text-xs bg-black/60 border border-emerald-500/40 rounded-xl pl-8 pr-3 text-white font-extrabold tracking-wider placeholder:text-emerald-500/50 focus:ring-2 focus:ring-emerald-500/60 focus:border-emerald-400 transition-all outline-none"
                 onKeyDown={(e) => e.key === "Enter" && handlePincodeSubmit()}
               />
+              {pincodeError && (
+                <span className="text-red-400 text-[10px] font-bold mt-1 absolute -bottom-5 left-0 whitespace-nowrap">{pincodeError}</span>
+              )}
             </div>
             <button
               onClick={handlePincodeSubmit}
-              disabled={resolveMutation.isPending || pincode.length < 4}
+              disabled={resolveMutation.isPending || pincode.length !== 6}
               className="h-8 text-xs bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold px-3.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 flex items-center gap-1"
             >
               <span>{resolveMutation.isPending ? "Checking…" : "Check ETA"}</span>

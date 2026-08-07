@@ -135,7 +135,20 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   // Self-healing: ensure max_radius_km column exists
   try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
 
-  const geo = await lookupPincodeGeo(pincode);
+  // STRICT INDIAN PINCODE VALIDATION: must be exactly 6 digits, first digit 1-9
+  const cleanPin = pincode.trim();
+  if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+    return {
+      serviceable: false,
+      fee: 0,
+      etaMinutes: 0,
+      pincode: cleanPin,
+      locationArea: 'Invalid PIN Code',
+      reason: 'Please enter a valid 6-digit Indian PIN code (e.g. 522001)',
+    };
+  }
+
+  const geo = await lookupPincodeGeo(cleanPin);
 
   let activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
   if (activeWarehouses.length === 0) {
