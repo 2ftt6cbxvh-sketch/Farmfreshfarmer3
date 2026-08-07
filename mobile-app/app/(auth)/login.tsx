@@ -18,13 +18,11 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (demoEmail?: string, demoPass?: string) => {
-    const e = demoEmail || email;
-    const p = demoPass || password;
-    if (!e || !p) { Alert.alert('Error', 'Please enter email and password'); return; }
+  const handleLogin = async () => {
+    if (!email || !password) { Alert.alert('Error', 'Please enter email and password'); return; }
     setIsLoading(true);
     try {
-      await login(e.trim().toLowerCase(), p);
+      await login(email.trim().toLowerCase(), password);
       router.replace('/(tabs)');
     } catch (err: any) {
       Alert.alert('Login Failed', err.response?.data?.message || 'Invalid credentials');
@@ -74,7 +72,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={() => handleLogin()}
+            onPress={handleLogin}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -83,18 +81,6 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.demoButtonsContainer}>
-            <Text style={styles.demoTitle}>Quick Demo Login:</Text>
-            <View style={styles.demoRow}>
-              <TouchableOpacity style={styles.demoButton} onPress={() => handleLogin('customer@example.com', 'password')}>
-                <Text style={styles.demoButtonText}>👨🌾 Customer</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.demoButton} onPress={() => handleLogin('admin', 'admin123')}>
-                <Text style={styles.demoButtonText}>🛡️ Admin</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>
@@ -109,7 +95,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   containerDark: { backgroundColor: '#000000' },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  backButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 20 },
+  backButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', marginBottom: 20, shadowColor: '#fff', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
   backButtonText: { color: COLORS.text, fontWeight: '700', fontSize: 14 },
   textWhite: { color: '#ffffff' },
   header: { alignItems: 'center', marginBottom: 40 },
@@ -131,9 +117,4 @@ const styles = StyleSheet.create({
   link: { alignItems: 'center', marginTop: 8 },
   linkText: { color: '#888', fontSize: 14 },
   linkBold: { color: COLORS.primary, fontWeight: '700' },
-  demoButtonsContainer: { marginTop: 24, alignItems: 'center', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#222' },
-  demoTitle: { color: '#888', fontSize: 14, marginBottom: 12 },
-  demoRow: { flexDirection: 'row', gap: 12 },
-  demoButton: { backgroundColor: '#222', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#333' },
-  demoButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

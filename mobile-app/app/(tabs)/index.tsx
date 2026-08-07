@@ -312,12 +312,12 @@ const styles = StyleSheet.create({
     width: '47%', marginHorizontal: '1.5%', marginBottom: 20,
   },
   productCard: {
-    backgroundColor: '#ffffff', borderRadius: 24, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 15, elevation: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', borderRadius: 24, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 1)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
   productCardDark: {
-    backgroundColor: '#111827', borderColor: 'rgba(16, 185, 129, 0.3)', shadowColor: '#10b981', shadowOpacity: 0.2, shadowRadius: 15, elevation: 8
+    backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)', shadowColor: '#10b981', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 10
   },
   productImage: { width: '100%', height: 140 },
   productImagePlaceholder: { backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },

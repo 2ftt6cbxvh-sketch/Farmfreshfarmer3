@@ -13,35 +13,28 @@ export interface User {
 interface AuthStore {
   user: User | null;
   setUser: (user: User | null) => void;
-  login: (phoneOrEmail: string, pass: string) => Promise<void>;
+  login: (identifier: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 export const useAuth = create<AuthStore>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
-  login: async (phoneOrEmail, password) => {
+  login: async (identifier, password) => {
+    let res;
     try {
-      const res = await api.post('/api/auth/login', { username: phoneOrEmail, phone: phoneOrEmail, email: phoneOrEmail, password });
-      if (res.data?.accessToken) {
-        await tokenStorage.saveAccessToken(res.data.accessToken);
-      }
-      if (res.data?.refreshToken) {
-        await tokenStorage.saveRefreshToken(res.data.refreshToken);
-      }
-      const userObj = res.data?.user || { id: 1, name: 'Farmer Admin', role: phoneOrEmail.includes('admin') ? 'admin' : 'customer' };
-      set({ user: userObj });
-    } catch (e) {
-      // Fallback demo auth for mobile simulation
-      const role = phoneOrEmail.toLowerCase().includes('admin') || password === 'admin123' ? 'admin' : 'customer';
-      const mockUser: User = {
-        id: role === 'admin' ? 999 : 1,
-        name: role === 'admin' ? 'Farm Admin' : 'Organic Customer',
-        email: phoneOrEmail,
-        role: role,
-      };
-      set({ user: mockUser });
+      res = await api.post('/api/auth/login', { username: identifier, email: identifier, phone: identifier, password });
+    } catch {
+      res = await api.post('/api/login', { email: identifier, password });
     }
+    if (res.data?.accessToken) {
+      await tokenStorage.saveAccessToken(res.data.accessToken);
+    }
+    if (res.data?.refreshToken) {
+      await tokenStorage.saveRefreshToken(res.data.refreshToken);
+    }
+    const userObj = res.data?.user || res.data;
+    set({ user: userObj });
   },
   logout: async () => {
     await tokenStorage.clearAll();
