@@ -25,6 +25,10 @@ export default function BasketScreen() {
     }
   }, [resolution]);
 
+  useEffect(() => {
+    useCartStore.getState().syncWithServer();
+  }, []);
+
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
   const deliveryFee = resolution?.fee || 0;
   const total = subtotal + deliveryFee;

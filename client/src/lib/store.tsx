@@ -91,46 +91,104 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  // In-memory only (sandboxed iframe blocks localStorage).
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    try { return JSON.parse(localStorage.getItem("cartItems") || "[]"); } catch { return []; }
+  });
+  const { user } = useAuth();
+
+  // Sync to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("cartItems", JSON.stringify(items)); } catch {}
+  }, [items]);
+
+  // Fetch / merge cart on user login
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    async function syncCartOnLogin() {
+      try {
+        if (items.length > 0) {
+          const res = await apiRequest("POST", "/api/cart/merge", {
+            items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
+          });
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.items)) {
+            setItems(data.items);
+          }
+        } else {
+          const res = await apiRequest("GET", "/api/cart");
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.items)) {
+            setItems(data.items);
+          }
+        }
+      } catch (err) {
+        console.error("[Cart] DB sync error:", err);
+      }
+    }
+
+    syncCartOnLogin();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // Helper to sync changes to DB for logged in user
+  const syncToDb = (updatedItems: CartItem[]) => {
+    if (user) {
+      apiRequest("POST", "/api/cart", {
+        items: updatedItems.map((i) => ({ productId: i.productId, qty: i.qty })),
+      }).catch(() => {});
+    }
+  };
 
   function add(product: Product, qty = 1) {
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       const price = effectivePrice(Number(product.price), Number(product.discountPercent));
+      let next: CartItem[];
       if (existing) {
-        return prev.map((i) =>
+        next = prev.map((i) =>
           i.productId === product.id ? { ...i, qty: i.qty + qty } : i
         );
+      } else {
+        next = [
+          ...prev,
+          {
+            productId: product.id,
+            name: product.name,
+            unit: product.unit,
+            price,
+            image: product.image,
+            qty,
+          },
+        ];
       }
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          name: product.name,
-          unit: product.unit,
-          price,
-          image: product.image,
-          qty,
-        },
-      ];
+      syncToDb(next);
+      return next;
     });
   }
 
   function setQty(productId: number, qty: number) {
-    setItems((prev) =>
-      qty <= 0
+    setItems((prev) => {
+      const next = qty <= 0
         ? prev.filter((i) => i.productId !== productId)
-        : prev.map((i) => (i.productId === productId ? { ...i, qty } : i))
-    );
+        : prev.map((i) => (i.productId === productId ? { ...i, qty } : i));
+      syncToDb(next);
+      return next;
+    });
   }
 
   function remove(productId: number) {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+    setItems((prev) => {
+      const next = prev.filter((i) => i.productId !== productId);
+      syncToDb(next);
+      return next;
+    });
   }
 
   function clear() {
     setItems([]);
+    syncToDb([]);
   }
 
   const count = items.reduce((s, i) => s + i.qty, 0);

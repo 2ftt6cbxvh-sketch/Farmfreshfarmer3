@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { api } from './api';
 
 export interface CartItem {
   id: number;
@@ -15,46 +16,77 @@ interface CartStore {
   removeItem: (id: number) => void;
   updateQty: (id: number, delta: number) => void;
   clearCart: () => void;
+  syncWithServer: () => Promise<void>;
 }
+
+const syncToDb = (items: CartItem[]) => {
+  api.post('/api/cart', {
+    items: items.map((i) => ({ productId: i.id, qty: i.qty })),
+  }).catch(() => {});
+};
 
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
+  syncWithServer: async () => {
+    try {
+      const res = await api.get('/api/cart');
+      if (res.data?.items && Array.isArray(res.data.items)) {
+        const serverItems: CartItem[] = res.data.items.map((i: any) => ({
+          id: i.productId,
+          name: i.name,
+          price: Number(i.price),
+          unit: i.unit,
+          image: i.image,
+          qty: i.qty,
+        }));
+        set({ items: serverItems });
+      }
+    } catch {}
+  },
   addItem: (product) => {
     const items = get().items;
     const existing = items.find((i) => i.id === product.id);
     const price = parseFloat(product.price || product.effectivePrice || '0');
+    let nextItems: CartItem[];
     if (existing) {
-      set({ items: items.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i)) });
+      nextItems = items.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
     } else {
-      set({
-        items: [
-          ...items,
-          {
-            id: product.id,
-            name: product.name,
-            price: price > 0 ? price : 100,
-            unit: product.unit || '1 Kg',
-            image: product.image,
-            qty: 1,
-          },
-        ],
-      });
+      nextItems = [
+        ...items,
+        {
+          id: product.id,
+          name: product.name,
+          price: price > 0 ? price : 100,
+          unit: product.unit || '1 Kg',
+          image: product.image,
+          qty: 1,
+        },
+      ];
     }
+    set({ items: nextItems });
+    syncToDb(nextItems);
   },
-  removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),
+  removeItem: (id) => {
+    const nextItems = get().items.filter((i) => i.id !== id);
+    set({ items: nextItems });
+    syncToDb(nextItems);
+  },
   updateQty: (id, delta) => {
     const items = get().items;
-    set({
-      items: items
-        .map((i) => {
-          if (i.id === id) {
-            const newQty = i.qty + delta;
-            return newQty > 0 ? { ...i, qty: newQty } : null;
-          }
-          return i;
-        })
-        .filter(Boolean) as CartItem[],
-    });
+    const nextItems = items
+      .map((i) => {
+        if (i.id === id) {
+          const newQty = i.qty + delta;
+          return newQty > 0 ? { ...i, qty: newQty } : null;
+        }
+        return i;
+      })
+      .filter(Boolean) as CartItem[];
+    set({ items: nextItems });
+    syncToDb(nextItems);
   },
-  clearCart: () => set({ items: [] }),
+  clearCart: () => {
+    set({ items: [] });
+    syncToDb([]);
+  },
 }));

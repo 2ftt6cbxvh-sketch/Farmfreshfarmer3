@@ -7,10 +7,26 @@ import { db } from "../db";
 import { carts, cartItems, products } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
 
+async function getUserIdFromReq(req: Request): Promise<number | undefined> {
+  if ((req.session as any)?.userId) return (req.session as any).userId;
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+  if (token) {
+    try {
+      const jwt = (await import("jsonwebtoken")).default;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      if (decoded && (decoded.userId || decoded.sub)) {
+        return typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
+      }
+    } catch {}
+  }
+  return undefined;
+}
+
 export function registerCartRoutes(app: Express) {
   /** GET /api/cart — Fetch logged-in user's saved cart from DB */
   app.get("/api/cart", async (req: Request, res: Response) => {
-    const userId: number | undefined = (req.session as any)?.userId || (req as any).jwtUser?.userId;
+    const userId = await getUserIdFromReq(req);
     if (!userId) return res.json({ items: [] });
 
     try {
@@ -48,7 +64,7 @@ export function registerCartRoutes(app: Express) {
 
   /** POST /api/cart — Sync current cart items to DB for logged-in user */
   app.post("/api/cart", async (req: Request, res: Response) => {
-    const userId: number | undefined = (req.session as any)?.userId || (req as any).jwtUser?.userId;
+    const userId = await getUserIdFromReq(req);
     if (!userId) return res.json({ status: "guest" });
 
     const clientItems: Array<{ productId: number; qty: number }> = req.body.items || [];
@@ -82,7 +98,7 @@ export function registerCartRoutes(app: Express) {
 
   /** POST /api/cart/merge — Merge guest cart with server cart upon login */
   app.post("/api/cart/merge", async (req: Request, res: Response) => {
-    const userId: number | undefined = (req.session as any)?.userId || (req as any).jwtUser?.userId;
+    const userId = await getUserIdFromReq(req);
     if (!userId) return res.status(401).json({ message: "Authentication required" });
 
     const guestItems: Array<{ productId: number; qty: number }> = req.body.items || [];

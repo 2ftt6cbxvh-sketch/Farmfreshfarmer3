@@ -105,6 +105,11 @@ export default function HomeScreen() {
     }
   }, [resolution]);
 
+  // Sync server cart on mount
+  useEffect(() => {
+    useCartStore.getState().syncWithServer();
+  }, []);
+
   // Scroll-Driven Parallax Animation
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -171,7 +176,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.11</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.12</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
