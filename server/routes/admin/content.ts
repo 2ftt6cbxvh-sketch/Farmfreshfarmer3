@@ -70,8 +70,8 @@ export function registerAdminContentRoutes(app: Express) {
     const { banners } = req.body || {};
     if (!Array.isArray(banners)) return res.status(400).json({ message: "banners array required" });
     const strVal = JSON.stringify(banners);
-    await db.insert(settings).values({ key: "homepage_banners", value: strVal, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: settings.key, set: { value: strVal, updatedAt: new Date() } });
+    await db.insert(settings).values({ key: "homepage_banners", value: strVal })
+      .onConflictDoUpdate({ target: settings.key, set: { value: strVal } });
     return res.json({ banners });
   });
 

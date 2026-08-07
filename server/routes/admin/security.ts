@@ -29,7 +29,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   app.get("/api/admin/security/audit-log", requireAdmin as any, async (req: Request, res: Response) => {
-    const limit = Math.min(parseInt(req.query.limit as string || "50"), 200);
+    const limit = Math.min(parseInt(String(req.query.limit || "50")), 200);
     const logs = await db.select({
       id: securityAuditLogs.id, eventType: securityAuditLogs.eventType,
       userId: securityAuditLogs.userId, email: users.email,
@@ -52,7 +52,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   app.delete("/api/admin/security/sessions/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) return res.status(400).json({ message: "Invalid session ID" });
     await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id));
     return res.json({ message: "Session revoked" });

@@ -145,7 +145,7 @@ function SearchRecommendationsManager() {
   const { toast } = useToast();
   const [newTag, setNewTag] = useState("");
 
-  const { data, refetch } = useQuery({
+  const { data, refetch } = useQuery<{ recommendations: string[] }>({
     queryKey: ["/api/admin/search-recommendations"],
     queryFn: () => apiGet("/api/admin/search-recommendations"),
   });
@@ -212,7 +212,7 @@ function SiteTextCustomizer() {
   const { toast } = useToast();
   const [formText, setFormText] = useState<Record<string, string>>({});
 
-  const { data, refetch } = useQuery({
+  const { data, refetch } = useQuery<{ textMap: Record<string, string> }>({
     queryKey: ["/api/content/site-text"],
     queryFn: () => apiGet("/api/content/site-text"),
   });

@@ -12,7 +12,7 @@ let _stripe: Stripe | null = null;
 export function getStripe(): Stripe {
   if (!_stripe) {
     if (!stripeSecretKey) throw new Error("STRIPE_SECRET_KEY is not configured");
-    _stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-05-28.basil" });
+    _stripe = new Stripe(stripeSecretKey, { apiVersion: "2026-07-29.dahlia" });
   }
   return _stripe;
 }

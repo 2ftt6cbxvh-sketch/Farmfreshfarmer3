@@ -27,7 +27,7 @@ export function registerAdminWarehouseRoutes(app: Express) {
   });
 
   app.patch("/api/admin/warehouses/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
     const parsed = insertWarehouseSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
@@ -41,19 +41,19 @@ export function registerAdminWarehouseRoutes(app: Express) {
   });
 
   app.delete("/api/admin/warehouses/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
     await db.delete(warehouses).where(eq(warehouses.id, id));
     return res.json({ message: "Warehouse deleted" });
   });
 
   app.get("/api/admin/warehouses/:id/pincodes", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     return res.json({ pincodes: await db.select().from(warehousePincodes).where(eq(warehousePincodes.warehouseId, id)) });
   });
 
   app.post("/api/admin/warehouses/:id/pincodes", requireAdmin as any, async (req: Request, res: Response) => {
-    const warehouseId = parseInt(req.params.id);
+    const warehouseId = parseInt(String(req.params.id));
     const parsed = insertWarehousePincodeSchema.safeParse({ ...req.body, warehouseId });
     if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
     const [created] = await db.insert(warehousePincodes).values(parsed.data).returning();
@@ -61,7 +61,7 @@ export function registerAdminWarehouseRoutes(app: Express) {
   });
 
   app.delete("/api/admin/warehouses/pincodes/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     await db.delete(warehousePincodes).where(eq(warehousePincodes.id, id));
     return res.json({ message: "Pincode deleted" });
   });

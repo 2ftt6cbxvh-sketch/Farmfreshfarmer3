@@ -901,7 +901,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const signature = req.headers["stripe-signature"] as string;
     if (!signature) return res.status(400).json({ message: "stripe-signature header missing" });
     try {
-      const rawBody = typeof req.rawBody === "Buffer" ? req.rawBody : Buffer.from(JSON.stringify(req.body));
+      const rawBody = Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(JSON.stringify(req.body));
       const event = verifyStripeWebhook(rawBody as Buffer, signature);
       if (event.type === "payment_intent.succeeded") {
         const pi = event.data.object as any;

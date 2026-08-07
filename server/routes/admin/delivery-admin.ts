@@ -45,7 +45,7 @@ export function registerAdminDeliveryRoutes(app: Express) {
   });
 
   app.patch("/api/admin/delivery/fee-rules/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
     const parsed = insertDeliveryFeeRuleSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
@@ -60,7 +60,7 @@ export function registerAdminDeliveryRoutes(app: Express) {
   });
 
   app.delete("/api/admin/delivery/fee-rules/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    await db.delete(deliveryFeeRules).where(eq(deliveryFeeRules.id, parseInt(req.params.id)));
+    await db.delete(deliveryFeeRules).where(eq(deliveryFeeRules.id, parseInt(String(req.params.id))));
     return res.json({ message: "Rule deleted" });
   });
 
@@ -92,14 +92,14 @@ export function registerAdminDeliveryRoutes(app: Express) {
   });
 
   app.patch("/api/admin/geofence/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     const { allowed } = req.body;
     const [updated] = await db.update(geofenceCountries).set({ allowed }).where(eq(geofenceCountries.id, id)).returning();
     return res.json({ country: updated });
   });
 
   app.delete("/api/admin/geofence/:id", requireAdmin as any, async (req: Request, res: Response) => {
-    await db.delete(geofenceCountries).where(eq(geofenceCountries.id, parseInt(req.params.id)));
+    await db.delete(geofenceCountries).where(eq(geofenceCountries.id, parseInt(String(req.params.id))));
     return res.json({ message: "Country rule deleted" });
   });
 

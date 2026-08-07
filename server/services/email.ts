@@ -47,6 +47,7 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
   // 2. Check if SMTP Transport is configured (Gmail / SendGrid / AWS SES)
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     try {
+      // @ts-ignore - nodemailer loaded dynamically, types optional
       const nodemailer = await import("nodemailer");
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
