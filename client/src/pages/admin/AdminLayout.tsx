@@ -212,18 +212,6 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             </Button>
           </div>
 
-          {totpSetupData?.uri && (
-            <div className="p-3 rounded-2xl bg-secondary/30 border border-emerald-500/20 text-left space-y-2">
-              <p className="text-[11px] text-gray-300 font-bold">Apple Passwords Integration:</p>
-              <a
-                href={totpSetupData.uri}
-                className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 text-white font-bold text-xs shadow transition-all"
-              >
-                <span>🔑 Open Verification Code in Apple Passwords</span>
-              </a>
-            </div>
-          )}
-
           <p className="text-[10px] text-gray-500">
             🔒 All attempts, IP addresses, and fingerprints are monitored and logged under IT Act 2000 & BNS 2023.
           </p>
@@ -248,7 +236,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v2.4.6
+              v2.4.7
             </span>
           </div>
         </div>
