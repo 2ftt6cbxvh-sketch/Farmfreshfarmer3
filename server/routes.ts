@@ -112,6 +112,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerSearchRoutes(app);
   registerCartRoutes(app);
 
+  /** GET /api/version — Version control telemetry */
+  app.get("/api/version", (_req: Request, res: Response) => {
+    return res.json({
+      version: "1.0.2",
+      environment: process.env.NODE_ENV || "production",
+      platform: "vercel",
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || "bbcccbe",
+      buildTimestamp: new Date().toISOString(),
+    });
+  });
+
   // Secure cookies require HTTPS. In real production (EB + HTTPS listener) leave
   // COOKIE_SECURE unset/true. For local HTTP testing set COOKIE_SECURE=false.
   const cookieSecure =

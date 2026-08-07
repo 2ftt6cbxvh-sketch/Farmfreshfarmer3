@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Phone, MapPin, Mail, Instagram, Facebook } from "lucide-react";
+import { Phone, MapPin, Mail, Instagram, Facebook, GitCommit } from "lucide-react";
 import { Logo } from "./Logo";
 
 export function Footer() {
@@ -74,8 +74,12 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-sidebar-border py-4 text-center text-xs text-sidebar-foreground/60">
-        © {new Date().getFullYear()} FarmFreshFarmer. All rights reserved.
+      <div className="border-t border-sidebar-border py-4 text-center text-xs text-sidebar-foreground/60 flex items-center justify-center gap-2 flex-wrap px-4">
+        <span>© {new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</span>
+        <span className="inline-flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
+          <GitCommit size={10} />
+          v1.0.2
+        </span>
       </div>
     </footer>
   );
