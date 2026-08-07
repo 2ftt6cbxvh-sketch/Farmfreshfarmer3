@@ -15,7 +15,10 @@ import { AdminLayout } from "./AdminLayout";
 const apiRequest = async (method: string, url: string, body?: any) => {
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      ...(localStorage.getItem("accessToken") || localStorage.getItem("token") ? { Authorization: `Bearer ${localStorage.getItem("accessToken") || localStorage.getItem("token")}` } : {})
+    },
     credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -76,21 +79,9 @@ export default function AdminWarehouses() {
           longitude: data.longitude,
           averageSpeedKmph: data.averageSpeedKmph,
           active: data.active,
+          initialPincodes: data.initialPincodes,
+          defaultPackingMins: data.defaultPackingMins,
         });
-        // If initial pincodes provided, register them with chosen packing time
-        if (data.initialPincodes && warehouse?.id) {
-          const pins = data.initialPincodes
-            .split(",")
-            .map((p: string) => p.trim())
-            .filter(Boolean);
-          const packingMins = parseInt(data.defaultPackingMins, 10) || 30;
-          for (const pin of pins) {
-            await apiRequest("POST", `/api/admin/warehouses/${warehouse.id}/pincodes`, {
-              pincode: pin,
-              packingTimeMinutes: packingMins,
-            });
-          }
-        }
       }
       return warehouse;
     },
