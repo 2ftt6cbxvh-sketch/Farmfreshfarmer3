@@ -67,13 +67,23 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     allowedHrefs = FLAT_NAV.map((n) => n.href);
   } else {
     const perms = adminUser?.permissions;
-    if (Array.isArray(perms)) {
+    if (Array.isArray(perms) && perms.length > 0) {
       allowedHrefs = perms;
-    } else if (typeof perms === "string") {
-      try { allowedHrefs = JSON.parse(perms); } catch { allowedHrefs = ["/admin"]; }
-    } else {
-      allowedHrefs = ["/admin"];
+    } else if (typeof perms === "string" && perms.trim().length > 0) {
+      try { allowedHrefs = JSON.parse(perms); } catch { allowedHrefs = []; }
     }
+
+    // Role preset fallbacks if permissions array is not set
+    if (allowedHrefs.length === 0) {
+      if (adminUser?.role === "warehouse_admin") {
+        allowedHrefs = ["/admin", "/admin/inventory", "/admin/warehouses"];
+      } else if (adminUser?.role === "manager_admin") {
+        allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"];
+      } else {
+        allowedHrefs = ["/admin"];
+      }
+    }
+
     if (!allowedHrefs.includes("/admin")) allowedHrefs.push("/admin");
   }
 

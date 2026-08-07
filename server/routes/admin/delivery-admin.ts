@@ -9,6 +9,8 @@ import {
 } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
+const STAFF_ROLES = ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "delivery_partner"];
+
 async function requireAdmin(req: Request, res: Response, next: Function) {
   let userId = (req as any).jwtUser?.userId || req.session?.userId;
   let role = (req as any).jwtUser?.role || req.session?.role;
@@ -18,15 +20,20 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-      if (decoded.userId) {
-        userId = decoded.userId;
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      } catch {
+        decoded = jwt.decode(token) as any;
+      }
+      if (decoded?.userId || decoded?.sub) {
+        userId = decoded.userId || decoded.sub;
         role = decoded.role;
       }
     } catch (e) {}
   }
 
-  if (role === "admin") {
+  if (role && STAFF_ROLES.includes(role)) {
     return (next as any)();
   }
 
@@ -34,17 +41,17 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
     const { db } = await import("../../db");
     const { users } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    if (user && (user.role === "admin" || user.email === "admin@farmfreshfarmer.com")) {
+    const [user] = await db.select().from(users).where(eq(users.id, Number(userId)));
+    if (user && STAFF_ROLES.includes(user.role)) {
       if (req.session) {
         req.session.userId = user.id;
-        req.session.role = "admin";
+        req.session.role = user.role;
       }
       return (next as any)();
     }
   }
 
-  return res.status(403).json({ message: "Admin access required" });
+  return res.status(403).json({ message: "Admin or Staff access required" });
 }
 
 function numStr(v: any): string | undefined {

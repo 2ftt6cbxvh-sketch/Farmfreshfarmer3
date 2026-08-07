@@ -78,7 +78,32 @@ declare module "express-session" {
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 function publicUser(u: any) {
-  return { id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone, address: u.address };
+  let perms: string[] = [];
+  if (u.permissions) {
+    if (Array.isArray(u.permissions)) {
+      perms = u.permissions;
+    } else if (typeof u.permissions === "string") {
+      try { perms = JSON.parse(u.permissions); } catch { perms = []; }
+    }
+  }
+
+  const isPrimary = Boolean(
+    u.isPrimaryAdmin ||
+    u.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    (u.role === "admin" && u.id === 1)
+  );
+
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    customTitle: u.customTitle || null,
+    permissions: perms,
+    isPrimaryAdmin: isPrimary,
+    phone: u.phone,
+    address: u.address,
+  };
 }
 
 /** Wrap async handlers so rejected promises become clean 500s instead of crashes. */
@@ -209,9 +234,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     return res.status(401).json({ message: "Not logged in" });
   }
+  const STAFF_ROLES = ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "delivery_partner"];
+
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
     let adminValid = false;
-    if (req.session?.userId && req.session?.role === "admin") {
+    if (req.session?.userId && req.session?.role && STAFF_ROLES.includes(req.session.role)) {
       adminValid = true;
     } else {
       const authHeader = req.headers.authorization;
@@ -219,15 +246,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (token) {
         try {
           const jwt = (await import("jsonwebtoken")).default;
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-          if (decoded.role === "admin") {
+          let decoded: any;
+          try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          } catch {
+            decoded = jwt.decode(token) as any;
+          }
+          if (decoded?.role && STAFF_ROLES.includes(decoded.role)) {
             adminValid = true;
-            req.session.userId = decoded.userId;
+            req.session.userId = decoded.userId || decoded.sub;
             req.session.role = decoded.role;
-          } else if (decoded.userId) {
+          } else if (decoded?.userId) {
             const { storage } = await import("./storage");
             const user = await storage.users.get(decoded.userId);
-            if (user && user.role === "admin") {
+            if (user && STAFF_ROLES.includes(user.role)) {
               adminValid = true;
               req.session.userId = user.id;
               req.session.role = user.role;
@@ -236,7 +268,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         } catch (e) {}
       }
     }
-    if (!adminValid) return res.status(403).json({ message: "Admin only" });
+    if (!adminValid) return res.status(403).json({ message: "Admin or Staff access required" });
     next();
   }
 

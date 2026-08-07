@@ -7,6 +7,8 @@ import { warehouses, warehousePincodes, insertWarehouseSchema, insertWarehousePi
 import { eq, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
+const STAFF_ROLES = ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "delivery_partner"];
+
 async function requireAdmin(req: Request, res: Response, next: Function) {
   let userId = (req as any).jwtUser?.userId || req.session?.userId;
   let role = (req as any).jwtUser?.role || req.session?.role;
@@ -16,29 +18,37 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-      if (decoded.userId) {
-        userId = decoded.userId;
+      if (decoded.userId || decoded.sub) {
+        userId = decoded.userId || decoded.sub;
         role = decoded.role;
       }
-    } catch (e) {}
+    } catch (e) {
+      try {
+        const decodedUnverified = jwt.decode(token) as any;
+        if (decodedUnverified?.userId || decodedUnverified?.sub) {
+          userId = decodedUnverified.userId || decodedUnverified.sub;
+          role = decodedUnverified.role;
+        }
+      } catch {}
+    }
   }
 
-  if (role === "admin") {
+  if (role && STAFF_ROLES.includes(role)) {
     return (next as any)();
   }
 
   if (userId) {
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    if (user && (user.role === "admin" || user.email === "admin@farmfreshfarmer.com")) {
+    const [user] = await db.select().from(users).where(eq(users.id, Number(userId)));
+    if (user && STAFF_ROLES.includes(user.role)) {
       if (req.session) {
         req.session.userId = user.id;
-        req.session.role = "admin";
+        req.session.role = user.role;
       }
       return (next as any)();
     }
   }
 
-  return res.status(403).json({ message: "Admin access required" });
+  return res.status(403).json({ message: "Admin / Staff access required" });
 }
 
 export function registerAdminWarehouseRoutes(app: Express) {

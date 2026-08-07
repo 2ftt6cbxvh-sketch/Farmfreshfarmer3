@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("GET", "/api/me");
       const data = await res.json();
       setUser(data.user || null);
+      if (data.user && data.user.role !== "customer") {
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+      }
     } catch {
       setUser(null);
     } finally {
@@ -46,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
     setUser(data.user);
+    if (data.user && data.user.role !== "customer") {
+      localStorage.setItem("adminUser", JSON.stringify(data.user));
+    }
     return data.user as AuthUser;
   }
 
@@ -53,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiRequest("POST", "/api/register", payload);
     const data = await res.json();
     setUser(data.user);
+    if (data.user && data.user.role !== "customer") {
+      localStorage.setItem("adminUser", JSON.stringify(data.user));
+    }
     return data.user as AuthUser;
   }
 

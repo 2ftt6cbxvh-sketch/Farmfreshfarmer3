@@ -11,7 +11,7 @@ import { refreshTokens, users } from "@shared/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 
 const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-dev-secret-change-in-production";
-const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
+const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "30d";
 const REFRESH_EXPIRES_IN_DAYS = parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS || "90", 10);
 
 export interface JwtPayload {

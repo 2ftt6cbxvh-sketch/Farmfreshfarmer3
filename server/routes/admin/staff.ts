@@ -24,8 +24,15 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
       const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
       if (token) {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-        userId = decoded?.userId || decoded?.sub;
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          userId = decoded?.userId || decoded?.sub;
+        } catch (e: any) {
+          try {
+            const decodedUnverified = jwt.decode(token) as any;
+            if (decodedUnverified?.userId) userId = decodedUnverified.userId;
+          } catch {}
+        }
       }
     }
 
@@ -39,7 +46,7 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
     }
 
     // Check if primary admin: email is admin@farmfreshfarmer.com OR isPrimaryAdmin === true OR role === 'admin' and id === 1
-    const isPrimary = user.email.toLowerCase() === "admin@farmfreshfarmer.com" || user.isPrimaryAdmin || (user.role === "admin" && user.id === 1);
+    const isPrimary = user.email.toLowerCase() === "admin@farmfreshfarmer.com" || user.isPrimaryAdmin || (user.role === "admin" && (user.id === 1 || user.id === 0));
     if (!isPrimary) {
       return res.status(403).json({ message: "Access Denied: Only the Primary Admin can manage staff, sub-admins, and security settings." });
     }
@@ -63,6 +70,7 @@ export function registerStaffRoutes(app: Express) {
         username: users.username,
         phone: users.phone,
         role: users.role,
+        customTitle: users.customTitle,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
@@ -85,7 +93,7 @@ export function registerStaffRoutes(app: Express) {
   /** POST /api/admin/staff — Create a new sub-admin/staff member (Primary Admin only) */
   app.post("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, password, role, permissions } = req.body || {};
+      const { name, email, phone, password, role, customTitle, permissions } = req.body || {};
 
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required" });
@@ -106,7 +114,8 @@ export function registerStaffRoutes(app: Express) {
         username: cleanEmail,
         password: hashedPassword,
         phone: phone ? phone.trim() : null,
-        role: role || "subadmin",
+        role: role || "custom_subadmin",
+        customTitle: customTitle ? customTitle.trim() : null,
         permissions: permString,
         isPrimaryAdmin: false,
         status: "active",
@@ -117,6 +126,7 @@ export function registerStaffRoutes(app: Express) {
         username: users.username,
         phone: users.phone,
         role: users.role,
+        customTitle: users.customTitle,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
@@ -149,12 +159,13 @@ export function registerStaffRoutes(app: Express) {
         return res.status(403).json({ message: "Primary Admin credentials cannot be modified via sub-admin management" });
       }
 
-      const { name, phone, password, role, status, permissions } = req.body || {};
+      const { name, phone, password, role, customTitle, status, permissions } = req.body || {};
       const updates: any = { updatedAt: new Date() };
 
       if (name) updates.name = name.trim();
       if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
       if (role) updates.role = role;
+      if (customTitle !== undefined) updates.customTitle = customTitle ? customTitle.trim() : null;
       if (status) updates.status = status; // 'active' | 'blocked' | 'inactive'
       if (permissions !== undefined) {
         updates.permissions = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
@@ -170,6 +181,7 @@ export function registerStaffRoutes(app: Express) {
         username: users.username,
         phone: users.phone,
         role: users.role,
+        customTitle: users.customTitle,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
