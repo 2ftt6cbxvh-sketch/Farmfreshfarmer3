@@ -1,10 +1,7 @@
-import { createRequire } from "node:module";
+import "dotenv/config";
 import type { Request, Response } from "express";
 
-const reqFn = createRequire(import.meta.url);
-const bundled = reqFn("../dist/index.cjs");
-const app = bundled.default || bundled;
-const routesReadyPromise = bundled.routesReadyPromise;
+const { default: app, routesReadyPromise } = require("../dist/index.cjs");
 
 let isReady = false;
 
