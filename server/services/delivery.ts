@@ -8,7 +8,7 @@ import {
   warehouses, warehousePincodes, deliveryFeeRules, deliverySettings,
   customerLocationLogs,
 } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface DeliveryResolution {
   serviceable: boolean;
@@ -132,6 +132,9 @@ async function calculateFee(distanceKm: number, orderValue: number): Promise<num
 }
 
 export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
+  // Self-healing: ensure max_radius_km column exists
+  try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
+
   const geo = await lookupPincodeGeo(pincode);
 
   let activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
@@ -210,6 +213,9 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
 }
 
 export async function resolveByCoords(lat: number, lng: number, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
+  // Self-healing: ensure max_radius_km column exists
+  try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
+
   // Reverse lookup closest pincode and area from PINCODE_GEO_DB
   let detectedPincode = "";
   let detectedArea = "";
