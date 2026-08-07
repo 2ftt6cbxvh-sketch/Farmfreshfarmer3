@@ -188,7 +188,7 @@ export default function HomeScreen() {
           {resolution?.serviceable ? (
             <View style={styles.etaDetailsRow}>
               <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>⏱️ {resolution?.etaMinutes || 30} mins Express Delivery ETA • {resolution?.warehouseName || 'Visakhapatnam Hub'}</Text>
+                <Text style={styles.etaBadgeText}>⚡ {resolution?.etaMinutes || 30} Mins Express Delivery • {resolution?.warehouseName || 'Visakhapatnam Hub'}</Text>
               </View>
             </View>
           ) : (
@@ -290,21 +290,21 @@ const styles = StyleSheet.create({
   themeToggleBtn: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 6, fontWeight: '500' },
   deliveryBanner: {
-    backgroundColor: '#0f172a', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)',
     padding: 16, marginHorizontal: 16, marginTop: -20, borderRadius: 24,
-    shadowColor: '#38bdf8', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
+    shadowColor: '#10b981', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 10,
   },
   deliveryBannerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deliveryLocationText: { flex: 1, marginRight: 8, color: '#38bdf8', fontWeight: '900', fontSize: 12.5, textShadowColor: 'rgba(56, 189, 248, 0.5)', textShadowOffset: {width: 0, height: 0}, textShadowRadius: 10 },
-  changeBtnText: { color: '#94a3b8', fontSize: 12, fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  deliveryLocationText: { flex: 1, marginRight: 8, color: '#10b981', fontWeight: '900', fontSize: 12.5, textShadowColor: 'rgba(16, 185, 129, 0.3)', textShadowOffset: {width: 0, height: 0}, textShadowRadius: 10 },
+  changeBtnText: { color: '#10b981', fontSize: 12, fontWeight: 'bold', backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   etaDetailsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 },
-  warehouseText: { color: '#fcd34d', fontSize: 12, fontWeight: 'bold' },
-  packingText: { color: '#fcd34d', fontSize: 12, fontWeight: '600' },
-  transitText: { color: '#fcd34d', fontSize: 12, fontWeight: '600' },
-  etaBadge: { backgroundColor: '#0284c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#38bdf8' },
-  etaBadgeText: { color: '#ffffff', fontWeight: '900', fontSize: 11 },
-  pincodePrompt: { color: '#94a3b8', fontSize: 13, marginTop: 6, fontStyle: 'italic' },
+  warehouseText: { color: '#10b981', fontSize: 12, fontWeight: 'bold' },
+  packingText: { color: '#10b981', fontSize: 12, fontWeight: '600' },
+  transitText: { color: '#10b981', fontSize: 12, fontWeight: '600' },
+  etaBadge: { paddingHorizontal: 0, paddingVertical: 0, borderRadius: 0, borderWidth: 0, borderColor: 'transparent', backgroundColor: 'transparent' },
+  etaBadgeText: { color: '#10b981', fontWeight: '800', fontSize: 11 },
+  pincodePrompt: { color: '#10b981', fontSize: 13, marginTop: 6, fontStyle: 'italic' },
   searchContainer: { paddingHorizontal: 16, marginTop: 24 },
   searchInput: {
     backgroundColor: '#ffffff', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16,
