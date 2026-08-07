@@ -3,8 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { COLORS } from '../../constants/config';
 import type { Order } from '../../lib/types';
+import { useThemeStore } from '../../lib/theme';
 
 function OrderCard({ order }: { order: Order }) {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const statusColor = {
     Placed: COLORS.accent, Packed: '#3b82f6', 'Out for delivery': '#f59e0b',
     Delivered: COLORS.success, Cancelled: COLORS.error,
@@ -28,6 +31,8 @@ function OrderCard({ order }: { order: Order }) {
 }
 
 export default function OrdersScreen() {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['my-orders'],
     queryFn: () => api.get('/api/orders/mine').then((r) => r.data),
@@ -54,19 +59,19 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 16 },
-  pageTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 16, marginTop: 8 },
-  card: { backgroundColor: '#ffffff', borderRadius: 14, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+  container: { flex: 1, backgroundColor: isDark ? '#000000' : '#f8fafc', padding: 16 },
+  pageTitle: { fontSize: 22, fontWeight: '800', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 16, marginTop: 8 },
+  card: { backgroundColor: isDark ? '#0c121e' : '#ffffff', borderRadius: 14, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  orderId: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  orderId: { fontSize: 15, fontWeight: '700', color: isDark ? '#f8fafc' : COLORS.text },
   statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  date: { fontSize: 12, color: COLORS.textMuted, marginBottom: 10 },
+  date: { fontSize: 12, color: isDark ? '#f8fafc' : COLORS.textMuted, marginBottom: 10 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   total: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
-  method: { fontSize: 12, color: COLORS.textMuted, backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  method: { fontSize: 12, color: isDark ? '#f8fafc' : COLORS.textMuted, backgroundColor: '#f1f5f9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   empty: { alignItems: 'center', marginTop: 80 },
   emptyIcon: { fontSize: 56, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 6 },
-  emptyText: { fontSize: 13, color: COLORS.textMuted },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: isDark ? '#f8fafc' : COLORS.textMuted },
 });

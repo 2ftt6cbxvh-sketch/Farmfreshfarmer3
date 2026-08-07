@@ -2,8 +2,11 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'rea
 import { router } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { COLORS, BRAND } from '../../constants/config';
+import { useThemeStore } from '../../lib/theme';
 
 export default function AccountScreen() {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const { user, isAuthenticated, logout } = useAuth();
 
   const handleLogout = () => {
@@ -80,7 +83,7 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: isDark ? '#000000' : '#f8fafc' },
   profileCard: { backgroundColor: COLORS.primaryDark, padding: 24, alignItems: 'center', paddingTop: 40 },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   avatarText: { fontSize: 28, fontWeight: '800', color: '#ffffff' },
@@ -88,17 +91,17 @@ const styles = StyleSheet.create({
   userEmail: { fontSize: 13, color: '#86efac' },
   userPhone: { fontSize: 12, color: '#6ee7b7', marginTop: 2 },
   menuSection: { padding: 16, paddingBottom: 0 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 8 },
-  menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', padding: 16, borderRadius: 12, marginBottom: 8 },
-  menuItemText: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
-  chevron: { fontSize: 18, color: COLORS.textMuted },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: isDark ? '#f8fafc' : COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 8 },
+  menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDark ? '#0c121e' : '#ffffff', padding: 16, borderRadius: 12, marginBottom: 8 },
+  menuItemText: { fontSize: 15, color: isDark ? '#f8fafc' : COLORS.text, fontWeight: '500' },
+  chevron: { fontSize: 18, color: isDark ? '#f8fafc' : COLORS.textMuted },
   logoutBtn: { margin: 16, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.error, padding: 14, alignItems: 'center' },
   logoutBtnText: { color: COLORS.error, fontSize: 15, fontWeight: '700' },
-  footer: { textAlign: 'center', color: COLORS.textMuted, fontSize: 11, marginBottom: 32 },
+  footer: { textAlign: 'center', color: isDark ? '#f8fafc' : COLORS.textMuted, fontSize: 11, marginBottom: 32 },
   authPrompt: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, marginTop: 80 },
   authIcon: { fontSize: 64, marginBottom: 16 },
-  authTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 8, textAlign: 'center' },
-  authText: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 24 },
+  authTitle: { fontSize: 22, fontWeight: '800', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 8, textAlign: 'center' },
+  authText: { fontSize: 14, color: isDark ? '#f8fafc' : COLORS.textMuted, textAlign: 'center', marginBottom: 24 },
   signInBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 14, width: '100%', alignItems: 'center', marginBottom: 10 },
   signInBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
   registerBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: 12, padding: 14, width: '100%', alignItems: 'center' },

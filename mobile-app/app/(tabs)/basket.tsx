@@ -5,8 +5,11 @@ import {
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/config';
 import { useDelivery } from '../../hooks/useDelivery';
+import { useThemeStore } from '../../lib/theme';
 
 export default function BasketScreen() {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const [items, setItems] = useState<any[]>([]);
   const { resolution } = useDelivery();
   const [customerName, setCustomerName] = useState('');
@@ -173,13 +176,13 @@ export default function BasketScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: isDark ? '#000000' : '#f8fafc' },
   content: { padding: 16, paddingTop: 45 },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.text, marginBottom: 16 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 16 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 80 },
   emptyIcon: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
-  emptyText: { fontSize: 14, color: COLORS.textMuted, marginBottom: 24, textAlign: 'center' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 8 },
+  emptyText: { fontSize: 14, color: isDark ? '#f8fafc' : COLORS.textMuted, marginBottom: 24, textAlign: 'center' },
   shopButton: { backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 },
   shopButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
   timingCard: {
@@ -191,24 +194,24 @@ const styles = StyleSheet.create({
   timingDetails: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#15803d', gap: 4 },
   timingText: { color: '#e2e8f0', fontSize: 12 },
   itemRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff',
-    padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#0c121e' : '#ffffff',
+    padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0',
   },
-  itemName: { fontSize: 15, fontWeight: 'bold', color: COLORS.text },
-  itemUnit: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  itemName: { fontSize: 15, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
+  itemUnit: { fontSize: 12, color: isDark ? '#f8fafc' : COLORS.textMuted, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: 'bold', color: COLORS.primary, marginTop: 4 },
   qtyRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
-  qtyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ffffff' },
-  qtyBtnText: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
-  qtyText: { paddingHorizontal: 10, fontSize: 14, fontWeight: 'bold', color: COLORS.text },
-  sectionCard: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0' },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 12 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14, color: COLORS.text },
-  summaryCard: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+  qtyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: isDark ? '#0c121e' : '#ffffff' },
+  qtyBtnText: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
+  qtyText: { paddingHorizontal: 10, fontSize: 14, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
+  sectionCard: { backgroundColor: isDark ? '#0c121e' : '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0' },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 12 },
+  input: { backgroundColor: isDark ? '#000000' : '#f8fafc', borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0', borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14, color: isDark ? '#f8fafc' : COLORS.text },
+  summaryCard: { backgroundColor: isDark ? '#0c121e' : '#ffffff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  summaryLabel: { fontSize: 14, color: COLORS.textMuted },
-  summaryVal: { fontSize: 14, fontWeight: 'bold', color: COLORS.text },
-  totalLabel: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
+  summaryLabel: { fontSize: 14, color: isDark ? '#f8fafc' : COLORS.textMuted },
+  summaryVal: { fontSize: 14, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
+  totalLabel: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
   totalVal: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
   checkoutBtn: { backgroundColor: COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 40 },
   checkoutBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },

@@ -1,4 +1,21 @@
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+const fs = require('fs');
+const path = require('path');
+const dir = '/Users/ganeshvarma/Desktop/FarmFreshFarmer';
+
+// 1. package.json
+let pkgPath = path.join(dir, 'package.json');
+fs.writeFileSync(pkgPath, fs.readFileSync(pkgPath, 'utf8').replace(/"version": "1\.3\.7"/g, '"version": "1.3.8"'));
+
+// 2. Footer.tsx
+let footerPath = path.join(dir, 'client/src/components/Footer.tsx');
+fs.writeFileSync(footerPath, fs.readFileSync(footerPath, 'utf8').replace(/v1\.3\.7/g, 'v1.3.8'));
+
+// 3. register-routes.ts
+let routesPath = path.join(dir, 'server/register-routes.ts');
+fs.writeFileSync(routesPath, fs.readFileSync(routesPath, 'utf8').replace(/version: "1\.3\.7"/g, 'version: "1.3.8"'));
+
+// 4. product/[id].tsx
+let productContent = `import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, resolveImgUrl } from '../../lib/api';
@@ -13,7 +30,7 @@ export default function ProductDetailScreen() {
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ['product', id],
-    queryFn: () => api.get(`/api/products/${id}`).then((r) => r.data),
+    queryFn: () => api.get(\`/api/products/\${id}\`).then((r) => r.data),
   });
 
   if (isLoading) return (
@@ -115,3 +132,6 @@ const styles = StyleSheet.create({
   textDark: { color: '#f8fafc' },
   errorText: { textAlign: 'center', marginTop: 40, fontSize: 16 },
 });
+`;
+fs.writeFileSync(path.join(dir, 'mobile-app/app/product/[id].tsx'), productContent);
+
