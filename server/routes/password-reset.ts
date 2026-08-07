@@ -78,4 +78,101 @@ export function registerPasswordResetRoutes(app: Express) {
 
     return res.json({ message: "Password updated successfully. You can now log in." });
   });
+
+  /** POST /api/auth/forgot-password/otp/send — Send 6-digit OTP for Password Reset */
+  app.post("/api/auth/forgot-password/otp/send", authRateLimit, async (req: Request, res: Response) => {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ message: "Email address is required" });
+
+    const cleanEmail = email.toLowerCase().trim();
+    const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    const { otpCodes } = await import("@shared/schema");
+    const bcrypt = (await import("bcryptjs")).default;
+    const codeHash = await bcrypt.hash(otp, 10);
+
+    await db.insert(otpCodes).values({
+      userId: user.id,
+      codeHash,
+      expiresAt,
+    });
+
+    const { buildOtpEmailHtml, sendRealEmail } = await import("../services/email");
+    const html = buildOtpEmailHtml(otp, user.name);
+    await sendRealEmail({
+      to: cleanEmail,
+      subject: `🔑 Password Reset OTP Code: ${otp}`,
+      html,
+    });
+
+    if (user.role === "admin") {
+      await sendTelegramAlert(`⚠️ Admin password reset OTP requested for email: ${user.email}`);
+    }
+
+    console.log(`[PASSWORD RESET OTP CODE] ${cleanEmail} -> OTP: ${otp}`);
+
+    return res.json({
+      message: "Password reset OTP code sent to your email!",
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    });
+  });
+
+  /** POST /api/auth/forgot-password/otp/verify-reset — Verify OTP & Reset Password */
+  app.post("/api/auth/forgot-password/otp/verify-reset", authRateLimit, async (req: Request, res: Response) => {
+    const { email, code, newPassword } = req.body || {};
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP code, and new password are required" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long" });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address." });
+    }
+
+    const { otpCodes } = await import("@shared/schema");
+    const { and, isNull, gt, desc } = await import("drizzle-orm");
+
+    const validOtps = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.userId, user.id), isNull(otpCodes.verifiedAt), gt(otpCodes.expiresAt, new Date())))
+      .orderBy(desc(otpCodes.id));
+
+    if (validOtps.length === 0) {
+      return res.status(400).json({ message: "OTP code has expired or is invalid. Please request a new OTP." });
+    }
+
+    const bcrypt = (await import("bcryptjs")).default;
+    let matchedOtpId: number | null = null;
+    for (const record of validOtps) {
+      const match = await bcrypt.compare(String(code).trim(), record.codeHash);
+      if (match) {
+        matchedOtpId = record.id;
+        break;
+      }
+    }
+
+    if (!matchedOtpId) {
+      return res.status(400).json({ message: "Invalid OTP code provided" });
+    }
+
+    // Mark OTP verified
+    await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
+
+    // Update user password
+    const passwordHash = await bcrypt.hash(newPassword.trim(), 10);
+    await db.update(users).set({ password: passwordHash }).where(eq(users.id, user.id));
+
+    return res.json({ message: "✨ Password updated successfully! You can now log in with your new password." });
+  });
 }

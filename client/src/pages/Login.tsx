@@ -131,6 +131,65 @@ export default function Login() {
     }
   }
 
+  // Forgot Password State
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtpSent, setForgotOtpSent] = useState(false);
+  const [forgotOtpCode, setForgotOtpCode] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotDevOtp, setForgotDevOtp] = useState<string | null>(null);
+
+  async function handleSendForgotOtp() {
+    if (!forgotEmail.trim() || !forgotEmail.includes("@")) {
+      toast({ title: "Please enter your valid registered email", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/forgot-password/otp/send", { email: forgotEmail.trim().toLowerCase() });
+      const data = await res.json();
+      setForgotOtpSent(true);
+      if (data.devOtp) setForgotDevOtp(data.devOtp);
+      toast({
+        title: "🔑 Password Reset OTP Code Sent!",
+        description: `Check your email inbox (${forgotEmail}). ${data.devOtp ? `(DEV CODE: ${data.devOtp})` : ""}`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to send reset code.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!forgotOtpCode.trim() || forgotOtpCode.length < 6 || !forgotNewPassword || forgotNewPassword.length < 6) {
+      toast({ title: "Please enter 6-digit OTP code and a new password (min 6 chars)", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/forgot-password/otp/verify-reset", {
+        email: forgotEmail.trim().toLowerCase(),
+        code: forgotOtpCode.trim(),
+        newPassword: forgotNewPassword.trim(),
+      });
+      const data = await res.json();
+      toast({ title: "✨ Password Reset Successful!", description: data.message || "Log in with your new password." });
+      setEmail(forgotEmail.trim().toLowerCase());
+      setPassword("");
+      setMethod("password");
+      setShowForgotModal(false);
+      setForgotOtpSent(false);
+      setForgotOtpCode("");
+      setForgotNewPassword("");
+    } catch (err: any) {
+      toast({ title: "Reset Failed", description: err.message || "Invalid or expired OTP code.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -307,8 +366,22 @@ export default function Login() {
                 </div>
               )}
               <div>
-                <Label htmlFor="password" className="text-xs font-bold">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="mt-1 rounded-xl" />
+                <div className="flex justify-between items-center mb-1">
+                  <Label htmlFor="password" className="text-xs font-bold">Password</Label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(email);
+                        setShowForgotModal(true);
+                      }}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold underline cursor-pointer"
+                    >
+                      🔑 Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="rounded-xl" />
               </div>
               <Button type="submit" className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg" disabled={busy}>
                 {busy ? "Please wait…" : mode === "login" ? "Log In with Password" : "Create Account"}
@@ -360,6 +433,108 @@ export default function Login() {
               <Button type="submit" disabled={busy || googlePhone.length < 10} className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg">
                 {busy ? "Saving..." : "Complete Sign-up"}
               </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Forgot Password OTP Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-emerald-500/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
+                <span>🔑 Reset Password</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enter your registered email address. We will send a 6-digit OTP verification code to reset your password.
+            </p>
+
+            <form onSubmit={handleVerifyResetPassword} className="space-y-4">
+              <div>
+                <Label htmlFor="forgot-email" className="text-xs font-bold">Email Address</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="you@gmail.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  disabled={forgotOtpSent}
+                  required
+                  className="mt-1 rounded-xl"
+                />
+              </div>
+
+              {!forgotOtpSent ? (
+                <Button
+                  type="button"
+                  onClick={handleSendForgotOtp}
+                  disabled={busy || !forgotEmail}
+                  className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg"
+                >
+                  {busy ? "Sending OTP…" : "Send Reset OTP Code"}
+                </Button>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <Label htmlFor="forgot-otp-code" className="text-xs font-bold text-emerald-400">6-Digit OTP Code</Label>
+                      <button
+                        type="button"
+                        onClick={() => setForgotOtpSent(false)}
+                        className="text-[11px] text-primary underline"
+                      >
+                        Resend Code
+                      </button>
+                    </div>
+                    <Input
+                      id="forgot-otp-code"
+                      type="text"
+                      placeholder="123456"
+                      maxLength={6}
+                      value={forgotOtpCode}
+                      onChange={(e) => setForgotOtpCode(e.target.value)}
+                      required
+                      className="text-center font-mono text-xl tracking-[0.3em] font-extrabold rounded-xl border-emerald-500/50"
+                    />
+                    {forgotDevOtp && (
+                      <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
+                        DEV OTP CODE: {forgotDevOtp}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="forgot-new-password" className="text-xs font-bold">New Password</Label>
+                    <Input
+                      id="forgot-new-password"
+                      type="password"
+                      placeholder="Minimum 6 characters"
+                      minLength={6}
+                      value={forgotNewPassword}
+                      onChange={(e) => setForgotNewPassword(e.target.value)}
+                      required
+                      className="mt-1 rounded-xl"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={busy || forgotOtpCode.length < 6 || forgotNewPassword.length < 6}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 font-bold shadow-lg"
+                  >
+                    {busy ? "Verifying & Updating…" : "Verify OTP & Reset Password"}
+                  </Button>
+                </div>
+              )}
             </form>
           </div>
         </div>
