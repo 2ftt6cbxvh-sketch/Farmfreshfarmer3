@@ -279,6 +279,97 @@ export function Header() {
           </div>
         </div>
 
+        {/* Mobile Search Bar Row (Visible on Mobile screens < 768px) */}
+        <div className="px-3 pb-3 md:hidden relative z-50">
+          <form onSubmit={submitSearch} className="relative w-full group/search">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              placeholder="Search organic fruits, sweets, pickles..."
+              className="w-full rounded-full border border-emerald-500/35 bg-background/95 backdrop-blur pl-4 pr-11 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/80 transition-all shadow-inner text-foreground placeholder:text-muted-foreground/70"
+              data-testid="input-search-mobile"
+            />
+            <button
+              type="submit"
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white p-1.5 shadow-md active:scale-95 transition-transform"
+              aria-label="Search"
+              data-testid="button-search-mobile"
+            >
+              <Search size={14} />
+            </button>
+          </form>
+
+          {/* Mobile Search Overlay Predictions & Recommendations */}
+          {searchFocused && (
+            <div className="absolute top-[calc(100%+4px)] left-2 right-2 bg-card border-2 border-emerald-500/40 rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] z-[100] p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Admin Promoted Recommendations */}
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-500 dark:text-amber-400 mb-1.5">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>Trending Recommendations</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {recommendations.map((rec) => (
+                    <button
+                      key={rec}
+                      onClick={() => {
+                        setSearch(rec);
+                        navigate(`/search?q=${encodeURIComponent(rec)}`);
+                        setSearchFocused(false);
+                      }}
+                      className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 text-foreground transition-all active:scale-95 cursor-pointer"
+                    >
+                      {rec}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Predictions matching typed query */}
+              {search.trim().length > 0 && (
+                <div className="pt-2 border-t border-emerald-500/20 space-y-1.5">
+                  <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Matching Products</span>
+                  </div>
+
+                  {predictions.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground py-1">No matching products found.</p>
+                  ) : (
+                    <div className="space-y-1 max-h-56 overflow-y-auto">
+                      {predictions.map((p: any) => (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            navigate(`/product/${p.id}`);
+                            setSearchFocused(false);
+                          }}
+                          className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors active:scale-95"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {p.image ? (
+                              <img src={p.image} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-lg bg-emerald-900/40 flex items-center justify-center text-[10px] shrink-0">🌱</div>
+                            )}
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-foreground truncate">{p.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{p.unit}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-primary ml-2 shrink-0">₹{parseFloat(p.price).toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Sleek Minimalist 3D Category Bar */}
         <nav className="hidden lg:block border-t border-emerald-500/15 bg-background/50 backdrop-blur-md relative z-0">
           <div className="px-4 py-2 w-full">
