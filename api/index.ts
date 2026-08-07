@@ -1,20 +1,48 @@
+import "dotenv/config";
+import express from "express";
 import type { Request, Response } from "express";
+import { createServer } from "node:http";
+import { registerRoutes } from "../server/register-routes";
 
-// Import the pre-bundled app and initialization promise
-// We use require to ensure it correctly resolves the CJS bundle
-const { default: app, routesReadyPromise } = require("../dist/index.cjs");
+const app = express();
 
-let isReady = false;
+app.use(
+  express.json({
+    verify: (req: any, _res: any, buf: Buffer) => {
+      req.rawBody = buf;
+    },
+  })
+);
+app.use(express.urlencoded({ extended: false }));
+
+let routesRegistered = false;
+let routesPromise: Promise<void> | null = null;
+
+async function ensureRoutes(): Promise<void> {
+  if (routesRegistered) return;
+  if (routesPromise) return routesPromise;
+
+  routesPromise = (async () => {
+    try {
+      const httpServer = createServer(app);
+      await registerRoutes(httpServer, app);
+      routesRegistered = true;
+      console.log("[vercel] Routes registered successfully");
+    } catch (e: any) {
+      console.error("[vercel] Failed to register routes:", e?.message || e);
+      routesPromise = null;
+      throw e;
+    }
+  })();
+
+  return routesPromise;
+}
 
 export default async function handler(req: Request, res: Response) {
   try {
-    if (!isReady && routesReadyPromise) {
-      await routesReadyPromise;
-      isReady = true;
-      console.log("[vercel] Routes registered successfully from bundle");
-    }
+    await ensureRoutes();
   } catch (e: any) {
-    console.error("[vercel] handler: routes not ready:", e?.message || e);
+    console.error("[vercel] handler error:", e?.message || e);
     return res.status(503).json({
       error: "Service starting up, please retry",
       detail: e?.message || String(e),

@@ -2,10 +2,6 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "node:fs/promises";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
-// NOTE: `pg` and `bcryptjs` are intentionally NOT bundled — they are left as
-// externals so their native/optional deps resolve from node_modules at runtime.
 const allowlist = [
   "date-fns",
   "drizzle-orm",
@@ -45,6 +41,21 @@ async function buildAll() {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
+    external: externals,
+    logLevel: "info",
+  });
+
+  console.log("building vercel api handler...");
+  await esbuild({
+    entryPoints: ["api/index.ts"],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: "api/index.js",
+    define: {
+      "process.env.NODE_ENV": '"production"',
+    },
+    minify: false,
     external: externals,
     logLevel: "info",
   });
