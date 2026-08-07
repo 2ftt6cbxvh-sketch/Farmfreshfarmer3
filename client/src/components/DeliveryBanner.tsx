@@ -45,14 +45,10 @@ export default function DeliveryBanner() {
 
   const requestGpsLocation = () => {
     const fallbackResolution = {
-      serviceable: true,
+      serviceable: false,
       fee: 0,
-      etaMinutes: 30,
-      packingTimeMinutes: 15,
-      travelTimeMinutes: 15,
-      warehouseName: 'Visakhapatnam Hub',
-      locationArea: 'Visakhapatnam City',
-      pincode: '530003'
+      etaMinutes: 0,
+      reason: 'No active warehouse configured in Admin Panel'
     };
 
     if (!navigator.geolocation) {
@@ -103,18 +99,18 @@ export default function DeliveryBanner() {
         <div className="flex flex-wrap items-center gap-3 sm:gap-6 mx-auto max-w-7xl w-full">
           <span className="flex items-center gap-1.5 font-bold text-amber-400">
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>Delivering to: <strong className="text-white">{resolution.locationArea || "Your Area"}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
+            <span>Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
           </span>
 
           <span className="flex items-center gap-1.5 text-emerald-200">
             <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Warehouse: <strong className="text-emerald-300">{resolution.warehouseName || "Central Hub"}</strong></span>
+            <span>Warehouse: <strong className="text-emerald-300">{resolution.warehouseName}</strong></span>
           </span>
 
           {resolution.etaMinutes > 0 && (
             <span className="flex items-center gap-1.5 text-emerald-200">
               <Clock className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Total ETA: <strong className="text-white">{resolution.etaMinutes} mins</strong> <span className="text-emerald-400/80 hidden sm:inline">({resolution.packingTimeMinutes || 30}m pack + {resolution.travelTimeMinutes || 0}m transit)</span></span>
+              <span>Total ETA: <strong className="text-white">{resolution.etaMinutes} mins</strong> <span className="text-emerald-400/80 hidden sm:inline">({resolution.packingTimeMinutes}m pack + {resolution.travelTimeMinutes}m transit)</span></span>
             </span>
           )}
 
@@ -144,8 +140,9 @@ export default function DeliveryBanner() {
       <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
         <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
           <span className="flex items-center gap-2 font-semibold">
-            <Compass className="w-4 h-4 text-amber-400" />
-            Delivery not available for <strong className="text-white font-extrabold">{resolution.locationArea || resolution.pincode || "your location"}</strong> right now.
+            <MapPin className="w-4 h-4 text-amber-400" />
+            <strong className="text-white font-extrabold">Select Delivery Location</strong>
+            <span className="ml-2">⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</span>
           </span>
           <div className="flex items-center gap-3">
             <DetectLocationBtn />
@@ -200,7 +197,8 @@ export default function DeliveryBanner() {
       <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
         <span className="flex items-center gap-2 font-semibold">
           <MapPin className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          Check customer area & assigned warehouse delivery ETA
+          <strong className="text-white font-extrabold">Select Delivery Location</strong>
+          <span className="ml-2">⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</span>
         </span>
         <div className="flex items-center gap-3">
           <DetectLocationBtn />

@@ -180,7 +180,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText} numberOfLines={1}>
-              📍 {resolution?.locationArea || 'Visakhapatnam City'} (PIN: {resolution?.pincode || '530003'})
+              📍 {resolution?.serviceable ? `${resolution?.locationArea} (PIN: ${resolution?.pincode})` : 'Select Delivery Location'}
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>
@@ -188,11 +188,11 @@ export default function HomeScreen() {
           {resolution?.serviceable ? (
             <View style={styles.etaDetailsRow}>
               <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>⚡ {resolution?.etaMinutes || 30} Mins Express Delivery • {resolution?.warehouseName || 'Visakhapatnam Hub'}</Text>
+                <Text style={styles.etaBadgeText}>⚡ {resolution?.etaMinutes} Mins Express Delivery • {resolution?.warehouseName}</Text>
               </View>
             </View>
           ) : (
-            <Text style={styles.pincodePrompt}>Tap to check warehouse delivery ETA for your PIN code</Text>
+            <Text style={styles.pincodePrompt}>⚠️ Delivery Unavailable — Add a Warehouse in Admin Panel to enable delivery ETAs</Text>
           )}
         </TouchableOpacity>
       </Animated.View>

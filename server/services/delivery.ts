@@ -119,14 +119,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
 
   let activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
   if (activeWarehouses.length === 0) {
-    const [defaultWh] = await db.insert(warehouses).values({
-      name: "Main Warehouse",
-      latitude: "17.6868",
-      longitude: "83.2185",
-      active: true,
-      averageSpeedKmph: "30"
-    }).returning();
-    activeWarehouses.push(defaultWh);
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "No active warehouse configured in Admin Panel" };
   }
 
   const [pcRow] = await db.select().from(warehousePincodes)
