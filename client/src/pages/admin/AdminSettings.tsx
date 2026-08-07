@@ -824,6 +824,181 @@ function FieldRow({
   );
 }
 
+function SmtpEmailCustomizer() {
+  const { toast } = useToast();
+  const [smtpHost, setSmtpHost] = useState("smtp.resend.com");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("resend");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [fromEmail, setFromEmail] = useState("orders@farmfreshfarmer.com");
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+
+  const { data: settingsData, refetch } = useQuery<Record<string, string>>({
+    queryKey: ["/api/admin/settings"],
+    queryFn: () => apiGet<Record<string, string>>("/api/admin/settings"),
+  });
+
+  useEffect(() => {
+    if (settingsData) {
+      if (settingsData.smtp_host) setSmtpHost(settingsData.smtp_host);
+      if (settingsData.smtp_port) setSmtpPort(settingsData.smtp_port);
+      if (settingsData.smtp_user) setSmtpUser(settingsData.smtp_user);
+      if (settingsData.smtp_pass) setSmtpPass(settingsData.smtp_pass);
+      if (settingsData.from_email) setFromEmail(settingsData.from_email);
+      if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
+    }
+  }, [settingsData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/admin/settings", {
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        smtp_user: smtpUser,
+        smtp_pass: smtpPass,
+        from_email: fromEmail,
+        resend_api_key: resendApiKey,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      toast({ title: "✨ SMTP & Resend Email Credentials Saved!", description: "All OTP codes, password resets, and confirmations will now use these credentials." });
+      refetch();
+    },
+    onError: (err: any) => {
+      toast({ title: "Save Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const testEmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/smtp/test", { to: testEmail || undefined });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "📧 Test Email Dispatched!", description: data.message });
+    },
+    onError: (err: any) => {
+      toast({ title: "Test Email Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/30 bg-card p-6 space-y-6 shadow-xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-xl font-bold flex items-center gap-2 text-foreground">
+            <span>📧 Production Email & SMTP Settings (Resend / Custom SMTP)</span>
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure live Resend API key or custom SMTP server details for dispatching 6-Digit OTPs, Password Resets, and Order Confirmations.
+          </p>
+        </div>
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold">
+          <Save className="w-4 h-4 mr-1.5" /> Save Email Settings
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        {/* Resend API Key Section */}
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-2">
+          <Label className="text-xs font-bold text-emerald-400">Resend API Key (Recommended Alternative to SMTP)</Label>
+          <Input
+            type="password"
+            placeholder="re_123456789..."
+            value={resendApiKey}
+            onChange={(e) => setResendApiKey(e.target.value)}
+            className="font-mono text-xs rounded-xl"
+          />
+          <p className="text-[10px] text-muted-foreground">If provided, Resend HTTPS API will be prioritized over SMTP for instant delivery.</p>
+        </div>
+
+        {/* Custom SMTP Configuration */}
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Standard SMTP Server Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-bold">SMTP Host (e.g. smtp.resend.com or smtp.gmail.com)</Label>
+              <Input
+                placeholder="smtp.resend.com"
+                value={smtpHost}
+                onChange={(e) => setSmtpHost(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold">SMTP Port (e.g. 587 or 465)</Label>
+              <Input
+                placeholder="587"
+                value={smtpPort}
+                onChange={(e) => setSmtpPort(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold">SMTP Username (e.g. resend or your-email@gmail.com)</Label>
+              <Input
+                placeholder="resend"
+                value={smtpUser}
+                onChange={(e) => setSmtpUser(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold">SMTP Password / API Key</Label>
+              <Input
+                type="password"
+                placeholder="SMTP Password or API Token"
+                value={smtpPass}
+                onChange={(e) => setSmtpPass(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <Label className="text-xs font-bold text-emerald-400">Sender Email Address (FROM_EMAIL)</Label>
+              <Input
+                placeholder="orders@farmfreshfarmer.com"
+                value={fromEmail}
+                onChange={(e) => setFromEmail(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Must be verified with your domain in Resend/SMTP provider.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Test Email Dispatcher */}
+        <div className="p-4 rounded-xl bg-card border border-card-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex-1 w-full">
+            <Label className="text-xs font-bold">Test Email Recipient Address</Label>
+            <Input
+              type="email"
+              placeholder="Enter your email to receive a test message..."
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="mt-1 rounded-xl text-xs"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => testEmailMutation.mutate()}
+            disabled={testEmailMutation.isPending}
+            className="mt-5 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold shrink-0 text-xs py-5"
+          >
+            {testEmailMutation.isPending ? "Sending..." : "📧 Dispatch Test Verification Email"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1011,8 +1186,14 @@ export default function AdminSettings() {
         {/* Website Badges, Pills & Headlines Customizer */}
         <SiteTextCustomizer />
 
+        {/* Production Email & SMTP Settings */}
+        <SmtpEmailCustomizer />
+
         {/* Search Recommendations Manager */}
         <SearchRecommendationsManager />
+
+        {/* Production Email & SMTP Settings */}
+        <SmtpEmailCustomizer />
 
         {/* Password change */}
         <div className="rounded-xl border border-card-border bg-card p-6">

@@ -920,6 +920,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.settings.all());
   }));
 
+  /** POST /api/admin/smtp/test — Send Test Email to verify SMTP configuration */
+  app.post("/api/admin/smtp/test", requireAdmin, h(async (req, res) => {
+    const { to } = req.body || {};
+    const recipient = to || "admin@farmfreshfarmer.com";
+
+    const { sendRealEmail, buildOtpEmailHtml } = await import("./services/email");
+    const testHtml = buildOtpEmailHtml("999888", "FarmFresh Admin Tester");
+    const success = await sendRealEmail({
+      to: recipient,
+      subject: "📧 FarmFreshFarmer SMTP Connection Test",
+      html: testHtml,
+    });
+
+    if (success) {
+      return res.json({ message: `✨ Test email successfully dispatched to ${recipient}! Check your inbox.` });
+    } else {
+      return res.status(400).json({ message: `Could not send test email. Please check your SMTP host, port, user & password settings.` });
+    }
+  }));
+
   /* ===================== ADMIN: sales summary ==================== */
   app.get("/api/admin/sales-summary", requireAdmin, h(async (_req, res) => {
     const orders = await storage.orders.list();
