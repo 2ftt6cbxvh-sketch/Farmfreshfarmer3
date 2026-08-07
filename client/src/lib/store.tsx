@@ -39,6 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const res = await apiRequest("POST", "/api/login", { email, password });
     const data = await res.json();
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
     setUser(data.user);
     return data.user as AuthUser;
   }
@@ -52,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await apiRequest("POST", "/api/logout");
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('adminUser');
     setUser(null);
   }
 

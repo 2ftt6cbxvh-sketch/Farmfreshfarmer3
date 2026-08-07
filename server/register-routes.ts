@@ -269,7 +269,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     req.session.userId = user.id;
     req.session.role = user.role;
-    res.json({ user: publicUser(user) });
+    const { issueTokenPair } = await import('./services/token');
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
+    });
+    res.json({ user: publicUser(user), ...tokens });
   }));
 
   app.post("/api/login", h(async (req, res) => {
@@ -284,7 +288,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     req.session.userId = user.id;
     req.session.role = user.role;
-    res.json({ user: publicUser(user) });
+    const { issueTokenPair } = await import('./services/token');
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
+    });
+    res.json({ user: publicUser(user), ...tokens });
   }));
 
   app.post("/api/logout", (req, res) => {
@@ -292,8 +300,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/me", h(async (req, res) => {
-    if (!req.session.userId) return res.json({ user: null });
-    const user = await storage.users.get(req.session.userId);
+    let userId = req.session?.userId;
+    if (!userId) {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+      if (token) {
+        try {
+          const jwt = (await import('jsonwebtoken')).default;
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+          if (decoded?.userId) userId = decoded.userId;
+        } catch {}
+      }
+    }
+    if (!userId) return res.json({ user: null });
+    const user = await storage.users.get(userId);
     res.json({ user: user ? publicUser(user) : null });
   }));
 
