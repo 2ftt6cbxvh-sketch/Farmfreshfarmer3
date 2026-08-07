@@ -11,16 +11,7 @@ import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Loc
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 
-const apiRequest = async (method: string, url: string, body?: any) => {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error((await res.json()).message || "Request failed");
-  return res.json();
-};
+import { apiRequest } from "@/lib/queryClient";
 
 export default function AdminSecurity() {
   const { toast } = useToast();
@@ -30,23 +21,23 @@ export default function AdminSecurity() {
 
   const { data: lockdownData, isLoading: lockdownLoading } = useQuery({
     queryKey: ["/api/admin/security/lockdown"],
-    queryFn: () => apiRequest("GET", "/api/admin/security/lockdown"),
+    queryFn: async () => (await apiRequest("GET", "/api/admin/security/lockdown")).json(),
     refetchInterval: 15000,
   });
 
   const { data: auditData } = useQuery({
     queryKey: ["/api/admin/security/audit-log"],
-    queryFn: () => apiRequest("GET", "/api/admin/security/audit-log?limit=50"),
+    queryFn: async () => (await apiRequest("GET", "/api/admin/security/audit-log?limit=50")).json(),
   });
 
   const { data: sessionsData } = useQuery({
     queryKey: ["/api/admin/security/sessions"],
-    queryFn: () => apiRequest("GET", "/api/admin/security/sessions"),
+    queryFn: async () => (await apiRequest("GET", "/api/admin/security/sessions")).json(),
   });
 
   const lockdownMutation = useMutation({
-    mutationFn: (payload: { active: boolean; reason: string }) =>
-      apiRequest("POST", "/api/admin/security/lockdown", payload),
+    mutationFn: async (payload: { active: boolean; reason: string }) =>
+      (await apiRequest("POST", "/api/admin/security/lockdown", payload)).json(),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/lockdown"] });
       toast({ title: vars.active ? "🚨 Lockdown Activated" : "✅ Lockdown Deactivated", description: vars.active ? `Reason: ${vars.reason}` : "Platform is back online." });
@@ -56,7 +47,7 @@ export default function AdminSecurity() {
   });
 
   const revokeSessionMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/security/sessions/${id}`),
+    mutationFn: async (id: number) => (await apiRequest("DELETE", `/api/admin/security/sessions/${id}`)).json(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/sessions"] });
       toast({ title: "Session Revoked" });
@@ -73,7 +64,8 @@ export default function AdminSecurity() {
   const { data: telegramData } = useQuery({
     queryKey: ["/api/admin/security/telegram"],
     queryFn: async () => {
-      const data = await apiRequest("GET", "/api/admin/security/telegram");
+      const res = await apiRequest("GET", "/api/admin/security/telegram");
+      const data = await res.json();
       if (!telegramLoaded) {
         setBotToken(data.botToken || "");
         setChatId(data.chatId || "");
@@ -84,8 +76,10 @@ export default function AdminSecurity() {
   });
 
   const saveTelegramMutation = useMutation({
-    mutationFn: (payload: { botToken: string; chatId: string }) =>
-      apiRequest("POST", "/api/admin/security/telegram", payload),
+    mutationFn: async (payload: { botToken: string; chatId: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram", payload);
+      return res.json();
+    },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
       toast({ title: "✨ Telegram Settings Saved", description: res.message });
@@ -94,7 +88,10 @@ export default function AdminSecurity() {
   });
 
   const setupWebhookMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/security/telegram/setup-webhook"),
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/setup-webhook");
+      return res.json();
+    },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
       toast({ title: "✨ Telegram Webhook Registered!", description: res.message });
@@ -103,7 +100,10 @@ export default function AdminSecurity() {
   });
 
   const testAlertMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/security/telegram/test-alert"),
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/test-alert");
+      return res.json();
+    },
     onSuccess: (res) => toast({ title: "🔔 Test Alert Sent!", description: res.message }),
     onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
   });
