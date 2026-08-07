@@ -91,7 +91,11 @@ export default function Login() {
       if (data.requiresPhone) {
         setGoogleUser(data.user);
         setShowPhoneModal(true);
-        if (data.tempToken) localStorage.setItem("tempToken", data.tempToken);
+        const token = data.tempToken || data.accessToken;
+        if (token) {
+          localStorage.setItem("accessToken", token);
+          localStorage.setItem("tempToken", token);
+        }
         return;
       }
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
@@ -111,7 +115,8 @@ export default function Login() {
     if (!googlePhone || googlePhone.length < 10) return;
     setBusy(true);
     try {
-      localStorage.setItem("accessToken", localStorage.getItem("tempToken") || "");
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("tempToken") || "";
+      if (token) localStorage.setItem("accessToken", token);
       const res = await apiRequest("PATCH", "/api/user/phone", { phone: googlePhone });
       const data = await res.json();
       localStorage.removeItem("tempToken");

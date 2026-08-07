@@ -184,9 +184,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }),
   );
 
-  function requireAuth(req: Request, res: Response, next: NextFunction) {
-    if (!req.session.userId) return res.status(401).json({ message: "Not logged in" });
-    next();
+  async function requireAuth(req: Request, res: Response, next: NextFunction) {
+    if (req.session?.userId) {
+      return next();
+    }
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    if (token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        if (decoded && (decoded.userId || decoded.sub)) {
+          const uid = decoded.userId || decoded.sub;
+          req.session.userId = typeof uid === "string" ? parseInt(uid, 10) : uid;
+          req.session.role = decoded.role || "customer";
+          return next();
+        }
+      } catch {}
+    }
+    return res.status(401).json({ message: "Not logged in" });
   }
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
     let adminValid = false;
