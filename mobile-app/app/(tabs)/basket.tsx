@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
 } from 'react-native';
@@ -13,9 +13,17 @@ export default function BasketScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
 
+  useEffect(() => {
+    if (resolution?.locationArea && !address) {
+      setAddress(resolution.locationArea);
+    }
+  }, [resolution]);
+
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
   const deliveryFee = resolution?.fee || 0;
   const total = subtotal + deliveryFee;
+
+  const isServiceable = !resolution || resolution.serviceable !== false;
 
   if (items.length === 0) {
     return (
@@ -51,6 +59,15 @@ export default function BasketScreen() {
                 <Text style={styles.timingText}>🚚 Transit: {resolution.travelTimeMinutes} mins ({resolution.distanceKm} km)</Text>
               )}
             </View>
+          </View>
+        )}
+
+        {resolution && resolution.serviceable === false && (
+          <View style={styles.nonServiceableCard}>
+            <Text style={styles.nonServiceableTitle}>🛑 Delivery Unavailable</Text>
+            <Text style={styles.nonServiceableText}>
+              We cannot deliver to {resolution.locationArea || resolution.pincode || 'this location'} right now. Please change your pincode/GPS location in the top bar to place an order.
+            </Text>
           </View>
         )}
 
@@ -133,8 +150,13 @@ export default function BasketScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.checkoutBtn}
+          disabled={!isServiceable}
+          style={[styles.checkoutBtn, !isServiceable && { backgroundColor: '#94a3b8', opacity: 0.7 }]}
           onPress={() => {
+            if (!isServiceable) {
+              Alert.alert('Delivery Unavailable', 'Your location is not serviceable right now. Please change location.');
+              return;
+            }
             if (!customerName || !phone || !address) {
               Alert.alert('Delivery Info Required', 'Please enter your name, phone, and delivery address.');
               return;
@@ -190,4 +212,9 @@ const styles = StyleSheet.create({
   totalVal: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
   checkoutBtn: { backgroundColor: COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 40 },
   checkoutBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  nonServiceableCard: {
+    backgroundColor: '#450a0a', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16,
+  },
+  nonServiceableTitle: { color: '#fca5a5', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
+  nonServiceableText: { color: '#fecdd3', fontSize: 12 },
 });
