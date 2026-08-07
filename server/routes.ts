@@ -123,6 +123,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  /** GET /api/debug/db — diagnostic: shows DB counts and forces re-seed */
+  app.get("/api/debug/db", async (_req: Request, res: Response) => {
+    try {
+      const { db: _db } = await import("./db");
+      const { categories, products, users } = await import("@shared/schema");
+      const cats = await _db.select().from(categories);
+      const prods = await _db.select().from(products);
+      const admins = await _db.select().from(users);
+      // Force re-seed regardless of in-memory flag
+      const { ensureSeeded } = await import("./seed-runner");
+      // Reset the module-level flag by importing fresh
+      await ensureSeeded({ log: true });
+      const cats2 = await _db.select().from(categories);
+      const prods2 = await _db.select().from(products);
+      const admins2 = await _db.select().from(users);
+      return res.json({
+        before: { categories: cats.length, products: prods.length, users: admins.length },
+        after: { categories: cats2.length, products: prods2.length, users: admins2.length },
+        dbUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 40) + '...' : 'NOT SET',
+        nodeEnv: process.env.NODE_ENV,
+      });
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message || String(e) });
+    }
+  });
+
+  /** POST /api/debug/force-seed — force re-seed regardless of state */
+  app.post("/api/debug/force-seed", async (_req: Request, res: Response) => {
+    try {
+      const { resetSeedFlag, ensureSeeded } = await import("./seed-runner");
+      resetSeedFlag();
+      await ensureSeeded({ log: true });
+      return res.json({ success: true, message: 'Database seeded successfully' });
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message || String(e), success: false });
+    }
+  });
+
   // Secure cookies require HTTPS. In real production (EB + HTTPS listener) leave
   // COOKIE_SECURE unset/true. For local HTTP testing set COOKIE_SECURE=false.
   const cookieSecure =

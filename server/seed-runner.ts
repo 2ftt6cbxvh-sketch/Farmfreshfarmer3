@@ -24,6 +24,10 @@ import { generateReferralCode } from "./lib/referral-code";
 
 let seededThisProcess = false;
 
+export function resetSeedFlag() {
+  seededThisProcess = false;
+}
+
 export async function ensureSeeded(opts?: { log?: boolean }): Promise<void> {
   if (seededThisProcess) return;
   const log = (...a: any[]) => opts?.log && console.log(...a);
