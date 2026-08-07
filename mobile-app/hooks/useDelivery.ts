@@ -4,7 +4,9 @@ import { api } from '../lib/api';
 import type { DeliveryResolution, LockdownStatus } from '../lib/types';
 
 export function useDelivery() {
-  const [resolution, setResolution] = useState<DeliveryResolution | null>(null);
+  const [resolution, setResolution] = useState<DeliveryResolution | null>({
+    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Visakhapatnam Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const resolveByGps = async () => {
@@ -28,6 +30,11 @@ export function useDelivery() {
         if (place.postalCode) {
           pincode = place.postalCode;
         }
+      }
+      
+      if (pincode && pincode.length !== 6) {
+        pincode = '530003';
+        locationArea = 'Visakhapatnam City';
       }
 
       const res = await api.post('/api/delivery/resolve', {

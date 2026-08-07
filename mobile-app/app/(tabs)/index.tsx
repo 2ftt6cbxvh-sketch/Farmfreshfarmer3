@@ -161,7 +161,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.5.0</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.5.1</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -180,7 +180,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText} numberOfLines={1}>
-              📍 {resolution?.locationArea || 'Visakhapatnam City'} {resolution?.pincode ? '(PIN: ' + resolution.pincode + ')' : ''}
+              📍 {resolution?.locationArea || 'Visakhapatnam City'} (PIN: {resolution?.pincode || '530003'})
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>
@@ -188,7 +188,7 @@ export default function HomeScreen() {
           {resolution?.serviceable ? (
             <View style={styles.etaDetailsRow}>
               <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>⏱️ {resolution?.etaMinutes || 35} mins ETA • Warehouse: {resolution?.warehouseName || 'Hub'}</Text>
+                <Text style={styles.etaBadgeText}>⏱️ {resolution?.etaMinutes || 30} mins Express Delivery ETA • {resolution?.warehouseName || 'Visakhapatnam Hub'}</Text>
               </View>
             </View>
           ) : (
