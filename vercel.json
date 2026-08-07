@@ -1,40 +1,19 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "builds": [
+  "outputDirectory": "dist/public",
+  "rewrites": [
     {
-      "src": "dist/index.cjs",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/health",
-      "dest": "/dist/index.cjs"
+      "source": "/api/(.*)",
+      "destination": "/api/index"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/dist/index.cjs"
+      "source": "/health",
+      "destination": "/api/index"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/dist/public/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.cjs"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "dist/index.cjs": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
