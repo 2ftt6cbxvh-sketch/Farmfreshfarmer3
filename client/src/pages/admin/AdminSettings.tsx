@@ -1192,9 +1192,6 @@ export default function AdminSettings() {
         {/* Search Recommendations Manager */}
         <SearchRecommendationsManager />
 
-        {/* Production Email & SMTP Settings */}
-        <SmtpEmailCustomizer />
-
         {/* Password change */}
         <div className="rounded-xl border border-card-border bg-card p-6">
           <div className="flex items-center gap-2 mb-1">
