@@ -88,4 +88,86 @@ export function registerAdminSecurityRoutes(app: Express) {
     await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id));
     return res.json({ message: "Session revoked" });
   });
+
+  /** GET /api/admin/security/telegram — Fetch Telegram bot configuration */
+  app.get("/api/admin/security/telegram", requireAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const { getTelegramCredentials } = await import("../../services/telegram");
+      const { storage } = await import("../../storage");
+      const { botToken, chatId } = await getTelegramCredentials();
+      const dbToken = await storage.settings.get("telegram_bot_token");
+      const dbChatId = await storage.settings.get("telegram_chat_id");
+
+      const maskedToken = botToken
+        ? `${botToken.substring(0, 5)}...${botToken.slice(-4)}`
+        : "";
+
+      return res.json({
+        configured: !!(botToken && chatId),
+        botToken: dbToken || (botToken ? maskedToken : ""),
+        chatId: dbChatId || chatId || "",
+        envConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to fetch Telegram security config" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram — Save Telegram credentials */
+  app.post("/api/admin/security/telegram", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { botToken, chatId } = req.body || {};
+      const { storage } = await import("../../storage");
+
+      if (botToken !== undefined) await storage.settings.set("telegram_bot_token", String(botToken).trim());
+      if (chatId !== undefined) await storage.settings.set("telegram_chat_id", String(chatId).trim());
+
+      return res.json({ message: "Telegram security credentials saved successfully" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to save Telegram credentials" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/setup-webhook — One-Click Auto Webhook Registration */
+  app.post("/api/admin/security/telegram/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { getTelegramCredentials } = await import("../../services/telegram");
+      const { botToken } = await getTelegramCredentials();
+
+      if (!botToken) {
+        return res.status(400).json({ message: "Telegram Bot Token is not configured yet. Save token first." });
+      }
+
+      const host = req.headers.host || "farmfreshfarmer.com";
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const webhookUrl = `${protocol}://${host}/api/telegram/webhook`;
+
+      const telegramUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+      const resTelegram = await fetch(telegramUrl);
+      const data = await resTelegram.json();
+
+      if (data.ok) {
+        return res.json({ message: `✨ Telegram Webhook Auto-Registered Successfully! (${webhookUrl})`, details: data });
+      } else {
+        return res.status(400).json({ message: data.description || "Failed to register webhook with Telegram API", details: data });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Webhook auto-setup error" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/test-alert — Send Test Security Alert to Telegram */
+  app.post("/api/admin/security/telegram/test-alert", requireAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const { sendTelegramAlert } = await import("../../services/telegram");
+      const success = await sendTelegramAlert("✅ <b>SECURITY ALERT TEST</b>\nYour Telegram bot security controller is online and verified!");
+      if (success) {
+        return res.json({ message: "Test alert sent to Telegram! Check your phone." });
+      } else {
+        return res.status(400).json({ message: "Could not send test alert. Please verify Bot Token & Chat ID." });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to send test alert" });
+    }
+  });
 }

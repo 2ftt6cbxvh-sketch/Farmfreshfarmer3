@@ -5,27 +5,44 @@
  *   - Suspected brute force patterns
  *   - Unrecognized device logins
  * Handles /lockdown on <reason> and /lockdown off commands strictly verified
- * against process.env.TELEGRAM_CHAT_ID.
+ * against verified chat ID.
  */
 import { setLockdown } from "./lockdown";
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
+export async function getTelegramCredentials(): Promise<{ botToken: string; chatId: string }> {
+  const envToken = process.env.TELEGRAM_BOT_TOKEN || "";
+  const envChatId = process.env.TELEGRAM_CHAT_ID || "";
 
-export function isTelegramConfigured(): boolean {
-  return !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+  if (envToken && envChatId) {
+    return { botToken: envToken, chatId: envChatId };
+  }
+
+  const { storage } = await import("../storage");
+  const dbToken = await storage.settings.get("telegram_bot_token");
+  const dbChatId = await storage.settings.get("telegram_chat_id");
+
+  return {
+    botToken: envToken || dbToken || "",
+    chatId: envChatId || dbChatId || "",
+  };
+}
+
+export async function isTelegramConfigured(): Promise<boolean> {
+  const { botToken, chatId } = await getTelegramCredentials();
+  return !!(botToken && chatId);
 }
 
 /** Send notification message to verified Telegram chat ID */
 export async function sendTelegramAlert(message: string): Promise<boolean> {
-  if (!isTelegramConfigured()) return false;
+  const { botToken, chatId } = await getTelegramCredentials();
+  if (!botToken || !chatId) return false;
   try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
+        chat_id: chatId,
         text: `🚨 [FarmFreshFarmer Security]\n${message}`,
         parse_mode: "HTML",
       }),
@@ -39,6 +56,7 @@ export async function sendTelegramAlert(message: string): Promise<boolean> {
 
 /** Process incoming Telegram webhook updates for /lockdown commands */
 export async function processTelegramWebhook(update: any): Promise<{ handled: boolean; reply?: string }> {
+  const { chatId: expectedChatId } = await getTelegramCredentials();
   const message = update?.message;
   if (!message || !message.text) return { handled: false };
 
@@ -46,10 +64,9 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
   const text = message.text.trim();
 
   // Strict Chat ID check: reject any command from unauthorized chat IDs
-  if (chatId !== TELEGRAM_CHAT_ID) {
+  if (chatId !== expectedChatId) {
     console.warn(`[telegram security] Unauthorized command attempt from chat ID: ${chatId}`);
-    // Alert owner about unauthorized attempt
-    if (TELEGRAM_CHAT_ID) {
+    if (expectedChatId) {
       await sendTelegramAlert(`⚠️ UNAUTHORIZED TELEGRAM COMMAND ATTEMPT!\nFrom Chat ID: ${chatId}\nCommand text: ${text}`);
     }
     return { handled: false };

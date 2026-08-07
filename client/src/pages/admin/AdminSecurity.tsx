@@ -65,6 +65,49 @@ export default function AdminSecurity() {
 
   const isLocked = lockdownData?.active ?? false;
 
+  // Telegram Security State
+  const [botToken, setBotToken] = useState("");
+  const [chatId, setChatId] = useState("");
+  const [telegramLoaded, setTelegramLoaded] = useState(false);
+
+  const { data: telegramData } = useQuery({
+    queryKey: ["/api/admin/security/telegram"],
+    queryFn: async () => {
+      const data = await apiRequest("GET", "/api/admin/security/telegram");
+      if (!telegramLoaded) {
+        setBotToken(data.botToken || "");
+        setChatId(data.chatId || "");
+        setTelegramLoaded(true);
+      }
+      return data;
+    },
+  });
+
+  const saveTelegramMutation = useMutation({
+    mutationFn: (payload: { botToken: string; chatId: string }) =>
+      apiRequest("POST", "/api/admin/security/telegram", payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "✨ Telegram Settings Saved", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const setupWebhookMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/security/telegram/setup-webhook"),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "✨ Telegram Webhook Registered!", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Webhook Registration Error", description: err.message, variant: "destructive" }),
+  });
+
+  const testAlertMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/admin/security/telegram/test-alert"),
+    onSuccess: (res) => toast({ title: "🔔 Test Alert Sent!", description: res.message }),
+    onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
+  });
+
   const eventBadgeColor = (type: string) => {
     if (type.includes("failed") || type.includes("lockdown_on")) return "destructive";
     if (type.includes("rate_limit")) return "outline";
@@ -146,6 +189,81 @@ export default function AdminSecurity() {
               </div>
             </DialogContent>
           </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Telegram Security Bot Controller */}
+      <Card className="border-emerald-500/30 bg-card shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-emerald-950/40 via-card to-card border-b border-emerald-500/20">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg text-foreground font-serif">
+              <span className="text-xl">🤖</span> Telegram Remote Security & Webhook Controller
+            </CardTitle>
+            <Badge variant={telegramData?.configured ? "default" : "outline"} className={telegramData?.configured ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""}>
+              {telegramData?.configured ? "🟢 Connected & Secured" : "⚠️ Token & Chat ID Required"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Configure your Telegram Bot token, Chat ID, auto-register the Telegram webhook with 1-click, and test security notifications directly from this Superadmin panel.
+          </p>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="bot-token" className="text-xs font-bold">Telegram Bot Token (from @BotFather)</Label>
+              <Input
+                id="bot-token"
+                type="password"
+                placeholder="e.g. 7123456789:AAFx..."
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Obtain from Telegram @BotFather by running /newbot</p>
+            </div>
+
+            <div>
+              <Label htmlFor="chat-id" className="text-xs font-bold">Verified Telegram Chat ID (from @userinfobot)</Label>
+              <Input
+                id="chat-id"
+                type="text"
+                placeholder="e.g. 123456789"
+                value={chatId}
+                onChange={(e) => setChatId(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Obtain from Telegram @userinfobot by sending any message</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              onClick={() => saveTelegramMutation.mutate({ botToken, chatId })}
+              disabled={saveTelegramMutation.isPending}
+              className="bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg"
+            >
+              {saveTelegramMutation.isPending ? "Saving..." : "💾 Save Telegram Credentials"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setupWebhookMutation.mutate()}
+              disabled={setupWebhookMutation.isPending || !telegramData?.configured}
+              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold rounded-xl text-xs py-4 px-5"
+            >
+              {setupWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Telegram Webhook"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => testAlertMutation.mutate()}
+              disabled={testAlertMutation.isPending || !telegramData?.configured}
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold rounded-xl text-xs py-4 px-5"
+            >
+              {testAlertMutation.isPending ? "Sending..." : "🔔 Send Test Security Alert"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
