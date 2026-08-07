@@ -20,9 +20,7 @@ interface DeliveryResolution {
 }
 
 export default function DeliveryBanner() {
-  const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem("deliveryBannerDismissed") === "true"; } catch { return false; }
-  });
+
   const [pincode, setPincode] = useState("");
   const [showPincodeInput, setShowPincodeInput] = useState(false);
   const [resolution, setResolution] = useState<DeliveryResolution | null>(() => {
@@ -59,12 +57,6 @@ export default function DeliveryBanner() {
     if (pincode.length >= 4) resolveMutation.mutate({ pincode });
   };
 
-  const dismiss = () => {
-    setDismissed(true);
-    localStorage.setItem("deliveryBannerDismissed", "true");
-  };
-
-  if (dismissed) return null;
 
   if (resolution?.serviceable) {
     return (
@@ -103,9 +95,7 @@ export default function DeliveryBanner() {
           >
             Change Location
           </button>
-          <button onClick={dismiss} className="text-emerald-400 hover:text-white">
-            <X className="w-3.5 h-3.5" />
-          </button>
+
         </div>
       </div>
     );
@@ -121,7 +111,6 @@ export default function DeliveryBanner() {
           </span>
           <div className="flex items-center gap-3">
             <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold">Try another pincode</button>
-            <button onClick={dismiss}><X className="w-4 h-4 text-amber-400" /></button>
           </div>
         </div>
       </div>
@@ -146,7 +135,7 @@ export default function DeliveryBanner() {
             <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold" onClick={handlePincodeSubmit} disabled={resolveMutation.isPending || pincode.length < 4}>
               {resolveMutation.isPending ? "..." : <ChevronRight className="w-3.5 h-3.5" />}
             </Button>
-            <button onClick={dismiss}><X className="w-4 h-4 text-emerald-400" /></button>
+            <button onClick={() => setShowPincodeInput(false)}><X className="w-4 h-4 text-emerald-400" /></button>
           </div>
         </div>
       </div>
@@ -165,7 +154,6 @@ export default function DeliveryBanner() {
             Use GPS
           </Button>
           <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold">Enter Pincode</button>
-          <button onClick={dismiss}><X className="w-4 h-4 text-emerald-400" /></button>
         </div>
       </div>
     </div>
