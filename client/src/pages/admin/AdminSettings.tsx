@@ -208,6 +208,118 @@ function SearchRecommendationsManager() {
   );
 }
 
+function EmployeePerksCustomizer() {
+  const { toast } = useToast();
+  const [subadminDiscountPercent, setSubadminDiscountPercent] = useState("15");
+  const [subadminMaxCap, setSubadminMaxCap] = useState("500");
+  const [subadminMonthlyLimit, setSubadminMonthlyLimit] = useState("4");
+  const [deliveryPartnerDiscountPercent, setDeliveryPartnerDiscountPercent] = useState("20");
+  const [deliveryPartnerMaxCap, setDeliveryPartnerMaxCap] = useState("300");
+  const [deliveryPartnerMonthlyLimit, setDeliveryPartnerMonthlyLimit] = useState("6");
+
+  const { data, refetch } = useQuery({
+    queryKey: ["/api/admin/perks/settings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/perks/settings");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      setSubadminDiscountPercent(String(data.subadminDiscountPercent ?? 15));
+      setSubadminMaxCap(String(data.subadminMaxCap ?? 500));
+      setSubadminMonthlyLimit(String(data.subadminMonthlyLimit ?? 4));
+      setDeliveryPartnerDiscountPercent(String(data.deliveryPartnerDiscountPercent ?? 20));
+      setDeliveryPartnerMaxCap(String(data.deliveryPartnerMaxCap ?? 300));
+      setDeliveryPartnerMonthlyLimit(String(data.deliveryPartnerMonthlyLimit ?? 6));
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/perks/settings", {
+        subadminDiscountPercent: parseFloat(subadminDiscountPercent) || 15,
+        subadminMaxCap: parseFloat(subadminMaxCap) || 500,
+        subadminMonthlyLimit: parseInt(subadminMonthlyLimit, 10) || 4,
+        deliveryPartnerDiscountPercent: parseFloat(deliveryPartnerDiscountPercent) || 20,
+        deliveryPartnerMaxCap: parseFloat(deliveryPartnerMaxCap) || 300,
+        deliveryPartnerMonthlyLimit: parseInt(deliveryPartnerMonthlyLimit, 10) || 6,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Employee & Partner Perk Settings Saved!" });
+      refetch();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to save perks", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+            <Gift className="w-5 h-5 text-emerald-400" /> Employee & Delivery Partner Perk Discounts
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure purchase discount rates, maximum discount caps (₹), and monthly usage limits for sub-admins and delivery partners when buying from the store.
+          </p>
+        </div>
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold gap-2">
+          <Save size={16} /> {saveMutation.isPending ? "Saving…" : "Save Perks"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Sub-Admin Perks */}
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-4">
+          <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+            🛡️ Sub-Admin Staff Discounts
+          </h3>
+          <div className="space-y-3 text-xs">
+            <div>
+              <Label>Discount Percentage (%)</Label>
+              <Input type="number" value={subadminDiscountPercent} onChange={(e) => setSubadminDiscountPercent(e.target.value)} placeholder="15" className="mt-1" />
+            </div>
+            <div>
+              <Label>Max Discount Cap per Order (₹)</Label>
+              <Input type="number" value={subadminMaxCap} onChange={(e) => setSubadminMaxCap(e.target.value)} placeholder="500" className="mt-1" />
+            </div>
+            <div>
+              <Label>Monthly Allowed Purchases (Orders/Month)</Label>
+              <Input type="number" value={subadminMonthlyLimit} onChange={(e) => setSubadminMonthlyLimit(e.target.value)} placeholder="4" className="mt-1" />
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Partner Perks */}
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-4">
+          <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+            🚚 Delivery Partner Perks
+          </h3>
+          <div className="space-y-3 text-xs">
+            <div>
+              <Label>Discount Percentage (%)</Label>
+              <Input type="number" value={deliveryPartnerDiscountPercent} onChange={(e) => setDeliveryPartnerDiscountPercent(e.target.value)} placeholder="20" className="mt-1" />
+            </div>
+            <div>
+              <Label>Max Discount Cap per Order (₹)</Label>
+              <Input type="number" value={deliveryPartnerMaxCap} onChange={(e) => setDeliveryPartnerMaxCap(e.target.value)} placeholder="300" className="mt-1" />
+            </div>
+            <div>
+              <Label>Monthly Allowed Purchases (Orders/Month)</Label>
+              <Input type="number" value={deliveryPartnerMonthlyLimit} onChange={(e) => setDeliveryPartnerMonthlyLimit(e.target.value)} placeholder="6" className="mt-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SiteTextCustomizer() {
   const { toast } = useToast();
   const [formText, setFormText] = useState<Record<string, string>>({});
@@ -675,6 +787,9 @@ export default function AdminSettings() {
             </div>
           )}
         </div>
+
+        {/* Employee & Delivery Partner Perk Discounts Manager */}
+        <EmployeePerksCustomizer />
 
         {/* Website Badges, Pills & Headlines Customizer */}
         <SiteTextCustomizer />

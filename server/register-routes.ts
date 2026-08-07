@@ -58,6 +58,7 @@ import { registerAdminContentRoutes } from "./routes/admin/content";
 import { registerStaffRoutes } from "./routes/admin/staff";
 import { registerAdminDeliveryPartnerRoutes } from "./routes/admin/delivery-partners";
 import { registerDeliveryPartnerPortalRoutes } from "./routes/delivery-partner-portal";
+import { registerPerkRoutes } from "./routes/admin/perks";
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
   initiateRazorpayRefund, isRazorpayConfigured,
@@ -988,6 +989,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerStaffRoutes(app);
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);
+  registerPerkRoutes(app);
 
   // ============================================================
   // RAZORPAY ROUTES

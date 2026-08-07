@@ -254,13 +254,70 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     }
   }
 
+  // ---- Employee & Delivery Partner Perk Discount ----
+  let perkDiscount = 0;
+  if (req.userId) {
+    try {
+      const { db } = await import("../db");
+      const { sql } = await import("drizzle-orm");
+      const user = await storage.users.get(req.userId);
+      if (user && user.role !== "customer") {
+        const perkRes = await db.execute(sql`SELECT * FROM employee_perk_settings LIMIT 1`);
+        if (perkRes.rows && perkRes.rows.length > 0) {
+          const row: any = perkRes.rows[0];
+          const isSubAdmin = ["warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(user.role);
+          const isPartner = user.role === "delivery_partner";
+
+          if (isSubAdmin || isPartner) {
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            const countRes = await db.execute(sql`
+              SELECT COUNT(*)::int as count FROM orders
+              WHERE user_id = ${req.userId} AND created_at >= ${startOfMonth}
+            `);
+            const ordersThisMonth = (countRes.rows?.[0] as any)?.count || 0;
+
+            const pct = isSubAdmin
+              ? parseFloat(row.subadmin_discount_percent || 15)
+              : parseFloat(row.delivery_partner_discount_percent || 20);
+
+            const maxCap = isSubAdmin
+              ? parseFloat(row.subadmin_max_cap || 500)
+              : parseFloat(row.delivery_partner_max_cap || 300);
+
+            const limit = isSubAdmin
+              ? parseInt(row.subadmin_monthly_limit || 4, 10)
+              : parseInt(row.delivery_partner_monthly_limit || 6, 10);
+
+            if (ordersThisMonth < limit) {
+              const rawPerk = round2(subtotal * (pct / 100));
+              perkDiscount = round2(Math.min(rawPerk, maxCap));
+              if (perkDiscount > 0) {
+                breakdown.push({
+                  ruleType: "perk_discount",
+                  label: isSubAdmin
+                    ? `Sub-Admin Perk (${pct}% off, cap ₹${maxCap})`
+                    : `Delivery Partner Perk (${pct}% off, cap ₹${maxCap})`,
+                  amount: perkDiscount,
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error("[pricing] Perk discount calculation error:", e);
+    }
+  }
+
   // ---- Referrer reward redemption (capped at N% of subtotal) ----
   if (req.redeemReward && req.userId && referralEnabled) {
     const capPct = Number(settings.referral_reward_max_percent_per_order || 30);
     const maxByCap = round2(subtotal * (capPct / 100));
     const balance = await storage.referrals.availableBalance(req.userId);
     // Never let combined discounts exceed subtotal.
-    const alreadyDiscounted = referralDiscount + firstOrderDiscount + couponDiscount;
+    const alreadyDiscounted = referralDiscount + firstOrderDiscount + couponDiscount + perkDiscount;
     const roomLeft = Math.max(0, round2(subtotal - alreadyDiscounted));
     referralRewardApplied = round2(Math.min(balance, maxByCap, roomLeft));
     if (referralRewardApplied > 0) {
@@ -269,7 +326,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   }
 
   // ---- Total, clamped so it never goes below zero ----
-  let discount = round2(firstOrderDiscount + referralDiscount + couponDiscount + referralRewardApplied);
+  let discount = round2(firstOrderDiscount + referralDiscount + couponDiscount + perkDiscount + referralRewardApplied);
   if (discount > subtotal) discount = subtotal;
   const afterDiscount = round2(subtotal - discount);
 

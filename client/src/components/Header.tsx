@@ -246,9 +246,14 @@ export function Header() {
                   <DropdownMenuItem onClick={() => navigate("/account/referrals")} className="rounded-xl font-medium" data-testid="menu-referrals">
                     <Gift size={15} className="mr-2 text-amber-400" /> Referrals
                   </DropdownMenuItem>
-                  {user.role === "admin" && (
+                  {["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(user.role) && (
                     <DropdownMenuItem onClick={() => navigate("/admin")} className="rounded-xl font-bold text-primary" data-testid="menu-admin">
-                      <Shield size={15} className="mr-2" /> Admin Panel
+                      <Shield size={15} className="mr-2 text-primary" /> Admin Panel
+                    </DropdownMenuItem>
+                  )}
+                  {user.role === "delivery_partner" && (
+                    <DropdownMenuItem onClick={() => navigate("/partner-portal")} className="rounded-xl font-bold text-emerald-400" data-testid="menu-partner-portal">
+                      <Truck size={15} className="mr-2 text-emerald-400" /> Delivery Partner Portal
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
