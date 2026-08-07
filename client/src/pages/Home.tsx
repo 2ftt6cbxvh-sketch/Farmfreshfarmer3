@@ -104,19 +104,21 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Floating 3D Trust Badges */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-emerald-500/20">
-              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
-                <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-foreground leading-tight">100% Naturally Grown</span>
+            {/* Sleek Unified 3D Glass Feature Bar */}
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 p-4 rounded-2xl bg-card/60 border border-emerald-500/20 backdrop-blur-xl shadow-lg mt-6">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+                <span>100% Naturally Grown</span>
               </div>
-              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
-                <Zap size={20} className="text-amber-500 shrink-0" />
-                <span className="text-xs font-bold text-foreground leading-tight">Instant Delivery ETA</span>
+              <span className="hidden sm:inline text-emerald-500/30 font-bold">•</span>
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <Zap size={16} className="text-amber-500 shrink-0 animate-pulse" />
+                <span>Instant Delivery ETA</span>
               </div>
-              <div className="flex items-center gap-2 p-3 rounded-2xl bg-card/80 border border-emerald-500/20 shadow-sm backdrop-blur-md">
-                <Package size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-foreground leading-tight">Zero Preservatives</span>
+              <span className="hidden sm:inline text-emerald-500/30 font-bold">•</span>
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <Package size={16} className="text-emerald-500 shrink-0" />
+                <span>Zero Preservatives</span>
               </div>
             </div>
           </div>

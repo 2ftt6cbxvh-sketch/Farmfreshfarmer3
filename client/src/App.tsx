@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, CartProvider } from "@/lib/store";
 import { useEffect, useState } from "react";
-import DeliveryBanner from "@/components/DeliveryBanner";
 import LockdownOverlay from "@/components/LockdownOverlay";
 import { ThemeProvider } from "@/lib/theme-provider";
 
@@ -127,7 +126,6 @@ function App() {
             <CartProvider>
               <Toaster />
               <Router hook={useHashLocation}>
-                <DeliveryBanner />
                 <AppRouter />
               </Router>
             </CartProvider>

@@ -265,19 +265,20 @@ export function Header() {
           </div>
         </div>
 
-        {/* 3D Glassmorphic Category Navigation Bar */}
-        <nav className="hidden lg:block border-t border-emerald-500/20 bg-secondary/30 relative z-0">
-          <div className="px-4 py-1.5">
-            <ul className="flex items-center justify-center gap-2 overflow-x-auto" role="list">
+        {/* Sleek Minimalist 3D Category Bar */}
+        <nav className="hidden lg:block border-t border-emerald-500/15 bg-background/50 backdrop-blur-md relative z-0">
+          <div className="px-4 py-2">
+            <ul className="flex items-center justify-center gap-6 overflow-x-auto no-scrollbar" role="list">
               {categories.map((c) => (
                 <li key={c.slug}>
                   <Link
                     href={`/category/${c.slug}`}
-                    className="flex items-center gap-1.5 whitespace-nowrap px-3.5 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-card/80 rounded-xl border border-transparent hover:border-emerald-500/30 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-sm"
+                    className="flex items-center gap-1.5 whitespace-nowrap text-xs font-bold text-muted-foreground hover:text-emerald-400 transition-colors duration-200 py-1 relative group/cat"
                     data-testid={`nav-${c.slug}`}
                   >
                     <span>{c.name}</span>
-                    <DietDot tag={c.dietTag} size={12} />
+                    <DietDot tag={c.dietTag} size={10} />
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-emerald-500 rounded-full group-hover/cat:w-full transition-all duration-300" />
                   </Link>
                 </li>
               ))}
