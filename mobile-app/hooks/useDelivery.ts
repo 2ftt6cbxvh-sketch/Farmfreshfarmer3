@@ -5,7 +5,7 @@ import type { DeliveryResolution, LockdownStatus } from '../lib/types';
 
 export function useDelivery() {
   const [resolution, setResolution] = useState<DeliveryResolution | null>({
-    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Visakhapatnam Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
+    pincode: '530003', locationArea: 'Visakhapatnam City', etaMinutes: 30, warehouseName: 'Farm Fresh Hub', packingTimeMinutes: 15, travelTimeMinutes: 15, serviceable: true
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,18 +23,15 @@ export function useDelivery() {
       let pincode = '';
       if (geocode && geocode.length > 0) {
         const place = geocode[0];
-        const parts = [place.city, place.district, place.subregion, place.region].filter(Boolean);
+        const cityStr = place.city || place.subregion || place.region;
+        const districtStr = place.district;
+        const parts = [cityStr, districtStr].filter(Boolean);
         if (parts.length > 0) {
           locationArea = parts.join(', ');
         }
         if (place.postalCode) {
           pincode = place.postalCode;
         }
-      }
-      
-      if (pincode && pincode.length !== 6) {
-        pincode = '530003';
-        locationArea = 'Visakhapatnam City';
       }
 
       const res = await api.post('/api/delivery/resolve', {
@@ -45,13 +42,13 @@ export function useDelivery() {
       }).catch(() => null);
 
       if (res?.data) {
-        setResolution({ ...res.data, serviceable: true });
+        setResolution({ ...res.data, serviceable: true, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
       } else {
         setResolution({
           pincode,
           locationArea,
           etaMinutes: 30,
-          warehouseName: 'Visakhapatnam Hub',
+          warehouseName: 'Farm Fresh Hub',
           packingTimeMinutes: 15,
           travelTimeMinutes: 15,
           serviceable: true
@@ -68,7 +65,7 @@ export function useDelivery() {
     setIsLoading(true);
     try {
       const res = await api.post('/api/delivery/resolve', { pincode });
-      setResolution(res.data);
+      setResolution({ ...res.data, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
     } catch {
       // Pincode failed
     } finally {
