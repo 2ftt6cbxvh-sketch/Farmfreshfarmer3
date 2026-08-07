@@ -28,13 +28,19 @@ export default function BasketScreen() {
 
   const isServiceable = !resolution || resolution.serviceable !== false;
 
+  const bg = isDark ? '#000000' : '#f8fafc';
+  const cardBg = isDark ? '#0c121e' : '#ffffff';
+  const textColor = isDark ? '#f8fafc' : COLORS.text;
+  const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
+  const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
+
   if (items.length === 0) {
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { backgroundColor: bg }]}>
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>🧺</Text>
-          <Text style={styles.emptyTitle}>Your Basket is Empty</Text>
-          <Text style={styles.emptyText}>Add some fresh organic fruits, sweets, or pickles to get started.</Text>
+          <Text style={[styles.emptyTitle, { color: textColor }]}>Your Basket is Empty</Text>
+          <Text style={[styles.emptyText, { color: mutedColor }]}>Add some fresh organic fruits, sweets, or pickles to get started.</Text>
           <TouchableOpacity style={styles.shopButton} onPress={() => router.push('/(tabs)')}>
             <Text style={styles.shopButtonText}>Start Shopping Now</Text>
           </TouchableOpacity>
@@ -44,9 +50,9 @@ export default function BasketScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: bg }]}>
       <View style={styles.content}>
-        <Text style={styles.headerTitle}>Your Basket ({items.length})</Text>
+        <Text style={[styles.headerTitle, { color: textColor }]}>Your Basket ({items.length})</Text>
 
         {/* Warehouse Delivery Timing Card */}
         {resolution?.serviceable && (
@@ -76,15 +82,15 @@ export default function BasketScreen() {
 
         {/* Items List */}
         {items.map((item) => (
-          <View key={item.id} style={styles.itemRow}>
+          <View key={item.id} style={[styles.itemRow, { backgroundColor: cardBg, borderColor: borderCol }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemUnit}>{item.unit}</Text>
+              <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
+              <Text style={[styles.itemUnit, { color: mutedColor }]}>{item.unit}</Text>
               <Text style={styles.itemPrice}>₹{(item.price * item.qty).toFixed(0)}</Text>
             </View>
-            <View style={styles.qtyRow}>
+            <View style={[styles.qtyRow, { backgroundColor: isDark ? '#1a2332' : '#f1f5f9' }]}>
               <TouchableOpacity
-                style={styles.qtyBtn}
+                style={[styles.qtyBtn, { backgroundColor: cardBg }]}
                 onPress={() => {
                   if (item.qty <= 1) {
                     setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -93,41 +99,41 @@ export default function BasketScreen() {
                   }
                 }}
               >
-                <Text style={styles.qtyBtnText}>-</Text>
+                <Text style={[styles.qtyBtnText, { color: textColor }]}>-</Text>
               </TouchableOpacity>
-              <Text style={styles.qtyText}>{item.qty}</Text>
+              <Text style={[styles.qtyText, { color: textColor }]}>{item.qty}</Text>
               <TouchableOpacity
-                style={styles.qtyBtn}
+                style={[styles.qtyBtn, { backgroundColor: cardBg }]}
                 onPress={() => setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i)))}
               >
-                <Text style={styles.qtyBtnText}>+</Text>
+                <Text style={[styles.qtyBtnText, { color: textColor }]}>+</Text>
               </TouchableOpacity>
             </View>
           </View>
         ))}
 
         {/* Delivery Details */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Delivery Details</Text>
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Delivery Details</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
             placeholder="Full Name"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={mutedColor}
             value={customerName}
             onChangeText={setCustomerName}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
             placeholder="Phone Number"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={mutedColor}
             keyboardType="phone-pad"
             value={phone}
             onChangeText={setPhone}
           />
           <TextInput
-            style={[styles.input, { height: 70 }]}
+            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor, height: 70 }]}
             placeholder="Full Street Address"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={mutedColor}
             multiline
             value={address}
             onChangeText={setAddress}
@@ -135,26 +141,26 @@ export default function BasketScreen() {
         </View>
 
         {/* Order Summary */}
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryVal}>₹{subtotal.toFixed(0)}</Text>
+            <Text style={[styles.summaryLabel, { color: mutedColor }]}>Subtotal</Text>
+            <Text style={[styles.summaryVal, { color: textColor }]}>₹{subtotal.toFixed(0)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Charge</Text>
+            <Text style={[styles.summaryLabel, { color: mutedColor }]}>Delivery Charge</Text>
             <Text style={[styles.summaryVal, { color: COLORS.primary }]}>
               {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
             </Text>
           </View>
-          <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 10, marginTop: 10 }]}>
-            <Text style={styles.totalLabel}>Grand Total</Text>
+          <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 10, marginTop: 10 }]}>
+            <Text style={[styles.totalLabel, { color: textColor }]}>Grand Total</Text>
             <Text style={styles.totalVal}>₹{total.toFixed(0)}</Text>
           </View>
         </View>
 
         <TouchableOpacity
           disabled={!isServiceable}
-          style={[styles.checkoutBtn, !isServiceable && { backgroundColor: '#94a3b8', opacity: 0.7 }]}
+          style={[styles.checkoutBtn, !isServiceable && { backgroundColor: '#64748b', opacity: 0.7 }]}
           onPress={() => {
             if (!isServiceable) {
               Alert.alert('Delivery Unavailable', 'Your location is not serviceable right now. Please change location.');
@@ -176,48 +182,41 @@ export default function BasketScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: isDark ? '#000000' : '#f8fafc' },
+  container: { flex: 1 },
   content: { padding: 16, paddingTop: 45 },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 16 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 80 },
   emptyIcon: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 8 },
-  emptyText: { fontSize: 14, color: isDark ? '#f8fafc' : COLORS.textMuted, marginBottom: 24, textAlign: 'center' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  emptyText: { fontSize: 14, marginBottom: 24, textAlign: 'center' },
   shopButton: { backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 },
   shopButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  timingCard: {
-    backgroundColor: '#092615', border: '1px solid #15803d', borderRadius: 16, padding: 14, marginBottom: 16,
-  },
+  timingCard: { backgroundColor: '#092615', borderWidth: 1, borderColor: '#15803d', borderRadius: 16, padding: 14, marginBottom: 16 },
   timingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   timingLocation: { color: '#f59e0b', fontWeight: 'bold', fontSize: 13 },
   timingEta: { color: '#86efac', fontWeight: 'bold', fontSize: 12 },
   timingDetails: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#15803d', gap: 4 },
   timingText: { color: '#e2e8f0', fontSize: 12 },
-  itemRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#0c121e' : '#ffffff',
-    padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0',
-  },
-  itemName: { fontSize: 15, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
-  itemUnit: { fontSize: 12, color: isDark ? '#f8fafc' : COLORS.textMuted, marginTop: 2 },
+  nonServiceableCard: { backgroundColor: '#450a0a', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16 },
+  nonServiceableTitle: { color: '#fca5a5', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
+  nonServiceableText: { color: '#fecdd3', fontSize: 12 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1 },
+  itemName: { fontSize: 15, fontWeight: 'bold' },
+  itemUnit: { fontSize: 12, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: 'bold', color: COLORS.primary, marginTop: 4 },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
-  qtyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: isDark ? '#0c121e' : '#ffffff' },
-  qtyBtnText: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
-  qtyText: { paddingHorizontal: 10, fontSize: 14, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
-  sectionCard: { backgroundColor: isDark ? '#0c121e' : '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0' },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text, marginBottom: 12 },
-  input: { backgroundColor: isDark ? '#000000' : '#f8fafc', borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0', borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14, color: isDark ? '#f8fafc' : COLORS.text },
-  summaryCard: { backgroundColor: isDark ? '#0c121e' : '#ffffff', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, padding: 4 },
+  qtyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  qtyBtnText: { fontSize: 16, fontWeight: 'bold' },
+  qtyText: { paddingHorizontal: 10, fontSize: 14, fontWeight: 'bold' },
+  sectionCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14 },
+  summaryCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  summaryLabel: { fontSize: 14, color: isDark ? '#f8fafc' : COLORS.textMuted },
-  summaryVal: { fontSize: 14, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
-  totalLabel: { fontSize: 16, fontWeight: 'bold', color: isDark ? '#f8fafc' : COLORS.text },
+  summaryLabel: { fontSize: 14 },
+  summaryVal: { fontSize: 14, fontWeight: 'bold' },
+  totalLabel: { fontSize: 16, fontWeight: 'bold' },
   totalVal: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
   checkoutBtn: { backgroundColor: COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 40 },
   checkoutBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-  nonServiceableCard: {
-    backgroundColor: '#450a0a', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16,
-  },
-  nonServiceableTitle: { color: '#fca5a5', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
-  nonServiceableText: { color: '#fecdd3', fontSize: 12 },
 });
