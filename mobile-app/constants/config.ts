@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5001";
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://farmfreshfarmer3.vercel.app";
 
 export const COLORS = {
   primary: "#15803d",
@@ -7,6 +7,7 @@ export const COLORS = {
   accent: "#f59e0b",
   background: "#ffffff",
   backgroundDark: "#0f172a",
+  backgroundOled: "#000000",
   text: "#0f172a",
   textMuted: "#64748b",
   border: "#e2e8f0",
