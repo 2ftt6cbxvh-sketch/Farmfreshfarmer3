@@ -6,12 +6,14 @@ import { api, resolveImgUrl } from '../../lib/api';
 import { COLORS } from '../../constants/config';
 import type { Product } from '../../lib/types';
 import { useThemeStore } from '../../lib/theme';
+import { useCartStore } from '../../lib/cart';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
+  const addItem = useCartStore((state) => state.addItem);
 
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
@@ -71,6 +73,7 @@ export default function ProductDetailScreen() {
   const similarProducts = allProducts?.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 5) || [];
 
   return (
+    <View style={{ flex: 1, backgroundColor: bg }}>
     <ScrollView style={[styles.container, { backgroundColor: bg }]}>
       <View style={[styles.navBar, { borderBottomColor: borderCol }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -104,7 +107,14 @@ export default function ProductDetailScreen() {
         </View>
         {product.description ? <Text style={[styles.description, { color: mutedColor }]}>{product.description}</Text> : null}
 
-        <TouchableOpacity style={[styles.addButton, product.stock === 0 && styles.addButtonDisabled]} disabled={product.stock === 0}>
+        <TouchableOpacity 
+          style={[styles.addButton, product.stock === 0 && styles.addButtonDisabled]} 
+          disabled={product.stock === 0}
+          onPress={() => {
+            addItem(product);
+            Alert.alert('Success', 'Added to Basket! 🎉');
+          }}
+        >
           <Text style={styles.addButtonText}>{product.stock === 0 ? 'Out of Stock' : 'Add to Basket'}</Text>
         </TouchableOpacity>
         {product.stock > 0 && product.stock <= (product.lowStockThreshold || 10) && (
@@ -126,7 +136,13 @@ export default function ProductDetailScreen() {
                 )}
                 <Text style={[styles.productName, { color: textColor }]} numberOfLines={1}>{p.name}</Text>
                 <Text style={styles.productPrice}>₹{(parseFloat(p.price) * (1 - parseFloat(p.discountPercent)/100)).toFixed(0)}</Text>
-                <TouchableOpacity style={styles.smallAddBtn}>
+                <TouchableOpacity 
+                  style={styles.smallAddBtn}
+                  onPress={() => {
+                    addItem(p);
+                    Alert.alert('Success', 'Added to Basket! 🎉');
+                  }}
+                >
                   <Text style={styles.smallAddBtnText}>Add</Text>
                 </TouchableOpacity>
               </TouchableOpacity>
@@ -178,8 +194,28 @@ export default function ProductDetailScreen() {
           <Text style={[styles.footerText, { color: mutedColor, fontSize: 12, marginTop: 4 }]}>Homemade • No Preservatives</Text>
         </View>
 
+        <View style={{ height: 80 }} />
       </View>
     </ScrollView>
+    <View style={[styles.bottomBar, { backgroundColor: cardBg, borderTopColor: borderCol }]}>
+      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)')}>
+        <Text style={styles.bottomTabIcon}>🏠</Text>
+        <Text style={[styles.bottomTabText, { color: textColor }]}>Shop</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/basket')}>
+        <Text style={styles.bottomTabIcon}>🧺</Text>
+        <Text style={[styles.bottomTabText, { color: textColor }]}>Basket</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/orders')}>
+        <Text style={styles.bottomTabIcon}>🧾</Text>
+        <Text style={[styles.bottomTabText, { color: textColor }]}>Orders</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/account')}>
+        <Text style={styles.bottomTabIcon}>👤</Text>
+        <Text style={[styles.bottomTabText, { color: textColor }]}>Account</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
   );
 }
 
@@ -236,4 +272,8 @@ const styles = StyleSheet.create({
   reviewText: { fontSize: 14, lineHeight: 20 },
   glassFooter: { marginTop: 40, padding: 24, borderRadius: 24, alignItems: 'center', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 8 },
   footerText: { fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
+  bottomBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 12, paddingBottom: 24, borderTopWidth: 1, position: 'absolute', bottom: 0, width: '100%' },
+  bottomTab: { alignItems: 'center' },
+  bottomTabIcon: { fontSize: 24, marginBottom: 4 },
+  bottomTabText: { fontSize: 10, fontWeight: '700' },
 });

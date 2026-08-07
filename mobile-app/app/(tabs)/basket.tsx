@@ -6,11 +6,12 @@ import { router } from 'expo-router';
 import { COLORS } from '../../constants/config';
 import { useDelivery } from '../../hooks/useDelivery';
 import { useThemeStore } from '../../lib/theme';
+import { useCartStore } from '../../lib/cart';
 
 export default function BasketScreen() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
-  const [items, setItems] = useState<any[]>([]);
+  const { items, updateQty, removeItem, clearCart } = useCartStore();
   const { resolution } = useDelivery();
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -93,9 +94,9 @@ export default function BasketScreen() {
                 style={[styles.qtyBtn, { backgroundColor: cardBg }]}
                 onPress={() => {
                   if (item.qty <= 1) {
-                    setItems((prev) => prev.filter((i) => i.id !== item.id));
+                    removeItem(item.id);
                   } else {
-                    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty - 1 } : i)));
+                    updateQty(item.id, -1);
                   }
                 }}
               >
@@ -104,7 +105,7 @@ export default function BasketScreen() {
               <Text style={[styles.qtyText, { color: textColor }]}>{item.qty}</Text>
               <TouchableOpacity
                 style={[styles.qtyBtn, { backgroundColor: cardBg }]}
-                onPress={() => setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i)))}
+                onPress={() => updateQty(item.id, 1)}
               >
                 <Text style={[styles.qtyBtnText, { color: textColor }]}>+</Text>
               </TouchableOpacity>
@@ -171,7 +172,7 @@ export default function BasketScreen() {
               return;
             }
             Alert.alert('Order Placed! 🎉', `Order total ₹${total.toFixed(0)}. Cash on Delivery.`);
-            setItems([]);
+            clearCart();
           }}
         >
           <Text style={styles.checkoutBtnText}>Place Order · ₹{total.toFixed(0)}</Text>

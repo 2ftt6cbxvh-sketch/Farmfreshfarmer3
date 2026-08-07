@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,54 +23,65 @@ export default function AdminDashboardScreen() {
     { id: 'categories', label: '🏷️ Categories' },
     { id: 'inventory', label: '🌾 Inventory' },
     { id: 'orders', label: '🧾 Orders' },
-    { id: 'subscriptions', label: '🔄 Subscriptions' },
-    { id: 'payments', label: '💳 Payments' },
+    { id: 'delivery', label: '🚚 Pincodes' },
     { id: 'customers', label: '👥 Customers' },
     { id: 'reviews', label: '⭐ Reviews' },
-    { id: 'coupons', label: '🎟️ Coupons' },
-    { id: 'discounts', label: '🏷️ Discounts' },
-    { id: 'referrals', label: '🎁 Referrals' },
-    { id: 'settings', label: '⚙️ Settings' },
-    { id: 'security', label: '🔒 Security' },
-    { id: 'warehouses', label: '🏬 Warehouses' },
-    { id: 'delivery', label: '🚚 Delivery & Geo' }
+    { id: 'settings', label: '⚙️ Settings' }
   ];
 
   const [activeTab, setActiveTab] = useState(tabs[0].id);
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: ['admin-orders'],
-    queryFn: () => api.get('/api/admin/orders').then(r => r.data),
-    enabled: activeTab === 'orders' || activeTab === 'dashboard'
-  });
+  // Forms State
+  const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', categoryId: '' });
+  const [newCat, setNewCat] = useState({ name: '', slug: '' });
+  const [newPincode, setNewPincode] = useState({ pincode: '', fee: '', etaMinutes: '' });
 
-  const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ['admin-products'],
-    queryFn: () => api.get('/api/products').then(r => r.data),
-    enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard'
-  });
+  // Data Queries
+  const { data: orders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
+  const { data: products, isLoading: productsLoading } = useQuery({ queryKey: ['admin-products'], queryFn: () => api.get('/api/products').then(r => r.data), enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard' });
+  const { data: categories } = useQuery({ queryKey: ['admin-cats'], queryFn: () => api.get('/api/categories').then(r => r.data.categories || r.data), enabled: activeTab === 'categories' });
+  const { data: pincodes } = useQuery({ queryKey: ['admin-pincodes'], queryFn: () => api.get('/api/admin/delivery').then(r => r.data), enabled: activeTab === 'delivery' });
+  const { data: users } = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/api/admin/users').then(r => r.data), enabled: activeTab === 'customers' });
+  const { data: reviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
 
+  // Mutations
   const updateOrderStatus = useMutation({
     mutationFn: ({ id, status }: { id: number, status: string }) => api.patch(`/api/orders/${id}`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
   });
 
   const adjustStock = useMutation({
     mutationFn: ({ id, changeQty }: { id: number, changeQty: number }) => api.post(`/api/admin/inventory/${id}/adjust`, { changeQty }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-    }
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+  });
+
+  const addProduct = useMutation({
+    mutationFn: (data: any) => api.post('/api/products', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setNewProduct({ name: '', price: '', stock: '', categoryId: '' }); Alert.alert('Success', 'Product Added'); }
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/products/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+  });
+
+  const addCategory = useMutation({
+    mutationFn: (data: any) => api.post('/api/categories', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-cats'] }); setNewCat({ name: '', slug: '' }); Alert.alert('Success', 'Category Added'); }
+  });
+
+  const addPincode = useMutation({
+    mutationFn: (data: any) => api.post('/api/admin/delivery', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-pincodes'] }); setNewPincode({ pincode: '', fee: '', etaMinutes: '' }); Alert.alert('Success', 'Pincode Added'); }
+  });
+
+  const deleteReview = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/admin/reviews/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reviews'] })
   });
 
   const statuses = ['placed', 'packed', 'out_for_delivery', 'delivered'];
-  const statusLabels: Record<string, string> = {
-    'placed': 'Placed',
-    'packed': 'Packed',
-    'out_for_delivery': 'Out for delivery',
-    'delivered': 'Delivered'
-  };
+  const statusLabels: Record<string, string> = { 'placed': 'Placed', 'packed': 'Packed', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered' };
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
@@ -85,11 +96,7 @@ export default function AdminDashboardScreen() {
       <View style={styles.tabsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {tabs.map((tab) => (
-            <TouchableOpacity 
-              key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.tabActive]} 
-              onPress={() => setActiveTab(tab.id)}
-            >
+            <TouchableOpacity key={tab.id} style={[styles.tab, activeTab === tab.id && styles.tabActive]} onPress={() => setActiveTab(tab.id)}>
               <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
@@ -111,10 +118,6 @@ export default function AdminDashboardScreen() {
               <Text style={[styles.cardTitle, { color: textColor }]}>Products count</Text>
               <Text style={[styles.stockText, { color: textColor }]}>{(products || []).length}</Text>
             </View>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>Active customers</Text>
-              <Text style={[styles.stockText, { color: textColor }]}>Manage Users Module</Text>
-            </View>
           </View>
         )}
 
@@ -123,10 +126,8 @@ export default function AdminDashboardScreen() {
             {ordersLoading ? <ActivityIndicator size="large" color="#10b981" /> : (orders || []).map((order: any) => (
               <View key={order.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>Order #{order.id}</Text>
-                <Text style={[styles.cardSubtitle, { color: mutedColor }]}>{order.customerName || 'Guest'}</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>{statusLabels[order.status] || order.status}</Text>
-                </View>
+                <Text style={[styles.cardSubtitle, { color: mutedColor }]}>{order.customerName || 'Guest'} • ₹{order.total}</Text>
+                <View style={styles.statusBadge}><Text style={styles.statusText}>{statusLabels[order.status] || order.status}</Text></View>
                 <View style={styles.row}>
                   <TouchableOpacity style={styles.actionBtn} onPress={() => {
                     const nextIdx = statuses.indexOf(order.status) + 1;
@@ -146,26 +147,116 @@ export default function AdminDashboardScreen() {
               <View key={product.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>{product.name}</Text>
                 <Text style={[styles.stockText, { color: product.stock < 20 ? '#ef4444' : textColor }]}>
-                  {product.stock} units remaining {product.stock < 20 && '⚠️ Low Stock'}
+                  {product.stock} units remaining {product.stock < 20 && '⚠️'}
                 </Text>
                 <View style={styles.row}>
-                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: -10 })}>
-                    <Text style={[styles.outlineBtnText, { color: textColor }]}>-10 Stock</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: 10 })}>
-                    <Text style={[styles.outlineBtnText, { color: textColor }]}>+10 Stock</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: -10 })}><Text style={[styles.outlineBtnText, { color: textColor }]}>-10</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.outlineBtn} onPress={() => adjustStock.mutate({ id: product.id, changeQty: 10 })}><Text style={[styles.outlineBtnText, { color: textColor }]}>+10</Text></TouchableOpacity>
                 </View>
               </View>
             ))}
           </View>
         )}
-        
-        {['products', 'categories', 'subscriptions', 'payments', 'customers', 'reviews', 'coupons', 'discounts', 'referrals', 'settings', 'security', 'warehouses', 'delivery'].includes(activeTab) && (
+
+        {activeTab === 'products' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>{tabs.find(t => t.id === activeTab)?.label} Manager</Text>
-              <Text style={[styles.cardSubtitle, { color: mutedColor }]}>This module allows managing {activeTab}. Full mobile implementation coming soon; manage via web dashboard.</Text>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Add New Product</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Product Name" value={newProduct.name} onChangeText={(t) => setNewProduct(prev => ({...prev, name: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Price" keyboardType="numeric" value={newProduct.price} onChangeText={(t) => setNewProduct(prev => ({...prev, price: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Initial Stock" keyboardType="numeric" value={newProduct.stock} onChangeText={(t) => setNewProduct(prev => ({...prev, stock: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Category ID" keyboardType="numeric" value={newProduct.categoryId} onChangeText={(t) => setNewProduct(prev => ({...prev, categoryId: t}))} />
+              <TouchableOpacity style={styles.actionBtn} onPress={() => addProduct.mutate({ name: newProduct.name, price: newProduct.price, stock: parseInt(newProduct.stock), categoryId: parseInt(newProduct.categoryId), unit: '1 Kg', discountPercent: '0' })}>
+                <Text style={styles.actionBtnText}>Add Product</Text>
+              </TouchableOpacity>
+            </View>
+            {(products || []).map((product: any) => (
+              <View key={product.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View>
+                  <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{product.name}</Text>
+                  <Text style={{ color: mutedColor }}>₹{product.price} • Stock: {product.stock}</Text>
+                </View>
+                <TouchableOpacity onPress={() => deleteProduct.mutate(product.id)}>
+                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'categories' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Add Category</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Category Name" value={newCat.name} onChangeText={(t) => setNewCat(prev => ({...prev, name: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Slug (e.g. fresh-fruits)" value={newCat.slug} onChangeText={(t) => setNewCat(prev => ({...prev, slug: t}))} />
+              <TouchableOpacity style={styles.actionBtn} onPress={() => addCategory.mutate({ name: newCat.name, slug: newCat.slug })}>
+                <Text style={styles.actionBtnText}>Add Category</Text>
+              </TouchableOpacity>
+            </View>
+            {(categories || []).map((cat: any) => (
+              <View key={cat.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{cat.name}</Text>
+                <Text style={{ color: mutedColor }}>/{cat.slug}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'delivery' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Add Serviceable Pincode</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Pincode" keyboardType="numeric" value={newPincode.pincode} onChangeText={(t) => setNewPincode(prev => ({...prev, pincode: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Delivery Fee" keyboardType="numeric" value={newPincode.fee} onChangeText={(t) => setNewPincode(prev => ({...prev, fee: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="ETA (minutes)" keyboardType="numeric" value={newPincode.etaMinutes} onChangeText={(t) => setNewPincode(prev => ({...prev, etaMinutes: t}))} />
+              <TouchableOpacity style={styles.actionBtn} onPress={() => addPincode.mutate({ pincode: newPincode.pincode, fee: parseInt(newPincode.fee||'0'), etaMinutes: parseInt(newPincode.etaMinutes||'30') })}>
+                <Text style={styles.actionBtnText}>Add Pincode</Text>
+              </TouchableOpacity>
+            </View>
+            {(pincodes || []).map((p: any) => (
+              <View key={p.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>PIN: {p.pincode}</Text>
+                <Text style={{ color: mutedColor }}>Fee: ₹{p.fee} • ETA: {p.etaMinutes}m</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'customers' && (
+          <View style={styles.tabContent}>
+            {(users || []).map((u: any) => (
+              <View key={u.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{u.username}</Text>
+                <Text style={{ color: mutedColor }}>Role: {u.role}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'reviews' && (
+          <View style={styles.tabContent}>
+            {(reviews || []).map((r: any) => (
+              <View key={r.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>Product ID: {r.productId}</Text>
+                <Text style={{ color: '#f59e0b' }}>{'★'.repeat(r.rating)}</Text>
+                <Text style={{ color: textColor }}>{r.comment}</Text>
+                <TouchableOpacity style={{ marginTop: 8 }} onPress={() => deleteReview.mutate(r.id)}>
+                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete Review</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'settings' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+              <View>
+                <Text style={[styles.cardTitle, { color: textColor }]}>Store Lockdown</Text>
+                <Text style={{ color: mutedColor, fontSize: 12, marginTop: 4 }}>Disable all new orders</Text>
+              </View>
+              <Switch value={false} onValueChange={(v) => Alert.alert('Lockdown', 'Lockdown toggled (Mock)')} />
             </View>
           </View>
         )}
@@ -193,10 +284,11 @@ const styles = StyleSheet.create({
   cardSubtitle: { fontSize: 14 },
   statusBadge: { backgroundColor: 'rgba(59, 130, 246, 0.15)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
   statusText: { color: '#3b82f6', fontWeight: '700', fontSize: 16 },
-  actionBtn: { backgroundColor: '#10b981', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 8, flex: 1 },
+  actionBtn: { backgroundColor: '#10b981', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   stockText: { fontSize: 24, fontWeight: '900' },
   row: { flexDirection: 'row', gap: 12, marginTop: 8 },
   outlineBtn: { flex: 1, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', padding: 12, borderRadius: 12, alignItems: 'center' },
   outlineBtnText: { fontWeight: '600' },
+  input: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14 },
 });

@@ -10,13 +10,14 @@ import { api, resolveImgUrl } from '../../lib/api';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS, BRAND } from '../../constants/config';
 import type { Product, Category } from '../../lib/types';
+import { useCartStore } from '../../lib/cart';
 import { useDelivery } from '../../hooks/useDelivery';
-
 const { width } = Dimensions.get('window');
 
 function ProductCard({ product }: { product: Product }) {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const addItem = useCartStore((state) => state.addItem);
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent);
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
@@ -55,8 +56,19 @@ function ProductCard({ product }: { product: Product }) {
           <Text style={[styles.productName, isDark && styles.textWhite]} numberOfLines={2}>{product.name}</Text>
           <Text style={styles.productUnit}>{product.unit}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>₹{effectivePrice.toFixed(0)}</Text>
-            {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
+            <View>
+              <Text style={styles.price}>₹{effectivePrice.toFixed(0)}</Text>
+              {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
+            </View>
+            <TouchableOpacity 
+              style={styles.addBtn}
+              onPress={() => {
+                addItem(product);
+                Alert.alert('Success', 'Added to Basket! 🎉');
+              }}
+            >
+              <Text style={styles.addBtnText}>Add</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
@@ -138,7 +150,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.6</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.7</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={toggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -157,20 +169,15 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText}>
-              📍 {resolution?.locationArea && !resolution.locationArea.includes('°') ? resolution.locationArea : (resolution?.pincode ? 'PIN ' + resolution.pincode : 'Visakhapatnam City (530003)')}
+              📍 {resolution?.locationArea || 'Tadepalle, Guntur'} (PIN: {resolution?.pincode || '522501'})
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>
 
           {resolution?.serviceable ? (
             <View style={styles.etaDetailsRow}>
-              <Text style={styles.warehouseText}>🏬 {resolution.warehouseName}</Text>
-              <Text style={styles.packingText}>📦 Pack: {resolution.packingTimeMinutes || 30}m</Text>
-              {!!resolution.travelTimeMinutes && (
-                <Text style={styles.transitText}>🚚 Transit: {resolution.travelTimeMinutes}m</Text>
-              )}
               <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>⏱️ {resolution.etaMinutes} mins ETA</Text>
+                <Text style={styles.etaBadgeText}>⏱️ {resolution?.etaMinutes || 35} mins ETA • Warehouse: {resolution?.warehouseName || 'Hub'}</Text>
               </View>
             </View>
           ) : (
@@ -330,9 +337,11 @@ const styles = StyleSheet.create({
   productInfo: { padding: 14 },
   productName: { fontSize: 15, fontWeight: '800', color: COLORS.text },
   productUnit: { fontSize: 13, color: COLORS.textMuted, marginTop: 4, fontWeight: '500' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 8 },
   price: { fontSize: 18, fontWeight: '900', color: '#10b981' },
   originalPrice: { fontSize: 13, color: COLORS.textMuted, textDecorationLine: 'line-through', fontWeight: '500' },
+  addBtn: { backgroundColor: '#10b981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  addBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { width: '88%', backgroundColor: '#ffffff', borderRadius: 32, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 20 },
   modalCardDark: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)' },
