@@ -122,7 +122,7 @@ export default function Login() {
   }
 
   return (
-    <GoogleOAuthProvider clientId="1234567890-demo.apps.googleusercontent.com">
+    <GoogleOAuthProvider clientId="983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com">
     <Layout>
       <div className="mx-auto max-w-md px-4 py-12">
         <div className="rounded-3xl border border-emerald-500/20 bg-card/90 backdrop-blur-xl p-6 sm:p-8 shadow-2xl space-y-6">

@@ -142,9 +142,9 @@ export function registerAuthJwtRoutes(app: Express) {
       let googleName = "Google User";
       let googleUserId = "google_demo_id";
 
-      if (process.env.GOOGLE_CLIENT_ID) {
+      if (process.env.GOOGLE_CLIENT_ID || true) {
         const { OAuth2Client } = await import("google-auth-library");
-        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const clientId = process.env.GOOGLE_CLIENT_ID || "983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com";
         const client = new OAuth2Client(clientId);
         const ticket = await client.verifyIdToken({ idToken, audience: clientId });
         const payload = ticket.getPayload();
