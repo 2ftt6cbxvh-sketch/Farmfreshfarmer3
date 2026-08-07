@@ -62,32 +62,44 @@ const PINCODE_GEO_DB: Record<string, { area: string; lat: number; lng: number }>
   "533001": { area: "Kakinada Town", lat: 16.9891, lng: 82.2475 },
 };
 
-async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; lat: number; lng: number }> {
+async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; lat: number; lng: number; valid: boolean }> {
   const cleanPin = pincode.trim();
   if (PINCODE_GEO_DB[cleanPin]) {
     const info = PINCODE_GEO_DB[cleanPin];
-    return { areaName: info.area, lat: info.lat, lng: info.lng };
+    return { areaName: info.area, lat: info.lat, lng: info.lng, valid: true };
   }
+
+  // Check if explicitly assigned to a warehouse in DB
+  try {
+    const [dbPin] = await db.select().from(warehousePincodes).where(eq(warehousePincodes.pincode, cleanPin)).limit(1);
+    if (dbPin) {
+      const [wh] = await db.select().from(warehouses).where(eq(warehouses.id, dbPin.warehouseId)).limit(1);
+      if (wh) {
+        return { areaName: `PIN ${cleanPin}`, lat: parseFloat(wh.latitude), lng: parseFloat(wh.longitude), valid: true };
+      }
+    }
+  } catch {}
 
   const prefix = cleanPin.substring(0, 3);
   const p = parseInt(prefix, 10);
-  let baseLat = 16.5;
-  let baseLng = 80.5;
+  let baseLat = 0;
+  let baseLng = 0;
+  let hasKnownPrefix = false;
 
-  if (p === 530 || p === 531) { baseLat = 17.6868; baseLng = 83.2185; }
-  else if (p === 532) { baseLat = 18.2949; baseLng = 83.8938; }
-  else if (p === 533) { baseLat = 16.9891; baseLng = 82.2475; }
-  else if (p === 534) { baseLat = 16.7107; baseLng = 81.1035; }
-  else if (p === 535) { baseLat = 18.1066; baseLng = 83.3955; }
-  else if (p === 520 || p === 521) { baseLat = 16.5062; baseLng = 80.6480; }
-  else if (p === 522) { baseLat = 16.3067; baseLng = 80.4365; }
-  else if (p === 523) { baseLat = 15.5057; baseLng = 80.0499; }
-  else if (p === 524) { baseLat = 14.4426; baseLng = 79.9865; }
-  else if (p === 515) { baseLat = 14.6819; baseLng = 77.6006; }
-  else if (p === 516) { baseLat = 14.4673; baseLng = 78.8242; }
-  else if (p === 517) { baseLat = 13.6288; baseLng = 79.4192; }
-  else if (p === 518) { baseLat = 15.8281; baseLng = 78.0373; }
-  else if (p >= 500 && p <= 509) { baseLat = 17.3850; baseLng = 78.4744; }
+  if (p === 530 || p === 531) { baseLat = 17.6868; baseLng = 83.2185; hasKnownPrefix = true; }
+  else if (p === 532) { baseLat = 18.2949; baseLng = 83.8938; hasKnownPrefix = true; }
+  else if (p === 533) { baseLat = 16.9891; baseLng = 82.2475; hasKnownPrefix = true; }
+  else if (p === 534) { baseLat = 16.7107; baseLng = 81.1035; hasKnownPrefix = true; }
+  else if (p === 535) { baseLat = 18.1066; baseLng = 83.3955; hasKnownPrefix = true; }
+  else if (p === 520 || p === 521) { baseLat = 16.5062; baseLng = 80.6480; hasKnownPrefix = true; }
+  else if (p === 522) { baseLat = 16.3067; baseLng = 80.4365; hasKnownPrefix = true; }
+  else if (p === 523) { baseLat = 15.5057; baseLng = 80.0499; hasKnownPrefix = true; }
+  else if (p === 524) { baseLat = 14.4426; baseLng = 79.9865; hasKnownPrefix = true; }
+  else if (p === 515) { baseLat = 14.6819; baseLng = 77.6006; hasKnownPrefix = true; }
+  else if (p === 516) { baseLat = 14.4673; baseLng = 78.8242; hasKnownPrefix = true; }
+  else if (p === 517) { baseLat = 13.6288; baseLng = 79.4192; hasKnownPrefix = true; }
+  else if (p === 518) { baseLat = 15.8281; baseLng = 78.0373; hasKnownPrefix = true; }
+  else if (p >= 500 && p <= 509) { baseLat = 17.3850; baseLng = 78.4744; hasKnownPrefix = true; }
 
   // Try Postal Pincode India API fallback
   try {
@@ -96,11 +108,21 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
     if (Array.isArray(data) && data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
       const po = data[0].PostOffice[0];
       const areaName = `${po.Name}, ${po.District}`;
-      return { areaName, lat: baseLat, lng: baseLng };
+      if (!hasKnownPrefix) {
+        baseLat = 20.5937;
+        baseLng = 78.9629;
+      }
+      return { areaName, lat: baseLat, lng: baseLng, valid: true };
+    } else if (Array.isArray(data) && data[0]?.Status === "Error") {
+      return { areaName: `Invalid PIN ${cleanPin}`, lat: 0, lng: 0, valid: false };
     }
   } catch {}
 
-  return { areaName: `PIN ${cleanPin}`, lat: baseLat, lng: baseLng };
+  if (hasKnownPrefix) {
+    return { areaName: `PIN ${cleanPin}`, lat: baseLat, lng: baseLng, valid: true };
+  }
+
+  return { areaName: `Invalid PIN ${cleanPin}`, lat: 0, lng: 0, valid: false };
 }
 
 export function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -149,6 +171,17 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   }
 
   const geo = await lookupPincodeGeo(cleanPin);
+
+  if (!geo.valid) {
+    return {
+      serviceable: false,
+      fee: 0,
+      etaMinutes: 0,
+      pincode: cleanPin,
+      locationArea: 'Invalid PIN Code',
+      reason: `PIN code ${cleanPin} is not a valid or recognized Indian postal code`,
+    };
+  }
 
   let activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
   if (activeWarehouses.length === 0) {
