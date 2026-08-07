@@ -58,3 +58,20 @@ export async function pingDb(): Promise<boolean> {
 /** Graceful shutdown — close pool on process exit. */
 process.on("SIGTERM", () => pool.end());
 process.on("SIGINT", () => pool.end());
+
+export async function runAutoMigrations() {
+  try {
+    // Add max_radius_km column if missing
+    await pool.query(`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`);
+    console.log('[db] auto-migration: max_radius_km column ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+  try {
+    // Add average_speed_kmph column if missing  
+    await pool.query(`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS average_speed_kmph NUMERIC(5,2) NOT NULL DEFAULT 30`);
+    console.log('[db] auto-migration: average_speed_kmph column ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+}

@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { createServer } from "node:http";
 import { registerRoutes } from "./register-routes";
 import { serveStatic } from "./static";
+import { runAutoMigrations } from "./db";
 
 // Only used for local development server (not Vercel)
 export const app = express();
@@ -61,6 +62,7 @@ app.use((req, res, next) => {
 });
 
 export const routesReadyPromise = (async () => {
+  await runAutoMigrations();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

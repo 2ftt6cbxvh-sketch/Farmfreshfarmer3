@@ -4,7 +4,7 @@
 import type { Express, Request, Response } from "express";
 import { db } from "../../db";
 import { warehouses, warehousePincodes, insertWarehouseSchema, insertWarehousePincodeSchema, users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 async function requireAdmin(req: Request, res: Response, next: Function) {
@@ -43,6 +43,9 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
 
 export function registerAdminWarehouseRoutes(app: Express) {
   app.get("/api/admin/warehouses", requireAdmin as any, async (_req: Request, res: Response) => {
+    // Ensure max_radius_km column exists (self-healing)
+    try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
+
     let list = await db.select().from(warehouses).orderBy(warehouses.name);
     if (list.length === 0) {
       const [hub] = await db.insert(warehouses).values({
@@ -63,6 +66,9 @@ export function registerAdminWarehouseRoutes(app: Express) {
   });
 
   app.post("/api/admin/warehouses", requireAdmin as any, async (req: Request, res: Response) => {
+    // Ensure max_radius_km column exists (self-healing)
+    try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
+
     const { initialPincodes, defaultPackingMins, ...rest } = req.body;
     const parsed = insertWarehouseSchema.safeParse(rest);
     if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
