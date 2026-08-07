@@ -88,7 +88,8 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Ensure fresh database is seeded with categories, products & admin user on cold start
-  await ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
+  // Seed runs in background — does NOT block route registration or first request
+  ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
 
   // Behind the Elastic Beanstalk load balancer / nginx we trust the first proxy
   // hop so secure cookies are honoured when TLS terminates upstream.
@@ -115,7 +116,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   /** GET /api/version — Version control telemetry */
   app.get("/api/version", (_req: Request, res: Response) => {
     return res.json({
-      version: "1.0.4",
+      version: "1.0.5",
       environment: process.env.NODE_ENV || "production",
       platform: "vercel",
       commitSha: process.env.VERCEL_GIT_COMMIT_SHA || "bbcccbe",
