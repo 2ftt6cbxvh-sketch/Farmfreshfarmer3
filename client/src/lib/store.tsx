@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { apiRequest } from "./queryClient";
+import { apiRequest, queryClient } from "./queryClient";
 import type { AuthUser, CartItem, Product } from "./types";
 import { effectivePrice } from "./types";
 
@@ -65,12 +65,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user as AuthUser;
   }
 
+
   async function logout() {
-    await apiRequest("POST", "/api/logout");
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('adminUser');
-    setUser(null);
+    try {
+      await apiRequest("POST", "/api/logout");
+    } catch (e) {
+      console.warn("[logout] API error:", e);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      queryClient.clear();
+      setUser(null);
+    }
   }
 
   return (

@@ -111,8 +111,13 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
   const handleLogout = async () => {
     localStorage.removeItem("adminUser");
-    await logout();
-    navigate("/admin");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    try {
+      await logout();
+    } catch {}
+    window.location.href = "/admin";
   };
 
   if (loading && !adminUser) {
@@ -140,7 +145,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v2.2.0
+              v2.2.1
             </span>
           </div>
         </div>
@@ -174,8 +179,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             <Store size={18} /> View store
           </Link>
           <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover-elevate"
+            type="button"
+            onClick={(e) => handleLogout(e)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover-elevate text-red-400 hover:text-red-300 font-bold cursor-pointer"
             data-testid="button-admin-logout"
           >
             <LogOut size={18} /> Log out
@@ -192,7 +198,13 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
               {n.label}
             </Link>
           ))}
-          <button onClick={handleLogout} className="text-sm whitespace-nowrap px-2 py-1">Log out</button>
+          <button
+            type="button"
+            onClick={(e) => handleLogout(e)}
+            className="text-sm font-bold text-red-400 hover:text-red-300 whitespace-nowrap px-2 py-1 cursor-pointer"
+          >
+            Log out
+          </button>
         </header>
 
         <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden animate-page-enter-3d">

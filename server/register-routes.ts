@@ -360,7 +360,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   app.post("/api/logout", (req, res) => {
-    req.session.destroy(() => res.json({ ok: true }));
+    try {
+      res.clearCookie("token");
+      res.clearCookie("accessToken");
+      res.clearCookie("refreshToken");
+    } catch {}
+    if (req.session) {
+      req.session.destroy(() => res.json({ ok: true }));
+    } else {
+      res.json({ ok: true });
+    }
   });
 
   app.get("/api/me", h(async (req, res) => {
