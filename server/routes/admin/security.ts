@@ -108,13 +108,15 @@ export function registerAdminSecurityRoutes(app: Express) {
       const dbToken = await storage.settings.get("telegram_bot_token");
       const dbChatId = await storage.settings.get("telegram_chat_id");
 
-      const maskedToken = botToken
+      const isValidToken = !!(botToken && botToken.includes(":") && !botToken.includes("..."));
+
+      const maskedToken = isValidToken
         ? `${botToken.substring(0, 5)}...${botToken.slice(-4)}`
         : "";
 
       return res.json({
-        configured: !!(botToken && chatId),
-        botToken: dbToken || (botToken ? maskedToken : ""),
+        configured: !!(isValidToken && chatId),
+        botToken: isValidToken ? maskedToken : "",
         chatId: dbChatId || chatId || "",
         envConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       });
@@ -136,10 +138,10 @@ export function registerAdminSecurityRoutes(app: Express) {
       if (botToken !== undefined && String(botToken).trim()) {
         const cleanToken = String(botToken).trim();
         if (cleanToken.includes("...")) {
-          // Ignore masked string, keep existing real token in DB
+          // Ignore masked string preview
         } else if (!cleanToken.includes(":")) {
           return res.status(400).json({
-            message: "Invalid Telegram Bot Token. Must be your full token from @BotFather (e.g. 7123456789:AAFx...)",
+            message: `Invalid Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':' (e.g. 7123456789:AAFx...). Note: Your Chat ID (1927711332) is NOT your Bot Token.`,
           });
         } else {
           await storage.settings.set("telegram_bot_token", cleanToken);
@@ -156,11 +158,11 @@ export function registerAdminSecurityRoutes(app: Express) {
   app.post("/api/admin/security/telegram/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
     try {
       const { getTelegramCredentials } = await import("../../services/telegram");
-      const { botToken } = await getTelegramCredentials();
+      const { botToken, chatId } = await getTelegramCredentials();
 
-      if (!botToken || botToken.includes("...")) {
+      if (!botToken || botToken.includes("...") || !botToken.includes(":")) {
         return res.status(400).json({
-          message: "Please enter and save your full Telegram Bot Token from @BotFather (e.g. 7123456789:AAFx...) first.",
+          message: `The saved Bot Token ("${botToken || "empty"}") is invalid. A real Telegram Bot Token from @BotFather contains a colon ':' (e.g. 7123456789:AAFx...). Enter your real Bot Token in the field and click Save Telegram Credentials first.`,
         });
       }
 
@@ -176,7 +178,7 @@ export function registerAdminSecurityRoutes(app: Express) {
         return res.json({ message: `✨ Telegram Webhook Auto-Registered Successfully! (${webhookUrl})`, details: data });
       } else {
         return res.status(400).json({
-          message: `Telegram API Error: ${data.description || "Failed to register webhook. Verify Bot Token."}`,
+          message: `Telegram API Error: ${data.description || "Failed to register webhook. Verify Bot Token from @BotFather."}`,
           details: data,
         });
       }
