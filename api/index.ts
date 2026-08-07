@@ -1,3 +1,6 @@
-import app from "../server/index";
+import app, { routesReadyPromise } from "../server/index";
 
-export default app;
+export default async function handler(req: any, res: any) {
+  await routesReadyPromise;
+  return app(req, res);
+}

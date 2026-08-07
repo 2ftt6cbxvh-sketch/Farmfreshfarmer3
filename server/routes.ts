@@ -87,8 +87,8 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Ensure a fresh database is immediately usable; no-op once seeded.
-  await ensureSeeded({ log: true }).catch((e) => console.error("[seed] skipped:", e?.message || e));
+  // Ensure a fresh database is usable in background; no-op once seeded.
+  ensureSeeded({ log: false }).catch((e) => console.error("[seed] skipped:", e?.message || e));
 
   // Behind the Elastic Beanstalk load balancer / nginx we trust the first proxy
   // hop so secure cookies are honoured when TLS terminates upstream.
