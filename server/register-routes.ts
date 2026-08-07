@@ -499,14 +499,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ valid: true, code: coupon.code, discountPercent: coupon.discountPercent });
   }));
 
+  function extractUserId(req: any): number | null {
+    if (req.session?.userId) return Number(req.session.userId);
+    if (req.jwtUser?.userId) return Number(req.jwtUser.userId);
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    if (token) {
+      try {
+        const jwt = require("jsonwebtoken");
+        let decoded: any;
+        try {
+          decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        } catch {
+          decoded = jwt.decode(token);
+        }
+        if (decoded?.userId || decoded?.sub) {
+          return Number(decoded.userId || decoded.sub);
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   /* =========================== PRICE QUOTE ========================= */
   // Live price preview so the cart can show first-order/referral/reward
   // discounts before the customer commits.
   app.post("/api/price/quote", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];
     if (!items.length) return res.status(400).json({ message: "No items" });
+    const userId = extractUserId(req);
     const price = await computePrice({
-      userId: req.session.userId ?? null,
+      userId,
       items,
       couponCode: req.body.couponCode ?? null,
       referralCode: req.body.referralCode ?? null,
@@ -538,7 +561,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!phone || !/^[6-9][0-9]{9}$/.test(phone.replace(/\s/g, ''))) {
       return res.status(400).json({ message: 'Please enter a valid 10-digit Indian mobile number' });
     }
-    const updated = await db.update(users).set({ phone: phone.trim() }).where(eq(users.id, req.session.userId!)).returning();
+    const userId = extractUserId(req) || req.session.userId!;
+    const updated = await db.update(users).set({ phone: phone.trim() }).where(eq(users.id, userId)).returning();
     res.json({ user: publicUser(updated[0]) });
   }));
 
@@ -551,7 +575,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
       return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
     }
-    const userId = req.session.userId;
+    const userId = extractUserId(req);
 
     // Require phone number for order
     if (userId) {
@@ -562,7 +586,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     const { order, price } = await placeOrder({
-      userId: req.session.userId ?? null,
+      userId,
       customerName: String(req.body.customerName || ""),
       phone: String(req.body.phone || ""),
       address: String(req.body.address || ""),
