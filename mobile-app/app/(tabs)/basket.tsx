@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/config';
 import { useDelivery } from '../../hooks/useDelivery';
@@ -11,6 +12,7 @@ import { useCartStore } from '../../lib/cart';
 export default function BasketScreen() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
   const { items, updateQty, removeItem, clearCart } = useCartStore();
   const { resolution } = useDelivery();
   const [customerName, setCustomerName] = useState('');
@@ -38,12 +40,15 @@ export default function BasketScreen() {
   if (items.length === 0) {
     return (
       <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.empty}>
+        <View style={[styles.empty, { paddingTop: insets.top + 40 }]}>
           <Text style={styles.emptyIcon}>🧺</Text>
           <Text style={[styles.emptyTitle, { color: textColor }]}>Your Basket is Empty</Text>
           <Text style={[styles.emptyText, { color: mutedColor }]}>Add some fresh organic fruits, sweets, or pickles to get started.</Text>
           <TouchableOpacity style={styles.shopButton} onPress={() => router.push('/(tabs)')}>
             <Text style={styles.shopButtonText}>Start Shopping Now</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.shopButton, { marginTop: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }]} onPress={() => router.push('/(tabs)/orders')}>
+            <Text style={[styles.shopButtonText, { color: textColor }]}>📦 My Orders</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -52,7 +57,7 @@ export default function BasketScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingTop: Math.max(insets.top + 10, 45) }]}>
         <Text style={[styles.headerTitle, { color: textColor }]}>Your Basket ({items.length})</Text>
 
         {/* Warehouse Delivery Timing Card */}
@@ -192,16 +197,16 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, marginBottom: 24, textAlign: 'center' },
   shopButton: { backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 },
   shopButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
-  timingCard: { backgroundColor: '#092615', borderWidth: 1, borderColor: '#15803d', borderRadius: 16, padding: 14, marginBottom: 16 },
+  timingCard: { backgroundColor: '#092615', borderWidth: 1, borderColor: '#15803d', borderRadius: 16, padding: 14, marginBottom: 16, shadowColor: '#10b981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 8 },
   timingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   timingLocation: { color: '#f59e0b', fontWeight: 'bold', fontSize: 13 },
   timingEta: { color: '#86efac', fontWeight: 'bold', fontSize: 12 },
   timingDetails: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#15803d', gap: 4 },
   timingText: { color: '#e2e8f0', fontSize: 12 },
-  nonServiceableCard: { backgroundColor: '#450a0a', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16 },
+  nonServiceableCard: { backgroundColor: '#450a0a', borderColor: '#b91c1c', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16, shadowColor: '#ef4444', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 15, elevation: 8 },
   nonServiceableTitle: { color: '#fca5a5', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
   nonServiceableText: { color: '#fecdd3', fontSize: 12 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   itemName: { fontSize: 15, fontWeight: 'bold' },
   itemUnit: { fontSize: 12, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: 'bold', color: COLORS.primary, marginTop: 4 },
@@ -209,10 +214,10 @@ const styles = StyleSheet.create({
   qtyBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   qtyBtnText: { fontSize: 16, fontWeight: 'bold' },
   qtyText: { paddingHorizontal: 10, fontSize: 14, fontWeight: 'bold' },
-  sectionCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1 },
+  sectionCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
   input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14 },
-  summaryCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1 },
+  summaryCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   summaryLabel: { fontSize: 14 },
   summaryVal: { fontSize: 14, fontWeight: 'bold' },

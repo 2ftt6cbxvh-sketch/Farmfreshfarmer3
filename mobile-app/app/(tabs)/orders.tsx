@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { COLORS } from '../../constants/config';
@@ -36,6 +37,7 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
 export default function OrdersScreen() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['my-orders'],
@@ -48,7 +50,7 @@ export default function OrdersScreen() {
   const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: bg }]} refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}>
+    <ScrollView style={[styles.container, { backgroundColor: bg, paddingTop: Math.max(insets.top + 10, 16) }]} refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}>
       <Text style={[styles.pageTitle, { color: textColor }]}>My Orders</Text>
       {isLoading ? (
         <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />
@@ -68,7 +70,7 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   pageTitle: { fontSize: 22, fontWeight: '800', marginBottom: 16, marginTop: 8 },
-  card: { borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1 },
+  card: { borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   orderId: { fontSize: 15, fontWeight: '700' },
   statusBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },

@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, LayoutAnimation } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { COLORS, BRAND } from '../../constants/config';
 import { useAuth } from '../../lib/store';
@@ -8,6 +9,12 @@ export default function AccountScreen() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
+
+  const handleToggleTheme = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    toggleTheme();
+  };
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -48,7 +55,7 @@ export default function AccountScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={styles.profileCard}>
+      <View style={[styles.profileCard, { paddingTop: Math.max(insets.top + 16, 50) }]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
         </View>
@@ -59,7 +66,11 @@ export default function AccountScreen() {
 
       <View style={styles.menuSection}>
         <Text style={[styles.sectionTitle, { color: mutedColor }]}>Preferences</Text>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={toggleTheme}>
+        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/orders')}>
+          <Text style={[styles.menuItemText, { color: textColor }]}>📦 My Orders</Text>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={handleToggleTheme}>
           <Text style={[styles.menuItemText, { color: textColor }]}>Theme: {isDark ? '🌙 Pitch Black OLED' : '☀️ Light Mode'}</Text>
           <Text style={styles.chevron}>⚙️</Text>
         </TouchableOpacity>
@@ -86,7 +97,7 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  profileCard: { backgroundColor: COLORS.primaryDark, padding: 24, alignItems: 'center', paddingTop: 40 },
+  profileCard: { backgroundColor: COLORS.primaryDark, padding: 24, alignItems: 'center' },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   avatarText: { fontSize: 28, fontWeight: '800', color: '#ffffff' },
   userName: { fontSize: 20, fontWeight: '800', color: '#ffffff', marginBottom: 4 },

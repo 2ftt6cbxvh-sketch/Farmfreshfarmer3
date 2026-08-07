@@ -33,9 +33,9 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={[styles.container, isDark && styles.containerDark]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 12 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top + 10, 24) }]} keyboardShouldPersistTaps="handled">
         {/* Back Button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(tabs)')}>
+        <TouchableOpacity style={[styles.backButton, { marginTop: insets.top + 10 }]} onPress={() => router.replace('/(tabs)')}>
           <Text style={[styles.backButtonText, isDark && styles.textWhite]}>← Back to Store</Text>
         </TouchableOpacity>
 
@@ -82,6 +82,15 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
+          <View style={styles.socialButtonsContainer}>
+            <TouchableOpacity style={[styles.socialButton, isDark && styles.socialButtonDark]}>
+              <Text style={[styles.socialButtonText, isDark && styles.textWhite]}>🍏 Continue with Apple</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.socialButton, isDark && styles.socialButtonDark]}>
+              <Text style={[styles.socialButtonText, isDark && styles.textWhite]}>🌐 Continue with Google</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>
           </TouchableOpacity>
@@ -114,6 +123,10 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  socialButtonsContainer: { marginTop: 16, gap: 12 },
+  socialButton: { backgroundColor: 'rgba(255,255,255,0.8)', padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  socialButtonDark: { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', shadowColor: '#fff', shadowOpacity: 0.05 },
+  socialButtonText: { fontSize: 15, fontWeight: '600', color: '#000' },
   link: { alignItems: 'center', marginTop: 8 },
   linkText: { color: '#888', fontSize: 14 },
   linkBold: { color: COLORS.primary, fontWeight: '700' },

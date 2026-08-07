@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, Animated, TouchableOpacity, TextInput,
-  StyleSheet, Image, RefreshControl, Modal, Dimensions,
+  StyleSheet, Image, RefreshControl, Modal, Dimensions, LayoutAnimation,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -80,6 +80,11 @@ export default function HomeScreen() {
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
+
+  const handleToggleTheme = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    toggleTheme();
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [pincodeModal, setPincodeModal] = useState(false);
@@ -150,9 +155,9 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.7</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.8</Text></View>
           </View>
-          <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={toggleTheme}>
+          <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
           </TouchableOpacity>
         </View>
@@ -168,7 +173,7 @@ export default function HomeScreen() {
       <Animated.View style={{ transform: [{ scale: bannerScale }, { translateY: floatAnim }] }}>
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
-            <Text style={styles.deliveryLocationText}>
+            <Text style={styles.deliveryLocationText} numberOfLines={1}>
               📍 {resolution?.locationArea || 'Tadepalle, Guntur'} (PIN: {resolution?.pincode || '522501'})
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
@@ -285,7 +290,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
   },
   deliveryBannerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deliveryLocationText: { color: '#38bdf8', fontWeight: '900', fontSize: 15, textShadowColor: 'rgba(56, 189, 248, 0.5)', textShadowOffset: {width: 0, height: 0}, textShadowRadius: 10 },
+  deliveryLocationText: { flex: 1, marginRight: 8, color: '#38bdf8', fontWeight: '900', fontSize: 12.5, textShadowColor: 'rgba(56, 189, 248, 0.5)', textShadowOffset: {width: 0, height: 0}, textShadowRadius: 10 },
   changeBtnText: { color: '#94a3b8', fontSize: 12, fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   etaDetailsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 },
   warehouseText: { color: '#fcd34d', fontSize: 12, fontWeight: 'bold' },
