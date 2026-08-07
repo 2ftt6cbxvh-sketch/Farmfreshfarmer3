@@ -19,6 +19,7 @@ export default function AdminDashboardScreen() {
 
   const tabs = [
     { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'warehouses', label: '🏢 Warehouses' },
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '🏷️ Categories' },
     { id: 'inventory', label: '🌾 Inventory' },
@@ -36,6 +37,7 @@ export default function AdminDashboardScreen() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [newCat, setNewCat] = useState({ name: '', slug: '' });
   const [newPincode, setNewPincode] = useState({ pincode: '', fee: '', etaMinutes: '' });
+  const [newWarehouse, setNewWarehouse] = useState({ name: '', latitude: '', longitude: '', averageSpeedKmph: '', active: true });
 
   // Data Queries
   const { data: orders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
@@ -44,6 +46,7 @@ export default function AdminDashboardScreen() {
   const { data: pincodes } = useQuery({ queryKey: ['admin-pincodes'], queryFn: () => api.get('/api/admin/delivery').then(r => r.data), enabled: activeTab === 'delivery' });
   const { data: users } = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/api/admin/users').then(r => r.data), enabled: activeTab === 'customers' });
   const { data: reviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
+  const { data: warehouses, isLoading: warehousesLoading } = useQuery({ queryKey: ['admin-warehouses'], queryFn: () => api.get('/api/admin/warehouses').then(r => r.data), enabled: activeTab === 'warehouses' });
 
   // Mutations
   const updateOrderStatus = useMutation({
@@ -86,6 +89,16 @@ export default function AdminDashboardScreen() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reviews'] })
   });
 
+  const addWarehouse = useMutation({
+    mutationFn: (data: any) => api.post('/api/admin/warehouses', data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-warehouses'] }); setNewWarehouse({ name: '', latitude: '', longitude: '', averageSpeedKmph: '', active: true }); Alert.alert('Success', 'Warehouse Added'); }
+  });
+
+  const deleteWarehouse = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/admin/warehouses/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-warehouses'] })
+  });
+
   const statuses = ['placed', 'packed', 'out_for_delivery', 'delivered'];
   const statusLabels: Record<string, string> = { 'placed': 'Placed', 'packed': 'Packed', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered' };
 
@@ -124,6 +137,33 @@ export default function AdminDashboardScreen() {
               <Text style={[styles.cardTitle, { color: textColor }]}>Products count</Text>
               <Text style={[styles.stockText, { color: textColor }]}>{(products || []).length}</Text>
             </View>
+          </View>
+        )}
+
+        {activeTab === 'warehouses' && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Add New Warehouse</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Name" value={newWarehouse.name} onChangeText={(t) => setNewWarehouse(prev => ({...prev, name: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Latitude" value={newWarehouse.latitude} onChangeText={(t) => setNewWarehouse(prev => ({...prev, latitude: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Longitude" value={newWarehouse.longitude} onChangeText={(t) => setNewWarehouse(prev => ({...prev, longitude: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Avg Speed Kmph" keyboardType="numeric" value={newWarehouse.averageSpeedKmph} onChangeText={(t) => setNewWarehouse(prev => ({...prev, averageSpeedKmph: t}))} />
+              <TouchableOpacity style={styles.actionBtn} onPress={() => addWarehouse.mutate({ name: newWarehouse.name, latitude: newWarehouse.latitude, longitude: newWarehouse.longitude, averageSpeedKmph: newWarehouse.averageSpeedKmph, active: newWarehouse.active })}>
+                <Text style={styles.actionBtnText}>Add Warehouse</Text>
+              </TouchableOpacity>
+            </View>
+            {warehousesLoading ? <ActivityIndicator size="large" color="#10b981" /> : (warehouses || []).map((w: any) => (
+              <View key={w.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View>
+                  <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{w.name}</Text>
+                  <Text style={{ color: mutedColor }}>Lat: {w.latitude} • Lng: {w.longitude} • Speed: {w.averageSpeedKmph}kmph</Text>
+                  <Text style={{ color: w.active ? '#10b981' : '#ef4444' }}>{w.active ? 'Active' : 'Inactive'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => deleteWarehouse.mutate(w.id)}>
+                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
         )}
 

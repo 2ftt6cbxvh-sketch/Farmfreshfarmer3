@@ -117,23 +117,42 @@ async function calculateFee(distanceKm: number, orderValue: number): Promise<num
 export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
   const geo = await lookupPincodeGeo(pincode);
 
-  const activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
+  let activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
   if (activeWarehouses.length === 0) {
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "No active warehouses configured" };
+    const [defaultWh] = await db.insert(warehouses).values({
+      name: "Main Warehouse",
+      latitude: "17.6868",
+      longitude: "83.2185",
+      active: true,
+      averageSpeedKmph: "30"
+    }).returning();
+    activeWarehouses.push(defaultWh);
   }
 
   const [pcRow] = await db.select().from(warehousePincodes)
     .where(and(eq(warehousePincodes.pincode, pincode), eq(warehousePincodes.active, true))).limit(1);
-  if (!pcRow) {
-    await logResolution({ userId, pincode, serviceable: false });
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "PIN code not in any active warehouse service area" };
-  }
 
-  const [warehouse] = await db.select().from(warehouses)
-    .where(and(eq(warehouses.id, pcRow.warehouseId), eq(warehouses.active, true))).limit(1);
-  if (!warehouse) {
-    await logResolution({ userId, pincode, serviceable: false });
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Assigned warehouse is currently inactive" };
+  let warehouse;
+  let packingTimeMinutes = 30;
+
+  if (pcRow) {
+    const [wh] = await db.select().from(warehouses)
+      .where(and(eq(warehouses.id, pcRow.warehouseId), eq(warehouses.active, true))).limit(1);
+    if (!wh) {
+      await logResolution({ userId, pincode, serviceable: false });
+      return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Assigned warehouse is currently inactive" };
+    }
+    warehouse = wh;
+    packingTimeMinutes = pcRow.packingTimeMinutes || 30;
+  } else {
+    // dynamically match nearest active warehouse
+    let nearestWarehouse = activeWarehouses[0];
+    let minDistance = haversineDistanceKm(geo.lat, geo.lng, parseFloat(nearestWarehouse.latitude), parseFloat(nearestWarehouse.longitude));
+    for (const wh of activeWarehouses.slice(1)) {
+      const d = haversineDistanceKm(geo.lat, geo.lng, parseFloat(wh.latitude), parseFloat(wh.longitude));
+      if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
+    }
+    warehouse = nearestWarehouse;
   }
 
   // Calculate distance from Warehouse Lat/Lng to Customer Lat/Lng
@@ -144,7 +163,6 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   // Calculate Travel Duration using Warehouse Rider Speed
   const speedKmph = parseFloat(warehouse.averageSpeedKmph) || 30;
   const travelTimeMinutes = distanceKm > 0 ? Math.ceil((distanceKm / speedKmph) * 60) : 0;
-  const packingTimeMinutes = pcRow.packingTimeMinutes || 30;
 
   const etaMinutes = packingTimeMinutes + travelTimeMinutes;
   const fee = await calculateFee(distanceKm, orderValue);
