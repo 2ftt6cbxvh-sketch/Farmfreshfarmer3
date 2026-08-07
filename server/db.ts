@@ -111,9 +111,10 @@ export async function runAutoMigrations() {
         is_blocked_by_admin BOOLEAN NOT NULL DEFAULT FALSE,
         last_available_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        updatedAt TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
     `);
+    await pool.query(`ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()`);
     console.log('[db] auto-migration: delivery_partners table ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);

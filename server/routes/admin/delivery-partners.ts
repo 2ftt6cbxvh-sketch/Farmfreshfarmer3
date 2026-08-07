@@ -118,29 +118,39 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = username.trim().toLowerCase();
 
-      const existingUser = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
-      if (existingUser.length > 0) {
-        return res.status(400).json({ message: "A user account with this email already exists" });
+      // Check if user exists by email OR username
+      const existingUserByEmail = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+      const existingUserByUsername = await db.select().from(users).where(eq(users.username, cleanUsername)).limit(1);
+
+      let targetUser = existingUserByEmail[0] || existingUserByUsername[0];
+
+      if (!targetUser) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const [newUser] = await db.insert(users).values({
+          name: name.trim(),
+          email: cleanEmail,
+          username: cleanUsername,
+          password: hashedPassword,
+          phone: phone ? phone.trim() : null,
+          role: "delivery_partner",
+          permissions: JSON.stringify(["/partner-portal"]),
+          isPrimaryAdmin: false,
+          status: "active",
+        }).returning();
+        targetUser = newUser;
+      } else {
+        await db.update(users).set({ role: "delivery_partner" }).where(eq(users.id, targetUser.id));
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Check if delivery partner profile already exists for this user
+      const existingPartner = await db.select().from(deliveryPartners).where(eq(deliveryPartners.userId, targetUser.id)).limit(1);
+      if (existingPartner.length > 0) {
+        return res.status(400).json({ message: "A delivery partner account with this username/email already exists." });
+      }
 
-      // 1. Create user account with role 'delivery_partner'
-      const [createdUser] = await db.insert(users).values({
-        name: name.trim(),
-        email: cleanEmail,
-        username: cleanUsername,
-        password: hashedPassword,
-        phone: phone ? phone.trim() : null,
-        role: "delivery_partner",
-        permissions: JSON.stringify(["/partner-portal"]),
-        isPrimaryAdmin: false,
-        status: "active",
-      }).returning();
-
-      // 2. Create deliveryPartner profile record
+      // Create deliveryPartner profile record
       const [createdPartner] = await db.insert(deliveryPartners).values({
-        userId: createdUser.id,
+        userId: targetUser.id,
         partnerType: partnerType || "local_delivery",
         name: name.trim(),
         idType: idType || "aadhar",
@@ -158,8 +168,8 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
       return res.status(201).json({
         partner: {
           ...createdPartner,
-          username: createdUser.username,
-          userStatus: createdUser.status,
+          username: targetUser.username,
+          userStatus: targetUser.status,
           activeOrdersCount: 0,
         },
       });
