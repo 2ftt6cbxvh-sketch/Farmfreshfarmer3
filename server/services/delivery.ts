@@ -21,6 +21,7 @@ export interface DeliveryResolution {
   locationArea?: string;
   distanceKm?: number;
   reason?: string;
+  pincode?: string;
 }
 
 // Well-known Andhra Pradesh & Telangana Pincode Centroids Dictionary
@@ -114,27 +115,26 @@ async function calculateFee(distanceKm: number, orderValue: number): Promise<num
 }
 
 export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
+  const geo = await lookupPincodeGeo(pincode);
+
   const activeWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
   if (activeWarehouses.length === 0) {
-    return { serviceable: false, fee: 0, etaMinutes: 0, reason: "No active warehouses configured" };
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "No active warehouses configured" };
   }
 
   const [pcRow] = await db.select().from(warehousePincodes)
     .where(and(eq(warehousePincodes.pincode, pincode), eq(warehousePincodes.active, true))).limit(1);
   if (!pcRow) {
     await logResolution({ userId, pincode, serviceable: false });
-    return { serviceable: false, fee: 0, etaMinutes: 0, reason: "PIN code not in any active warehouse service area" };
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "PIN code not in any active warehouse service area" };
   }
 
   const [warehouse] = await db.select().from(warehouses)
     .where(and(eq(warehouses.id, pcRow.warehouseId), eq(warehouses.active, true))).limit(1);
   if (!warehouse) {
     await logResolution({ userId, pincode, serviceable: false });
-    return { serviceable: false, fee: 0, etaMinutes: 0, reason: "Assigned warehouse is currently inactive" };
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Assigned warehouse is currently inactive" };
   }
-
-  // Resolve Customer Location Geo (Area Name + Lat/Lng)
-  const geo = await lookupPincodeGeo(pincode);
 
   // Calculate distance from Warehouse Lat/Lng to Customer Lat/Lng
   const whLat = parseFloat(warehouse.latitude);

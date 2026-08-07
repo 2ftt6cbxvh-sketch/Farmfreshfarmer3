@@ -20,6 +20,7 @@ export function Header() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileClosing, setMobileClosing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const { count } = useCart();
   const { user, logout } = useAuth();
@@ -59,9 +60,25 @@ export function Header() {
     if (search.trim()) {
       navigate(`/search?q=${encodeURIComponent(search.trim())}`);
       setSearchFocused(false);
-      setMobileOpen(false);
+      closeMobileMenu();
     }
   }
+
+  const closeMobileMenu = () => {
+    setMobileClosing(true);
+    setTimeout(() => {
+      setMobileOpen(false);
+      setMobileClosing(false);
+    }, 220);
+  };
+
+  const toggleMobileMenu = () => {
+    if (mobileOpen) {
+      closeMobileMenu();
+    } else {
+      setMobileOpen(true);
+    }
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!headerRef.current) return;
@@ -102,7 +119,7 @@ export function Header() {
         <div className="px-4 py-3 flex items-center justify-between gap-4 relative z-10">
           <button
             className="lg:hidden p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={toggleMobileMenu}
             aria-label="Menu"
             data-testid="button-mobile-menu"
           >
@@ -290,8 +307,8 @@ export function Header() {
       </div>
 
       {/* Mobile Navigation Menu */}
-      {mobileOpen && (
-        <div className="lg:hidden mt-2.5 rounded-3xl border border-emerald-500/35 bg-card/95 backdrop-blur-3xl p-4 space-y-4 shadow-2xl shadow-emerald-950/40 animate-mobile-drawer">
+      {(mobileOpen || mobileClosing) && (
+        <div className={`lg:hidden mt-2.5 rounded-3xl border border-emerald-500/35 bg-card/95 backdrop-blur-3xl p-4 space-y-4 shadow-2xl shadow-emerald-950/40 ${mobileClosing ? "animate-mobile-drawer-exit" : "animate-mobile-drawer"}`}>
           <form onSubmit={submitSearch}>
             <div className="relative group/msearch">
               <input
@@ -312,7 +329,7 @@ export function Header() {
               <li key={c.slug} className="animate-mobile-item" style={{ animationDelay: `${idx * 30}ms` }}>
                 <Link
                   href={`/category/${c.slug}`}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => closeMobileMenu()}
                   className="flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-2xl bg-secondary/50 border border-emerald-500/15 hover:border-emerald-500/40 hover:bg-emerald-500/15 active:scale-95 transition-all duration-200 shadow-sm"
                   data-testid={`nav-mobile-${c.slug}`}
                 >

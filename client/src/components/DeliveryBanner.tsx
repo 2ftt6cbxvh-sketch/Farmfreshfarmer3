@@ -107,7 +107,7 @@ export default function DeliveryBanner() {
         <div className="flex items-center justify-between mx-auto max-w-7xl w-full">
           <span className="flex items-center gap-2 font-semibold">
             <MapPin className="w-4 h-4 text-amber-400" />
-            Delivery not available for this pincode right now.
+            Delivery not available for <strong className="text-white">{resolution.locationArea || (resolution as any).pincode ? `${resolution.locationArea || 'Area'} (${(resolution as any).pincode || ''})` : 'this pincode'}</strong> right now.
           </span>
           <div className="flex items-center gap-3">
             <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold">Try another pincode</button>
