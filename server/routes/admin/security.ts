@@ -122,6 +122,25 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.status(400).json({ message: "Invalid 6-digit TOTP verification code. Check Apple Passwords or Authenticator App." });
   });
 
+  /** POST /api/admin/security/unauthorized-attempt — Trigger Telegram Alert when someone hits /admin directly */
+  app.post("/api/admin/security/unauthorized-attempt", async (req: Request, res: Response) => {
+    const { path } = req.body || {};
+    const ip = req.headers["x-forwarded-for"] || req.ip || "unknown";
+    const userAgent = req.headers["user-agent"] || "unknown";
+
+    const { sendTelegramAlert } = await import("../../services/telegram");
+    const alertMessage =
+      `⚠️ <b>UNAUTHORISED ADMIN ACCESS ATTEMPT DETECTED!</b>\n` +
+      `Path: <code>${path || "/admin"}</code>\n` +
+      `IP Address: <code>${ip}</code>\n` +
+      `User Agent: ${userAgent.slice(0, 60)}\n` +
+      `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}\n\n` +
+      `🔒 Access Blocked (403 Forbidden). Incident logged under IT Act 2000 & BNS 2023.`;
+
+    await sendTelegramAlert(alertMessage);
+    return res.json({ logged: true, alertSent: true });
+  });
+
   app.get("/api/admin/security/lockdown", requireAdmin as any, async (_req: Request, res: Response) => {
     return res.json(await getLockdownStatus());
   });
