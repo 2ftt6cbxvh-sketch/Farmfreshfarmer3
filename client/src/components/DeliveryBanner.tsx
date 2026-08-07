@@ -99,7 +99,7 @@ export default function DeliveryBanner() {
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 mx-auto max-w-7xl w-full truncate">
           <span className="flex items-center gap-1.5 font-bold text-amber-400 truncate w-full sm:w-auto justify-center sm:justify-start">
             <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="truncate">Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
+            <span className="truncate">Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode && !resolution.locationArea?.includes(resolution.pincode) ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
           </span>
 
           {resolution.etaMinutes > 0 && (

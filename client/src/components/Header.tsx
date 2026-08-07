@@ -224,14 +224,14 @@ export function Header() {
           </div>
 
           {/* Actions & Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             <ThemeToggle />
 
             {/* Account Menu */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs" data-testid="button-account">
+                  <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">
                     <UserIcon size={16} className="text-primary" />
                     <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
                   </Button>
@@ -258,7 +258,7 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs" onClick={() => navigate("/login")} data-testid="button-login">
+              <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" onClick={() => navigate("/login")} data-testid="button-login">
                 <UserIcon size={16} className="text-primary" />
                 <span className="hidden sm:inline">Login</span>
               </Button>
@@ -267,7 +267,7 @@ export function Header() {
             {/* Cart Button */}
             <button
               onClick={() => navigate("/cart")}
-              className="relative flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white px-4 py-2 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 group"
+              className="relative flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white px-2 py-2 sm:px-4 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 group"
               data-testid="button-cart"
             >
               <ShoppingCart size={18} className="group-hover:rotate-12 transition-transform" />
