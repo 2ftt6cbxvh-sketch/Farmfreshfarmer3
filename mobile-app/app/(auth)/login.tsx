@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BRAND } from '../../constants/config';
+import { api } from '../../lib/api';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -17,6 +18,9 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [method, setMethod] = useState<'password' | 'otp'>('otp');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) { Alert.alert('Error', 'Please enter email and password'); return; }
@@ -26,6 +30,46 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     } catch (err: any) {
       Alert.alert('Login Failed', err.response?.data?.message || 'Invalid credentials');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!email) { Alert.alert('Error', 'Please enter your email'); return; }
+    setIsLoading(true);
+    try {
+      await api.post('/api/auth/otp/send', { email: email.trim().toLowerCase() });
+      setOtpSent(true);
+      Alert.alert('OTP Sent', 'Check your email inbox.');
+    } catch (err: any) {
+      Alert.alert('Error', 'Could not send OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length < 6) { Alert.alert('Error', 'Please enter the 6-digit OTP'); return; }
+    setIsLoading(true);
+    try {
+      const res = await api.post('/api/auth/otp/verify', { email: email.trim().toLowerCase(), code: otpCode.trim() });
+      // update state
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      Alert.alert('Error', 'Invalid or expired OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      Alert.alert('Error', 'Google Sign-In failed');
     } finally {
       setIsLoading(false);
     }
@@ -50,38 +94,44 @@ export default function LoginScreen() {
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email address"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-          />
-
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
+          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={isLoading}>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
 
+          <View style={styles.methodSelector}>
+            <TouchableOpacity onPress={() => setMethod('otp')} style={[styles.methodBtn, method === 'otp' && styles.methodBtnActive]}>
+              <Text style={[styles.methodBtnText, method === 'otp' && styles.methodBtnTextActive]}>Email OTP</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMethod('password')} style={[styles.methodBtn, method === 'password' && styles.methodBtnActive]}>
+              <Text style={[styles.methodBtnText, method === 'password' && styles.methodBtnTextActive]}>Password</Text>
+            </TouchableOpacity>
+          </View>
+
+          {method === 'otp' ? (
+            <View style={styles.formSpace}>
+              <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+              {!otpSent ? (
+                <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleSendOtp} disabled={isLoading}>
+                  {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Send Verification OTP 📩</Text>}
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.formSpace}>
+                  <TextInput style={styles.input} placeholder="Enter 6-digit OTP" placeholderTextColor="#666" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" maxLength={6} />
+                  <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleVerifyOtp} disabled={isLoading}>
+                    {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Verify & Sign In 🔑</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.formSpace}>
+              <TextInput style={styles.input} placeholder="Email address" placeholderTextColor="#666" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#666" value={password} onChangeText={setPassword} secureTextEntry />
+              <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
+                {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
+              </TouchableOpacity>
+            </View>
+          )}
 
           <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>
@@ -96,7 +146,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   containerDark: { backgroundColor: '#000000' },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  backButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', marginBottom: 20, shadowColor: '#fff', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
+  backButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', marginBottom: 20 },
   backButtonText: { color: COLORS.text, fontWeight: '700', fontSize: 14 },
   textWhite: { color: '#ffffff' },
   header: { alignItems: 'center', marginBottom: 40 },
@@ -105,20 +155,18 @@ const styles = StyleSheet.create({
   form: { gap: 12 },
   title: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#888', marginBottom: 8 },
-  input: {
-    borderWidth: 1.5, borderColor: '#333', borderRadius: 12,
-    padding: 14, fontSize: 15, color: '#fff', backgroundColor: '#111',
-  },
-  button: {
-    backgroundColor: COLORS.primary, borderRadius: 12,
-    padding: 16, alignItems: 'center', marginTop: 8,
-  },
+  methodSelector: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  methodBtn: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: '#222', alignItems: 'center' },
+  methodBtnActive: { backgroundColor: COLORS.primary },
+  methodBtnText: { color: '#888', fontWeight: 'bold' },
+  methodBtnTextActive: { color: '#fff' },
+  formSpace: { gap: 12 },
+  input: { borderWidth: 1.5, borderColor: '#333', borderRadius: 12, padding: 14, fontSize: 15, color: '#fff', backgroundColor: '#111' },
+  button: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
-  socialButtonsContainer: { marginTop: 16, gap: 12 },
-  socialButton: { backgroundColor: 'rgba(255,255,255,0.8)', padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-  socialButtonDark: { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', shadowColor: '#fff', shadowOpacity: 0.05 },
-  socialButtonText: { fontSize: 15, fontWeight: '600', color: '#000' },
+  socialButton: { backgroundColor: '#fff', padding: 14, borderRadius: 12, alignItems: 'center', marginBottom: 10 },
+  socialButtonText: { fontSize: 15, fontWeight: 'bold', color: '#000' },
   link: { alignItems: 'center', marginTop: 8 },
   linkText: { color: '#888', fontSize: 14 },
   linkBold: { color: COLORS.primary, fontWeight: '700' },

@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useThemeStore } from '../../lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, BRAND } from '../../constants/config';
+import { api } from '../../lib/api';
 
 export default function RegisterScreen() {
   const { register } = useAuth();
@@ -19,6 +20,18 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      Alert.alert('Error', 'Google Sign-In failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password) { Alert.alert('Error', 'Please fill all required fields'); return; }
@@ -52,6 +65,10 @@ export default function RegisterScreen() {
           <TextInput style={styles.input} placeholder="Email address *" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <TextInput style={styles.input} placeholder="Phone number" placeholderTextColor={COLORS.textMuted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
           <TextInput style={styles.input} placeholder="Password (min 8 chars) *" placeholderTextColor={COLORS.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
+          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={isLoading}>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleRegister} disabled={isLoading}>
             {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Create Account</Text>}
           </TouchableOpacity>
@@ -80,6 +97,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  socialButton: { backgroundColor: '#fff', padding: 14, borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#ccc' },
+  socialButtonText: { fontSize: 15, fontWeight: 'bold', color: '#000' },
   link: { alignItems: 'center', marginTop: 8 },
   linkText: { color: COLORS.textMuted, fontSize: 14 },
   linkBold: { color: COLORS.primary, fontWeight: '700' },

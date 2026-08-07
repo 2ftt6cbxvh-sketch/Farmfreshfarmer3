@@ -13,9 +13,28 @@ export function useDelivery() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      
+      const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      let locationArea = `GPS Location`;
+      let pincode = '';
+      if (geocode && geocode.length > 0) {
+        const place = geocode[0];
+        const parts = [place.city, place.district, place.subregion, place.region].filter(Boolean);
+        if (parts.length > 0) {
+          locationArea = parts.join(', ');
+        }
+        if (place.postalCode) {
+          pincode = place.postalCode;
+        }
+      }
+
       const res = await api.post('/api/delivery/resolve', {
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
+        lat,
+        lng,
+        pincode,
+        locationArea
       });
       setResolution(res.data);
     } catch {
