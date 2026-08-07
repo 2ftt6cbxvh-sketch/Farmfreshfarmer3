@@ -31,11 +31,12 @@ interface Form {
   stock: string;
   dietTag: string;
   featured: boolean;
+  featuredInHero: boolean;
 }
 
 const EMPTY: Form = {
   name: "", description: "", categorySlug: "", price: "", discountPercent: "0",
-  unit: "250 Grams", image: "", stock: "50", dietTag: "none", featured: false,
+  unit: "250 Grams", image: "", stock: "50", dietTag: "none", featured: false, featuredInHero: false,
 };
 
 export default function AdminProducts() {
@@ -65,6 +66,7 @@ export default function AdminProducts() {
         stock: parseInt(form.stock) || 0,
         dietTag: form.dietTag,
         featured: form.featured,
+        featuredInHero: form.featuredInHero,
       };
       if (form.id) {
         await apiRequest("PATCH", `/api/products/${form.id}`, payload);
@@ -74,6 +76,7 @@ export default function AdminProducts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       setOpen(false);
       setForm(EMPTY);
       toast({ title: form.id ? "Product updated" : "Product added" });
@@ -85,6 +88,7 @@ export default function AdminProducts() {
     mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/products/${id}`); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       toast({ title: "Product deleted" });
     },
     onError: () => toast({ title: "Could not delete", variant: "destructive" }),
@@ -114,6 +118,7 @@ export default function AdminProducts() {
       id: p.id, name: p.name, description: p.description, categorySlug: p.categorySlug,
       price: String(p.price), discountPercent: String(p.discountPercent), unit: p.unit,
       image: p.image, stock: String(p.stock), dietTag: p.dietTag, featured: p.featured,
+      featuredInHero: (p as any).featuredInHero ?? false,
     });
     setOpen(true);
   }
@@ -248,6 +253,13 @@ export default function AdminProducts() {
             <div className="flex items-center gap-2">
               <Switch checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} data-testid="switch-featured" />
               <Label>Show on home page (featured)</Label>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <Switch checked={form.featuredInHero} onCheckedChange={(v) => setForm({ ...form, featuredInHero: v })} data-testid="switch-featured-hero" />
+              <div>
+                <Label className="font-bold text-emerald-400">⭐ Show in Homepage Hero Showcase</Label>
+                <p className="text-[11px] text-muted-foreground">Photo will automatically rotate in the homepage hero showcase card.</p>
+              </div>
             </div>
           </div>
           <DialogFooter>

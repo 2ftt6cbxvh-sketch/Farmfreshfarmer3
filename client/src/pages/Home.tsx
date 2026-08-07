@@ -40,47 +40,39 @@ export default function Home() {
 
   const txt: Record<string, string> = siteTextData?.textMap || {};
 
-  // 3D Parallax Mouse Tracking State
-  const [parallax, setParallax] = useState({ x: 0, y: 0 });
-  const heroRef = useRef<HTMLDivElement>(null);
+  // Dynamic Hero Showcase Query & Carousel State
+  const { data: heroConfig } = useQuery({
+    queryKey: ["/api/hero-showcase"],
+    queryFn: async () => {
+      const res = await fetch("/api/hero-showcase");
+      return res.json();
+    },
+  });
 
-  const handleHeroMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!heroRef.current) return;
-    const rect = heroRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 35;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 35;
-    setParallax({ x, y });
-  };
+  const showcaseMode = heroConfig?.mode || "featured_products";
+  const featuredHeroList = heroConfig?.featuredProducts || [];
+  const [heroIdx, setHeroIdx] = useState(0);
 
-  const handleHeroMouseLeave = () => {
-    setParallax({ x: 0, y: 0 });
-  };
+  // Auto-rotate hero photos smoothly if 2+ products are selected
+  useEffect(() => {
+    if (showcaseMode !== "featured_products" || featuredHeroList.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIdx((prev) => (prev + 1) % featuredHeroList.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [showcaseMode, featuredHeroList.length]);
 
   return (
     <Layout>
-      {/* 3D Interactive Parallax Hero Section */}
-      <section
-        ref={heroRef}
-        onMouseMove={handleHeroMouseMove}
-        onMouseLeave={handleHeroMouseLeave}
-        className="relative overflow-hidden bg-gradient-to-b from-emerald-500/10 via-background to-background py-16 sm:py-24 border-b border-emerald-500/15 perspective-1000"
-      >
-        {/* Parallax Background Glowing Spheres */}
-        <div
-          className="pointer-events-none absolute -top-32 -left-32 w-[30rem] h-[30rem] rounded-full bg-emerald-500/15 blur-[120px] transition-transform duration-300 ease-out"
-          style={{ transform: `translate3d(${parallax.x * -1.4}px, ${parallax.y * -1.4}px, 0px)` }}
-        />
-        <div
-          className="pointer-events-none absolute top-1/2 -right-32 w-[30rem] h-[30rem] rounded-full bg-amber-500/15 blur-[120px] transition-transform duration-300 ease-out"
-          style={{ transform: `translate3d(${parallax.x * 1.6}px, ${parallax.y * 1.6}px, 0px)` }}
-        />
+      {/* Smooth Ambient Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-emerald-500/10 via-background to-background py-16 sm:py-24 border-b border-emerald-500/15">
+        {/* Background Ambient Spheres */}
+        <div className="pointer-events-none absolute -top-32 -left-32 w-[30rem] h-[30rem] rounded-full bg-emerald-500/15 blur-[120px]" />
+        <div className="pointer-events-none absolute top-1/2 -right-32 w-[30rem] h-[30rem] rounded-full bg-amber-500/15 blur-[120px]" />
 
         <div className="relative mx-auto max-w-7xl px-4 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Hero Left Content */}
-          <div
-            className="lg:col-span-7 space-y-6 transition-transform duration-200 ease-out"
-            style={{ transform: `translate3d(${parallax.x * 0.4}px, ${parallax.y * 0.4}px, 0px)` }}
-          >
+          <div className="lg:col-span-7 space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-black px-4 py-1.5 shadow-sm backdrop-blur-md">
               <Sparkles size={14} className="text-amber-500 animate-pulse" />
               <span>{txt.hero_badge_text || "Visakhapatnam's #1 Instant Organic Farm Delivery"}</span>
@@ -104,7 +96,7 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Sleek Unified 3D Glass Feature Bar */}
+            {/* Sleek Feature Bar */}
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 p-4 rounded-2xl bg-card/60 border border-emerald-500/20 backdrop-blur-xl shadow-lg mt-6">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
@@ -123,40 +115,69 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Hero Right Interactive 3D Card Stack */}
-          <div
-            className="lg:col-span-5 transition-transform duration-200 ease-out"
-            style={{ transform: `translate3d(${parallax.x * -0.5}px, ${parallax.y * -0.5}px, 0px)` }}
-          >
-            <TiltCard maxTilt={12} perspective={1200}>
-              <div className="relative rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-card via-card/90 to-card/95 p-4 shadow-2xl overflow-hidden group">
+          {/* Hero Right Showcase Card */}
+          <div className="lg:col-span-5">
+            <div className="relative rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-card via-card/90 to-card/95 p-4 shadow-2xl overflow-hidden group">
+              {showcaseMode === "custom_image" ? (
+                <img
+                  src={heroConfig?.customImageUrl || "/images/p-mango.jpg"}
+                  alt="Organic Harvest"
+                  className="w-full h-80 sm:h-96 rounded-2xl object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              ) : featuredHeroList.length > 0 ? (
+                <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden">
+                  {featuredHeroList.map((p: any, idx: number) => (
+                    <img
+                      key={p.id}
+                      src={imgUrl(p.image)}
+                      alt={p.name}
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+                        idx === (heroIdx % featuredHeroList.length) ? "opacity-100 z-10" : "opacity-0 z-0"
+                      }`}
+                    />
+                  ))}
+                </div>
+              ) : (
                 <img
                   src="/images/p-mango.jpg"
                   alt="Organic Harvest"
                   className="w-full h-80 sm:h-96 rounded-2xl object-cover transition-transform duration-700 group-hover:scale-105"
                 />
+              )}
 
-                <div className="absolute top-8 left-8 bg-card/90 backdrop-blur-xl border border-emerald-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                    <Leaf size={20} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-extrabold text-foreground">Direct Farm Harvest</p>
-                    <p className="text-[10px] text-muted-foreground">Picked this morning</p>
-                  </div>
+              {/* Showcase Floating Badge */}
+              <div className="absolute top-8 left-8 bg-card/90 backdrop-blur-xl border border-emerald-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3 z-20">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Leaf size={20} />
                 </div>
-
-                <div className="absolute bottom-8 right-8 bg-card/90 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-                    <Zap size={20} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-extrabold text-foreground">Express Delivery</p>
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Combined ETA calculated live</p>
-                  </div>
+                <div>
+                  <p className="text-xs font-extrabold text-foreground">
+                    {showcaseMode === "custom_image"
+                      ? heroConfig?.customTitle || "Direct Farm Harvest"
+                      : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]
+                      ? featuredHeroList[heroIdx % featuredHeroList.length].name
+                      : "Direct Farm Harvest"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {showcaseMode === "custom_image"
+                      ? heroConfig?.customSubtitle || "Picked this morning"
+                      : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]
+                      ? `₹${featuredHeroList[heroIdx % featuredHeroList.length].price} / ${featuredHeroList[heroIdx % featuredHeroList.length].unit}`
+                      : "Picked this morning"}
+                  </p>
                 </div>
               </div>
-            </TiltCard>
+
+              <div className="absolute bottom-8 right-8 bg-card/90 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-3 shadow-xl flex items-center gap-3 z-20">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <Zap size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-foreground">Express Delivery</p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Combined ETA calculated live</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

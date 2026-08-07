@@ -129,6 +129,7 @@ export const products = pgTable("products", {
   lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
   dietTag: varchar("diet_tag", { length: 16 }).notNull().default("none"),
   featured: boolean("featured").notNull().default(false),
+  featuredInHero: boolean("featured_in_hero").notNull().default(false),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -208,6 +208,220 @@ function SearchRecommendationsManager() {
   );
 }
 
+function HeroShowcaseCustomizer() {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState("featured_products");
+  const [customImageUrl, setCustomImageUrl] = useState("");
+  const [customTitle, setCustomTitle] = useState("");
+  const [customSubtitle, setCustomSubtitle] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const { data, refetch } = useQuery({
+    queryKey: ["/api/hero-showcase"],
+    queryFn: async () => {
+      const res = await fetch("/api/hero-showcase");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      setMode(data.mode || "featured_products");
+      setCustomImageUrl(data.customImageUrl || "");
+      setCustomTitle(data.customTitle || "Direct Farm Harvest");
+      setCustomSubtitle(data.customSubtitle || "Picked this morning");
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/hero-showcase/settings", {
+        mode,
+        customImageUrl: customImageUrl.trim(),
+        customTitle: customTitle.trim(),
+        customSubtitle: customSubtitle.trim(),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Hero Showcase Settings Saved!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
+      refetch();
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not save hero settings", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch("/api/admin/hero-showcase/upload", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers: localStorage.getItem("accessToken") ? { Authorization: `Bearer ${localStorage.getItem("accessToken")}` } : undefined,
+      });
+      if (!res.ok) throw new Error("Image upload failed");
+      const result = await res.json();
+      setCustomImageUrl(result.imageUrl);
+      setMode("custom_image");
+      toast({ title: "Custom photo uploaded & activated!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const featuredProducts = data?.featuredProducts || [];
+
+  return (
+    <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+            <Sparkles className="w-5 h-5 text-amber-400" /> Homepage Hero Showcase Card Manager
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Choose whether to automatically rotate through selected product photos or display a single custom image from an internet URL or your device.
+          </p>
+        </div>
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold gap-2">
+          <Save size={16} /> {saveMutation.isPending ? "Saving…" : "Save Showcase"}
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        {/* Mode Selector */}
+        <div>
+          <Label className="font-bold">Showcase Mode</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setMode("featured_products")}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                mode === "featured_products"
+                  ? "border-emerald-500 bg-emerald-500/15 font-bold shadow-lg"
+                  : "border-card-border bg-secondary/30 hover:bg-secondary/50"
+              }`}
+            >
+              <p className="text-sm font-bold flex items-center gap-2">
+                <span>📸 Featured Products Carousel</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Rotates photos of products toggled ON in Products page ({featuredProducts.length} selected).
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMode("custom_image")}
+              className={`p-4 rounded-xl border text-left transition-all ${
+                mode === "custom_image"
+                  ? "border-emerald-500 bg-emerald-500/15 font-bold shadow-lg"
+                  : "border-card-border bg-secondary/30 hover:bg-secondary/50"
+              }`}
+            >
+              <p className="text-sm font-bold flex items-center gap-2">
+                <span>🖼️ Custom Image (URL or Device Upload)</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Displays a single custom photo of your choice from an internet URL or uploaded from your computer.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Custom Image Controls */}
+        {mode === "custom_image" && (
+          <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-4">
+            <h3 className="text-sm font-bold text-emerald-400">Custom Photo Options</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Photo Source (Internet URL or Device Upload)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={customImageUrl}
+                    onChange={(e) => setCustomImageUrl(e.target.value)}
+                    placeholder="https://example.com/mango.jpg or upload..."
+                  />
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFileUpload(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                    className="shrink-0"
+                  >
+                    <Upload size={15} className="mr-1" /> {uploading ? "Uploading…" : "Upload File"}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label>Card Badge Title</Label>
+                <Input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Direct Farm Harvest" className="mt-1" />
+              </div>
+
+              <div className="md:col-span-2">
+                <Label>Card Badge Subtitle</Label>
+                <Input value={customSubtitle} onChange={(e) => setCustomSubtitle(e.target.value)} placeholder="Picked this morning" className="mt-1" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Hero Showcase Preview */}
+        <div className="p-4 rounded-xl bg-card border border-card-border">
+          <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Hero Showcase Items</Label>
+          {mode === "featured_products" ? (
+            <div className="flex flex-wrap gap-3 mt-2">
+              {featuredProducts.length === 0 ? (
+                <p className="text-xs text-amber-400">No products toggled ON for hero showcase yet. Go to Products menu and turn ON 'Show in Hero Showcase' for products!</p>
+              ) : (
+                featuredProducts.map((p: any) => (
+                  <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary border border-emerald-500/20">
+                    <img src={imgUrl(p.image)} alt={p.name} className="w-8 h-8 rounded-md object-cover" />
+                    <div>
+                      <p className="text-xs font-bold">{p.name}</p>
+                      <p className="text-[10px] text-muted-foreground">₹{p.price}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 mt-2">
+              {customImageUrl ? (
+                <img src={customImageUrl} alt="Custom Preview" className="w-16 h-16 rounded-xl object-cover border border-emerald-500/30" />
+              ) : null}
+              <div>
+                <p className="text-xs font-bold text-emerald-400">{customTitle || "Direct Farm Harvest"}</p>
+                <p className="text-[11px] text-muted-foreground">{customSubtitle || "Picked this morning"}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmployeePerksCustomizer() {
   const { toast } = useToast();
   const [subadminDiscountPercent, setSubadminDiscountPercent] = useState("15");
@@ -787,6 +1001,9 @@ export default function AdminSettings() {
             </div>
           )}
         </div>
+
+        {/* Hero Showcase Card Manager */}
+        <HeroShowcaseCustomizer />
 
         {/* Employee & Delivery Partner Perk Discounts Manager */}
         <EmployeePerksCustomizer />

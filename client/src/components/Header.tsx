@@ -96,23 +96,13 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 p-2 sm:p-3 max-w-7xl mx-auto">
-      {/* 3D Floating Glass Island Navigation Bar */}
+      {/* Floating Glass Island Navigation Bar */}
       <div
         ref={headerRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        className="relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 group"
+        className="relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 hover:border-emerald-500/40 group"
       >
-        {/* Desktop Interactive Mouse Spotlight Glow */}
-        <div
-          className="pointer-events-none absolute inset-0 rounded-3xl transition-opacity duration-300 z-0 hidden md:block overflow-hidden"
-          style={{
-            opacity: spotlight.opacity,
-            background: `radial-gradient(400px circle at ${spotlight.x}px ${spotlight.y}px, rgba(34, 197, 94, 0.15), transparent 80%)`,
-          }}
-        />
-
-        {/* Mobile Ambient Breathing Glow */}
+        {/* Ambient Subtle Glow */}
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/5 to-primary/10 opacity-30 overflow-hidden" />
         <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
 
         {/* Main Header Bar */}

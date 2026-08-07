@@ -118,4 +118,11 @@ export async function runAutoMigrations() {
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }
+  try {
+    // Add featured_in_hero column to products table if missing
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log('[db] auto-migration: products.featured_in_hero column ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
 }
