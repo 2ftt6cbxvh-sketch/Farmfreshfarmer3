@@ -15,6 +15,7 @@ import { db } from "./db";
 import {
   users, categories, products, coupons, discountRules, settings,
   subscriptionPlans, subscriptionPlanItems, referralCodes, customerProfiles,
+  warehouses, warehousePincodes,
 } from "@shared/schema";
 import {
   ADMIN_EMAIL, ADMIN_DEFAULT_PASSWORD, CATEGORY_SEED, PRODUCT_SEED,
@@ -115,6 +116,24 @@ export async function ensureSeeded(opts?: { log?: boolean }): Promise<void> {
       .filter((it): it is { planId: number; productId: number; qty: number } => !!it.productId);
     if (items.length) await db.insert(subscriptionPlanItems).values(items);
     log(`[seed] created subscription plan "${plan.name}" with ${items.length} items`);
+  }
+
+  // Warehouses & Pincodes
+  const existingWarehouses = await db.select().from(warehouses);
+  if (existingWarehouses.length === 0) {
+    const [hub] = await db.insert(warehouses).values({
+      name: "Vijayawada Central Hub",
+      latitude: "16.5062",
+      longitude: "80.6480",
+      averageSpeedKmph: "30",
+      active: true,
+    }).returning();
+
+    const pincodes = ["520001", "520002", "520003", "520004", "520007", "520008", "520010", "520012", "522501", "522502", "522001", "522002"];
+    await db.insert(warehousePincodes).values(
+      pincodes.map(p => ({ warehouseId: hub.id, pincode: p }))
+    );
+    log(`[seed] created warehouse "${hub.name}" with ${pincodes.length} pincodes`);
   }
 
   seededThisProcess = true;
