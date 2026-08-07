@@ -82,6 +82,58 @@ export default function ProductDetailScreen() {
         {product.stock > 0 && product.stock <= (product.lowStockThreshold || 10) && (
           <Text style={styles.lowStock}>Only {product.stock} left!</Text>
         )}
+
+        {/* Similar Organic Products */}
+        <View style={styles.sectionMargin}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Similar Organic Products</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={[styles.productCard, { backgroundColor: bg, borderColor: borderCol }]}>
+                <View style={styles.productImgPlaceholder}><Text style={{fontSize:40}}>🍎</Text></View>
+                <View style={styles.discountPill}><Text style={styles.discountPillText}>10% OFF</Text></View>
+                <Text style={[styles.productName, { color: textColor }]}>Organic Item {item}</Text>
+                <Text style={styles.productPrice}>₹99</Text>
+                <TouchableOpacity style={styles.smallAddBtn}>
+                  <Text style={styles.smallAddBtnText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Customer Reviews Section */}
+        <View style={styles.sectionMargin}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Customer Reviews</Text>
+          
+          {/* Write Review Form */}
+          <View style={[styles.reviewForm, { backgroundColor: bg, borderColor: borderCol }]}>
+            <Text style={[styles.reviewFormTitle, { color: textColor }]}>Write a Review</Text>
+            <View style={styles.starsRow}>
+              {[1,2,3,4,5].map(s => <Text key={s} style={styles.star}>⭐</Text>)}
+            </View>
+            <TouchableOpacity style={styles.submitReviewBtn}>
+              <Text style={styles.submitReviewBtnText}>Submit Review</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Review List */}
+          {[1, 2].map((rev) => (
+            <View key={rev} style={[styles.reviewItem, { borderBottomColor: borderCol }]}>
+              <View style={styles.reviewHeader}>
+                <Text style={[styles.reviewerName, { color: textColor }]}>Verified Buyer {rev}</Text>
+                <Text style={styles.reviewStars}>⭐⭐⭐⭐⭐</Text>
+              </View>
+              <Text style={[styles.reviewText, { color: mutedColor }]}>This product is really fresh and organic. Highly recommended!</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 3D Glass Footer Summary */}
+        <View style={[styles.glassFooter, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+          <Text style={[styles.footerText, { color: textColor }]}>Farm Fresh • Instant Delivery</Text>
+          <Text style={[styles.footerText, { color: mutedColor, fontSize: 12, marginTop: 4 }]}>Homemade • No Preservatives</Text>
+        </View>
+
       </View>
     </ScrollView>
   );
@@ -114,4 +166,28 @@ const styles = StyleSheet.create({
   lowStock: { textAlign: 'center', color: '#ef4444', fontSize: 12, fontWeight: '600', marginTop: 8 },
   textDark: { color: '#f8fafc' },
   errorText: { textAlign: 'center', marginTop: 40, fontSize: 16 },
+  sectionMargin: { marginTop: 32 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', marginBottom: 16 },
+  horizontalScroll: { overflow: 'visible' },
+  productCard: { width: 140, padding: 12, borderRadius: 16, borderWidth: 1, marginRight: 16, position: 'relative' },
+  productImgPlaceholder: { backgroundColor: 'rgba(16,185,129,0.1)', height: 100, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  discountPill: { position: 'absolute', top: 8, left: 8, backgroundColor: '#ef4444', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, zIndex: 1 },
+  discountPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  productName: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  productPrice: { fontSize: 16, fontWeight: '800', color: '#10b981', marginBottom: 12 },
+  smallAddBtn: { backgroundColor: '#10b981', paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  smallAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  reviewForm: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  reviewFormTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  starsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  star: { fontSize: 24 },
+  submitReviewBtn: { backgroundColor: '#10b981', padding: 12, borderRadius: 12, alignItems: 'center' },
+  submitReviewBtnText: { color: '#fff', fontWeight: '700' },
+  reviewItem: { paddingVertical: 16, borderBottomWidth: 1 },
+  reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  reviewerName: { fontWeight: '700', fontSize: 15 },
+  reviewStars: { fontSize: 12 },
+  reviewText: { fontSize: 14, lineHeight: 20 },
+  glassFooter: { marginTop: 40, padding: 24, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  footerText: { fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
 });

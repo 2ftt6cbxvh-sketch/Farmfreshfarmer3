@@ -65,6 +65,16 @@ export default function AccountScreen() {
         </TouchableOpacity>
       </View>
 
+      {user.role === 'admin' && (
+        <View style={styles.menuSection}>
+          <Text style={[styles.sectionTitle, { color: mutedColor }]}>Admin</Text>
+          <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/admin')}>
+            <Text style={[styles.menuItemText, { color: textColor }]}>🛡️ Admin Control Dashboard</Text>
+            <Text style={styles.chevron}>→</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
