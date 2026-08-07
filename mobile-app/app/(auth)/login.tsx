@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+
+WebBrowser.maybeCompleteAuthSession();
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
@@ -22,6 +26,17 @@ export default function LoginScreen() {
   const [method, setMethod] = useState<'password' | 'otp'>('otp');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '1234567890-demo.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignInActual(id_token);
+    }
+  }, [response]);
 
   const handleLogin = async () => {
     if (!email || !password) { Alert.alert('Error', 'Please enter email and password'); return; }
@@ -67,10 +82,10 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignInActual = async (idToken: string) => {
     setIsLoading(true);
     try {
-      const res = await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      const res = await api.post('/api/auth/google', { idToken, platform: 'mobile' });
       if (res.data?.accessToken) await tokenStorage.saveAccessToken(res.data.accessToken);
       if (res.data?.refreshToken) await tokenStorage.saveRefreshToken(res.data.refreshToken);
       setUser(res.data.user || res.data);
@@ -102,7 +117,7 @@ export default function LoginScreen() {
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your account</Text>
 
-          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={isLoading}>
+          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()} disabled={!request || isLoading}>
             <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
 

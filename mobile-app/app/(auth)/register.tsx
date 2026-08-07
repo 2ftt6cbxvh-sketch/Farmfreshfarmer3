@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+
+WebBrowser.maybeCompleteAuthSession();
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
@@ -24,10 +28,21 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleSignIn = async () => {
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '1234567890-demo.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignInActual(id_token);
+    }
+  }, [response]);
+
+  const handleGoogleSignInActual = async (idToken: string) => {
     setIsLoading(true);
     try {
-      const res = await api.post('/api/auth/google', { idToken: 'demo_google_id_token', platform: 'mobile' });
+      const res = await api.post('/api/auth/google', { idToken, platform: 'mobile' });
       if (res.data?.accessToken) await tokenStorage.saveAccessToken(res.data.accessToken);
       if (res.data?.refreshToken) await tokenStorage.saveRefreshToken(res.data.refreshToken);
       setUser(res.data.user || res.data);
@@ -72,7 +87,7 @@ export default function RegisterScreen() {
           <TextInput style={styles.input} placeholder="Email address *" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <TextInput style={styles.input} placeholder="Phone number" placeholderTextColor={COLORS.textMuted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
           <TextInput style={styles.input} placeholder="Password (min 8 chars) *" placeholderTextColor={COLORS.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
-          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={isLoading}>
+          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()} disabled={!request || isLoading}>
             <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
 
