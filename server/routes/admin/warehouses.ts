@@ -47,12 +47,13 @@ export function registerAdminWarehouseRoutes(app: Express) {
   });
 
   app.post("/api/admin/warehouses", requireAdmin as any, async (req: Request, res: Response) => {
-    const parsed = insertWarehouseSchema.safeParse(req.body);
+    const { initialPincodes, defaultPackingMins, ...rest } = req.body;
+    const parsed = insertWarehouseSchema.safeParse(rest);
     if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
     const data: any = { ...parsed.data, latitude: String(parsed.data.latitude), longitude: String(parsed.data.longitude), averageSpeedKmph: String(parsed.data.averageSpeedKmph || 30) };
     const [created] = await db.insert(warehouses).values(data).returning();
 
-    const { initialPincodes, defaultPackingMins } = req.body;
+    let pincodesCreated = 0;
     if (initialPincodes) {
       const pins = initialPincodes.split(",").map((p: string) => p.trim()).filter(Boolean);
       const packingMins = parseInt(defaultPackingMins, 10) || 30;
@@ -62,10 +63,11 @@ export function registerAdminWarehouseRoutes(app: Express) {
           pincode: pin,
           packingTimeMinutes: packingMins
         });
+        pincodesCreated++;
       }
     }
 
-    return res.status(201).json({ warehouse: created });
+    return res.status(201).json({ warehouse: created, pincodesCreated });
   });
 
   app.patch("/api/admin/warehouses/:id", requireAdmin as any, async (req: Request, res: Response) => {

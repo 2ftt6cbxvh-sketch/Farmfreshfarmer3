@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
@@ -43,10 +43,32 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const { user, loading, logout } = useAuth();
   const [location, navigate] = useLocation();
 
-  if (loading) {
+  let adminUser = user;
+  if (!adminUser) {
+    try {
+      const stored = localStorage.getItem("adminUser");
+      if (stored) adminUser = JSON.parse(stored);
+    } catch(e) {}
+  }
+
+  useEffect(() => {
+    if (user && user.role === "admin") {
+      localStorage.setItem("adminUser", JSON.stringify(user));
+    } else if (user === null && !loading) {
+      localStorage.removeItem("adminUser");
+    }
+  }, [user, loading]);
+
+  const handleLogout = async () => {
+    localStorage.removeItem("adminUser");
+    await logout();
+    navigate("/admin");
+  };
+
+  if (loading && !adminUser) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
-  if (!user || user.role !== "admin") {
+  if (!adminUser || adminUser.role !== "admin") {
     return <AdminLogin />;
   }
 
@@ -86,7 +108,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             <Store size={18} /> View store
           </Link>
           <button
-            onClick={async () => { await logout(); navigate("/admin"); }}
+            onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover-elevate"
             data-testid="button-admin-logout"
           >
@@ -104,7 +126,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
               {n.label}
             </Link>
           ))}
-          <button onClick={async () => { await logout(); navigate("/admin"); }} className="text-sm whitespace-nowrap px-2 py-1">Log out</button>
+          <button onClick={handleLogout} className="text-sm whitespace-nowrap px-2 py-1">Log out</button>
         </header>
 
         <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden animate-page-enter-3d">

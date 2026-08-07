@@ -79,8 +79,8 @@ export default function AdminWarehouses() {
           longitude: data.longitude,
           averageSpeedKmph: data.averageSpeedKmph,
           active: data.active,
-          initialPincodes: data.initialPincodes,
-          defaultPackingMins: data.defaultPackingMins,
+          initialPincodes: data.initialPincodes || undefined,
+          defaultPackingMins: data.defaultPackingMins || "30",
         });
       }
       return warehouse;
