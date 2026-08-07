@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart, Star, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
@@ -39,6 +39,7 @@ export default function ProductDetail() {
   const id = Number(params?.id);
   const { add } = useCart();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const [rating, setRating] = useState(5);
@@ -141,7 +142,15 @@ export default function ProductDetail() {
                   <span className="w-10 text-center font-bold">{qty}</span>
                   <button onClick={() => setQty((q) => q + 1)} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
                 </div>
-                <Button onClick={() => { add(product, qty); toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
+                <Button onClick={() => { 
+                  if (!user) {
+                    toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
+                    setLocation("/auth");
+                    return;
+                  }
+                  add(product, qty); 
+                  toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); 
+                }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
                   <ShoppingCart size={18} /> Add to Cart
                 </Button>
               </div>

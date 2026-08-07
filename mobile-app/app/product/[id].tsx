@@ -7,12 +7,14 @@ import { COLORS } from '../../constants/config';
 import type { Product } from '../../lib/types';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
+import { useAuth } from '../../lib/store';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const addItem = useCartStore((state) => state.addItem);
 
   const [reviewRating, setReviewRating] = useState(5);
@@ -111,6 +113,10 @@ export default function ProductDetailScreen() {
           style={[styles.addButton, product.stock === 0 && styles.addButtonDisabled]} 
           disabled={product.stock === 0}
           onPress={() => {
+            if (!user) {
+              Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
+              return;
+            }
             addItem(product);
             Alert.alert('Success', 'Added to Basket! 🎉');
           }}
@@ -139,6 +145,10 @@ export default function ProductDetailScreen() {
                 <TouchableOpacity 
                   style={styles.smallAddBtn}
                   onPress={() => {
+                    if (!user) {
+                      Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
+                      return;
+                    }
                     addItem(p);
                     Alert.alert('Success', 'Added to Basket! 🎉');
                   }}

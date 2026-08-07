@@ -82,14 +82,6 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity style={[styles.socialButton, isDark && styles.socialButtonDark]}>
-              <Text style={[styles.socialButtonText, isDark && styles.textWhite]}>🍏 Continue with Apple</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.socialButton, isDark && styles.socialButtonDark]}>
-              <Text style={[styles.socialButtonText, isDark && styles.textWhite]}>🌐 Continue with Google</Text>
-            </TouchableOpacity>
-          </View>
 
           <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.link}>
             <Text style={styles.linkText}>Don't have an account? <Text style={styles.linkBold}>Register</Text></Text>

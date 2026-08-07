@@ -3,7 +3,8 @@ import { Link } from "wouter";
 import { Minus, Plus, ShoppingCart, Sparkles, Trash2, Check } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { effectivePrice, formatINR } from "@/lib/types";
-import { useCart } from "@/lib/store";
+import { useCart, useAuth } from "@/lib/store";
+import { useLocation } from "wouter";
 import { imgUrl } from "@/lib/queryClient";
 import { DietDot } from "./DietDot";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +12,8 @@ import { TiltCard } from "./TiltCard";
 
 export function ProductCard({ product }: { product: Product }) {
   const { items, add, setQty: setCartQty, remove: removeFromCart } = useCart();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const [animating, setAnimating] = useState(false);
@@ -25,6 +28,15 @@ export function ProductCard({ product }: { product: Product }) {
   function addToCart(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add items to cart",
+        variant: "destructive",
+      });
+      setLocation("/auth");
+      return;
+    }
     setAnimating(true);
     add(product, qty);
     toast({

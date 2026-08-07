@@ -47,7 +47,7 @@ export default function RegisterScreen() {
           <Text style={styles.tagline}>Create your account</Text>
         </View>
         <View style={styles.form}>
-          <Text style={styles.title}>Join FarmFreshFarmer</Text>
+          <Text style={[styles.title, { color: isDark ? '#ffffff' : '#0f172a' }]}>Join FarmFreshFarmer</Text>
           <TextInput style={styles.input} placeholder="Full Name *" placeholderTextColor={COLORS.textMuted} value={name} onChangeText={setName} autoCapitalize="words" />
           <TextInput style={styles.input} placeholder="Email address *" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <TextInput style={styles.input} placeholder="Phone number" placeholderTextColor={COLORS.textMuted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />

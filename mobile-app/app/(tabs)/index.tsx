@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, Animated, TouchableOpacity, TextInput,
-  StyleSheet, Image, RefreshControl, Modal, Dimensions, LayoutAnimation,
+  StyleSheet, Image, RefreshControl, Modal, Dimensions, LayoutAnimation, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,11 +12,13 @@ import { COLORS, BRAND } from '../../constants/config';
 import type { Product, Category } from '../../lib/types';
 import { useCartStore } from '../../lib/cart';
 import { useDelivery } from '../../hooks/useDelivery';
+import { useAuth } from '../../lib/store';
 const { width } = Dimensions.get('window');
 
 function ProductCard({ product }: { product: Product }) {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const { user } = useAuth();
   const addItem = useCartStore((state) => state.addItem);
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent);
@@ -63,6 +65,10 @@ function ProductCard({ product }: { product: Product }) {
             <TouchableOpacity 
               style={styles.addBtn}
               onPress={() => {
+                if (!user) {
+                  Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
+                  return;
+                }
                 addItem(product);
                 Alert.alert('Success', 'Added to Basket! 🎉');
               }}
@@ -155,7 +161,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.8</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.4.9</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -174,7 +180,7 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.deliveryBanner} onPress={() => setPincodeModal(true)}>
           <View style={styles.deliveryBannerRow}>
             <Text style={styles.deliveryLocationText} numberOfLines={1}>
-              📍 {resolution?.locationArea || 'Tadepalle, Guntur'} (PIN: {resolution?.pincode || '522501'})
+              📍 {resolution?.locationArea ? resolution.locationArea.replace(/GPS Location/gi, '').replace(/[-]?\d+\.\d+°/g, '').replace(/^,\s*/, '').trim() : 'Tadepalle, Guntur'}
             </Text>
             <Text style={styles.changeBtnText}>Change ✏️</Text>
           </View>

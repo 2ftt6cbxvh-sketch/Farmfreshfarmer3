@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Switch, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,6 +33,7 @@ export default function AdminDashboardScreen() {
 
   // Forms State
   const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', categoryId: '' });
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [newCat, setNewCat] = useState({ name: '', slug: '' });
   const [newPincode, setNewPincode] = useState({ pincode: '', fee: '', etaMinutes: '' });
 
@@ -58,6 +59,11 @@ export default function AdminDashboardScreen() {
   const addProduct = useMutation({
     mutationFn: (data: any) => api.post('/api/products', data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setNewProduct({ name: '', price: '', stock: '', categoryId: '' }); Alert.alert('Success', 'Product Added'); }
+  });
+
+  const updateProduct = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: any }) => api.patch(`/api/products/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); setEditingProduct(null); Alert.alert('Success', 'Product Updated'); }
   });
 
   const deleteProduct = useMutation({
@@ -176,11 +182,46 @@ export default function AdminDashboardScreen() {
                   <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{product.name}</Text>
                   <Text style={{ color: mutedColor }}>₹{product.price} • Stock: {product.stock}</Text>
                 </View>
-                <TouchableOpacity onPress={() => deleteProduct.mutate(product.id)}>
-                  <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity onPress={() => setEditingProduct(product)}>
+                    <Text style={{ color: '#3b82f6', fontWeight: 'bold' }}>✏️ Edit Product</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteProduct.mutate(product.id)}>
+                    <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
+
+            {editingProduct && (
+              <Modal visible transparent animationType="slide">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 }}>
+                  <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Edit Product</Text>
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Name" value={editingProduct.name} onChangeText={t => setEditingProduct({...editingProduct, name: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Price" keyboardType="numeric" value={editingProduct.price?.toString()} onChangeText={t => setEditingProduct({...editingProduct, price: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Discount %" keyboardType="numeric" value={editingProduct.discountPercent?.toString()} onChangeText={t => setEditingProduct({...editingProduct, discountPercent: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Stock" keyboardType="numeric" value={editingProduct.stock?.toString()} onChangeText={t => setEditingProduct({...editingProduct, stock: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Unit" value={editingProduct.unit} onChangeText={t => setEditingProduct({...editingProduct, unit: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Category ID" keyboardType="numeric" value={editingProduct.categoryId?.toString()} onChangeText={t => setEditingProduct({...editingProduct, categoryId: t})} />
+                    
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => updateProduct.mutate({ id: editingProduct.id, data: {
+                      name: editingProduct.name,
+                      price: editingProduct.price,
+                      discountPercent: editingProduct.discountPercent?.toString() || '0',
+                      stock: parseInt(editingProduct.stock),
+                      unit: editingProduct.unit,
+                      categoryId: parseInt(editingProduct.categoryId)
+                    }})}>
+                      <Text style={styles.actionBtnText}>💾 Save Changes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setEditingProduct(null)}>
+                      <Text style={{ color: mutedColor, fontWeight: 'bold' }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+            )}
           </View>
         )}
 
