@@ -2,6 +2,14 @@ import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../constants/config';
 import { tokenStorage } from './storage';
 
+export function resolveImgUrl(path?: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
