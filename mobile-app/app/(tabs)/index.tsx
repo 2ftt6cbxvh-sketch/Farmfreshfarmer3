@@ -98,6 +98,13 @@ export default function HomeScreen() {
 
   const { resolution, isLoading: deliveryLoading, resolveByPincode, resolveByGps, clearResolution } = useDelivery();
 
+  // Auto-open pincode modal when GPS fails with non-India coordinates
+  useEffect(() => {
+    if (resolution && !resolution.serviceable && resolution.locationArea === 'GPS location unavailable') {
+      setPincodeModal(true);
+    }
+  }, [resolution]);
+
   // Scroll-Driven Parallax Animation
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -161,7 +168,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.4</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v1.7.5</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌙'}</Text>
@@ -194,7 +201,12 @@ export default function HomeScreen() {
               </View>
             </View>
           ) : resolution ? (
-            <Text style={[styles.pincodePrompt, { color: '#ef4444' }]}>Location Not Covered Yet: {resolution?.reason}</Text>
+            <Text style={[styles.pincodePrompt, { color: resolution?.locationArea === 'GPS location unavailable' ? '#f59e0b' : '#ef4444' }]}>
+              {resolution?.locationArea === 'GPS location unavailable' 
+                ? '📍 ' + resolution?.reason
+                : 'Not Covered Yet: ' + resolution?.reason
+              }
+            </Text>
           ) : (
             <Text style={styles.pincodePrompt}>Enter PIN code or detect GPS to check instant delivery ETA</Text>
           )}

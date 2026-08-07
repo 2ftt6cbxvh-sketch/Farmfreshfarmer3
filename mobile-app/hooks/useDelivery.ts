@@ -6,6 +6,11 @@ import type { DeliveryResolution, LockdownStatus } from '../lib/types';
 
 const STORAGE_KEY = 'deliveryResolution';
 
+// India geographic bounding box
+function isCoordinateInIndia(lat: number, lng: number): boolean {
+  return lat >= 6.0 && lat <= 37.5 && lng >= 68.0 && lng <= 97.5;
+}
+
 export function useDelivery() {
   const [resolution, setResolution] = useState<DeliveryResolution | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +57,13 @@ export function useDelivery() {
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
 
+      if (!isCoordinateInIndia(lat, lng)) {
+        // GPS returned non-India coordinates (iOS Simulator fake location)
+        // Silently skip - user will enter pincode manually
+        console.log('[GPS] Non-India coordinates detected, skipping auto-detect:', lat, lng);
+        return;
+      }
+
       const res = await api.post('/api/delivery/resolve', { lat, lng });
       if (res?.data) {
         await saveResolution({
@@ -89,6 +101,21 @@ export function useDelivery() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
+
+      if (!isCoordinateInIndia(lat, lng)) {
+        // GPS returned non-India coordinates (iOS Simulator fake location)
+        // Set a non-serviceable resolution asking user to enter pincode
+        await saveResolution({
+          serviceable: false,
+          pincode: '',
+          locationArea: 'GPS location unavailable',
+          etaMinutes: 0,
+          fee: 0,
+          reason: 'Please enter your 6-digit Indian PIN code manually',
+        });
+        setIsLoading(false);
+        return;
+      }
 
       const res = await api.post('/api/delivery/resolve', { lat, lng }).catch(() => null);
 
