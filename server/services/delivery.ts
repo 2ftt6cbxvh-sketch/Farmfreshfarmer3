@@ -140,6 +140,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
       name: "Vijayawada Central Hub",
       latitude: "16.5062",
       longitude: "80.6480",
+      maxRadiusKm: "30",
       averageSpeedKmph: "30",
       active: true,
     }).returning();
@@ -181,8 +182,9 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   const whLng = parseFloat(warehouse.longitude);
   const distanceKm = haversineDistanceKm(whLat, whLng, geo.lat, geo.lng);
 
-  if (distanceKm > 30) {
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Location is " + Math.round(distanceKm) + "km away. Delivery available within 30km radius of active warehouse only" };
+  const maxRadiusKm = parseFloat(warehouse.maxRadiusKm || 30);
+  if (distanceKm > maxRadiusKm) {
+    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${warehouse.maxRadiusKm || 30}km` };
   }
 
   // Calculate Travel Duration using Warehouse Rider Speed
@@ -232,6 +234,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
       name: "Vijayawada Central Hub",
       latitude: "16.5062",
       longitude: "80.6480",
+      maxRadiusKm: "30",
       averageSpeedKmph: "30",
       active: true,
     }).returning();
@@ -249,7 +252,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
   }
 
-  const maxRange = 30;
+  const maxRange = parseFloat(nearestWarehouse.maxRadiusKm || 30);
   if (minDistance > maxRange) {
     const distanceKm = Math.round(minDistance * 10) / 10;
     await logResolution({ userId, latitude: lat, longitude: lng, serviceable: false, resolvedWarehouseId: nearestWarehouse.id });
@@ -259,7 +262,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
       etaMinutes: 0,
       pincode: minPinDist < 50 ? detectedPincode : undefined,
       locationArea,
-      reason: "Delivery available within 30km radius of active warehouse only (Distance: " + distanceKm + "km)",
+      reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${nearestWarehouse.maxRadiusKm || 30}km`,
       distanceKm
     };
   }

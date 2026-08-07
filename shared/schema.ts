@@ -630,6 +630,7 @@ export const warehouses = pgTable("warehouses", {
   name: text("name").notNull(),
   latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
   longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
+  maxRadiusKm: numeric("max_radius_km", { precision: 5, scale: 2 }).notNull().default("30"),
   averageSpeedKmph: numeric("average_speed_kmph", { precision: 5, scale: 2 }).notNull().default("30"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -638,6 +639,7 @@ export const warehouses = pgTable("warehouses", {
 export const insertWarehouseSchema = createInsertSchema(warehouses, {
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
+  maxRadiusKm: z.coerce.number().min(1).max(500).optional(),
   averageSpeedKmph: z.coerce.number().min(1).max(200).optional(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertWarehouse = z.infer<typeof insertWarehouseSchema>;

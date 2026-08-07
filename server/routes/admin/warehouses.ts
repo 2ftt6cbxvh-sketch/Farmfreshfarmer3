@@ -49,6 +49,7 @@ export function registerAdminWarehouseRoutes(app: Express) {
         name: "Vijayawada Central Hub",
         latitude: "16.5062",
         longitude: "80.6480",
+        maxRadiusKm: "30",
         averageSpeedKmph: "30",
         active: true,
       }).returning();
@@ -65,7 +66,7 @@ export function registerAdminWarehouseRoutes(app: Express) {
     const { initialPincodes, defaultPackingMins, ...rest } = req.body;
     const parsed = insertWarehouseSchema.safeParse(rest);
     if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
-    const data: any = { ...parsed.data, latitude: String(parsed.data.latitude), longitude: String(parsed.data.longitude), averageSpeedKmph: String(parsed.data.averageSpeedKmph || 30) };
+    const data: any = { ...parsed.data, latitude: String(parsed.data.latitude), longitude: String(parsed.data.longitude), maxRadiusKm: String(parsed.data.maxRadiusKm || 30), averageSpeedKmph: String(parsed.data.averageSpeedKmph || 30) };
     const [created] = await db.insert(warehouses).values(data).returning();
 
     let pincodesCreated = 0;
@@ -94,6 +95,7 @@ export function registerAdminWarehouseRoutes(app: Express) {
     if (updateData.latitude !== undefined) updateData.latitude = String(updateData.latitude);
     if (updateData.longitude !== undefined) updateData.longitude = String(updateData.longitude);
     if (updateData.averageSpeedKmph !== undefined) updateData.averageSpeedKmph = String(updateData.averageSpeedKmph);
+    if (updateData.maxRadiusKm !== undefined) updateData.maxRadiusKm = String(updateData.maxRadiusKm);
     const [updated] = await db.update(warehouses).set(updateData).where(eq(warehouses.id, id)).returning();
     if (!updated) return res.status(404).json({ message: "Warehouse not found" });
     return res.json({ warehouse: updated });

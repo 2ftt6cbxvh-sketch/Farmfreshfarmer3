@@ -37,7 +37,7 @@ export default function AdminDashboardScreen() {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [newCat, setNewCat] = useState({ name: '', slug: '' });
   const [newPincode, setNewPincode] = useState({ pincode: '', fee: '', etaMinutes: '' });
-  const [newWarehouse, setNewWarehouse] = useState({ name: '', latitude: '', longitude: '', averageSpeedKmph: '', active: true });
+  const [newWarehouse, setNewWarehouse] = useState({ name: '', latitude: '', longitude: '', maxRadiusKm: '', averageSpeedKmph: '', active: true });
 
   // Data Queries
   const { data: orders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
@@ -91,7 +91,7 @@ export default function AdminDashboardScreen() {
 
   const addWarehouse = useMutation({
     mutationFn: (data: any) => api.post('/api/admin/warehouses', data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-warehouses'] }); setNewWarehouse({ name: '', latitude: '', longitude: '', averageSpeedKmph: '', active: true }); Alert.alert('Success', 'Warehouse Added'); }
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-warehouses'] }); setNewWarehouse({ name: '', latitude: '', longitude: '', maxRadiusKm: '', averageSpeedKmph: '', active: true }); Alert.alert('Success', 'Warehouse Added'); }
   });
 
   const deleteWarehouse = useMutation({
@@ -147,8 +147,9 @@ export default function AdminDashboardScreen() {
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Name" value={newWarehouse.name} onChangeText={(t) => setNewWarehouse(prev => ({...prev, name: t}))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Latitude" value={newWarehouse.latitude} onChangeText={(t) => setNewWarehouse(prev => ({...prev, latitude: t}))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Longitude" value={newWarehouse.longitude} onChangeText={(t) => setNewWarehouse(prev => ({...prev, longitude: t}))} />
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Max Radius Km" keyboardType="numeric" value={newWarehouse.maxRadiusKm} onChangeText={(t) => setNewWarehouse(prev => ({...prev, maxRadiusKm: t}))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Avg Speed Kmph" keyboardType="numeric" value={newWarehouse.averageSpeedKmph} onChangeText={(t) => setNewWarehouse(prev => ({...prev, averageSpeedKmph: t}))} />
-              <TouchableOpacity style={styles.actionBtn} onPress={() => addWarehouse.mutate({ name: newWarehouse.name, latitude: newWarehouse.latitude, longitude: newWarehouse.longitude, averageSpeedKmph: newWarehouse.averageSpeedKmph, active: newWarehouse.active })}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => addWarehouse.mutate({ name: newWarehouse.name, latitude: newWarehouse.latitude, longitude: newWarehouse.longitude, maxRadiusKm: newWarehouse.maxRadiusKm, averageSpeedKmph: newWarehouse.averageSpeedKmph, active: newWarehouse.active })}>
                 <Text style={styles.actionBtnText}>Add Warehouse</Text>
               </TouchableOpacity>
             </View>
@@ -156,7 +157,7 @@ export default function AdminDashboardScreen() {
               <View key={w.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
                 <View>
                   <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{w.name}</Text>
-                  <Text style={{ color: mutedColor }}>Lat: {w.latitude} • Lng: {w.longitude} • Speed: {w.averageSpeedKmph}kmph</Text>
+                  <Text style={{ color: mutedColor }}>Lat: {w.latitude} • Lng: {w.longitude} • Radius: {w.maxRadiusKm || '30'}km • Speed: {w.averageSpeedKmph}kmph</Text>
                   <Text style={{ color: w.active ? '#10b981' : '#ef4444' }}>{w.active ? 'Active' : 'Inactive'}</Text>
                 </View>
                 <TouchableOpacity onPress={() => deleteWarehouse.mutate(w.id)}>

@@ -26,32 +26,25 @@ export function useDelivery() {
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
       
-      const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-      let locationArea = `GPS Location`;
-      let pincode = '';
-      if (geocode && geocode.length > 0) {
-        const place = geocode[0];
-        const cityStr = place.city || place.subregion || place.region;
-        const districtStr = place.district;
-        const parts = [cityStr, districtStr].filter(Boolean);
-        if (parts.length > 0) locationArea = parts.join(', ');
-        if (place.postalCode) pincode = place.postalCode;
-      }
-
       const res = await api.post('/api/delivery/resolve', {
         lat,
-        lng,
-        pincode,
-        locationArea
+        lng
       }).catch(() => null);
 
       if (res?.data) {
-        setResolution({ ...res.data, serviceable: true, warehouseName: res.data.warehouseName || 'Farm Fresh Hub' });
+        setResolution({ 
+          ...res.data, 
+          serviceable: res.data.serviceable, 
+          warehouseName: res.data.warehouseName || 'Farm Fresh Hub',
+          pincode: res.data.pincode || '',
+          locationArea: res.data.locationArea || 'Unknown Area',
+          etaMinutes: res.data.etaMinutes || 0
+        });
       } else {
         setResolution({
           serviceable: false,
-          pincode: pincode || '',
-          locationArea: locationArea,
+          pincode: '',
+          locationArea: 'Unknown',
           etaMinutes: 0,
           fee: 0,
           reason: 'Not Serviceable'

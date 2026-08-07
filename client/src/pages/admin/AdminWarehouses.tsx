@@ -30,6 +30,7 @@ const emptyWarehouse = {
   name: "",
   latitude: "",
   longitude: "",
+  maxRadiusKm: "30",
   averageSpeedKmph: "30",
   defaultPackingMins: "30",
   active: true,
@@ -69,6 +70,7 @@ export default function AdminWarehouses() {
           name: data.name,
           latitude: data.latitude,
           longitude: data.longitude,
+          maxRadiusKm: data.maxRadiusKm,
           averageSpeedKmph: data.averageSpeedKmph,
           active: data.active,
         });
@@ -77,6 +79,7 @@ export default function AdminWarehouses() {
           name: data.name,
           latitude: data.latitude,
           longitude: data.longitude,
+          maxRadiusKm: data.maxRadiusKm,
           averageSpeedKmph: data.averageSpeedKmph,
           active: data.active,
           initialPincodes: data.initialPincodes || undefined,
@@ -147,6 +150,7 @@ export default function AdminWarehouses() {
       name: w.name,
       latitude: w.latitude,
       longitude: w.longitude,
+      maxRadiusKm: w.maxRadiusKm || "30",
       averageSpeedKmph: w.averageSpeedKmph,
       defaultPackingMins: "30",
       active: w.active,
@@ -273,6 +277,10 @@ export default function AdminWarehouses() {
                     <div>
                       <span className="text-muted-foreground text-xs block">Longitude</span>
                       <p className="font-mono font-medium">{w.longitude}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs block">Service Radius</span>
+                      <p className="font-medium text-emerald-400">{w.maxRadiusKm || "30"} km</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground text-xs block">Transit Rider Speed</span>
@@ -429,6 +437,19 @@ export default function AdminWarehouses() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Expected time taken by warehouse staff to pack and prepare order items for dispatch.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Deliverable Service Radius (km)</Label>
+                <Input
+                  type="number"
+                  value={form.maxRadiusKm}
+                  onChange={(e) => setForm((f: any) => ({ ...f, maxRadiusKm: e.target.value }))}
+                  placeholder="30"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum allowed delivery distance from this warehouse.
                 </p>
               </div>
 
