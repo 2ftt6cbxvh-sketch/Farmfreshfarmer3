@@ -11,17 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Truck, Plus, Trash2, Globe, Shield, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
-
-const apiRequest = async (method: string, url: string, body?: any) => {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error((await res.json()).message || "Request failed");
-  return res.json();
-};
+import { apiRequest } from "@/lib/queryClient";
 
 const emptyRule = {
   minDistanceKm: "0",
@@ -41,24 +31,23 @@ export default function AdminDelivery() {
   const [countryCode, setCountryCode] = useState("");
   const [countryName, setCountryName] = useState("");
 
-  const { data: deliveryData } = useQuery({
+  const { data: deliveryData } = useQuery<{ setting?: { featureEnabled: boolean }; rules?: any[] }>({
     queryKey: ["/api/admin/delivery"],
-    queryFn: () => apiRequest("GET", "/api/admin/delivery"),
   });
 
-  const { data: geofenceData } = useQuery({
+  const { data: geofenceData } = useQuery<{ countries?: any[] }>({
     queryKey: ["/api/admin/geofence"],
-    queryFn: () => apiRequest("GET", "/api/admin/geofence"),
   });
 
-  const { data: logsData } = useQuery({
+  const { data: logsData } = useQuery<{ logs?: any[] }>({
     queryKey: ["/api/admin/delivery/logs"],
-    queryFn: () => apiRequest("GET", "/api/admin/delivery/logs?limit=30"),
   });
 
   const toggleFeatureMutation = useMutation({
-    mutationFn: (enabled: boolean) =>
-      apiRequest("POST", "/api/admin/delivery/settings", { featureEnabled: enabled }),
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("POST", "/api/admin/delivery/settings", { featureEnabled: enabled });
+      return res.json();
+    },
     onSuccess: (_, enabled) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/delivery"] });
       toast({

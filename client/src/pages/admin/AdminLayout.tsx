@@ -137,7 +137,12 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
               <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full border border-primary/30 capitalize">{adminUser?.role?.replace("_", " ")}</span>
             )}
           </div>
-          <p className="text-xs opacity-70 mt-0.5">{adminUser?.name || "Admin Panel"}</p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
+            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
+              v1.9.2
+            </span>
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-4" data-testid="nav-sidebar">

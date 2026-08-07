@@ -61,9 +61,13 @@ function numStr(v: any): string | undefined {
 export function registerAdminDeliveryRoutes(app: Express) {
   // Aggregate GET /api/admin/delivery
   app.get("/api/admin/delivery", requireAdmin as any, async (_req: Request, res: Response) => {
-    const [setting] = await db.select().from(deliverySettings).limit(1);
+    let [setting] = await db.select().from(deliverySettings).limit(1);
+    if (!setting) {
+      const [created] = await db.insert(deliverySettings).values({ id: 1, featureEnabled: true }).returning();
+      setting = created;
+    }
     const rules = await db.select().from(deliveryFeeRules).orderBy(deliveryFeeRules.minDistanceKm);
-    return res.json({ setting: { featureEnabled: setting?.featureEnabled ?? false }, rules });
+    return res.json({ setting: { featureEnabled: setting.featureEnabled }, rules });
   });
 
   app.get("/api/admin/delivery/fee-rules", requireAdmin as any, async (_req: Request, res: Response) => {
@@ -71,30 +75,32 @@ export function registerAdminDeliveryRoutes(app: Express) {
   });
 
   app.post("/api/admin/delivery/fee-rules", requireAdmin as any, async (req: Request, res: Response) => {
-    const parsed = insertDeliveryFeeRuleSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.flatten() });
-    const d: any = parsed.data;
+    const { minDistanceKm, maxDistanceKm, baseFee, perKmFee, maxFeeCap, freeDeliveryAboveOrderValue, active } = req.body;
     const [created] = await db.insert(deliveryFeeRules).values({
-      ...d, minDistanceKm: numStr(d.minDistanceKm), maxDistanceKm: numStr(d.maxDistanceKm),
-      baseFee: numStr(d.baseFee), perKmFee: numStr(d.perKmFee),
-      maxFeeCap: numStr(d.maxFeeCap), freeDeliveryAboveOrderValue: numStr(d.freeDeliveryAboveOrderValue),
+      minDistanceKm: numStr(minDistanceKm) || "0",
+      maxDistanceKm: numStr(maxDistanceKm) || "10",
+      baseFee: numStr(baseFee) || "30",
+      perKmFee: numStr(perKmFee) || "5",
+      maxFeeCap: numStr(maxFeeCap) || "150",
+      freeDeliveryAboveOrderValue: numStr(freeDeliveryAboveOrderValue) || "500",
+      active: active ?? true,
     }).returning();
-    return res.status(201).json({ rule: created });
+    return res.json(created);
   });
 
   app.patch("/api/admin/delivery/fee-rules/:id", requireAdmin as any, async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
-    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
-    const parsed = insertDeliveryFeeRuleSchema.partial().safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Invalid input" });
-    const d: any = parsed.data;
-    const updateData: any = { ...d };
-    if (d.minDistanceKm !== undefined) updateData.minDistanceKm = String(d.minDistanceKm);
-    if (d.maxDistanceKm !== undefined) updateData.maxDistanceKm = String(d.maxDistanceKm);
-    if (d.baseFee !== undefined) updateData.baseFee = String(d.baseFee);
-    if (d.perKmFee !== undefined) updateData.perKmFee = String(d.perKmFee);
-    const [updated] = await db.update(deliveryFeeRules).set(updateData).where(eq(deliveryFeeRules.id, id)).returning();
-    return res.json({ rule: updated });
+    const updates: any = {};
+    if (req.body.minDistanceKm !== undefined) updates.minDistanceKm = String(req.body.minDistanceKm);
+    if (req.body.maxDistanceKm !== undefined) updates.maxDistanceKm = String(req.body.maxDistanceKm);
+    if (req.body.baseFee !== undefined) updates.baseFee = String(req.body.baseFee);
+    if (req.body.perKmFee !== undefined) updates.perKmFee = String(req.body.perKmFee);
+    if (req.body.maxFeeCap !== undefined) updates.maxFeeCap = String(req.body.maxFeeCap);
+    if (req.body.freeDeliveryAboveOrderValue !== undefined) updates.freeDeliveryAboveOrderValue = String(req.body.freeDeliveryAboveOrderValue);
+    if (req.body.active !== undefined) updates.active = Boolean(req.body.active);
+
+    const [updated] = await db.update(deliveryFeeRules).set(updates).where(eq(deliveryFeeRules.id, id)).returning();
+    return res.json(updated);
   });
 
   app.delete("/api/admin/delivery/fee-rules/:id", requireAdmin as any, async (req: Request, res: Response) => {
@@ -103,16 +109,26 @@ export function registerAdminDeliveryRoutes(app: Express) {
   });
 
   app.get("/api/admin/delivery/settings", requireAdmin as any, async (_req: Request, res: Response) => {
-    const [setting] = await db.select().from(deliverySettings).limit(1);
-    return res.json({ featureEnabled: setting?.featureEnabled ?? false });
+    let [setting] = await db.select().from(deliverySettings).limit(1);
+    if (!setting) {
+      const [created] = await db.insert(deliverySettings).values({ id: 1, featureEnabled: true }).returning();
+      setting = created;
+    }
+    return res.json({ featureEnabled: setting.featureEnabled });
   });
 
   app.post("/api/admin/delivery/settings", requireAdmin as any, async (req: Request, res: Response) => {
     const { featureEnabled } = req.body;
     if (typeof featureEnabled !== "boolean") return res.status(400).json({ message: "featureEnabled (boolean) required" });
-    await db.insert(deliverySettings).values({ featureEnabled, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: deliverySettings.id, set: { featureEnabled, updatedAt: new Date() } });
-    return res.json({ featureEnabled });
+
+    let [setting] = await db.select().from(deliverySettings).limit(1);
+    if (!setting) {
+      const [created] = await db.insert(deliverySettings).values({ id: 1, featureEnabled, updatedAt: new Date() }).returning();
+      return res.json({ featureEnabled: created.featureEnabled });
+    } else {
+      const [updated] = await db.update(deliverySettings).set({ featureEnabled, updatedAt: new Date() }).where(eq(deliverySettings.id, setting.id)).returning();
+      return res.json({ featureEnabled: updated.featureEnabled });
+    }
   });
 
   app.get("/api/admin/geofence", requireAdmin as any, async (_req: Request, res: Response) => {
