@@ -43,7 +43,22 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
 
 export function registerAdminWarehouseRoutes(app: Express) {
   app.get("/api/admin/warehouses", requireAdmin as any, async (_req: Request, res: Response) => {
-    return res.json({ warehouses: await db.select().from(warehouses).orderBy(warehouses.name) });
+    let list = await db.select().from(warehouses).orderBy(warehouses.name);
+    if (list.length === 0) {
+      const [hub] = await db.insert(warehouses).values({
+        name: "Vijayawada Central Hub",
+        latitude: "16.5062",
+        longitude: "80.6480",
+        averageSpeedKmph: "30",
+        active: true,
+      }).returning();
+      const pins = ["520001", "520002", "520003", "520004", "520007", "520008", "520010", "520012", "522501", "522502", "522001", "522002"];
+      for (const p of pins) {
+        await db.insert(warehousePincodes).values({ warehouseId: hub.id, pincode: p, packingTimeMinutes: 30 });
+      }
+      list = await db.select().from(warehouses).orderBy(warehouses.name);
+    }
+    return res.json({ warehouses: list });
   });
 
   app.post("/api/admin/warehouses", requireAdmin as any, async (req: Request, res: Response) => {
