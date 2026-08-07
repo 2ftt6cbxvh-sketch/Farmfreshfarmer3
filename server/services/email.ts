@@ -59,9 +59,9 @@ export async function getSmtpCredentials(): Promise<{
   }
 }
 
-export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
-  const { to, subject, html } = opts;
+export async function sendRealEmailWithResult(opts: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
   const creds = await getSmtpCredentials();
+  const { to, subject, html } = opts;
 
   // 1. Check if Resend API Key is configured
   if (creds.resendApiKey) {
@@ -73,7 +73,7 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: creds.fromEmail || "FarmFreshFarmer <no-reply@resend.dev>",
+          from: creds.fromEmail || "FarmFreshFarmer <orders@farmfreshfarmer.com>",
           to: [to],
           subject,
           html,
@@ -82,42 +82,52 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
 
       if (res.ok) {
         console.log(`[EMAIL DISPATCHED VIA RESEND] To: ${to} | Subject: ${subject}`);
-        return true;
+        return { success: true };
       } else {
         const err = await res.json();
         console.error("[EMAIL RESEND FAILED]", err);
+        return { success: false, error: `Resend API Error: ${err.message || JSON.stringify(err)}` };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("[EMAIL RESEND ERROR]", e);
+      return { success: false, error: `Resend API Error: ${e.message}` };
     }
   }
 
-  // 2. Check if SMTP Transport is configured (Gmail / Resend / SendGrid / AWS SES)
+  // 2. Check if SMTP Transport is configured (Titan Email / GoDaddy / Gmail / Resend SMTP)
   if (creds.smtpHost && creds.smtpUser && creds.smtpPass) {
     try {
       // @ts-ignore - nodemailer loaded dynamically
       const nodemailer = await import("nodemailer");
+      const port = parseInt(creds.smtpPort || "587", 10);
       const transporter = nodemailer.createTransport({
-        host: creds.smtpHost,
-        port: parseInt(creds.smtpPort || "587", 10),
-        secure: creds.smtpPort === "465",
+        host: creds.smtpHost.trim(),
+        port,
+        secure: port === 465,
         auth: {
-          user: creds.smtpUser,
-          pass: creds.smtpPass,
+          user: creds.smtpUser.trim(),
+          pass: creds.smtpPass.trim(),
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
       });
 
       await transporter.sendMail({
-        from: creds.fromEmail || `"FarmFreshFarmer" <${creds.smtpUser}>`,
+        from: creds.fromEmail || `"FarmFreshFarmer" <${creds.smtpUser.trim()}>`,
         to,
         subject,
         html,
       });
 
       console.log(`[EMAIL DISPATCHED VIA SMTP] To: ${to} | Subject: ${subject}`);
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("[EMAIL SMTP ERROR]", e);
+      return { success: false, error: e.message || "SMTP connection failed" };
     }
   }
 
@@ -125,7 +135,12 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
   console.log(`[DEV MODE EMAIL PREVIEW] To: ${to}`);
   console.log(`Subject: ${subject}`);
   console.log(`HTML Preview:\n${html}`);
-  return false;
+  return { success: false, error: "Missing SMTP credentials. Please fill in SMTP Host, Username & Password and click Save." };
+}
+
+export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
+  const res = await sendRealEmailWithResult(opts);
+  return res.success;
 }
 
 /** Helper: Generate HTML Template for OTP Code Email */

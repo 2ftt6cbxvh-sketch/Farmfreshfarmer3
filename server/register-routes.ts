@@ -925,18 +925,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { to } = req.body || {};
     const recipient = to || "admin@farmfreshfarmer.com";
 
-    const { sendRealEmail, buildOtpEmailHtml } = await import("./services/email");
+    const { sendRealEmailWithResult, buildOtpEmailHtml } = await import("./services/email");
     const testHtml = buildOtpEmailHtml("999888", "FarmFresh Admin Tester");
-    const success = await sendRealEmail({
+    const result = await sendRealEmailWithResult({
       to: recipient,
       subject: "📧 FarmFreshFarmer SMTP Connection Test",
       html: testHtml,
     });
 
-    if (success) {
+    if (result.success) {
       return res.json({ message: `✨ Test email successfully dispatched to ${recipient}! Check your inbox.` });
     } else {
-      return res.status(400).json({ message: `Could not send test email. Please check your SMTP host, port, user & password settings.` });
+      return res.status(400).json({ message: `SMTP Failure: ${result.error || "Please check your SMTP host, port, user & password settings."}` });
     }
   }));
 
