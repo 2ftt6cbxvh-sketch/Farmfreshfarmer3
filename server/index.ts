@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { Response, NextFunction } from 'express';
 import type { Request } from 'express';
 import { createServer } from "node:http";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./register-routes";
 import { serveStatic } from "./static";
 
 // Only used for local development server (not Vercel)

@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 // Static import so Vercel's ncc bundler includes server/routes.ts in the bundle.
 // Dynamic imports of server/routes fail because /var/task/server/routes resolves
 // to the routes/ directory at runtime instead of the routes.ts file.
-import { registerRoutes } from "../server/routes";
+import { registerRoutes } from "../server/register-routes";
 
 const app = express();
 
