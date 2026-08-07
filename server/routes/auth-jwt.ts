@@ -12,7 +12,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^[6-9][0-9]{9}$/, 'Enter a valid 10-digit Indian mobile number'),
   platform: z.enum(["web", "ios", "android"]).optional(),
   deviceId: z.string().optional(),
 });
@@ -180,6 +180,17 @@ export function registerAuthJwtRoutes(app: Express) {
       }
 
       const tokens = await issueTokenPair(user.id, user.role, { platform: platform || "web", deviceId, ip: req.ip, userAgent: req.headers["user-agent"] });
+      
+      if (!user.phone) {
+        return res.json({
+          requiresPhone: true,
+          userId: user.id,
+          tempToken: tokens.accessToken,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+          ...tokens
+        });
+      }
+
       await auditLog("google_login", { userId: user.id, req, action: `Google Sign-In via ${platform || "web"}` });
       return res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }, ...tokens });
     } catch (err: any) {

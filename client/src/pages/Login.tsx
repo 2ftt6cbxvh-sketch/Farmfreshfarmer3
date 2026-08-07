@@ -18,6 +18,9 @@ export default function Login() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [method, setMethod] = useState<"password" | "otp">("otp"); // Default to Email OTP
   const [busy, setBusy] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [googleUser, setGoogleUser] = useState<any>(null);
+  const [googlePhone, setGooglePhone] = useState("");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -85,6 +88,12 @@ export default function Login() {
         platform: "web",
       });
       const data = await res.json();
+      if (data.requiresPhone) {
+        setGoogleUser(data.user);
+        setShowPhoneModal(true);
+        if (data.tempToken) localStorage.setItem("tempToken", data.tempToken);
+        return;
+      }
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
       setUser(data.user || data);
@@ -92,6 +101,26 @@ export default function Login() {
       navigate("/");
     } catch (err: any) {
       toast({ title: "Google Sign-In Error", description: err.message || "Failed to sign in.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePhoneSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!googlePhone || googlePhone.length < 10) return;
+    setBusy(true);
+    try {
+      localStorage.setItem("accessToken", localStorage.getItem("tempToken") || "");
+      const res = await apiRequest("PATCH", "/api/user/phone", { phone: googlePhone });
+      const data = await res.json();
+      localStorage.removeItem("tempToken");
+      setUser(data.user || googleUser);
+      setShowPhoneModal(false);
+      toast({ title: "Phone number saved!", description: "Welcome to FarmFreshFarmer." });
+      navigate("/");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -250,8 +279,20 @@ export default function Login() {
               </div>
               {mode === "signup" && (
                 <div>
-                  <Label htmlFor="phone" className="text-xs font-bold">Phone (Optional)</Label>
-                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 rounded-xl" />
+                  <Label htmlFor="phone" className="text-xs font-bold">Mobile Number *</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+                    <input
+                      id="phone"
+                      type="tel"
+                      placeholder="10-digit mobile number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      className="w-full rounded-xl border border-input bg-background pl-10 pr-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">Required for delivery updates via SMS/WhatsApp</p>
                 </div>
               )}
               <div>
@@ -267,6 +308,7 @@ export default function Login() {
           <p className="text-xs text-center text-muted-foreground pt-2 border-t border-card-border">
             {mode === "login" ? "Don't have an account? " : "Already registered? "}
             <button
+              type="button"
               className="text-primary font-bold underline"
               onClick={() => setMode(mode === "login" ? "signup" : "login")}
             >
@@ -275,6 +317,31 @@ export default function Login() {
           </p>
         </div>
       </div>
+
+      {showPhoneModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-border">
+            <h2 className="text-xl font-extrabold text-foreground mb-2">Almost done!</h2>
+            <p className="text-xs text-muted-foreground mb-4">Enter your mobile number to complete sign-up. We need this to send delivery updates via SMS/WhatsApp.</p>
+            <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">+91</span>
+                <input
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  value={googlePhone}
+                  onChange={(e) => setGooglePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  className="w-full rounded-2xl border border-input bg-background pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={busy || googlePhone.length < 10} className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg">
+                {busy ? "Saving..." : "Complete Sign-up"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
     </GoogleOAuthProvider>
   );
