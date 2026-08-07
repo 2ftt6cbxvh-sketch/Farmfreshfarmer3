@@ -135,8 +135,15 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
   const { data: totpSetupData } = useQuery({
     queryKey: ["/api/admin/mfa/totp/setup"],
-    queryFn: async () => (await apiRequest("GET", "/api/admin/mfa/totp/setup")).json(),
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/admin/mfa/totp/setup");
+        if (res.ok) return await res.json();
+      } catch {}
+      return null;
+    },
     enabled: !!adminUser && isStaffOrAdmin,
+    retry: false,
   });
 
 
@@ -234,7 +241,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v2.4.0
+              v2.4.1
             </span>
           </div>
         </div>

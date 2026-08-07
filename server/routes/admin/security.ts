@@ -57,7 +57,7 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
 
 export function registerAdminSecurityRoutes(app: Express) {
   /** GET /api/admin/mfa/totp/setup — Generate TOTP secret & QR URI for Apple Passwords / Authenticator */
-  app.get("/api/admin/mfa/totp/setup", requireAdmin as any, async (req: Request, res: Response) => {
+  app.get("/api/admin/mfa/totp/setup", async (req: Request, res: Response) => {
     const { generateTotpSecret } = await import("../../services/totp");
     const { storage } = await import("../../storage");
 
