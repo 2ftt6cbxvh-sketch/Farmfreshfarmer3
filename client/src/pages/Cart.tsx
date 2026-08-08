@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -131,6 +131,41 @@ export default function Cart() {
     } else {
       toast({ title: "Invalid PIN Code", description: "Please enter a valid 6-digit Indian postal code (e.g. 522502)", variant: "destructive" });
     }
+  };
+
+  const resolveGpsMutation = useMutation({
+    mutationFn: async (payload: { lat: number; lng: number }) => {
+      const res = await apiRequest("POST", "/api/delivery/resolve", payload);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data) {
+        setDeliveryRes(data);
+        localStorage.setItem("deliveryResolution", JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent("deliveryResolutionUpdated", { detail: data }));
+        if (data.pincode) setInputPincode(data.pincode);
+        if (data.locationArea) setCityArea(data.locationArea);
+        toast({ title: "📍 Location Detected", description: `${data.locationArea || data.pincode}` });
+      }
+    },
+    onError: () => {
+      toast({ title: "GPS Detection Failed", description: "Please enter PIN code manually", variant: "destructive" });
+    },
+  });
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Geolocation Unsupported", description: "Please enter your 6-digit PIN code manually.", variant: "destructive" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolveGpsMutation.mutate({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => {
+        console.warn("GPS failed, using default PIN", err);
+        resolvePincodeMutation.mutate("522502");
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   };
 
   const [name, setName] = useState(user?.name || "");
@@ -548,13 +583,25 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Dedicated PIN Code Input Field */}
+              {/* Dedicated PIN Code Input Field with Detect Location Button */}
               <div>
-                <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>PIN Code / Postal Code</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Auto-updates location & delivery fee</span>
-                </Label>
-                <div className="flex gap-2 mt-1">
+                <div className="flex items-center justify-between mb-1">
+                  <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground">
+                    PIN Code / Postal Code
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDetectLocation}
+                    disabled={resolveGpsMutation.isPending}
+                    className="h-6 px-2.5 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <Navigation size={12} className={resolveGpsMutation.isPending ? "animate-spin" : "animate-pulse"} />
+                    <span>{resolveGpsMutation.isPending ? "Detecting…" : "Detect My Location"}</span>
+                  </Button>
+                </div>
+                <div className="flex gap-2">
                   <Input
                     id="ck-pincode"
                     type="text"
