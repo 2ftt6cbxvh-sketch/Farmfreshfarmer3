@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -60,95 +61,120 @@ export default function BasketScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.content, { paddingTop: Math.max(insets.top + 10, 45) }]}>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Your Basket ({items.length})</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: bg }}
+    >
+      <ScrollView
+        style={[styles.container, { backgroundColor: bg }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.content, { paddingTop: Math.max(insets.top + 10, 45) }]}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>Your Basket ({items.length})</Text>
 
-        {/* Warehouse Delivery Timing Card */}
-        {resolution?.serviceable && (
-          <View style={styles.timingCard}>
-            <View style={styles.timingHeader}>
-              <Text style={styles.timingLocation}>📍 {resolution.locationArea || 'Delivery Address'}</Text>
-              <Text style={styles.timingEta}>⏱️ {resolution.etaMinutes} mins ETA</Text>
+          {/* Warehouse Delivery Timing Card */}
+          {resolution?.serviceable && (
+            <View style={styles.timingCard}>
+              <View style={styles.timingHeader}>
+                <Text style={styles.timingLocation}>📍 {resolution.locationArea || 'Delivery Address'}</Text>
+                <Text style={styles.timingEta}>⏱️ {resolution.etaMinutes} mins ETA</Text>
+              </View>
+              <View style={styles.timingDetails}>
+                <Text style={styles.timingText}>🏬 Warehouse: {resolution.warehouseName}</Text>
+                <Text style={styles.timingText}>📦 Packing: {resolution.packingTimeMinutes || 30} mins</Text>
+                {!!resolution.travelTimeMinutes && (
+                  <Text style={styles.timingText}>🚚 Transit: {resolution.travelTimeMinutes} mins ({resolution.distanceKm} km)</Text>
+                )}
+              </View>
             </View>
-            <View style={styles.timingDetails}>
-              <Text style={styles.timingText}>🏬 Warehouse: {resolution.warehouseName}</Text>
-              <Text style={styles.timingText}>📦 Packing: {resolution.packingTimeMinutes || 30} mins</Text>
-              {!!resolution.travelTimeMinutes && (
-                <Text style={styles.timingText}>🚚 Transit: {resolution.travelTimeMinutes} mins ({resolution.distanceKm} km)</Text>
-              )}
+          )}
+
+          {resolution && resolution.serviceable === false && (
+            <View style={styles.nonServiceableCard}>
+              <Text style={styles.nonServiceableTitle}>🛑 Delivery Unavailable</Text>
+              <Text style={styles.nonServiceableText}>
+                We cannot deliver to {resolution.locationArea || resolution.pincode || 'this location'} right now. Please change your pincode/GPS location in the top bar to place an order.
+              </Text>
             </View>
+          )}
+
+          {/* Items List */}
+          {items.map((item) => (
+            <View key={item.id} style={[styles.itemRow, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
+                <Text style={[styles.itemUnit, { color: mutedColor }]}>{item.unit}</Text>
+                <Text style={styles.itemPrice}>₹{(item.price * item.qty).toFixed(0)}</Text>
+              </View>
+              <View style={[styles.qtyRow, { backgroundColor: isDark ? '#1a2332' : '#f1f5f9' }]}>
+                <TouchableOpacity
+                  style={[styles.qtyBtn, { backgroundColor: cardBg }]}
+                  onPress={() => {
+                    if (item.qty <= 1) {
+                      removeItem(item.id);
+                    } else {
+                      updateQty(item.id, -1);
+                    }
+                  }}
+                >
+                  <Text style={[styles.qtyBtnText, { color: textColor }]}>-</Text>
+                </TouchableOpacity>
+                <Text style={[styles.qtyText, { color: textColor }]}>{item.qty}</Text>
+                <TouchableOpacity
+                  style={[styles.qtyBtn, { backgroundColor: cardBg }]}
+                  onPress={() => updateQty(item.id, 1)}
+                >
+                  <Text style={[styles.qtyBtnText, { color: textColor }]}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          {/* Delivery Details */}
+          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>Delivery Details</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
+              placeholder="Full Name"
+              placeholderTextColor={mutedColor}
+              editable={true}
+              value={customerName}
+              onChangeText={setCustomerName}
+            />
+            <TextInput
+              style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
+              placeholder="Phone Number"
+              placeholderTextColor={mutedColor}
+              keyboardType="phone-pad"
+              editable={true}
+              value={phone}
+              onChangeText={setPhone}
+            />
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: bg,
+                  borderColor: borderCol,
+                  color: textColor,
+                  minHeight: 85,
+                  textAlignVertical: 'top',
+                  paddingTop: 12,
+                }
+              ]}
+              placeholder="Full Street Address (Flat/House No, Street, Area, City)"
+              placeholderTextColor={mutedColor}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+              editable={true}
+              scrollEnabled={true}
+              autoCapitalize="sentences"
+              value={address}
+              onChangeText={setAddress}
+            />
           </View>
-        )}
-
-        {resolution && resolution.serviceable === false && (
-          <View style={styles.nonServiceableCard}>
-            <Text style={styles.nonServiceableTitle}>🛑 Delivery Unavailable</Text>
-            <Text style={styles.nonServiceableText}>
-              We cannot deliver to {resolution.locationArea || resolution.pincode || 'this location'} right now. Please change your pincode/GPS location in the top bar to place an order.
-            </Text>
-          </View>
-        )}
-
-        {/* Items List */}
-        {items.map((item) => (
-          <View key={item.id} style={[styles.itemRow, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.itemName, { color: textColor }]}>{item.name}</Text>
-              <Text style={[styles.itemUnit, { color: mutedColor }]}>{item.unit}</Text>
-              <Text style={styles.itemPrice}>₹{(item.price * item.qty).toFixed(0)}</Text>
-            </View>
-            <View style={[styles.qtyRow, { backgroundColor: isDark ? '#1a2332' : '#f1f5f9' }]}>
-              <TouchableOpacity
-                style={[styles.qtyBtn, { backgroundColor: cardBg }]}
-                onPress={() => {
-                  if (item.qty <= 1) {
-                    removeItem(item.id);
-                  } else {
-                    updateQty(item.id, -1);
-                  }
-                }}
-              >
-                <Text style={[styles.qtyBtnText, { color: textColor }]}>-</Text>
-              </TouchableOpacity>
-              <Text style={[styles.qtyText, { color: textColor }]}>{item.qty}</Text>
-              <TouchableOpacity
-                style={[styles.qtyBtn, { backgroundColor: cardBg }]}
-                onPress={() => updateQty(item.id, 1)}
-              >
-                <Text style={[styles.qtyBtnText, { color: textColor }]}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-
-        {/* Delivery Details */}
-        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Delivery Details</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
-            placeholder="Full Name"
-            placeholderTextColor={mutedColor}
-            value={customerName}
-            onChangeText={setCustomerName}
-          />
-          <TextInput
-            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor }]}
-            placeholder="Phone Number"
-            placeholderTextColor={mutedColor}
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-          />
-          <TextInput
-            style={[styles.input, { backgroundColor: bg, borderColor: borderCol, color: textColor, height: 70 }]}
-            placeholder="Full Street Address"
-            placeholderTextColor={mutedColor}
-            multiline
-            value={address}
-            onChangeText={setAddress}
-          />
-        </View>
 
         {/* Itemized Order & GST Tax Breakdown */}
         {items.length > 0 && (
@@ -242,6 +268,7 @@ export default function BasketScreen() {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

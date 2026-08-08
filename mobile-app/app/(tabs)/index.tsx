@@ -190,7 +190,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.2.3</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.2.4</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌕'}</Text>
