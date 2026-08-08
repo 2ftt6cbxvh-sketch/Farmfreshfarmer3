@@ -143,21 +143,25 @@ export async function isDeliveryFeatureEnabled(): Promise<boolean> {
 async function calculateFee(distanceKm: number, orderValue: number): Promise<{ fee: number; freeDeliveryAbove: number }> {
   const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
   let freeAbove = 500;
-  if (rules.length === 0) {
-    const fee = (freeAbove > 0 && orderValue >= freeAbove) ? 0 : Math.round(30 + distanceKm * 5);
-    return { fee, freeDeliveryAbove: freeAbove };
+  for (const rule of rules) {
+    if (rule.freeDeliveryAboveOrderValue) {
+      const val = parseFloat(rule.freeDeliveryAboveOrderValue);
+      if (!isNaN(val) && val > 0) { freeAbove = val; break; }
+    }
   }
+
+  if (freeAbove > 0 && orderValue > 0 && orderValue >= freeAbove) {
+    return { fee: 0, freeDeliveryAbove: freeAbove };
+  }
+
+  if (rules.length === 0) {
+    return { fee: Math.round(30 + distanceKm * 5), freeDeliveryAbove: freeAbove };
+  }
+
   for (const rule of rules) {
     const min = parseFloat(rule.minDistanceKm || "0");
     const max = parseFloat(rule.maxDistanceKm || "50");
     if (distanceKm >= min && distanceKm <= max) {
-      if (rule.freeDeliveryAboveOrderValue) {
-        const val = parseFloat(rule.freeDeliveryAboveOrderValue);
-        if (!isNaN(val) && val > 0) freeAbove = val;
-      }
-      if (freeAbove > 0 && orderValue > 0 && orderValue >= freeAbove) {
-        return { fee: 0, freeDeliveryAbove: freeAbove };
-      }
       const baseFee = parseFloat(rule.baseFee || "30");
       const perKmRate = parseFloat(rule.perKmFee || "5");
       const fee = baseFee + perKmRate * distanceKm;

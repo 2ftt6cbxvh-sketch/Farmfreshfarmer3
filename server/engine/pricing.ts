@@ -416,23 +416,23 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     const { deliveryFeeRules } = await import("@shared/schema");
     const userPincode = req.pincode || "522502";
     const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
-    if (resByPin && resByPin.serviceable) {
+    const freeThreshold = resByPin?.freeDeliveryAbove || 500;
+
+    if (freeThreshold > 0 && subtotal >= freeThreshold) {
+      deliveryFee = 0;
+      deliveryCity = resByPin?.locationArea || null;
+    } else if (resByPin && resByPin.serviceable) {
       deliveryFee = resByPin.fee;
       deliveryCity = resByPin.locationArea || null;
     } else {
       const feeRules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
       if (feeRules.length > 0) {
         const rule = feeRules[0];
-        const freeAbove = rule.freeDeliveryAboveOrderValue ? parseFloat(rule.freeDeliveryAboveOrderValue) : 0;
-        if (freeAbove > 0 && subtotal >= freeAbove) {
-          deliveryFee = 0;
-        } else {
-          const base = parseFloat(rule.baseFee || "30");
-          const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : 150;
-          deliveryFee = Math.min(Math.round(base), cap);
-        }
+        const base = parseFloat(rule.baseFee || "30");
+        const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : 150;
+        deliveryFee = Math.min(Math.round(base), cap);
       } else {
-        deliveryFee = subtotal >= 500 ? 0 : 30;
+        deliveryFee = 30;
       }
     }
   } catch (err: any) {

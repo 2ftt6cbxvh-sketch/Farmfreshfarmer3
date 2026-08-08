@@ -295,9 +295,19 @@ export default function Cart() {
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (deliveryRules?.freeAbove ?? 500));
-  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= freeDeliveryThreshold ? 0 : 30));
-  const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
-  const displayTotal = (isInternationalDelivery || isLocationUnserviceable)
+  const isFreeDelivery = subtotal >= freeDeliveryThreshold;
+
+  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
+    ? 0
+    : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0)
+        ? Number(deliveryRes.fee)
+        : 30);
+
+  const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
+    ? 0
+    : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
+
+  const displayTotal = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
     ? (quote ? Math.round((Number(quote.total) - Number(quote.deliveryFee)) * 100) / 100 : Math.round((subtotal - displayDiscount) * 100) / 100)
     : (quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100);
 
