@@ -514,25 +514,74 @@ export default function Cart() {
               )}
 
               {/* Itemized Price & GST Breakdown Card */}
-              {quote?.itemBreakdown && quote.itemBreakdown.length > 0 && (
-                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/10 dark:bg-emerald-950/20 p-3 space-y-2">
-                  <div className="flex justify-between items-center text-xs font-bold text-emerald-800 dark:text-emerald-300 border-b border-emerald-500/20 pb-1.5">
-                    <span>Product & GST Tax Breakdown</span>
-                    <span className="text-[10px] font-mono bg-emerald-500/20 px-1.5 py-0.5 rounded font-black text-emerald-600 dark:text-emerald-400">Inclusive GST</span>
+              {quote?.itemBreakdown && quote.itemBreakdown.length > 0 ? (
+                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 space-y-2.5 shadow-inner">
+                  <div className="flex justify-between items-center text-xs font-extrabold text-emerald-300 border-b border-emerald-500/20 pb-2">
+                    <span className="flex items-center gap-1.5">
+                      🧾 Itemized Order & GST Breakdown
+                    </span>
+                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
+                      Taxable Base + GST
+                    </span>
                   </div>
-                  <div className="space-y-2 divide-y divide-emerald-500/10">
+                  <div className="space-y-2.5 divide-y divide-emerald-500/15">
                     {quote.itemBreakdown.map((item, idx) => (
-                      <div key={idx} className="pt-1.5 first:pt-0 space-y-0.5">
-                        <div className="flex justify-between text-xs font-semibold">
+                      <div key={idx} className="pt-2 first:pt-0 space-y-1">
+                        <div className="flex justify-between items-center text-xs font-bold text-foreground">
                           <span>{item.name} ({item.unit}) × {item.qty}</span>
-                          <span className="font-mono">{formatINR(item.itemSubtotal)}</span>
+                          <span className="font-mono text-primary">{formatINR(item.itemSubtotal)}</span>
                         </div>
-                        <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
-                          <span>Base: {formatINR(item.baseAmount)} + GST ({item.gstPercent}%): {formatINR(item.gstAmount)}</span>
-                          <span>({formatINR(item.unitPrice)}/unit)</span>
+                        <div className="flex flex-wrap justify-between items-center text-[11px] text-muted-foreground font-mono gap-1">
+                          <span>
+                            Base: {formatINR(item.unitPrice)} × {item.qty} = <strong className="text-foreground">{formatINR(item.baseAmount)}</strong>
+                          </span>
+                          <span className="text-emerald-400 font-bold">
+                            +{item.gstPercent}% GST ({formatINR(item.gstAmount)})
+                          </span>
                         </div>
+                        {(item.cgstAmount > 0 || item.sgstAmount > 0) && (
+                          <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-3 pt-0.5">
+                            {item.cgstAmount > 0 && <span>CGST ({item.cgstPercent}%): {formatINR(item.cgstAmount)}</span>}
+                            {item.sgstAmount > 0 && <span>SGST ({item.sgstPercent}%): {formatINR(item.sgstAmount)}</span>}
+                          </div>
+                        )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              ) : items.length > 0 && (
+                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 space-y-2.5 shadow-inner">
+                  <div className="flex justify-between items-center text-xs font-extrabold text-emerald-300 border-b border-emerald-500/20 pb-2">
+                    <span className="flex items-center gap-1.5">
+                      🧾 Itemized Order & GST Breakdown
+                    </span>
+                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
+                      Taxable Base + GST
+                    </span>
+                  </div>
+                  <div className="space-y-2.5 divide-y divide-emerald-500/15">
+                    {items.map((item, idx) => {
+                      const baseTotal = (Number(item.price) || 0) * item.qty;
+                      const cgstVal = baseTotal * 0.025;
+                      const sgstVal = baseTotal * 0.025;
+                      const itemTot = baseTotal + cgstVal + sgstVal;
+                      return (
+                        <div key={idx} className="pt-2 first:pt-0 space-y-1">
+                          <div className="flex justify-between items-center text-xs font-bold text-foreground">
+                            <span>{item.name} ({item.unit}) × {item.qty}</span>
+                            <span className="font-mono text-primary">{formatINR(itemTot)}</span>
+                          </div>
+                          <div className="flex flex-wrap justify-between items-center text-[11px] text-muted-foreground font-mono gap-1">
+                            <span>
+                              Base: {formatINR(Number(item.price) || 0)} × {item.qty} = <strong className="text-foreground">{formatINR(baseTotal)}</strong>
+                            </span>
+                            <span className="text-emerald-400 font-bold">
+                              +5% GST ({formatINR(cgstVal + sgstVal)})
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -540,23 +589,25 @@ export default function Cart() {
               <dl className="space-y-1.5 text-xs sm:text-sm">
                 <div className="flex justify-between items-center gap-2">
                   <dt className="text-muted-foreground truncate">Taxable Subtotal (Excl. GST)</dt>
-                  <dd data-testid="text-taxable-subtotal" className="font-mono shrink-0">{formatINR(quote?.taxableSubtotal ?? Math.round((displaySubtotal / 1.05) * 100) / 100)}</dd>
+                  <dd data-testid="text-taxable-subtotal" className="font-mono shrink-0">{formatINR(quote?.taxableSubtotal ?? displaySubtotal)}</dd>
                 </div>
                 {quote?.cgstEnabled !== false && (
                   <div className="flex justify-between items-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
                     <dt className="truncate">CGST Tax Component</dt>
-                    <dd className="font-mono shrink-0">{formatINR(quote?.cgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd>
+                    <dd className="font-mono shrink-0">{formatINR(quote?.cgst ?? Math.round(displaySubtotal * 0.025 * 100) / 100)}</dd>
                   </div>
                 )}
                 {quote?.sgstEnabled !== false && (
                   <div className="flex justify-between items-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
                     <dt className="truncate">SGST Tax Component</dt>
-                    <dd className="font-mono shrink-0">{formatINR(quote?.sgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd>
+                    <dd className="font-mono shrink-0">{formatINR(quote?.sgst ?? Math.round(displaySubtotal * 0.025 * 100) / 100)}</dd>
                   </div>
                 )}
                 <div className="flex justify-between items-center gap-2 font-semibold pt-1 border-t border-card-border/40">
                   <dt className="text-foreground truncate">Cart Subtotal (Incl. GST)</dt>
-                  <dd data-testid="text-subtotal" className="font-mono shrink-0">{formatINR(displaySubtotal)}</dd>
+                  <dd data-testid="text-subtotal" className="font-mono shrink-0">
+                    {formatINR(quote?.subtotal ?? Math.round((displaySubtotal + (displaySubtotal * 0.05)) * 100) / 100)}
+                  </dd>
                 </div>
 
                 {quote ? (
@@ -589,10 +640,12 @@ export default function Cart() {
                     </p>
                   </div>
                 ) : isLocationUnserviceable ? (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs my-1 gap-1 sm:gap-2">
-                    <dt className="text-muted-foreground font-medium truncate">Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})</dt>
-                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] sm:text-right leading-tight shrink-0">
-                      Unserviceable location — Cannot calculate fee
+                  <div className="flex flex-col gap-1 py-1.5 text-xs border-t border-card-border/30 my-1">
+                    <dt className="text-muted-foreground font-medium break-words">
+                      Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})
+                    </dt>
+                    <dd data-testid="text-delivery-unserviceable" className="text-red-400 font-extrabold text-[11px] leading-snug whitespace-normal break-words bg-red-950/40 p-2.5 rounded-xl border border-red-500/40 text-center">
+                      ⚠️ Unserviceable location — Cannot calculate fee
                     </dd>
                   </div>
                 ) : (
