@@ -45,19 +45,23 @@ export default function DeliveryBanner() {
     },
   });
 
-  const requestGpsLocation = () => {
+  const requestGpsLocation = (silent = false) => {
     if (!navigator.geolocation) {
-      // Fallback to active Vijayawada Central Hub pincode 522502 if geolocation API unsupported
-      resolveMutation.mutate({ pincode: "522502" });
+      if (!silent) {
+        setShowPincodeInput(true);
+        setPincodeError("GPS is not supported on this device. Please enter your 6-digit PIN code.");
+      }
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => resolveMutation.mutate({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       (err) => {
-        console.warn("GPS detection failed or denied, resolving default Vijayawada/Guntur location (522502)", err);
-        // Fallback to active Vijayawada Central hub pincode 522502 instead of bricking state with unserviceable alert!
-        resolveMutation.mutate({ pincode: "522502" });
+        console.warn("GPS detection failed or denied:", err);
+        if (!silent) {
+          setShowPincodeInput(true);
+          setPincodeError("GPS access denied or unavailable. Please enter your 6-digit PIN code below.");
+        }
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
@@ -67,8 +71,14 @@ export default function DeliveryBanner() {
     const saved = localStorage.getItem("deliveryResolution");
     let parsed: any = null;
     try { parsed = JSON.parse(saved || "null"); } catch {}
-    if (!parsed || parsed.serviceable === false) {
-      requestGpsLocation();
+    if (parsed) {
+      setResolution(parsed);
+    } else if (typeof navigator !== "undefined" && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: "geolocation" as any }).then((result) => {
+        if (result.state === "granted") {
+          requestGpsLocation(true);
+        }
+      }).catch(() => {});
     }
   }, []);
 
@@ -85,7 +95,7 @@ export default function DeliveryBanner() {
   // Reusable 'Detect My Location' Button Component
   const DetectLocationBtn = () => (
     <button
-      onClick={requestGpsLocation}
+      onClick={() => requestGpsLocation(false)}
       disabled={resolveMutation.isPending}
       className="inline-flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white font-extrabold text-[11px] px-3 py-1 rounded-full border border-emerald-500/40 backdrop-blur-md shadow-sm transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
       title="Detect live GPS location anytime"

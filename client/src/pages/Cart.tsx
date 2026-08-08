@@ -95,7 +95,7 @@ export default function Cart() {
     try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
   });
 
-  const [inputPincode, setInputPincode] = useState<string>(deliveryRes?.pincode || "522502");
+  const [inputPincode, setInputPincode] = useState<string>(deliveryRes?.pincode || "");
 
   useEffect(() => {
     if (deliveryRes?.pincode) {
