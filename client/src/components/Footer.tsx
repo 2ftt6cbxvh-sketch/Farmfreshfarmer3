@@ -78,7 +78,7 @@ export function Footer() {
         <span>© {new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</span>
         <span className="inline-flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
           <GitCommit size={10} />
-          v3.4.1
+          v3.4.2
         </span>
       </div>
     </footer>
