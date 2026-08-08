@@ -107,7 +107,7 @@ export function Header() {
         <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
 
         {/* Main Header Bar */}
-        <div className="px-4 py-3 flex items-center justify-between gap-3 sm:gap-4 relative z-10">
+        <div className="px-2.5 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4 relative z-10 max-w-full overflow-hidden">
           <button
             className="lg:hidden shrink-0 p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
             onClick={toggleMobileMenu}

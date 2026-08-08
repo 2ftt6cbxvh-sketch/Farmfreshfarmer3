@@ -2,9 +2,9 @@ import { imgUrl } from "@/lib/queryClient";
 
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-3 group ${className}`} data-testid="logo">
+    <div className={`flex items-center gap-2 sm:gap-3 group shrink ${className}`} data-testid="logo">
       {/* Official Generated FarmFreshFarmer App Icon Asset */}
-      <div className="relative shrink-0 w-10 h-10 rounded-xl overflow-hidden shadow-md group-hover:scale-105 group-hover:shadow-primary/30 transition-all duration-300 ring-2 ring-primary/20">
+      <div className="relative shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-all duration-300 ring-2 ring-primary/20">
         <img
           src={imgUrl("/images/logo-icon.png")}
           alt="FarmFreshFarmer Logo"
@@ -12,11 +12,11 @@ export function Logo({ className = "" }: { className?: string }) {
         />
       </div>
 
-      <div className="leading-tight">
-        <span className="block font-serif text-lg font-extrabold text-foreground tracking-tight group-hover:text-primary transition-colors">
+      <div className="leading-tight min-w-0">
+        <span className="block font-serif text-sm sm:text-lg font-extrabold text-foreground tracking-tight group-hover:text-primary transition-colors truncate">
           FarmFresh<span className="text-accent">Farmer</span>
         </span>
-        <span className="block text-[9px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+        <span className="hidden sm:block text-[9px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
           Organic · Farm to Home
         </span>
       </div>

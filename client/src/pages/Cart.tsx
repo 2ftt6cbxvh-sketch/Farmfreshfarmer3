@@ -255,12 +255,14 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
 
+  const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
+
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
   
-  const fallbackDeliveryFee = isInternationalDelivery ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30));
-  const effectiveDeliveryFee = isInternationalDelivery ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
-  const displayTotal = isInternationalDelivery
+  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30));
+  const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
+  const displayTotal = (isInternationalDelivery || isLocationUnserviceable)
     ? (quote ? Math.round((Number(quote.total) - Number(quote.deliveryFee)) * 100) / 100 : Math.round((subtotal - displayDiscount) * 100) / 100)
     : (quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100);
 
@@ -507,6 +509,13 @@ export default function Cart() {
                     <p className="text-[11px] text-amber-900 dark:text-amber-200/90 leading-tight font-medium">
                       Local delivery fee removed. Shipping charges will be calculated based on destination weight & address. Our support team will contact you for delivery payment before dispatch.
                     </p>
+                  </div>
+                ) : isLocationUnserviceable ? (
+                  <div className="flex justify-between items-center text-xs my-1 gap-2">
+                    <dt className="text-muted-foreground shrink-0">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : ""}</dt>
+                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] text-right">
+                      Unserviceable location — Cannot calculate delivery fee
+                    </dd>
                   </div>
                 ) : (
                   <div className="flex justify-between">

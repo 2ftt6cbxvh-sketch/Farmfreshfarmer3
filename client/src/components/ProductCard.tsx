@@ -222,9 +222,11 @@ export function ProductCard({ product }: { product: Product }) {
               <button
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLocation("/cart"); }}
-                className="px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs shadow-md transition-all hover:scale-105 cursor-pointer shrink-0"
+                className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
+                title="Go to Cart"
+                aria-label="Go to Cart"
               >
-                Go to Cart ➔
+                <ShoppingCart size={18} />
               </button>
             </div>
           ) : (
