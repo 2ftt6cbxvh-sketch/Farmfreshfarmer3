@@ -46,6 +46,7 @@ export interface PriceRequest {
   referralCode?: string | null;  // code entered at checkout
   redeemReward?: boolean;        // referrer wants to spend their reward credit
   city?: string | null;          // delivery city chosen at checkout
+  pincode?: string | null;       // delivery pincode chosen at checkout
 }
 
 /** One admin-configured delivery rule per city. */

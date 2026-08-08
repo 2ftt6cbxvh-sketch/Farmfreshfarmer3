@@ -565,6 +565,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       referralCode: req.body.referralCode ?? null,
       redeemReward: Boolean(req.body.redeemReward),
       city: req.body.city ?? null,
+      pincode: req.body.pincode ?? null,
     });
     res.json(price);
   }));

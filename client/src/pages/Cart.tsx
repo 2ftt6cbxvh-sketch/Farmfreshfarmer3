@@ -147,6 +147,7 @@ export default function Cart() {
         referralCode: referralInput.trim() || undefined,
         redeemReward,
         city: city || undefined,
+        pincode: deliveryRes?.pincode || "522502",
       }).then((r) => r.json() as Promise<PriceQuote>),
     onSuccess: (data) => setQuote(data),
     onError: () => setQuote(null),
@@ -157,11 +158,14 @@ export default function Cart() {
     if (items.length === 0) return;
     quoteMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city]);
+  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
-  const displayTotal = quote ? Number(quote.total) : Math.round((subtotal - displayDiscount) * 100) / 100;
+  
+  const fallbackDeliveryFee = (deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30);
+  const effectiveDeliveryFee = quote ? Number(quote.deliveryFee) : fallbackDeliveryFee;
+  const displayTotal = quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100;
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
@@ -392,9 +396,9 @@ export default function Cart() {
                 )}
 
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Delivery{quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
-                  <dd data-testid="text-delivery" className={quote && Number(quote.deliveryFee) > 0 ? "" : "text-primary"}>
-                    {quote && Number(quote.deliveryFee) > 0 ? formatINR(Number(quote.deliveryFee)) : "Free"}
+                  <dt className="text-muted-foreground">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
+                  <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground" : "text-primary font-bold"}>
+                    {effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free"}
                   </dd>
                 </div>
                 <div className="flex justify-between border-t border-card-border pt-2 mt-2 font-bold text-base">
