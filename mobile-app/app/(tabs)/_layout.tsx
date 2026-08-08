@@ -45,6 +45,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="referrals"
+        options={{
+          title: 'Rewards',
+          tabBarIcon: ({ color, size }) => <Ionicons name="gift-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="subscriptions"
+        options={{
+          title: 'Subscribe',
+          tabBarIcon: ({ color, size }) => <Ionicons name="refresh-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="account"
         options={{
           title: 'Account',

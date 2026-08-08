@@ -2,8 +2,9 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | string;
   phone?: string;
+  isPrimaryAdmin?: boolean;
 }
 
 export interface Product {
@@ -11,6 +12,7 @@ export interface Product {
   name: string;
   description: string;
   categorySlug: string;
+  categoryId?: number | string;
   price: string;
   discountPercent: string;
   unit: string;
@@ -19,6 +21,7 @@ export interface Product {
   dietTag: string;
   featured: boolean;
   active: boolean;
+  allowInternationalShipping?: boolean;
 }
 
 export interface Category {
@@ -27,6 +30,7 @@ export interface Category {
   slug: string;
   image: string;
   active: boolean;
+  dietTag?: string;
 }
 
 export interface Order {
@@ -36,6 +40,7 @@ export interface Order {
   address: string;
   subtotal: string;
   discount: string;
+  couponCode?: string;
   total: string;
   status: string;
   paymentStatus: string;
@@ -55,8 +60,11 @@ export interface DeliveryResolution {
   packingTimeMinutes?: number;
   travelTimeMinutes?: number;
   distanceKm?: number;
+  maxRadiusKm?: number;
+  warehouseId?: number;
   locationArea?: string;
   warehouseName?: string;
+  pincode?: string;
   reason?: string;
 }
 

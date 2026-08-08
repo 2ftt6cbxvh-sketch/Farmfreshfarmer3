@@ -175,8 +175,9 @@ export const productStore = {
 export const couponStore = {
   async list() { return db.select().from(coupons).orderBy(desc(coupons.createdAt)); },
   async getByCode(code: string) {
-    const [r] = await db.select().from(coupons).where(eq(coupons.code, code.toUpperCase()));
-    return r;
+    const clean = code.trim().toUpperCase();
+    const all = await db.select().from(coupons);
+    return all.find((c) => c.code && c.code.trim().toUpperCase() === clean) || null;
   },
   async create(c: InsertCoupon) {
     const [r] = await db.insert(coupons).values({
@@ -437,8 +438,9 @@ export const referralStore = {
     return r;
   },
   async findByCode(code: string) {
-    const [r] = await db.select().from(referralCodes).where(eq(referralCodes.code, code.toUpperCase()));
-    return r;
+    const clean = code.trim().toUpperCase();
+    const all = await db.select().from(referralCodes);
+    return all.find((c) => c.code && c.code.trim().toUpperCase() === clean) || null;
   },
   async wasReferred(referredUserId: number) {
     const [r] = await db.select().from(referrals).where(eq(referrals.referredUserId, referredUserId));

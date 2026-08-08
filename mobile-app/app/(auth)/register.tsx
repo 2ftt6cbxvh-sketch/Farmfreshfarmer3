@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -28,28 +29,36 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com',
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
+    androidClientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
+    webClientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
+    scopes: ['profile', 'email'],
+    redirectUri: AuthSession.makeRedirectUri({ scheme: 'farmfreshfarmer' }),
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
-      const { id_token } = response.params;
-      handleGoogleSignInActual(id_token);
+      const { id_token, access_token } = response.params || {};
+      const auth = response.authentication;
+      handleGoogleSignInActual(id_token || auth?.idToken || '', access_token || auth?.accessToken);
     }
   }, [response]);
 
-  const handleGoogleSignInActual = async (idToken: string) => {
+  const handleGoogleSignInActual = async (idToken?: string, accessToken?: string) => {
     setIsLoading(true);
     try {
-      const res = await api.post('/api/auth/google', { idToken, platform: 'mobile' });
+      const payload: any = { platform: 'mobile' };
+      if (idToken) payload.idToken = idToken;
+      if (accessToken) payload.accessToken = accessToken;
+      const res = await api.post('/api/auth/google', payload);
       if (res.data?.accessToken) await tokenStorage.saveAccessToken(res.data.accessToken);
       if (res.data?.refreshToken) await tokenStorage.saveRefreshToken(res.data.refreshToken);
       setUser(res.data.user || res.data);
-      Alert.alert('Success', `Welcome back, ${res.data.user?.name || 'Customer'}! 🎉`);
+      Alert.alert('Success', `Welcome to ${BRAND.name}, ${res.data.user?.name || 'Customer'}! 🎉`);
       router.replace('/(tabs)');
     } catch (err: any) {
-      Alert.alert('Error', 'Google Sign-In failed');
+      Alert.alert('Google Sign-In Failed', err?.response?.data?.message || 'Could not complete Google Sign-In.');
     } finally {
       setIsLoading(false);
     }

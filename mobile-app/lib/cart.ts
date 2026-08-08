@@ -12,9 +12,9 @@ export interface CartItem {
 
 interface CartStore {
   items: CartItem[];
-  addItem: (product: any) => void;
+  addItem: (product: any, count?: number) => void;
   removeItem: (id: number) => void;
-  updateQty: (id: number, delta: number) => void;
+  updateQty: (id: number, targetQty: number) => void;
   clearCart: () => void;
   syncWithServer: () => Promise<void>;
 }
@@ -37,23 +37,23 @@ export const useCartStore = create<CartStore>((set, get) => ({
           price: Number(i.price),
           unit: i.unit,
           image: i.image,
-          qty: i.qty,
+          qty: Number(i.qty) || 1,
         }));
         set({ items: serverItems });
       }
     } catch {}
   },
-  addItem: (product) => {
+  addItem: (product, count = 1) => {
     const items = get().items;
     const existing = items.find((i) => i.id === product.id);
     const price = parseFloat(product.price || product.effectivePrice || '0');
     const maxStock = Number(product.stock !== undefined ? product.stock : (product.stockQuantity !== undefined ? product.stockQuantity : 999));
     let nextItems: CartItem[];
     if (existing) {
-      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, existing.qty + 1);
+      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, existing.qty + count);
       nextItems = items.map((i) => (i.id === product.id ? { ...i, qty: targetQty } : i));
     } else {
-      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, 1);
+      const targetQty = Math.min(maxStock > 0 ? maxStock : 999, count);
       if (targetQty <= 0) return;
       nextItems = [
         ...items,
@@ -75,17 +75,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set({ items: nextItems });
     syncToDb(nextItems);
   },
-  updateQty: (id, delta) => {
+  updateQty: (id, targetQty) => {
+    if (targetQty <= 0) {
+      get().removeItem(id);
+      return;
+    }
     const items = get().items;
-    const nextItems = items
-      .map((i) => {
-        if (i.id === id) {
-          const newQty = i.qty + delta;
-          return newQty > 0 ? { ...i, qty: newQty } : null;
-        }
-        return i;
-      })
-      .filter(Boolean) as CartItem[];
+    const nextItems = items.map((i) => (i.id === id ? { ...i, qty: targetQty } : i));
     set({ items: nextItems });
     syncToDb(nextItems);
   },

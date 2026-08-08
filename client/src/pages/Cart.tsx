@@ -303,10 +303,11 @@ export default function Cart() {
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
-    onSuccess: (res) => {
-      if (res.valid && res.code && typeof res.discountPercent === "number") {
-        setCoupon({ code: res.code, discountPercent: res.discountPercent });
-        toast({ title: "Coupon applied", description: `${res.discountPercent}% off` });
+    onSuccess: (res: any) => {
+      const discountPct = parseFloat(String(res.discountPercent ?? res.discount ?? 0));
+      if (res.valid && res.code && discountPct > 0) {
+        setCoupon({ code: res.code, discountPercent: discountPct });
+        toast({ title: "Coupon applied", description: `${discountPct}% off` });
       } else {
         setCoupon(null);
         toast({ title: "Coupon not valid", description: res.message || "Please check the code.", variant: "destructive" });

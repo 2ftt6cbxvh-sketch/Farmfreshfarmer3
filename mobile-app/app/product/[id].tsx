@@ -1,22 +1,166 @@
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator, TextInput, Alert, Dimensions } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, resolveImgUrl } from '../../lib/api';
-import { COLORS } from '../../constants/config';
+import { COLORS, BRAND } from '../../constants/config';
 import type { Product } from '../../lib/types';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
 import { useAuth } from '../../lib/store';
+import { useDelivery } from '../../hooks/useDelivery';
 
+const { width } = Dimensions.get('window');
+
+// ─── Similar Product Card with Stepper & Add ──────────────────────────────────
+function SimilarProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?: number }) {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
+  const { user } = useAuth();
+  const items = useCartStore((state) => state.items) || [];
+  const addItem = useCartStore((state) => state.addItem);
+  const updateQty = useCartStore((state) => state.updateQty);
+  const removeItem = useCartStore((state) => state.removeItem);
+
+  const [localQty, setLocalQty] = useState(1);
+  const price = parseFloat(product.price);
+  const discount = parseFloat(product.discountPercent || '0');
+  const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
+
+  const cartItem = items.find(i => i.id === product.id || (i as any).productId === product.id);
+  const inCartQty = cartItem?.qty || 0;
+  const isInCart = inCartQty > 0;
+  const isLocalOnly = (product as any).allowInternationalShipping === false;
+  const isVeg = product.dietTag !== 'nonveg';
+  const outOfStock = Number(product.stock !== undefined ? product.stock : 999) <= 0;
+
+  const handleAddToCart = () => {
+    if (!user) {
+      Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
+      ]);
+      return;
+    }
+    if (outOfStock) {
+      Alert.alert('Out of Stock ⚠️', 'This item is currently out of stock.');
+      return;
+    }
+    for (let i = 0; i < localQty; i++) {
+      addItem(product);
+    }
+    Alert.alert('Added to Basket! 🎉', `${localQty} × ${product.name} added to your basket.`);
+    setLocalQty(1);
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.92}
+      style={[styles.similarCard, isDark ? styles.similarCardDark : styles.similarCardLight]}
+      onPress={() => router.push(`/product/${product.id}`)}
+    >
+      <View style={styles.cardTopAccent} />
+      <View style={styles.similarImageWrapper}>
+        {product.image ? (
+          <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.similarImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.similarImage, styles.imagePlaceholder]}><Text style={{ fontSize: 24 }}>🌱</Text></View>
+        )}
+        {discount > 0 && (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{Math.round(discount)}% OFF</Text>
+          </View>
+        )}
+        {isLocalOnly && (
+          <View style={styles.localOnlyBadge}>
+            <Text style={styles.localOnlyText}>📍 Local {maxRadiusKm ? `(${maxRadiusKm}km)` : ''}</Text>
+          </View>
+        )}
+        {isInCart && (
+          <View style={styles.inCartBadge}>
+            <Text style={styles.inCartText}>✓ {inCartQty} in Cart</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.similarInfo}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          <Text style={{ fontSize: 10 }}>{isVeg ? '🟢' : '🔴'}</Text>
+          <Text style={[styles.categoryTag, isDark ? { color: '#34d399' } : { color: '#059669' }]}>
+            {product.categorySlug?.toUpperCase() || 'FRESH'}
+          </Text>
+        </View>
+
+        <Text style={[styles.similarName, isDark && styles.textWhite]} numberOfLines={1}>
+          {product.name}
+        </Text>
+        <Text style={[styles.similarUnit, isDark && styles.textMutedDark]}>{product.unit}</Text>
+
+        <View style={styles.priceRow}>
+          <View>
+            <Text style={styles.price}>₹{effectivePrice.toFixed(0)}</Text>
+            {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
+          </View>
+        </View>
+
+        <View style={styles.stepperAndBtnRow}>
+          {isInCart ? (
+            <View style={[styles.cartQtyControl, isDark ? styles.cartQtyControlDark : styles.cartQtyControlLight]}>
+              <TouchableOpacity
+                style={styles.stepBtn}
+                onPress={() => inCartQty === 1 ? removeItem(product.id) : updateQty(product.id, inCartQty - 1)}
+              >
+                <Text style={[styles.stepBtnText, inCartQty === 1 && { color: COLORS.error }]}>
+                  {inCartQty === 1 ? '🗑' : '−'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.stepQtyText, isDark && styles.textWhite]}>{inCartQty}</Text>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => updateQty(product.id, inCartQty + 1)}>
+                <Text style={[styles.stepBtnText, { color: '#10b981' }]}>+</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.cartQtyControl, isDark ? styles.cartQtyControlDark : styles.cartQtyControlLight]}>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setLocalQty(Math.max(1, localQty - 1))}>
+                <Text style={styles.stepBtnText}>−</Text>
+              </TouchableOpacity>
+              <Text style={[styles.stepQtyText, isDark && styles.textWhite]}>{localQty}</Text>
+              <TouchableOpacity style={styles.stepBtn} onPress={() => setLocalQty(localQty + 1)}>
+                <Text style={[styles.stepBtnText, { color: '#10b981' }]}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.addBtn, isInCart && styles.addBtnInCart]}
+            onPress={isInCart ? () => router.push('/(tabs)/basket') : handleAddToCart}
+          >
+            <Text style={styles.addBtnText}>{isInCart ? '🛒 Cart' : '🛒 Add'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Main Product Detail Screen ───────────────────────────────────────────────
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const items = useCartStore((state) => state.items) || [];
   const addItem = useCartStore((state) => state.addItem);
+  const cartCount = items.reduce((s, i) => s + i.qty, 0);
 
+  const { resolution } = useDelivery();
+  const radius = resolution?.maxRadiusKm || 30;
+  const warehouseName = resolution?.warehouseName || 'Local Warehouse';
+
+  const [qty, setQty] = useState(1);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
 
@@ -25,12 +169,12 @@ export default function ProductDetailScreen() {
     queryFn: () => api.get(`/api/products/${id}`).then((r) => r.data),
   });
 
-  const { data: reviews } = useQuery({
+  const { data: reviews = [] } = useQuery<any[]>({
     queryKey: ['reviews', id],
-    queryFn: () => api.get(`/api/reviews?productId=${id}`).then((r) => r.data),
+    queryFn: () => api.get(`/api/reviews?productId=${id}`).then((r) => r.data || []),
   });
 
-  const { data: allProducts } = useQuery<Product[]>({
+  const { data: allProductsData } = useQuery({
     queryKey: ['products'],
     queryFn: () => api.get('/api/products').then((r) => r.data),
   });
@@ -38,265 +182,581 @@ export default function ProductDetailScreen() {
   const submitReview = useMutation({
     mutationFn: () => api.post(`/api/reviews`, { productId: Number(id), rating: reviewRating, comment: reviewComment }),
     onSuccess: () => {
-      Alert.alert('Success', 'Review submitted successfully!');
+      Alert.alert('Thank You! 🎉', 'Your review has been submitted successfully.');
       setReviewComment('');
       queryClient.invalidateQueries({ queryKey: ['reviews', id] });
     },
-    onError: () => {
-      Alert.alert('Error', 'Failed to submit review. Are you logged in?');
+    onError: (err: any) => {
+      Alert.alert('Review Failed', err?.response?.data?.message || 'Please log in to submit a review.');
     }
   });
 
-  if (isLoading) return (
-    <View style={[styles.container, isDark && styles.containerDark, { justifyContent: 'center', alignItems: 'center' }]}>
-      <ActivityIndicator color={COLORS.primary} size="large" />
-    </View>
-  );
+  if (isLoading) {
+    return (
+      <View style={[styles.mainContainer, isDark ? styles.containerDark : styles.containerLight, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
+      </View>
+    );
+  }
 
-  if (!product) return (
-    <View style={[styles.container, isDark && styles.containerDark, { padding: 20 }]}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Text style={styles.backBtnText}>← Back</Text>
-      </TouchableOpacity>
-      <Text style={[styles.errorText, isDark && styles.textDark]}>Product not found</Text>
-    </View>
-  );
+  if (!product) {
+    return (
+      <View style={[styles.mainContainer, isDark ? styles.containerDark : styles.containerLight, { padding: 20, paddingTop: insets.top + 20 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back to Harvest</Text>
+        </TouchableOpacity>
+        <Text style={[styles.errorTitle, isDark && styles.textWhite]}>Product not found</Text>
+      </View>
+    );
+  }
 
   const price = parseFloat(product.price);
-  const discount = parseFloat(product.discountPercent);
+  const discount = parseFloat(product.discountPercent || '0');
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
+  const isLocalOnly = (product as any).allowInternationalShipping === false;
+  const isVeg = product.dietTag !== 'nonveg';
+  const outOfStock = Number(product.stock !== undefined ? product.stock : 999) <= 0;
 
-  const bg = isDark ? '#000000' : '#ffffff';
+  const allProducts: Product[] = allProductsData?.products || allProductsData || [];
+  const similarProducts = allProducts.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 6);
+
+  const bg = isDark ? '#050505' : '#f8fafc';
   const cardBg = isDark ? '#0c121e' : '#ffffff';
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
-  const mutedColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? 'rgba(16, 185, 129, 0.3)' : '#e2e8f0';
+  const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
 
-  const similarProducts = allProducts?.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 5) || [];
+  const handleAddToCart = () => {
+    if (!user) {
+      Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
+      ]);
+      return;
+    }
+    if (outOfStock) {
+      Alert.alert('Out of Stock ⚠️', 'This item is currently out of stock.');
+      return;
+    }
+    for (let i = 0; i < qty; i++) {
+      addItem(product);
+    }
+    Alert.alert('Added to Basket! 🎉', `${qty} × ${product.name} added to your basket.`);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-    <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.navBar, { borderBottomColor: borderCol }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>← Back to Harvest</Text>
+    <View style={[styles.mainContainer, { backgroundColor: bg }]}>
+      {/* ── Top Header Navigation Bar ───────────────────────────────────────── */}
+      <View style={[styles.topNavBar, isDark && styles.topNavBarDark, { paddingTop: insets.top + 6 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.themeToggleBtn} onPress={toggleTheme}>
-          <Text style={{ fontSize: 16 }}>{isDark ? '🌙' : '☀️'}</Text>
-        </TouchableOpacity>
+
+        <View style={styles.brandTitleContainer}>
+          <Text style={styles.brandLeaf}>🌿</Text>
+          <Text style={styles.brandTextPrimary}>FarmFresh<Text style={styles.brandTextAccent}>Farmer</Text></Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity style={[styles.navCircleBtn, isDark && styles.navCircleBtnDark]} onPress={toggleTheme}>
+            <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.cartIconBtn, cartCount > 0 && styles.cartIconBtnActive]}
+            onPress={() => router.push('/(tabs)/basket')}
+          >
+            <Text style={{ fontSize: 16 }}>🛒</Text>
+            {cartCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {product.image ? (
-        <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.image} resizeMode="cover" />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder]}><Text style={{ fontSize: 80 }}>🌱</Text></View>
-      )}
+      <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+        {/* ── 1. Hero Image Container (Matching Screenshot 2 & 3) ─────────────── */}
+        <View style={styles.heroImageCard}>
+          {product.image ? (
+            <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.heroImage, styles.imagePlaceholder]}><Text style={{ fontSize: 80 }}>🌱</Text></View>
+          )}
 
-      <View style={[styles.content, { backgroundColor: cardBg, borderColor: borderCol }]}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.name, { color: textColor }]}>{product.name}</Text>
-          <View style={styles.dietBadge}>
-            <Text style={styles.dietDot}>{product.dietTag === 'nonveg' ? '🔴' : '🟢'}</Text>
-          </View>
-        </View>
-
-        {(product as any).allowInternationalShipping === false && (
-          <View style={[styles.localBadgeCard, { backgroundColor: isDark ? '#451a03' : '#fef3c7', borderColor: isDark ? '#b45309' : '#f59e0b' }]}>
-            <Text style={[styles.localBadgeTitle, { color: isDark ? '#fcd34d' : '#92400e' }]}>🛵 Local Warehouse Only</Text>
-            <Text style={[styles.localBadgeSub, { color: isDark ? '#fef3c7' : '#78350f' }]}>
-              Available within local delivery area only. Cannot be shipped out-of-station or internationally.
+          {/* Dynamic Local Delivery Pill at bottom-left */}
+          <View style={styles.heroFloatingLocalPill}>
+            <Text style={styles.heroFloatingLocalPillText}>
+              {resolution?.serviceable
+                ? `📍 Local Delivery (${radius}km Radius from ${warehouseName})`
+                : `📍 Local Farm Harvest (${radius}km Deliverable Radius)`}
             </Text>
           </View>
-        )}
 
-        <Text style={[styles.unit, { color: mutedColor }]}>{product.unit}</Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>₹{effectivePrice.toFixed(0)}</Text>
-          {discount > 0 && <>
-            <Text style={[styles.originalPrice, { color: mutedColor }]}>₹{price.toFixed(0)}</Text>
-            <View style={styles.discountBadge}><Text style={styles.discountText}>{Math.round(discount)}% OFF</Text></View>
-          </>}
+          {/* Floating Discount Pill at top-left */}
+          {discount > 0 && (
+            <View style={styles.heroFloatingDiscountPill}>
+              <Text style={styles.heroFloatingDiscountPillText}>{Math.round(discount)}% OFF</Text>
+            </View>
+          )}
         </View>
-        {product.description ? <Text style={[styles.description, { color: mutedColor }]}>{product.description}</Text> : null}
 
-        <TouchableOpacity 
-          style={[styles.addButton, product.stock === 0 && styles.addButtonDisabled]} 
-          disabled={product.stock === 0}
-          onPress={() => {
-            if (!user) {
-              Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
-              return;
-            }
-            addItem(product);
-            Alert.alert('Success', 'Added to Basket! 🎉');
-          }}
-        >
-          <Text style={styles.addButtonText}>{product.stock === 0 ? 'Out of Stock' : 'Add to Basket'}</Text>
-        </TouchableOpacity>
-        {product.stock > 0 && product.stock <= (product.lowStockThreshold || 10) && (
-          <Text style={styles.lowStock}>Only {product.stock} left!</Text>
-        )}
+        {/* ── 2. Product Information Details ─────────────────────────────────── */}
+        <View style={styles.detailsContainer}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text style={{ fontSize: 16 }}>{isVeg ? '🟢' : '🔴'}</Text>
+            <Text style={[styles.productDetailTitle, isDark && styles.textWhite]}>{product.name}</Text>
+          </View>
 
-        <View style={styles.sectionMargin}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Similar Organic Products</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-            {similarProducts.map((p) => (
-              <TouchableOpacity key={p.id} onPress={() => router.push(`/product/${p.id}`)} style={[styles.productCard, { backgroundColor: bg, borderColor: borderCol }]}>
-                {p.image ? (
-                  <Image source={{ uri: resolveImgUrl(p.image) }} style={styles.productImgReal} resizeMode="cover" />
-                ) : (
-                  <View style={styles.productImgPlaceholder}><Text style={{fontSize:40}}>🍎</Text></View>
-                )}
-                {parseFloat(p.discountPercent) > 0 && (
-                  <View style={styles.discountPill}><Text style={styles.discountPillText}>{Math.round(parseFloat(p.discountPercent))}% OFF</Text></View>
-                )}
-                <Text style={[styles.productName, { color: textColor }]} numberOfLines={1}>{p.name}</Text>
-                <Text style={styles.productPrice}>₹{(parseFloat(p.price) * (1 - parseFloat(p.discountPercent)/100)).toFixed(0)}</Text>
-                <TouchableOpacity 
-                  style={styles.smallAddBtn}
-                  onPress={() => {
-                    if (!user) {
-                      Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
-                      return;
-                    }
-                    addItem(p);
-                    Alert.alert('Success', 'Added to Basket! 🎉');
-                  }}
-                >
-                  <Text style={styles.smallAddBtnText}>Add</Text>
+          {product.description ? (
+            <Text style={[styles.productDescription, isDark && styles.textMutedDark]}>{product.description}</Text>
+          ) : null}
+
+          {/* Dual Pill Tags Row (Responsive wrapping) */}
+          <View style={styles.dualPillsRow}>
+            <View style={styles.packSizePill}>
+              <Text style={styles.packSizePillText} numberOfLines={1}>Pack Size: {product.unit}</Text>
+            </View>
+            <View style={styles.warehousePill}>
+              <Text style={styles.warehousePillText} numberOfLines={1}>
+                🛵 {resolution?.serviceable ? `Deliverable (${radius}km Radius)` : `Check PIN for Delivery ETA`}
+              </Text>
+            </View>
+          </View>
+
+          {/* Price & Stock status */}
+          <View style={styles.priceAndStockRow}>
+            <View>
+              <Text style={styles.detailPrice}>₹{effectivePrice.toFixed(0)}</Text>
+              {discount > 0 && <Text style={styles.detailOriginalPrice}>₹{price.toFixed(0)}</Text>}
+            </View>
+            <Text style={[styles.stockStatus, { color: outOfStock ? COLORS.error : '#10b981' }]}>
+              {outOfStock ? '⚠️ Out of Stock' : `In Stock: ${product.stock ?? 50} unit(s) available`}
+            </Text>
+          </View>
+
+          {/* Stepper + Add to Cart + Go to Cart (Auto-Resizing Responsive Layout) */}
+          <View style={styles.purchaseActionContainer}>
+            <View style={styles.purchaseActionRow}>
+              <View style={[styles.stepperBox, isDark ? styles.stepperBoxDark : styles.stepperBoxLight]}>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setQty(Math.max(1, qty - 1))}>
+                  <Text style={[styles.stepperBtnText, isDark && styles.textWhite]}>−</Text>
                 </TouchableOpacity>
+                <Text style={[styles.stepperQtyText, isDark && styles.textWhite]}>{qty}</Text>
+                <TouchableOpacity style={styles.stepperBtn} onPress={() => setQty(qty + 1)}>
+                  <Text style={[styles.stepperBtnText, isDark && styles.textWhite]}>+</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={styles.detailAddToCartBtn} onPress={handleAddToCart}>
+                <Text style={styles.detailAddToCartBtnText}>🛒 Add to Cart</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            </View>
+
+            {cartCount > 0 && (
+              <TouchableOpacity style={styles.detailGoToCartFullBtn} onPress={() => router.push('/(tabs)/basket')}>
+                <Text style={styles.detailGoToCartFullBtnText}>🛒 View Cart ({cartCount} items) →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        <View style={styles.sectionMargin}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Customer Reviews</Text>
-          
-          <View style={[styles.reviewForm, { backgroundColor: bg, borderColor: borderCol }]}>
-            <Text style={[styles.reviewFormTitle, { color: textColor }]}>Write a Review</Text>
-            <View style={styles.starsRow}>
-              {[1,2,3,4,5].map(s => (
-                <TouchableOpacity key={s} onPress={() => setReviewRating(s)}>
-                  <Text style={[styles.star, { color: s <= reviewRating ? '#f59e0b' : mutedColor }]}>{s <= reviewRating ? '★' : '☆'}</Text>
+        {/* ── 3. Customer Reviews Card (Screenshot 3) ─────────────────────────── */}
+        <View style={[styles.reviewsCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+          <Text style={[styles.reviewsHeaderTitle, isDark && styles.textWhite]}>
+            Customer Reviews ({reviews.length})
+          </Text>
+
+          <View style={[styles.writeReviewBox, isDark ? styles.writeReviewBoxDark : styles.writeReviewBoxLight]}>
+            <Text style={[styles.writeReviewLabel, isDark && styles.textMutedDark]}>Write a Review</Text>
+            <View style={styles.starRatingRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                  <Text style={[styles.starIcon, { color: star <= reviewRating ? '#f59e0b' : '#64748b' }]}>★</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TextInput 
-              style={[styles.reviewInput, { color: textColor, borderColor: borderCol, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc' }]} 
-              placeholder="What did you like or dislike?"
-              placeholderTextColor={mutedColor}
+
+            <TextInput
+              style={[styles.reviewTextInput, isDark ? styles.reviewTextInputDark : styles.reviewTextInputLight]}
+              placeholder="Share your fresh harvest experience..."
+              placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
               value={reviewComment}
               onChangeText={setReviewComment}
               multiline
             />
-            <TouchableOpacity style={styles.submitReviewBtn} onPress={() => submitReview.mutate()} disabled={submitReview.isPending}>
-              <Text style={styles.submitReviewBtnText}>{submitReview.isPending ? 'Submitting...' : 'Submit Review'}</Text>
+
+            <TouchableOpacity
+              style={[styles.postReviewBtn, submitReview.isPending && { opacity: 0.6 }]}
+              onPress={() => submitReview.mutate()}
+              disabled={submitReview.isPending}
+            >
+              {submitReview.isPending ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.postReviewBtnText}>Post Review</Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          {(reviews || []).map((rev: any) => (
-            <View key={rev.id} style={[styles.reviewItem, { borderBottomColor: borderCol }]}>
-              <View style={styles.reviewHeader}>
-                <Text style={[styles.reviewerName, { color: textColor }]}>{rev.userName || 'Verified Buyer'}</Text>
-                <Text style={styles.reviewStars}>{'★'.repeat(rev.rating)}</Text>
-              </View>
-              {rev.comment ? <Text style={[styles.reviewText, { color: mutedColor }]}>{rev.comment}</Text> : null}
+          {reviews.length === 0 ? (
+            <Text style={[styles.noReviewsText, isDark && styles.textMutedDark]}>
+              No reviews yet. Be the first to share your harvest thoughts!
+            </Text>
+          ) : (
+            <View style={styles.reviewsList}>
+              {reviews.map((rev) => (
+                <View key={rev.id} style={[styles.singleReview, { borderBottomColor: borderCol }]}>
+                  <View style={styles.singleReviewHeader}>
+                    <Text style={[styles.reviewerName, isDark && styles.textWhite]}>{rev.userName || 'Verified Buyer'}</Text>
+                    <Text style={{ color: '#f59e0b', fontSize: 13 }}>{'★'.repeat(rev.rating)}</Text>
+                  </View>
+                  <Text style={[styles.reviewCommentText, isDark && styles.textMutedDark]}>{rev.comment}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-          {(!reviews || reviews.length === 0) && (
-            <Text style={{ color: mutedColor }}>No reviews yet. Be the first to review!</Text>
           )}
         </View>
 
-        <View style={[styles.glassFooter, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.8)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,1)' }]}>
-          <Text style={[styles.footerText, { color: textColor }]}>Farm Fresh • Instant Delivery</Text>
-          <Text style={[styles.footerText, { color: mutedColor, fontSize: 12, marginTop: 4 }]}>Homemade • No Preservatives</Text>
-        </View>
+        {/* ── 4. Recommended Similar Organic Products (Screenshot 4) ─────────── */}
+        {similarProducts.length > 0 && (
+          <View style={styles.similarSection}>
+            <View style={styles.similarBadgePill}>
+              <Text style={styles.similarBadgePillText}>RECOMMENDED FOR YOU</Text>
+            </View>
+            <Text style={[styles.similarSectionTitle, isDark && styles.textWhite]}>
+              ✨ Similar Organic Products
+            </Text>
 
-        <View style={{ height: 80 }} />
-      </View>
-    </ScrollView>
-    <View style={[styles.bottomBar, { backgroundColor: cardBg, borderTopColor: borderCol }]}>
-      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)')}>
-        <Text style={styles.bottomTabIcon}>🏠</Text>
-        <Text style={[styles.bottomTabText, { color: textColor }]}>Shop</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/basket')}>
-        <Text style={styles.bottomTabIcon}>🧺</Text>
-        <Text style={[styles.bottomTabText, { color: textColor }]}>Basket</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/orders')}>
-        <Text style={styles.bottomTabIcon}>🧾</Text>
-        <Text style={[styles.bottomTabText, { color: textColor }]}>Orders</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.bottomTab} onPress={() => router.push('/(tabs)/account')}>
-        <Text style={styles.bottomTabIcon}>👤</Text>
-        <Text style={[styles.bottomTabText, { color: textColor }]}>Account</Text>
-      </TouchableOpacity>
+            <View style={styles.similarGrid}>
+              {similarProducts.map((simProd) => (
+                <SimilarProductCard key={simProd.id} product={simProd} maxRadiusKm={radius} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
-  </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  containerDark: { backgroundColor: '#000000' },
-  navBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 12, borderBottomWidth: 1 },
-  backBtn: { backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
-  backBtnText: { color: '#10b981', fontWeight: 'bold', fontSize: 13 },
-  themeToggleBtn: { backgroundColor: 'rgba(255,255,255,0.1)', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  image: { width: '100%', height: 300 },
-  imagePlaceholder: { backgroundColor: '#092615', alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -20, borderWidth: 1 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  name: { fontSize: 24, fontWeight: '800', flex: 1, marginRight: 8 },
-  dietBadge: { padding: 4 },
-  dietDot: { fontSize: 20 },
-  localBadgeCard: { borderRadius: 12, padding: 10, marginVertical: 10, borderWidth: 1 },
-  localBadgeTitle: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
-  localBadgeSub: { fontSize: 11, fontWeight: '500' },
-  unit: { fontSize: 14, marginTop: 4, marginBottom: 12 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  price: { fontSize: 30, fontWeight: '900', color: '#10b981' },
-  originalPrice: { fontSize: 18, textDecorationLine: 'line-through' },
-  discountBadge: { backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
-  discountText: { color: '#ef4444', fontSize: 12, fontWeight: '700' },
-  description: { fontSize: 14, lineHeight: 22, marginBottom: 20 },
-  addButton: { backgroundColor: '#10b981', borderRadius: 16, padding: 18, alignItems: 'center', shadowColor: '#10b981', shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
-  addButtonDisabled: { backgroundColor: '#64748b' },
-  addButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  lowStock: { textAlign: 'center', color: '#ef4444', fontSize: 12, fontWeight: '600', marginTop: 8 },
-  textDark: { color: '#f8fafc' },
-  errorText: { textAlign: 'center', marginTop: 40, fontSize: 16 },
-  sectionMargin: { marginTop: 32 },
-  sectionTitle: { fontSize: 20, fontWeight: '800', marginBottom: 16 },
-  horizontalScroll: { overflow: 'visible' },
-  productCard: { width: 140, padding: 12, borderRadius: 16, borderWidth: 1, marginRight: 16, position: 'relative' },
-  productImgPlaceholder: { backgroundColor: 'rgba(16,185,129,0.1)', height: 100, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  productImgReal: { width: '100%', height: 100, borderRadius: 12, marginBottom: 12 },
-  discountPill: { position: 'absolute', top: 8, left: 8, backgroundColor: '#ef4444', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, zIndex: 1 },
-  discountPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  productName: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  productPrice: { fontSize: 16, fontWeight: '800', color: '#10b981', marginBottom: 12 },
-  smallAddBtn: { backgroundColor: '#10b981', paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  smallAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  reviewForm: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-  reviewFormTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  starsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  star: { fontSize: 32 },
-  reviewInput: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 80, marginBottom: 16, textAlignVertical: 'top' },
-  submitReviewBtn: { backgroundColor: '#10b981', padding: 12, borderRadius: 12, alignItems: 'center' },
-  submitReviewBtnText: { color: '#fff', fontWeight: '700' },
-  reviewItem: { paddingVertical: 16, borderBottomWidth: 1 },
-  reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  reviewerName: { fontWeight: '700', fontSize: 15 },
-  reviewStars: { fontSize: 14, color: '#f59e0b' },
-  reviewText: { fontSize: 14, lineHeight: 20 },
-  glassFooter: { marginTop: 40, padding: 24, borderRadius: 24, alignItems: 'center', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 8 },
-  footerText: { fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
-  bottomBar: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 12, paddingBottom: 24, borderTopWidth: 1, position: 'absolute', bottom: 0, width: '100%' },
-  bottomTab: { alignItems: 'center' },
-  bottomTabIcon: { fontSize: 24, marginBottom: 4 },
-  bottomTabText: { fontSize: 10, fontWeight: '700' },
+  mainContainer: { flex: 1 },
+  containerDark: { backgroundColor: '#050505' },
+  containerLight: { backgroundColor: '#f8fafc' },
+  scrollBody: { flex: 1 },
+
+  topNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  topNavBarDark: {
+    backgroundColor: '#021812',
+    borderBottomColor: 'rgba(52, 211, 153, 0.2)',
+  },
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(5, 150, 105, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(5, 150, 105, 0.25)',
+  },
+  backButtonText: { color: '#059669', fontSize: 13, fontWeight: '700' },
+  brandTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  brandLeaf: { fontSize: 18 },
+  brandTextPrimary: { fontSize: 18, fontWeight: '900', color: '#059669', fontFamily: 'serif' },
+  brandTextAccent: { color: '#fbbf24' },
+  navCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navCircleBtnDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.3)' },
+  cartIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  cartIconBtnActive: { backgroundColor: '#10b981' },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#fbbf24',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
+
+  heroImageCard: {
+    margin: 16,
+    height: 280,
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
+  },
+  heroImage: { width: '100%', height: '100%' },
+  imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' },
+  heroFloatingLocalPill: {
+    position: 'absolute',
+    bottom: 14,
+    left: 14,
+    backgroundColor: 'rgba(120, 53, 15, 0.92)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  heroFloatingLocalPillText: { color: '#fef3c7', fontSize: 11, fontWeight: '800' },
+  heroFloatingDiscountPill: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  heroFloatingDiscountPillText: { color: '#000000', fontSize: 12, fontWeight: '900' },
+
+  detailsContainer: { paddingHorizontal: 16, marginBottom: 20 },
+  productDetailTitle: { fontSize: 24, fontWeight: '900', fontFamily: 'serif', color: '#0f172a' },
+  productDescription: { fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 18 },
+  dualPillsRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+  packSizePill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  packSizePillText: { color: '#059669', fontSize: 11, fontWeight: '700' },
+  warehousePill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  warehousePillText: { color: '#d97706', fontSize: 11, fontWeight: '700' },
+
+  priceAndStockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  detailPrice: { fontSize: 26, fontWeight: '900', color: '#10b981' },
+  detailOriginalPrice: { fontSize: 13, color: '#94a3b8', textDecorationLine: 'line-through' },
+  stockStatus: { fontSize: 11, fontWeight: '700' },
+
+  purchaseActionContainer: { marginTop: 18, gap: 10 },
+  purchaseActionRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  stepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    width: 110,
+    justifyContent: 'space-between',
+  },
+  stepperBoxLight: { backgroundColor: '#ffffff', borderColor: '#cbd5e1' },
+  stepperBoxDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
+  stepperBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  stepperBtnText: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
+  stepperQtyText: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  detailAddToCartBtn: {
+    flex: 1,
+    backgroundColor: '#059669',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    shadowColor: '#059669',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  detailAddToCartBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  detailGoToCartFullBtn: {
+    backgroundColor: '#10b981',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    shadowColor: '#10b981',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  detailGoToCartFullBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+
+  reviewsCard: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  reviewsHeaderTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'serif', color: '#0f172a', marginBottom: 14 },
+  writeReviewBox: { padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 14 },
+  writeReviewBoxLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  writeReviewBoxDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
+  writeReviewLabel: { fontSize: 12, fontWeight: '700', color: '#64748b', marginBottom: 6 },
+  starRatingRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  starIcon: { fontSize: 24 },
+  reviewTextInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 13,
+    minHeight: 70,
+    textAlignVertical: 'top',
+    marginBottom: 10,
+  },
+  reviewTextInputLight: { backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#0f172a' },
+  reviewTextInputDark: { backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#ffffff' },
+  postReviewBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  postReviewBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 13 },
+  noReviewsText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginVertical: 10 },
+  reviewsList: { marginTop: 8 },
+  singleReview: { paddingVertical: 10, borderBottomWidth: 1 },
+  singleReviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  reviewerName: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
+  reviewCommentText: { fontSize: 12, color: '#64748b', lineHeight: 16 },
+
+  similarSection: { paddingHorizontal: 16 },
+  similarBadgePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  similarBadgePillText: { color: '#fbbf24', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  similarSectionTitle: { fontSize: 20, fontWeight: '900', fontFamily: 'serif', color: '#0f172a', marginBottom: 14 },
+  similarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  similarCard: {
+    width: '47%',
+    marginHorizontal: '1.5%',
+    marginBottom: 14,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  similarCardLight: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
+  similarCardDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
+  cardTopAccent: { height: 3, width: '100%', backgroundColor: '#10b981' },
+  similarImageWrapper: { width: '100%', height: 110, position: 'relative', overflow: 'hidden', backgroundColor: '#f1f5f9' },
+  similarImage: { width: '100%', height: 110 },
+  discountBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  discountText: { color: '#000000', fontSize: 9, fontWeight: '900' },
+  localOnlyBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    backgroundColor: 'rgba(120, 53, 15, 0.9)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  localOnlyText: { color: '#fef3c7', fontSize: 8, fontWeight: '800' },
+  inCartBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.95)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  inCartText: { color: '#ffffff', fontSize: 8, fontWeight: '800' },
+  similarInfo: { padding: 10 },
+  categoryTag: { fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
+  similarName: { fontSize: 13, fontWeight: '800', fontFamily: 'serif', color: '#0f172a' },
+  similarUnit: { fontSize: 10, color: '#64748b', marginTop: 2 },
+  priceRow: { marginTop: 4 },
+  price: { fontSize: 15, fontWeight: '900', color: '#10b981' },
+  originalPrice: { fontSize: 10, color: '#94a3b8', textDecorationLine: 'line-through' },
+  stepperAndBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  cartQtyControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cartQtyControlLight: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
+  cartQtyControlDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
+  stepBtn: { paddingHorizontal: 4, paddingVertical: 2 },
+  stepBtnText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
+  stepQtyText: { fontSize: 11, fontWeight: '800', color: '#0f172a' },
+  addBtn: { backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6 },
+  addBtnInCart: { backgroundColor: '#10b981' },
+  addBtnText: { color: '#ffffff', fontSize: 10, fontWeight: '800' },
+
+  errorTitle: { fontSize: 18, fontWeight: '800', marginTop: 20 },
+  textWhite: { color: '#ffffff' },
+  textDark: { color: '#0f172a' },
+  textMutedDark: { color: '#94a3b8' },
 });

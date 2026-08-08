@@ -535,15 +535,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   app.get("/api/coupons/validate", h(async (req, res) => {
-    const code = String(req.query.code || "").toUpperCase();
+    const code = String(req.query.code || "").trim().toUpperCase();
     const subtotal = Number(req.query.subtotal) || 0;
     const coupon = await storage.coupons.getByCode(code);
     if (!coupon || !coupon.active) return res.json({ valid: false, message: "Invalid or inactive code" });
-    const minOrder = Number(coupon.minOrder);
-    if (subtotal < minOrder) {
+    const minOrder = parseFloat(String(coupon.minOrder || "0")) || 0;
+    if (subtotal > 0 && subtotal < minOrder) {
       return res.json({ valid: false, message: `Minimum order ₹${minOrder} required` });
     }
-    res.json({ valid: true, code: coupon.code, discountPercent: coupon.discountPercent });
+    const discountPercent = parseFloat(String(coupon.discountPercent || "0")) || 10;
+    res.json({ valid: true, code: coupon.code, discountPercent });
   }));
 
   function extractUserId(req: any): number | null {
