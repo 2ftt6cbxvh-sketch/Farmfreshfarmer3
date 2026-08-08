@@ -258,40 +258,26 @@ export default function BasketScreen() {
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16 }}>
         <Text style={[styles.pageTitle, { color: textColor }]}>Your cart</Text>
 
-        {/* ── Dynamic Free Delivery Progress Banner ────────────────────────── */}
-        <View style={[styles.freeDeliveryBanner, isDark ? styles.freeDeliveryBannerDark : styles.freeDeliveryBannerLight]}>
-          <View style={styles.freeDeliveryHeader}>
-            {isFreeDelivery ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                <Text style={{ fontSize: 16 }}>🎉</Text>
-                <Text style={[styles.freeDeliveryTitle, isDark && styles.textWhite]}>
-                  You've unlocked <Text style={{ color: '#10b981', fontWeight: '900' }}>FREE Express Delivery</Text>!
-                </Text>
-              </View>
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                <Text style={{ fontSize: 16 }}>🚚</Text>
-                <Text style={[styles.freeDeliveryTitle, isDark && styles.textWhite]}>
-                  Add <Text style={{ color: '#10b981', fontWeight: '900' }}>₹{(freeDeliveryThreshold - subtotal).toFixed(0)}</Text> more for <Text style={{ fontWeight: '900' }}>FREE Delivery</Text>!
-                </Text>
-              </View>
-            )}
-            <View style={styles.freeDeliveryBadge}>
-              <Text style={styles.freeDeliveryBadgeText}>
-                {isFreeDelivery ? 'FREE DELIVERED' : `Free Above ₹${freeDeliveryThreshold}`}
-              </Text>
+        {/* ── Minimal Free Delivery Bar ─────────────────────────────────────── */}
+        {subtotal > 0 && (
+          <View style={[styles.freeBarWrap, isDark ? styles.freeBarWrapDark : styles.freeBarWrapLight]}>
+            <Text style={[styles.freeBarLabel, isDark && { color: '#94a3b8' }]}>
+              {isFreeDelivery
+                ? <Text style={{ color: '#10b981', fontWeight: '700' }}>🎉 Free delivery unlocked!</Text>
+                : <Text>🚚 Add <Text style={{ color: '#10b981', fontWeight: '700' }}>₹{Math.ceil(freeDeliveryThreshold - subtotal)}</Text> more for free delivery</Text>
+              }
+            </Text>
+            <View style={styles.freeBarTrack}>
+              <View
+                style={[
+                  styles.freeBarFill,
+                  { width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` },
+                  isFreeDelivery && { backgroundColor: '#10b981' },
+                ]}
+              />
             </View>
           </View>
-
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` },
-              ]}
-            />
-          </View>
-        </View>
+        )}
 
         {/* ── 1. Cart Items List ────────────────────────────────────────────── */}
         <View style={styles.itemsListContainer}>
@@ -681,15 +667,12 @@ const styles = StyleSheet.create({
   startShoppingBtn: { backgroundColor: '#059669', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24 },
   startShoppingBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
 
-  freeDeliveryBanner: { borderRadius: 20, borderWidth: 1, padding: 14, marginBottom: 16 },
-  freeDeliveryBannerLight: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
-  freeDeliveryBannerDark: { backgroundColor: '#022c22', borderColor: 'rgba(52, 211, 153, 0.35)' },
-  freeDeliveryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 },
-  freeDeliveryTitle: { fontSize: 13, fontWeight: '700', color: '#065f46' },
-  freeDeliveryBadge: { backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
-  freeDeliveryBadgeText: { color: '#059669', fontSize: 10, fontWeight: '900' },
-  progressBarBg: { width: '100%', height: 8, borderRadius: 4, backgroundColor: 'rgba(16, 185, 129, 0.15)', overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 4 },
+  freeBarWrap: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14, gap: 6 },
+  freeBarWrapLight: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  freeBarWrapDark: { backgroundColor: '#022c22', borderColor: 'rgba(52, 211, 153, 0.25)' },
+  freeBarLabel: { fontSize: 12, fontWeight: '500', color: '#475569' },
+  freeBarTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(16, 185, 129, 0.2)', overflow: 'hidden' },
+  freeBarFill: { height: '100%', backgroundColor: '#34d399', borderRadius: 2 },
 
   itemsListContainer: { marginBottom: 16 },
   cartItemCard: {

@@ -202,6 +202,13 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const cartItems = useCartStore((state) => state.items) || [];
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+  const cartSubtotal = cartItems.reduce((s, i) => s + i.qty * i.price, 0);
+
+  const { data: deliveryRules } = useQuery({
+    queryKey: ['delivery-rules'],
+    queryFn: () => api.get('/api/delivery-rules').then((r) => r.data),
+    staleTime: 60000,
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -309,6 +316,8 @@ export default function HomeScreen() {
   const currentCategoryObj = categories.find((c) => c.slug === selectedCategory);
   const bg = isDark ? '#050505' : '#ffffff';
   const maxRadius = resolution?.maxRadiusKm;
+  const freeDeliveryThreshold = Number(resolution?.freeDeliveryAbove || deliveryRules?.freeAbove || 500);
+  const isFreeDelivery = cartSubtotal >= freeDeliveryThreshold;
 
   return (
     <View style={[styles.mainContainer, { backgroundColor: bg }]}>
@@ -512,6 +521,24 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
       </View>
+
+      {/* ── Minimal Free Delivery Progress Bar ──────────────────────────────── */}
+      {cartSubtotal > 0 && (
+        <View style={[
+          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 7, borderBottomWidth: 1, gap: 10 },
+          isDark ? { backgroundColor: '#050505', borderBottomColor: 'rgba(16,185,129,0.15)' } : { backgroundColor: '#ffffff', borderBottomColor: '#f1f5f9' },
+        ]}>
+          <Text style={{ fontSize: 11, fontWeight: '500', color: isFreeDelivery ? '#10b981' : (isDark ? '#94a3b8' : '#64748b'), flex: 1 }}>
+            {isFreeDelivery
+              ? '🎉 Free delivery unlocked!'
+              : `🚚 Add ₹${Math.ceil(freeDeliveryThreshold - cartSubtotal)} more for free delivery`}
+          </Text>
+          <View style={{ flex: 2, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#f1f5f9', overflow: 'hidden' }}>
+            <View style={{ width: `${Math.min(100, Math.round((cartSubtotal / freeDeliveryThreshold) * 100))}%`, height: '100%', backgroundColor: '#10b981', borderRadius: 2 }} />
+          </View>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: '#10b981' }}>₹{freeDeliveryThreshold}</Text>
+        </View>
+      )}
 
       {/* ── Scrollable Body ─────────────────────────────────────────────── */}
       <ScrollView

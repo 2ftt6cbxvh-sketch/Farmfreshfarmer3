@@ -445,31 +445,6 @@ export default function Cart() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-4">Your cart</h1>
 
-        {/* Dynamic Free Delivery Progress Banner */}
-        <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/40 p-4 shadow-sm space-y-2.5">
-          <div className="flex flex-wrap justify-between items-center text-xs sm:text-sm font-extrabold text-emerald-900 dark:text-emerald-300 gap-2">
-            {subtotal >= freeDeliveryThreshold ? (
-              <span className="flex items-center gap-2">
-                <span className="text-lg">🎉</span>
-                <span>You've unlocked <strong>FREE Express Delivery</strong> on this order!</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5">
-                🚚 Add <strong className="font-mono text-emerald-600 dark:text-emerald-400">{formatINR(freeDeliveryThreshold - subtotal)}</strong> more for <strong>FREE Delivery!</strong>
-              </span>
-            )}
-            <span className="font-mono text-[11px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-black shrink-0">
-              {subtotal >= freeDeliveryThreshold ? "FREE DELIVERED" : `Free Above ${formatINR(freeDeliveryThreshold)}`}
-            </span>
-          </div>
-
-          <div className="w-full h-2.5 rounded-full bg-emerald-500/20 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600 transition-all duration-500 rounded-full"
-              style={{ width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` }}
-            />
-          </div>
-        </div>
 
         {user && !user.phone && (
           <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 mb-4 flex items-center justify-between">
