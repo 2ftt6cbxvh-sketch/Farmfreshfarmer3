@@ -292,6 +292,8 @@ export default function Cart() {
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 
+  const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
+  const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (deliveryRules?.freeAbove ?? 500));
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= freeDeliveryThreshold ? 0 : 30));
   const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
