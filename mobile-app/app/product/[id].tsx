@@ -1,23 +1,26 @@
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator, TextInput, Alert, Dimensions } from 'react-native';
+import { useState } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Image,
+  TextInput, ActivityIndicator, Alert, useWindowDimensions
+} from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, resolveImgUrl } from '../../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { COLORS, BRAND } from '../../constants/config';
-import type { Product } from '../../lib/types';
+import { useDelivery } from '../../hooks/useDelivery';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
 import { useAuth } from '../../lib/store';
-import { useDelivery } from '../../hooks/useDelivery';
+import { api, resolveImgUrl } from '../../lib/api';
+import type { Product } from '../../lib/types';
 
-const { width } = Dimensions.get('window');
-
-// ─── Similar Product Card with Stepper & Add ──────────────────────────────────
-function SimilarProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?: number }) {
+// ─── Similar Product Card ─────────────────────────────────────────────────────
+function SimilarProductCard({ product }: { product: Product }) {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
-  const { user } = useAuth();
+  const { resolution } = useDelivery();
+  const radius = resolution?.maxRadiusKm || 30;
+
   const items = useCartStore((state) => state.items) || [];
   const addItem = useCartStore((state) => state.addItem);
   const updateQty = useCartStore((state) => state.updateQty);
@@ -28,7 +31,7 @@ function SimilarProductCard({ product, maxRadiusKm }: { product: Product; maxRad
   const discount = parseFloat(product.discountPercent || '0');
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
 
-  const cartItem = items.find(i => i.id === product.id || (i as any).productId === product.id);
+  const cartItem = items.find((i) => i.id === product.id || (i as any).productId === product.id);
   const inCartQty = cartItem?.qty || 0;
   const isInCart = inCartQty > 0;
   const isLocalOnly = (product as any).allowInternationalShipping === false;
@@ -36,20 +39,11 @@ function SimilarProductCard({ product, maxRadiusKm }: { product: Product; maxRad
   const outOfStock = Number(product.stock !== undefined ? product.stock : 999) <= 0;
 
   const handleAddToCart = () => {
-    if (!user) {
-      Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
-      ]);
-      return;
-    }
     if (outOfStock) {
-      Alert.alert('Out of Stock ⚠️', 'This item is currently out of stock.');
+      Alert.alert('Out of Stock', 'This item is currently out of stock.');
       return;
     }
-    for (let i = 0; i < localQty; i++) {
-      addItem(product);
-    }
+    addItem(product, localQty);
     Alert.alert('Added to Basket! 🎉', `${localQty} × ${product.name} added to your basket.`);
     setLocalQty(1);
   };
@@ -61,25 +55,29 @@ function SimilarProductCard({ product, maxRadiusKm }: { product: Product; maxRad
       onPress={() => router.push(`/product/${product.id}`)}
     >
       <View style={styles.cardTopAccent} />
+
       <View style={styles.similarImageWrapper}>
         {product.image ? (
           <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.similarImage} resizeMode="cover" />
         ) : (
-          <View style={[styles.similarImage, styles.imagePlaceholder]}><Text style={{ fontSize: 24 }}>🌱</Text></View>
+          <View style={[styles.similarImage, styles.imagePlaceholder]}><Text style={{ fontSize: 28 }}>🌱</Text></View>
         )}
+
         {discount > 0 && (
           <View style={styles.discountBadge}>
             <Text style={styles.discountText}>{Math.round(discount)}% OFF</Text>
           </View>
         )}
+
         {isLocalOnly && (
           <View style={styles.localOnlyBadge}>
-            <Text style={styles.localOnlyText}>📍 Local {maxRadiusKm ? `(${maxRadiusKm}km)` : ''}</Text>
+            <Text style={styles.localOnlyText}>📍 Local ({radius}km)</Text>
           </View>
         )}
+
         {isInCart && (
           <View style={styles.inCartBadge}>
-            <Text style={styles.inCartText}>✓ {inCartQty} in Cart</Text>
+            <Text style={styles.inCartText}>✓ {inCartQty}</Text>
           </View>
         )}
       </View>
@@ -150,6 +148,7 @@ export default function ProductDetailScreen() {
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const items = useCartStore((state) => state.items) || [];
@@ -213,7 +212,6 @@ export default function ProductDetailScreen() {
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent || '0');
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
-  const isLocalOnly = (product as any).allowInternationalShipping === false;
   const isVeg = product.dietTag !== 'nonveg';
   const outOfStock = Number(product.stock !== undefined ? product.stock : 999) <= 0;
 
@@ -236,9 +234,7 @@ export default function ProductDetailScreen() {
       Alert.alert('Out of Stock ⚠️', 'This item is currently out of stock.');
       return;
     }
-    for (let i = 0; i < qty; i++) {
-      addItem(product);
-    }
+    addItem(product, qty);
     Alert.alert('Added to Basket! 🎉', `${qty} × ${product.name} added to your basket.`);
   };
 
@@ -273,30 +269,32 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-        {/* ── 1. Hero Image Container (Matching Screenshot 2 & 3) ─────────────── */}
-        <View style={styles.heroImageCard}>
-          {product.image ? (
-            <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.heroImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.heroImage, styles.imagePlaceholder]}><Text style={{ fontSize: 80 }}>🌱</Text></View>
-          )}
+      <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* ── 1. Hero Image Container (Auto-Resizing) ─────────────────────────── */}
+        <View style={styles.heroWrapper}>
+          <View style={[styles.heroImageCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+            {product.image ? (
+              <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.heroImage} resizeMode="cover" />
+            ) : (
+              <View style={[styles.heroImage, styles.imagePlaceholder]}><Text style={{ fontSize: 80 }}>🌱</Text></View>
+            )}
 
-          {/* Dynamic Local Delivery Pill at bottom-left */}
-          <View style={styles.heroFloatingLocalPill}>
-            <Text style={styles.heroFloatingLocalPillText}>
-              {resolution?.serviceable
-                ? `📍 Local Delivery (${radius}km Radius from ${warehouseName})`
-                : `📍 Local Farm Harvest (${radius}km Deliverable Radius)`}
-            </Text>
-          </View>
-
-          {/* Floating Discount Pill at top-left */}
-          {discount > 0 && (
-            <View style={styles.heroFloatingDiscountPill}>
-              <Text style={styles.heroFloatingDiscountPillText}>{Math.round(discount)}% OFF</Text>
+            {/* Dynamic Local Delivery Pill at bottom-left */}
+            <View style={styles.heroFloatingLocalPill}>
+              <Text style={styles.heroFloatingLocalPillText} numberOfLines={1}>
+                {resolution?.serviceable
+                  ? `📍 Local Delivery (${radius}km from ${warehouseName})`
+                  : `📍 Local Farm Harvest (${radius}km Radius)`}
+              </Text>
             </View>
-          )}
+
+            {/* Floating Discount Pill at top-left */}
+            {discount > 0 && (
+              <View style={styles.heroFloatingDiscountPill}>
+                <Text style={styles.heroFloatingDiscountPillText}>{Math.round(discount)}% OFF</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* ── 2. Product Information Details ─────────────────────────────────── */}
@@ -310,7 +308,7 @@ export default function ProductDetailScreen() {
             <Text style={[styles.productDescription, isDark && styles.textMutedDark]}>{product.description}</Text>
           ) : null}
 
-          {/* Dual Pill Tags Row (Responsive wrapping) */}
+          {/* Dual Pill Tags Row (Responsive auto-wrapping) */}
           <View style={styles.dualPillsRow}>
             <View style={styles.packSizePill}>
               <Text style={styles.packSizePillText} numberOfLines={1}>Pack Size: {product.unit}</Text>
@@ -359,7 +357,7 @@ export default function ProductDetailScreen() {
           </View>
         </View>
 
-        {/* ── 3. Customer Reviews Card (Screenshot 3) ─────────────────────────── */}
+        {/* ── 3. Customer Reviews Card ────────────────────────────────────────── */}
         <View style={[styles.reviewsCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
           <Text style={[styles.reviewsHeaderTitle, isDark && styles.textWhite]}>
             Customer Reviews ({reviews.length})
@@ -398,54 +396,46 @@ export default function ProductDetailScreen() {
           </View>
 
           {reviews.length === 0 ? (
-            <Text style={[styles.noReviewsText, isDark && styles.textMutedDark]}>
-              No reviews yet. Be the first to share your harvest thoughts!
-            </Text>
+            <Text style={styles.noReviewsText}>No reviews yet. Be the first to review this produce!</Text>
           ) : (
             <View style={styles.reviewsList}>
-              {reviews.map((rev) => (
-                <View key={rev.id} style={[styles.singleReview, { borderBottomColor: borderCol }]}>
+              {reviews.map((r, idx) => (
+                <View key={idx} style={[styles.singleReview, { borderBottomColor: borderCol }]}>
                   <View style={styles.singleReviewHeader}>
-                    <Text style={[styles.reviewerName, isDark && styles.textWhite]}>{rev.userName || 'Verified Buyer'}</Text>
-                    <Text style={{ color: '#f59e0b', fontSize: 13 }}>{'★'.repeat(rev.rating)}</Text>
+                    <Text style={[styles.reviewerName, isDark && styles.textWhite]}>{r.userName || 'Verified Buyer'}</Text>
+                    <Text style={{ color: '#f59e0b', fontSize: 12 }}>{'★'.repeat(r.rating || 5)}</Text>
                   </View>
-                  <Text style={[styles.reviewCommentText, isDark && styles.textMutedDark]}>{rev.comment}</Text>
+                  {r.comment ? <Text style={[styles.reviewCommentText, isDark && styles.textMutedDark]}>{r.comment}</Text> : null}
                 </View>
               ))}
             </View>
           )}
         </View>
 
-        {/* ── 4. Recommended Similar Organic Products (Screenshot 4) ─────────── */}
+        {/* ── 4. Similar Organic Products Grid ─────────────────────────────────── */}
         {similarProducts.length > 0 && (
           <View style={styles.similarSection}>
             <View style={styles.similarBadgePill}>
               <Text style={styles.similarBadgePillText}>RECOMMENDED FOR YOU</Text>
             </View>
-            <Text style={[styles.similarSectionTitle, isDark && styles.textWhite]}>
-              ✨ Similar Organic Products
-            </Text>
+            <Text style={[styles.similarSectionTitle, isDark && styles.textWhite]}>✨ Similar Organic Products</Text>
 
             <View style={styles.similarGrid}>
-              {similarProducts.map((simProd) => (
-                <SimilarProductCard key={simProd.id} product={simProd} maxRadiusKm={radius} />
+              {similarProducts.map((p) => (
+                <SimilarProductCard key={p.id} product={p} />
               ))}
             </View>
           </View>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
-  containerDark: { backgroundColor: '#050505' },
   containerLight: { backgroundColor: '#f8fafc' },
-  scrollBody: { flex: 1 },
+  containerDark: { backgroundColor: '#050505' },
 
   topNavBar: {
     flexDirection: 'row',
@@ -458,22 +448,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   topNavBarDark: {
-    backgroundColor: '#021812',
+    backgroundColor: '#091510',
     borderBottomColor: 'rgba(52, 211, 153, 0.2)',
   },
   backButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(5, 150, 105, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(5, 150, 105, 0.25)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  backButtonText: { color: '#059669', fontSize: 13, fontWeight: '700' },
-  brandTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  brandLeaf: { fontSize: 18 },
-  brandTextPrimary: { fontSize: 18, fontWeight: '900', color: '#059669', fontFamily: 'serif' },
-  brandTextAccent: { color: '#fbbf24' },
+  backButtonText: { color: '#059669', fontWeight: '800', fontSize: 13 },
+  brandTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  brandLeaf: { fontSize: 16 },
+  brandTextPrimary: { fontSize: 17, fontWeight: '900', color: '#059669', fontFamily: 'serif' },
+  brandTextAccent: { color: '#f59e0b' },
   navCircleBtn: {
     width: 36,
     height: 36,
@@ -509,38 +497,40 @@ const styles = StyleSheet.create({
   },
   cartBadgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
 
+  scrollBody: { flex: 1 },
+
+  heroWrapper: { paddingHorizontal: 16, marginTop: 14, marginBottom: 14, width: '100%' },
   heroImageCard: {
-    margin: 16,
-    height: 280,
-    borderRadius: 28,
+    width: '100%',
+    height: 270,
+    borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 15,
-    elevation: 5,
+    elevation: 4,
   },
   heroImage: { width: '100%', height: '100%' },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' },
   heroFloatingLocalPill: {
     position: 'absolute',
-    bottom: 14,
-    left: 14,
+    bottom: 12,
+    left: 12,
     backgroundColor: 'rgba(120, 53, 15, 0.92)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.4)',
+    maxWidth: '85%',
   },
   heroFloatingLocalPillText: { color: '#fef3c7', fontSize: 11, fontWeight: '800' },
   heroFloatingDiscountPill: {
     position: 'absolute',
-    top: 14,
-    left: 14,
+    top: 12,
+    left: 12,
     backgroundColor: '#f59e0b',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -548,10 +538,11 @@ const styles = StyleSheet.create({
   },
   heroFloatingDiscountPillText: { color: '#000000', fontSize: 12, fontWeight: '900' },
 
-  detailsContainer: { paddingHorizontal: 16, marginBottom: 20 },
-  productDetailTitle: { fontSize: 24, fontWeight: '900', fontFamily: 'serif', color: '#0f172a' },
+  detailsContainer: { paddingHorizontal: 16, marginBottom: 20, width: '100%' },
+  productDetailTitle: { fontSize: 24, fontWeight: '900', fontFamily: 'serif', color: '#0f172a', flex: 1 },
   productDescription: { fontSize: 13, color: '#64748b', marginTop: 4, lineHeight: 18 },
-  dualPillsRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+  
+  dualPillsRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap', width: '100%' },
   packSizePill: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 12,
@@ -559,6 +550,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   packSizePillText: { color: '#059669', fontSize: 11, fontWeight: '700' },
   warehousePill: {
@@ -568,6 +561,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   warehousePillText: { color: '#d97706', fontSize: 11, fontWeight: '700' },
 
@@ -576,13 +571,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 16,
+    width: '100%',
   },
   detailPrice: { fontSize: 26, fontWeight: '900', color: '#10b981' },
   detailOriginalPrice: { fontSize: 13, color: '#94a3b8', textDecorationLine: 'line-through' },
   stockStatus: { fontSize: 11, fontWeight: '700' },
 
-  purchaseActionContainer: { marginTop: 18, gap: 10 },
-  purchaseActionRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  purchaseActionContainer: { marginTop: 16, gap: 10, width: '100%' },
+  purchaseActionRow: { flexDirection: 'row', gap: 10, alignItems: 'center', width: '100%' },
   stepperBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -590,7 +586,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    width: 110,
+    width: 105,
+    flexShrink: 0,
     justifyContent: 'space-between',
   },
   stepperBoxLight: { backgroundColor: '#ffffff', borderColor: '#cbd5e1' },
@@ -617,6 +614,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 13,
+    width: '100%',
     shadowColor: '#10b981',
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -634,6 +632,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 2,
+    width: 'auto',
   },
   reviewsHeaderTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'serif', color: '#0f172a', marginBottom: 14 },
   writeReviewBox: { padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 14 },
@@ -667,7 +666,7 @@ const styles = StyleSheet.create({
   reviewerName: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
   reviewCommentText: { fontSize: 12, color: '#64748b', lineHeight: 16 },
 
-  similarSection: { paddingHorizontal: 16 },
+  similarSection: { paddingHorizontal: 16, width: '100%' },
   similarBadgePill: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
@@ -680,10 +679,9 @@ const styles = StyleSheet.create({
   },
   similarBadgePillText: { color: '#fbbf24', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   similarSectionTitle: { fontSize: 20, fontWeight: '900', fontFamily: 'serif', color: '#0f172a', marginBottom: 14 },
-  similarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  similarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', width: '100%' },
   similarCard: {
-    width: '47%',
-    marginHorizontal: '1.5%',
+    width: '48%',
     marginBottom: 14,
     borderRadius: 20,
     overflow: 'hidden',
@@ -716,6 +714,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,
+    maxWidth: '85%',
   },
   localOnlyText: { color: '#fef3c7', fontSize: 8, fontWeight: '800' },
   inCartBadge: {
@@ -758,5 +757,6 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 18, fontWeight: '800', marginTop: 20 },
   textWhite: { color: '#ffffff' },
   textDark: { color: '#0f172a' },
+  textMutedLight: { color: '#64748b' },
   textMutedDark: { color: '#94a3b8' },
 });
