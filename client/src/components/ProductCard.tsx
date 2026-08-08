@@ -196,54 +196,63 @@ export function ProductCard({ product }: { product: Product }) {
 
           {/* Controls: If in cart, show live quantity modifier & remove button */}
           {inCartQty > 0 ? (
-            <div className="mt-4 flex items-center gap-2 relative z-30 pointer-events-auto">
-              <div className="flex flex-1 items-center justify-between rounded-xl border border-emerald-500/50 bg-emerald-950/40 backdrop-blur p-1 shadow-md">
+            <div className="mt-3 flex items-center gap-1.5 w-full relative z-30 pointer-events-auto">
+              <div className="flex flex-1 items-center justify-between rounded-xl border border-emerald-500/60 bg-emerald-950/50 backdrop-blur p-1 shadow-md min-w-0">
                 <button
                   type="button"
                   onClick={handleDecrementCart}
-                  className="p-1.5 hover:bg-emerald-500/20 active:scale-90 transition-all rounded-lg text-emerald-300 cursor-pointer"
+                  className="p-1 sm:p-1.5 hover:bg-emerald-500/20 active:scale-90 transition-all rounded-lg text-emerald-300 cursor-pointer shrink-0"
                   aria-label="Decrease cart count"
                   title={inCartQty === 1 ? "Remove from cart" : "Decrease quantity"}
                 >
-                  {inCartQty === 1 ? <Trash2 size={15} className="text-red-400" /> : <Minus size={15} />}
+                  {inCartQty === 1 ? <Trash2 size={14} className="text-red-400" /> : <Minus size={14} />}
                 </button>
-                <span className="text-xs font-black text-emerald-300 px-2 flex items-center gap-1">
-                  <ShoppingCart size={13} /> {inCartQty} in Cart
-                </span>
+                
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLocation("/cart"); }}
+                  className="px-1 py-0.5 text-emerald-300 hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1 min-w-0 truncate"
+                  title="Go to Cart"
+                >
+                  <ShoppingCart size={12} className="shrink-0 text-emerald-400" />
+                  <span className="text-[11px] font-black truncate">{inCartQty} in Cart</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleIncrementCart}
-                  className="p-1.5 hover:bg-emerald-500/20 active:scale-90 transition-all rounded-lg text-emerald-300 cursor-pointer"
+                  className="p-1 sm:p-1.5 hover:bg-emerald-500/20 active:scale-90 transition-all rounded-lg text-emerald-300 cursor-pointer shrink-0"
                   aria-label="Increase cart count"
                 >
-                  <Plus size={15} />
+                  <Plus size={14} />
                 </button>
               </div>
+
               <button
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLocation("/cart"); }}
-                className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
+                className="hidden sm:flex p-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 items-center justify-center"
                 title="Go to Cart"
                 aria-label="Go to Cart"
               >
-                <ShoppingCart size={18} />
+                <ShoppingCart size={16} />
               </button>
             </div>
           ) : (
-            <div className="mt-4 flex items-center gap-2 relative z-30 pointer-events-auto">
+            <div className="mt-3 flex items-center gap-1.5 w-full relative z-30 pointer-events-auto">
               {/* Initial Quantity Selector */}
-              <div className="flex items-center rounded-xl border border-emerald-500/30 bg-background/80 backdrop-blur shadow-inner">
+              <div className="flex items-center rounded-xl border border-emerald-500/30 bg-background/80 backdrop-blur shadow-inner shrink-0">
                 <button
                   type="button"
                   onClick={handleDecQty}
-                  className="px-2.5 py-2 hover:bg-primary/20 active:scale-90 transition-all rounded-l-xl text-muted-foreground hover:text-primary cursor-pointer"
+                  className="px-1.5 sm:px-2 py-1.5 hover:bg-primary/20 active:scale-90 transition-all rounded-l-xl text-muted-foreground hover:text-primary cursor-pointer"
                   aria-label="Decrease quantity"
                   data-testid={`button-dec-${product.id}`}
                 >
-                  <Minus size={13} />
+                  <Minus size={12} />
                 </button>
                 <span
-                  className="w-7 text-center text-xs font-extrabold select-none text-foreground"
+                  className="w-5 text-center text-xs font-extrabold select-none text-foreground"
                   data-testid={`text-qty-${product.id}`}
                 >
                   {qty}
@@ -251,11 +260,11 @@ export function ProductCard({ product }: { product: Product }) {
                 <button
                   type="button"
                   onClick={handleIncQty}
-                  className="px-2.5 py-2 hover:bg-primary/20 active:scale-90 transition-all rounded-r-xl text-muted-foreground hover:text-primary cursor-pointer"
+                  className="px-1.5 sm:px-2 py-1.5 hover:bg-primary/20 active:scale-90 transition-all rounded-r-xl text-muted-foreground hover:text-primary cursor-pointer"
                   aria-label="Increase quantity"
                   data-testid={`button-inc-${product.id}`}
                 >
-                  <Plus size={13} />
+                  <Plus size={12} />
                 </button>
               </div>
 
@@ -264,17 +273,17 @@ export function ProductCard({ product }: { product: Product }) {
                 type="button"
                 onClick={addToCart}
                 disabled={outOfStock}
-                className={`flex flex-1 items-center justify-center gap-1 sm:gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-black py-2.5 px-3 shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.23)] border border-emerald-400/50 backdrop-blur-md hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-50 relative z-30 ${
-                  animating ? "animate-pulse ring-4 ring-emerald-400/50" : ""
+                className={`flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white text-xs font-black py-2 px-2 shadow-md border border-emerald-400/50 backdrop-blur-md active:scale-95 transition-all duration-300 cursor-pointer disabled:opacity-50 min-w-0 ${
+                  animating ? "animate-pulse ring-2 ring-emerald-400/50" : ""
                 }`}
                 data-testid={`button-add-${product.id}`}
               >
                 {animating ? (
-                  <Sparkles size={15} className="animate-spin text-amber-300" />
+                  <Sparkles size={14} className="animate-spin text-amber-300 shrink-0" />
                 ) : (
-                  <ShoppingCart size={15} className="text-white group-hover:rotate-12 transition-transform" />
+                  <ShoppingCart size={14} className="text-white shrink-0" />
                 )}
-                <span className="hidden sm:inline">{animating ? "Added!" : "Add to Cart"}</span>
+                <span className="truncate">{animating ? "Added!" : "Add"}</span>
               </button>
             </div>
           )}
