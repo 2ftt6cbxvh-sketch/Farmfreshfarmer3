@@ -130,6 +130,7 @@ export const products = pgTable("products", {
   dietTag: varchar("diet_tag", { length: 16 }).notNull().default("none"),
   featured: boolean("featured").notNull().default(false),
   featuredInHero: boolean("featured_in_hero").notNull().default(false),
+  gstPercent: numeric("gst_percent", { precision: 5, scale: 2 }),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -142,6 +143,7 @@ export const insertProductSchema = createInsertSchema(products, {
   discountPercent: z.coerce.number().min(0).max(100).optional(),
   stock: z.coerce.number().int().min(0).optional(),
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
+  gstPercent: z.coerce.number().min(0).max(100).optional().nullable(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;

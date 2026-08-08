@@ -42,3 +42,29 @@ export function dietDotColor(tag?: string | null): string | null {
   if (tag === "nonveg") return "#c62828";
   return null;
 }
+
+export interface ItemGstBreakdown {
+  productId: number | null;
+  name: string;
+  unit: string;
+  qty: number;
+  unitPrice: number;
+  itemSubtotal: number;
+  gstPercent: number;
+  gstAmount: number;
+  baseAmount: number;
+}
+
+export interface PriceQuote {
+  subtotal: number;
+  discount: number;
+  deliveryFee: number;
+  deliveryCity: string | null;
+  total: number;
+  taxableSubtotal?: number;
+  totalGst?: number;
+  cgst?: number;
+  sgst?: number;
+  itemBreakdown?: ItemGstBreakdown[];
+  breakdown: Array<{ label: string; amount: number }>;
+}

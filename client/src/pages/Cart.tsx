@@ -478,8 +478,35 @@ export default function Cart() {
                 </div>
               )}
 
+              {/* Itemized Price & GST Breakdown Card */}
+              {quote?.itemBreakdown && quote.itemBreakdown.length > 0 && (
+                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/10 dark:bg-emerald-950/20 p-3 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-emerald-800 dark:text-emerald-300 border-b border-emerald-500/20 pb-1.5">
+                    <span>Product & GST Tax Breakdown</span>
+                    <span className="text-[10px] font-mono bg-emerald-500/20 px-1.5 py-0.5 rounded font-black text-emerald-600 dark:text-emerald-400">Inclusive GST</span>
+                  </div>
+                  <div className="space-y-2 divide-y divide-emerald-500/10">
+                    {quote.itemBreakdown.map((item, idx) => (
+                      <div key={idx} className="pt-1.5 first:pt-0 space-y-0.5">
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span>{item.name} ({item.unit}) × {item.qty}</span>
+                          <span className="font-mono">{formatINR(item.itemSubtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
+                          <span>Base: {formatINR(item.baseAmount)} + GST ({item.gstPercent}%): {formatINR(item.gstAmount)}</span>
+                          <span>({formatINR(item.unitPrice)}/unit)</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <dl className="space-y-1 text-sm">
-                <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd data-testid="text-subtotal">{formatINR(displaySubtotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Taxable Subtotal (Excl. GST)</dt><dd data-testid="text-taxable-subtotal">{formatINR(quote?.taxableSubtotal ?? Math.round((displaySubtotal / 1.05) * 100) / 100)}</dd></div>
+                <div className="flex justify-between text-xs text-muted-foreground"><dt>CGST Tax Component</dt><dd>{formatINR(quote?.cgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd></div>
+                <div className="flex justify-between text-xs text-muted-foreground"><dt>SGST Tax Component</dt><dd>{formatINR(quote?.sgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd></div>
+                <div className="flex justify-between font-semibold pt-1 border-t border-card-border/40"><dt className="text-foreground">Cart Subtotal (Incl. GST)</dt><dd data-testid="text-subtotal">{formatINR(displaySubtotal)}</dd></div>
 
                 {quote ? (
                   quote.breakdown.map((line, idx) => (

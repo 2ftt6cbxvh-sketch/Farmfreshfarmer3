@@ -60,6 +60,7 @@ import { registerAdminDeliveryPartnerRoutes } from "./routes/admin/delivery-part
 import { registerDeliveryPartnerPortalRoutes } from "./routes/delivery-partner-portal";
 import { registerPerkRoutes } from "./routes/admin/perks";
 import { registerHeroShowcaseRoutes } from "./routes/admin/hero-showcase";
+import gstRouter from "./routes/admin/gst";
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
   initiateRazorpayRefund, isRazorpayConfigured,
@@ -1158,9 +1159,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     return res.json({ received: true });
   }));
 
-  // Password reset routes
+  // Password reset & Admin GST routes
   registerPasswordResetRoutes(app);
   registerAdminContentRoutes(app);
+  app.use("/api/admin", gstRouter);
 
   // Telegram bot webhook endpoint for remote /lockdown commands
   app.post("/api/telegram/webhook", h(async (req, res) => {

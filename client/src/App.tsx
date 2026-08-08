@@ -43,6 +43,7 @@ import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminStaff from "@/pages/admin/AdminStaff";
 import AdminDeliveryPartners from "@/pages/admin/AdminDeliveryPartners";
+import AdminGST from "@/pages/admin/AdminGST";
 import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
@@ -88,6 +89,7 @@ function AppRouter() {
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/staff" component={AdminStaff} />
       <Route path="/admin/delivery-partners" component={AdminDeliveryPartners} />
+      <Route path="/admin/gst" component={AdminGST} />
       <Route path="/partner-portal" component={DeliveryPartnerPortal} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
