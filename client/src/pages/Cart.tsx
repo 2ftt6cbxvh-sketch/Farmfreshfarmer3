@@ -533,15 +533,15 @@ export default function Cart() {
                   </div>
                 </div>
               )}
-              {/* Red Alert Card for Non-Serviceable Locations */}
-              {deliveryRes && deliveryRes.serviceable === false && (
+              {/* Red Alert Card for Non-Serviceable Locations (Hidden when International Shipping is ON) */}
+              {!isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false && (
                 <div className="rounded-2xl border border-red-500/40 bg-red-500/10 dark:bg-red-950/60 p-4 space-y-2 text-red-950 dark:text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
                   <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold text-sm">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
                     <span>Delivery Unavailable for this Location</span>
                   </div>
                   <p className="text-xs text-red-900 dark:text-red-300 font-medium">
-                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please change your pincode/GPS location below or in the top bar to place an order.
+                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please enter a serviceable PIN code or turn on International Shipping above.
                   </p>
                 </div>
               )}
@@ -632,8 +632,17 @@ export default function Cart() {
                 </RadioGroup>
               </div>
 
-              <Button className="w-full" onClick={handleCheckout} disabled={!isServiceable || placeOrder.isPending || initiatePayment.isPending} data-testid="button-place-order">
-                {placeOrder.isPending || initiatePayment.isPending ? "Placing order…" : `Place order · ${formatINR(displayTotal)}`}
+              <Button
+                className="w-full h-12 text-sm font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer"
+                onClick={handleCheckout}
+                disabled={!isServiceable || placeOrder.isPending || initiatePayment.isPending}
+                data-testid="button-place-order"
+              >
+                {placeOrder.isPending || initiatePayment.isPending
+                  ? "Placing order…"
+                  : !isServiceable
+                  ? "🔒 Delivery Unavailable — Change PIN or Enable International Shipping"
+                  : `Place order · ${formatINR(displayTotal)}`}
               </Button>
               {!user && (
                 <p className="text-xs text-muted-foreground text-center">
