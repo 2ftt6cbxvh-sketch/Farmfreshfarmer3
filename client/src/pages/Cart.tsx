@@ -292,7 +292,7 @@ export default function Cart() {
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 
-  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (rules?.freeAbove ?? 500));
+  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (deliveryRules?.freeAbove ?? 500));
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= freeDeliveryThreshold ? 0 : 30));
   const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
   const displayTotal = (isInternationalDelivery || isLocationUnserviceable)
