@@ -162,7 +162,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     return <AdminLogin />;
   }
 
-  if (!mfaVerified) {
+  const isSuperAdmin = adminUser?.role === "admin" || adminUser?.role === "superadmin" || adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+
+  if (isSuperAdmin && !mfaVerified) {
     return (
       <div style={{ colorScheme: "dark" }} className="min-h-screen bg-black flex items-center justify-center p-4 select-none">
         <div className="max-w-md w-full bg-gray-900 border border-emerald-500/40 rounded-3xl p-8 shadow-2xl text-center space-y-6">
@@ -236,7 +238,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v2.4.8
+              v2.5.0
             </span>
           </div>
         </div>

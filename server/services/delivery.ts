@@ -140,17 +140,25 @@ export async function isDeliveryFeatureEnabled(): Promise<boolean> {
 
 async function calculateFee(distanceKm: number, orderValue: number): Promise<number> {
   const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
+  if (rules.length === 0) {
+    return Math.round(30 + distanceKm * 5);
+  }
   for (const rule of rules) {
-    const min = parseFloat(rule.minDistanceKm);
-    const max = parseFloat(rule.maxDistanceKm);
+    const min = parseFloat(rule.minDistanceKm || "0");
+    const max = parseFloat(rule.maxDistanceKm || "50");
     if (distanceKm >= min && distanceKm <= max) {
-      if (rule.freeDeliveryAboveOrderValue && orderValue >= parseFloat(rule.freeDeliveryAboveOrderValue)) return 0;
-      const fee = parseFloat(rule.baseFee) + parseFloat(rule.perKmFee) * distanceKm;
-      const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : Infinity;
-      return Math.min(fee, cap);
+      const freeAbove = rule.freeDeliveryAboveOrderValue ? parseFloat(rule.freeDeliveryAboveOrderValue) : 0;
+      if (freeAbove > 0 && orderValue > 0 && orderValue >= freeAbove) {
+        return 0;
+      }
+      const baseFee = parseFloat(rule.baseFee || "30");
+      const perKmRate = parseFloat(rule.perKmFee || "5");
+      const fee = baseFee + perKmRate * distanceKm;
+      const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : 150;
+      return Math.min(Math.round(fee), cap);
     }
   }
-  return 0;
+  return Math.round(30 + distanceKm * 5);
 }
 
 export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {

@@ -251,7 +251,6 @@ export default function Login() {
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => toast({ title: "Google Sign-In Error", description: "Failed to sign in.", variant: "destructive" })}
-                useOneTap
               />
 
               {emailEnabled && (
@@ -430,7 +429,7 @@ export default function Login() {
                 onClick={() => navigate("/admin/login")}
                 className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
               >
-                <span>🚚 Delivery Partner Login</span>
+                <span>🔐 Admin & Partner Logins</span>
               </button>
             </div>
           </div>

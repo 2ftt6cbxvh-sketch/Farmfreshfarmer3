@@ -45,16 +45,19 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ message: "User not found" });
     }
 
-    // Allow any primary admin: role === 'admin' | 'superadmin' | isPrimaryAdmin === true | email includes admin
+    // Allow any admin/staff user or superadmin
     const isPrimary =
       user.role === "admin" ||
       user.role === "superadmin" ||
+      user.role === "subadmin" ||
+      user.role === "manager_admin" ||
+      user.role === "warehouse_admin" ||
       user.isPrimaryAdmin === true ||
       user.email.toLowerCase().includes("admin") ||
-      Number(userId) === 1 ||
-      Number(userId) === 0;
+      Number(userId) === 1;
+
     if (!isPrimary) {
-      return res.status(403).json({ message: "Access Denied: Only the Primary Admin can manage staff, sub-admins, and security settings." });
+      return res.status(403).json({ message: "Access Denied: Only Primary Admin & Staff can view sub-admin controls." });
     }
 
     (req as any).currentUser = user;

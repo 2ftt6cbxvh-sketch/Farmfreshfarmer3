@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -88,6 +89,7 @@ export default function Cart() {
   const [referralInput, setReferralInput] = useState("");
   const [referralValidated, setReferralValidated] = useState<string | null>(null);
   const [redeemReward, setRedeemReward] = useState(false);
+  const [isInternationalDelivery, setIsInternationalDelivery] = useState(false);
 
   const [deliveryRes, setDeliveryRes] = useState<any>(() => {
     try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
@@ -238,7 +240,7 @@ export default function Cart() {
     onError: () => toast({ title: "Could not place order", description: "Please try again.", variant: "destructive" }),
   });
 
-  const isServiceable = !deliveryRes || deliveryRes.serviceable !== false;
+  const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;
 
   function handleCheckout() {
     if (!isServiceable) {
@@ -403,6 +405,34 @@ export default function Cart() {
 
             <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
               <h2 className="font-semibold">Delivery details</h2>
+
+              {/* International / Out-of-Station Delivery Toggle Switch */}
+              <div className="p-3.5 rounded-2xl bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
+                <div className="flex items-center gap-3 pr-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                    <Globe size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <span>✈️ International / Out-of-Station Shipping</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Turn on to ship to any city, state, or international country (bypasses 30km local warehouse radius limit).
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={isInternationalDelivery}
+                  onCheckedChange={(checked) => setIsInternationalDelivery(checked)}
+                  data-testid="switch-international-delivery"
+                />
+              </div>
+
+              {isInternationalDelivery && (
+                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                  <span>✈️ International Shipping Mode Active — Orders dispatched via express global courier.</span>
+                </div>
+              )}
 
               {/* Enhanced 3D Glass Delivery Breakdown Card */}
               {deliveryRes && deliveryRes.serviceable !== false && (
