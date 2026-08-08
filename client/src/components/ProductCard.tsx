@@ -146,7 +146,7 @@ export function ProductCard({ product }: { product: Product }) {
 
           {/* Local Only Shipping Badge */}
           {(product as any).allowInternationalShipping === false && (
-            <span className="absolute bottom-2.5 left-2.5 z-10 bg-amber-950/85 text-amber-300 border border-amber-500/50 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-md backdrop-blur-md flex items-center gap-1">
+            <span className="absolute bottom-2.5 left-2.5 z-10 bg-amber-800/95 text-amber-100 border border-amber-300/80 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1">
               📍 Local Only
             </span>
           )}

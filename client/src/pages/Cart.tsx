@@ -515,32 +515,32 @@ export default function Cart() {
 
               {/* Itemized Price & GST Breakdown Card */}
               {quote?.itemBreakdown && quote.itemBreakdown.length > 0 ? (
-                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 space-y-2.5 shadow-inner">
-                  <div className="flex justify-between items-center text-xs font-extrabold text-emerald-300 border-b border-emerald-500/20 pb-2">
+                <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-3 space-y-2.5 shadow-inner">
+                  <div className="flex justify-between items-center text-xs font-black text-emerald-900 dark:text-emerald-300 border-b border-emerald-500/30 pb-2">
                     <span className="flex items-center gap-1.5">
                       🧾 Itemized Order & GST Breakdown
                     </span>
-                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
+                    <span className="text-[10px] font-mono bg-emerald-700 text-white dark:bg-emerald-500/20 dark:text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
                       Taxable Base + GST
                     </span>
                   </div>
-                  <div className="space-y-2.5 divide-y divide-emerald-500/15">
+                  <div className="space-y-2.5 divide-y divide-emerald-500/20">
                     {quote.itemBreakdown.map((item, idx) => (
                       <div key={idx} className="pt-2 first:pt-0 space-y-1">
                         <div className="flex justify-between items-center text-xs font-bold text-foreground">
                           <span>{item.name} ({item.unit}) × {item.qty}</span>
-                          <span className="font-mono text-primary">{formatINR(item.itemSubtotal)}</span>
+                          <span className="font-mono text-emerald-700 dark:text-emerald-400 font-black">{formatINR(item.itemSubtotal)}</span>
                         </div>
-                        <div className="flex flex-wrap justify-between items-center text-[11px] text-muted-foreground font-mono gap-1">
+                        <div className="flex flex-wrap justify-between items-center text-[11px] font-mono gap-1 text-slate-700 dark:text-slate-300">
                           <span>
-                            Base: {formatINR(item.unitPrice)} × {item.qty} = <strong className="text-foreground">{formatINR(item.baseAmount)}</strong>
+                            Base: {formatINR(item.unitPrice)} × {item.qty} = <strong className="text-slate-900 dark:text-white font-black">{formatINR(item.baseAmount)}</strong>
                           </span>
-                          <span className="text-emerald-400 font-bold">
+                          <span className="text-emerald-800 dark:text-emerald-400 font-black">
                             +{item.gstPercent}% GST ({formatINR(item.gstAmount)})
                           </span>
                         </div>
                         {(item.cgstAmount > 0 || item.sgstAmount > 0) && (
-                          <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-3 pt-0.5">
+                          <div className="text-[10px] text-slate-600 dark:text-slate-400 font-mono flex items-center gap-3 pt-0.5">
                             {item.cgstAmount > 0 && <span>CGST ({item.cgstPercent}%): {formatINR(item.cgstAmount)}</span>}
                             {item.sgstAmount > 0 && <span>SGST ({item.sgstPercent}%): {formatINR(item.sgstAmount)}</span>}
                           </div>
@@ -550,16 +550,16 @@ export default function Cart() {
                   </div>
                 </div>
               ) : items.length > 0 && (
-                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 space-y-2.5 shadow-inner">
-                  <div className="flex justify-between items-center text-xs font-extrabold text-emerald-300 border-b border-emerald-500/20 pb-2">
+                <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-3 space-y-2.5 shadow-inner">
+                  <div className="flex justify-between items-center text-xs font-black text-emerald-900 dark:text-emerald-300 border-b border-emerald-500/30 pb-2">
                     <span className="flex items-center gap-1.5">
                       🧾 Itemized Order & GST Breakdown
                     </span>
-                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
+                    <span className="text-[10px] font-mono bg-emerald-700 text-white dark:bg-emerald-500/20 dark:text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
                       Taxable Base + GST
                     </span>
                   </div>
-                  <div className="space-y-2.5 divide-y divide-emerald-500/15">
+                  <div className="space-y-2.5 divide-y divide-emerald-500/20">
                     {items.map((item, idx) => {
                       const baseTotal = (Number(item.price) || 0) * item.qty;
                       const cgstVal = baseTotal * 0.025;
@@ -569,13 +569,13 @@ export default function Cart() {
                         <div key={idx} className="pt-2 first:pt-0 space-y-1">
                           <div className="flex justify-between items-center text-xs font-bold text-foreground">
                             <span>{item.name} ({item.unit}) × {item.qty}</span>
-                            <span className="font-mono text-primary">{formatINR(itemTot)}</span>
+                            <span className="font-mono text-emerald-700 dark:text-emerald-400 font-black">{formatINR(itemTot)}</span>
                           </div>
-                          <div className="flex flex-wrap justify-between items-center text-[11px] text-muted-foreground font-mono gap-1">
+                          <div className="flex flex-wrap justify-between items-center text-[11px] font-mono gap-1 text-slate-700 dark:text-slate-300">
                             <span>
-                              Base: {formatINR(Number(item.price) || 0)} × {item.qty} = <strong className="text-foreground">{formatINR(baseTotal)}</strong>
+                              Base: {formatINR(Number(item.price) || 0)} × {item.qty} = <strong className="text-slate-900 dark:text-white font-black">{formatINR(baseTotal)}</strong>
                             </span>
-                            <span className="text-emerald-400 font-bold">
+                            <span className="text-emerald-800 dark:text-emerald-400 font-black">
                               +5% GST ({formatINR(cgstVal + sgstVal)})
                             </span>
                           </div>
@@ -644,7 +644,7 @@ export default function Cart() {
                     <dt className="text-muted-foreground font-medium break-words">
                       Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})
                     </dt>
-                    <dd data-testid="text-delivery-unserviceable" className="text-red-400 font-extrabold text-[11px] leading-snug whitespace-normal break-words bg-red-950/40 p-2.5 rounded-xl border border-red-500/40 text-center">
+                    <dd data-testid="text-delivery-unserviceable" className="text-red-800 dark:text-red-300 font-extrabold text-[11px] leading-snug whitespace-normal break-words bg-red-500/10 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-500/40 text-center">
                       ⚠️ Unserviceable location — Cannot calculate fee
                     </dd>
                   </div>
@@ -666,16 +666,16 @@ export default function Cart() {
               <h2 className="font-semibold text-foreground">Delivery details</h2>
 
               {/* International / Out-of-Station Delivery Toggle Switch */}
-              <div className="p-3.5 rounded-2xl bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
+              <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
                 <div className="flex items-center gap-3 pr-2">
-                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
                     <Globe size={18} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-slate-900 dark:text-foreground flex items-center gap-1.5">
                       <span>✈️ International / Out-of-Station Shipping</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-medium">
+                    <p className="text-[10px] text-slate-600 dark:text-muted-foreground font-medium">
                       Turn on to ship to any city, state, or international country (bypasses {activeRadiusKm}km local warehouse radius limit).
                     </p>
                   </div>
@@ -688,27 +688,27 @@ export default function Cart() {
               </div>
 
               {localOnlyConflictItems.length > 0 && (
-                <div className="p-4 rounded-2xl bg-red-950/30 border border-red-500/50 text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
-                  <div className="flex items-center gap-2 font-bold text-red-400">
+                <div className="p-4 rounded-2xl bg-red-500/10 dark:bg-red-950/40 border border-red-500/50 text-red-950 dark:text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
+                  <div className="flex items-center gap-2 font-extrabold text-red-700 dark:text-red-400">
                     <AlertTriangle size={18} />
                     <span>Cannot Enable Out-of-Station Shipping</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed text-red-900 dark:text-red-200 font-medium">
                     Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse {activeRadiusKm}km Area Only</strong> (fresh produce/raw items not eligible for express courier):
                   </p>
-                  <ul className="list-disc pl-5 space-y-1 font-semibold text-white">
+                  <ul className="list-disc pl-5 space-y-1 font-extrabold text-red-950 dark:text-white">
                     {localOnlyConflictItems.map((it) => (
                       <li key={it.productId}>{it.name} ({it.unit})</li>
                     ))}
                   </ul>
-                  <p className="text-[11px] text-red-300">
+                  <p className="text-[11px] text-red-800 dark:text-red-300 font-medium">
                     Please remove these local-only items from your cart to proceed with International / Out-of-Station Shipping.
                   </p>
                   <Button
                     type="button"
                     variant="destructive"
                     onClick={handleRemoveLocalOnlyItems}
-                    className="w-full h-auto py-2.5 px-3 text-[11px] font-black leading-tight whitespace-normal text-center gap-1.5 cursor-pointer mt-1 rounded-xl flex items-center justify-center"
+                    className="w-full h-auto py-2.5 px-3 text-[11px] font-black leading-tight whitespace-normal text-center gap-1.5 cursor-pointer mt-1 rounded-xl flex items-center justify-center shadow-md"
                   >
                     <Trash2 size={14} className="shrink-0" />
                     <span>Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery</span>
