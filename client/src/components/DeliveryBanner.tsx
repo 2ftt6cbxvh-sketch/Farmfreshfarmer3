@@ -46,33 +46,28 @@ export default function DeliveryBanner() {
   });
 
   const requestGpsLocation = () => {
-    const fallbackResolution = {
-      serviceable: false,
-      fee: 0,
-      etaMinutes: 0,
-      reason: 'No active warehouse configured in Admin Panel'
-    };
-
     if (!navigator.geolocation) {
-      setResolution(fallbackResolution);
-      localStorage.setItem("deliveryResolution", JSON.stringify(fallbackResolution));
-      setShowPincodeInput(false);
+      // Fallback to active Vijayawada Central Hub pincode 522502 if geolocation API unsupported
+      resolveMutation.mutate({ pincode: "522502" });
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => resolveMutation.mutate({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {
-        setResolution(fallbackResolution);
-        localStorage.setItem("deliveryResolution", JSON.stringify(fallbackResolution));
-        setShowPincodeInput(false);
+      (err) => {
+        console.warn("GPS detection failed or denied, resolving default Vijayawada/Guntur location (522502)", err);
+        // Fallback to active Vijayawada Central hub pincode 522502 instead of bricking state with unserviceable alert!
+        resolveMutation.mutate({ pincode: "522502" });
       },
-      { timeout: 8000 }
+      { timeout: 10000, enableHighAccuracy: true }
     );
   };
 
   useEffect(() => {
-    if (!localStorage.getItem("deliveryResolution") && navigator.geolocation) {
+    const saved = localStorage.getItem("deliveryResolution");
+    let parsed: any = null;
+    try { parsed = JSON.parse(saved || "null"); } catch {}
+    if (!parsed || parsed.serviceable === false) {
       requestGpsLocation();
     }
   }, []);
@@ -92,7 +87,7 @@ export default function DeliveryBanner() {
     <button
       onClick={requestGpsLocation}
       disabled={resolveMutation.isPending}
-      className="inline-flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white font-extrabold text-[11px] px-3 py-1 rounded-full border border-emerald-500/40 backdrop-blur-md shadow-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white font-extrabold text-[11px] px-3 py-1 rounded-full border border-emerald-500/40 backdrop-blur-md shadow-sm transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer"
       title="Detect live GPS location anytime"
     >
       <Navigation className={`w-3 h-3 text-emerald-400 ${resolveMutation.isPending ? "animate-spin" : "animate-pulse"}`} />
@@ -119,12 +114,7 @@ export default function DeliveryBanner() {
 
           <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
             <DetectLocationBtn />
-            <button
-              onClick={() => { setResolution(null); localStorage.removeItem("deliveryResolution"); setShowPincodeInput(true); }}
-              className="text-emerald-400 hover:text-white text-xs underline font-semibold shrink-0"
-            >
-              Enter Pincode
-            </button>
+            <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold shrink-0">Change Pincode</button>
           </div>
         </div>
       </div>
@@ -142,6 +132,12 @@ export default function DeliveryBanner() {
             <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
           </span>
           <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
+            <button
+              onClick={() => resolveMutation.mutate({ pincode: "522502" })}
+              className="px-3 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/40 transition-all shrink-0 cursor-pointer"
+            >
+              📌 Reset to Vijayawada (522502)
+            </button>
             <DetectLocationBtn />
             <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0">Try Pincode</button>
           </div>
