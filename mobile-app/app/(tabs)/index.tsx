@@ -201,7 +201,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.4.2</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.5.0</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌕'}</Text>
@@ -280,8 +280,22 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </Animated.ScrollView>
-        </View>
-      )}
+      {/* Refer & Earn Banner */}
+      <View style={{ paddingHorizontal: 16, marginTop: 12, marginBottom: 4 }}>
+        <TouchableOpacity
+          style={[styles.referralBanner, isDark && styles.referralBannerDark]}
+          onPress={() => {
+            Alert.alert(
+              '🎁 Refer & Earn Rewards',
+              'Share FarmFreshFarmer with friends & family! Give them ₹50 OFF their first order and earn 10% cash reward on every qualifying order they place.',
+              [{ text: 'Awesome' }]
+            );
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>🎁</Text>
+          <Text style={[styles.referralBannerText, isDark && styles.textWhite]}>Refer & Earn Rewards • Give ₹50, Get 10% Cash</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* 3D Products Grid */}
       <View style={styles.section}>
@@ -361,7 +375,33 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
   },
   searchInputDark: { backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', shadowColor: '#000', shadowOpacity: 0.5 },
-  section: { paddingHorizontal: 16, marginTop: 28 },
+  referralBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  referralBannerDark: {
+    backgroundColor: '#451a03',
+    borderColor: '#b45309',
+  },
+  referralBannerText: {
+    color: '#92400e',
+    fontSize: 12,
+    fontWeight: '800',
+    flex: 1,
+  },
+  section: { paddingHorizontal: 16, marginTop: 20 },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginBottom: 16, letterSpacing: -0.5 },
   categoryScroll: { marginHorizontal: -16, paddingHorizontal: 16 },
   categoryChip: {

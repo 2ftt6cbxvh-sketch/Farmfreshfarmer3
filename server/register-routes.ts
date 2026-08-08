@@ -78,7 +78,7 @@ declare module "express-session" {
   }
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 function publicUser(u: any) {
   let perms: string[] = [];
