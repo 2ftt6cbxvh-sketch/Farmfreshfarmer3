@@ -132,14 +132,8 @@ export default function DeliveryBanner() {
             <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
           </span>
           <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
-            <button
-              onClick={() => resolveMutation.mutate({ pincode: "522502" })}
-              className="px-3 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/40 transition-all shrink-0 cursor-pointer"
-            >
-              📌 Reset to Vijayawada (522502)
-            </button>
             <DetectLocationBtn />
-            <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0">Try Pincode</button>
+            <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Enter Pincode</button>
           </div>
         </div>
       </div>

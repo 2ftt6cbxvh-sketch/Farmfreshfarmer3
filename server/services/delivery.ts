@@ -270,22 +270,52 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
   // Self-healing: ensure max_radius_km column exists
   try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
 
-  // Reverse lookup closest pincode and area from PINCODE_GEO_DB
   let detectedPincode = "";
   let detectedArea = "";
-  let minPinDist = Infinity;
 
-  for (const [pin, info] of Object.entries(PINCODE_GEO_DB)) {
-    const d = haversineDistanceKm(lat, lng, info.lat, info.lng);
-    if (d < minPinDist) {
-      minPinDist = d;
-      detectedPincode = pin;
-      detectedArea = info.area;
+  // Attempt live OSM reverse geocoding API lookup for exact street/area/city/pincode
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const osmRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: { "User-Agent": "FarmFreshFarmer/2.7.0 (contact@farmfreshfarmer.com)" },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timer);
+    if (osmRes.ok) {
+      const data = await osmRes.json();
+      const addr = data?.address || {};
+      const pin = addr.postcode ? String(addr.postcode).replace(/\D/g, "").slice(0, 6) : "";
+      const area = addr.suburb || addr.neighbourhood || addr.residential || addr.village || addr.town || addr.city_district || addr.city || addr.county || addr.state_district || "";
+      const district = addr.state_district || addr.district || addr.county || addr.city || "";
+      
+      if (pin && pin.length === 6) {
+        detectedPincode = pin;
+      }
+      if (area) {
+        detectedArea = district && district !== area ? `${area}, ${district}` : area;
+      }
+    }
+  } catch {}
+
+  // Fallback to closest PINCODE_GEO_DB lookup if live API fails or pin missing
+  if (!detectedPincode || !detectedArea) {
+    let minPinDist = Infinity;
+    for (const [pin, info] of Object.entries(PINCODE_GEO_DB)) {
+      const d = haversineDistanceKm(lat, lng, info.lat, info.lng);
+      if (d < minPinDist) {
+        minPinDist = d;
+        if (!detectedPincode) detectedPincode = pin;
+        if (!detectedArea) detectedArea = info.area;
+      }
     }
   }
 
-  const locationArea = minPinDist < 50
-    ? `${detectedArea} (${detectedPincode})`
+  const locationArea = detectedArea
+    ? (detectedPincode ? `${detectedArea} (${detectedPincode})` : detectedArea)
     : `GPS Location (${lat.toFixed(3)}°, ${lng.toFixed(3)}°)`;
 
   let allWarehouses = await db.select().from(warehouses).where(eq(warehouses.active, true));
@@ -320,7 +350,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
       serviceable: false,
       fee: 0,
       etaMinutes: 0,
-      pincode: minPinDist < 50 ? detectedPincode : undefined,
+      pincode: detectedPincode || undefined,
       locationArea,
       reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${nearestWarehouse.maxRadiusKm || 30}km`,
       distanceKm
@@ -343,7 +373,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
-    pincode: minPinDist < 50 ? detectedPincode : undefined,
+    pincode: detectedPincode || undefined,
     warehouseId: nearestWarehouse.id,
     warehouseName: nearestWarehouse.name,
     locationArea,
