@@ -57,10 +57,18 @@ export default function AdminProducts() {
 
   const save = useMutation({
     mutationFn: async () => {
+      const selectedSlug = form.categorySlug || categories[0]?.slug || "fruits";
+      if (!form.name.trim()) {
+        throw new Error("Product Name is required");
+      }
+      if (!selectedSlug) {
+        throw new Error("Please select a valid product Category");
+      }
+
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
-        categorySlug: form.categorySlug,
+        categorySlug: selectedSlug,
         price: parseFloat(form.price) || 0,
         discountPercent: parseFloat(form.discountPercent) || 0,
         unit: form.unit.trim() || "250 Grams",
@@ -82,9 +90,11 @@ export default function AdminProducts() {
       queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       setOpen(false);
       setForm(EMPTY);
-      toast({ title: form.id ? "Product updated" : "Product added" });
+      toast({ title: form.id ? "Product updated 🎉" : "Product added 🎉" });
     },
-    onError: () => toast({ title: "Could not save product", variant: "destructive" }),
+    onError: (err: any) => {
+      toast({ title: err?.message || "Could not save product", variant: "destructive" });
+    },
   });
 
   const del = useMutation({
@@ -94,7 +104,7 @@ export default function AdminProducts() {
       queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       toast({ title: "Product deleted" });
     },
-    onError: () => toast({ title: "Could not delete", variant: "destructive" }),
+    onError: (err: any) => toast({ title: err?.message || "Could not delete product", variant: "destructive" }),
   });
 
   async function handleUpload(file: File) {
@@ -140,7 +150,13 @@ export default function AdminProducts() {
     }
   }
 
-  function openAdd() { setForm(EMPTY); setOpen(true); }
+  function openAdd() {
+    setForm({
+      ...EMPTY,
+      categorySlug: categories[0]?.slug || "fruits",
+    });
+    setOpen(true);
+  }
   function openEdit(p: Product) {
     setForm({
       id: p.id, name: p.name, description: p.description, categorySlug: p.categorySlug,

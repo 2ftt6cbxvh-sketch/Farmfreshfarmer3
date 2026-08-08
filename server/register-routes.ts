@@ -446,13 +446,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/products", requireAdmin, h(async (req, res) => {
     const parsed = insertProductSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Invalid product", errors: parsed.error.flatten() });
+    if (!parsed.success) {
+      console.warn("Product creation validation error:", parsed.error.flatten());
+      const issue = parsed.error.issues[0];
+      const field = issue?.path.join(".") || "field";
+      return res.status(400).json({ message: `Invalid product data: '${field}' ${issue?.message || "is invalid"}` });
+    }
     res.json(await storage.products.create(parsed.data));
   }));
 
   app.patch("/api/products/:id", requireAdmin, h(async (req, res) => {
     const parsed = insertProductSchema.partial().safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Invalid product" });
+    if (!parsed.success) {
+      console.warn("Product update validation error:", parsed.error.flatten());
+      const issue = parsed.error.issues[0];
+      const field = issue?.path.join(".") || "field";
+      return res.status(400).json({ message: `Invalid product data: '${field}' ${issue?.message || "is invalid"}` });
+    }
     const updated = await storage.products.update(Number(req.params.id), parsed.data);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
