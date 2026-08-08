@@ -13,6 +13,7 @@ import type { Product, Category } from '../../lib/types';
 import { useCartStore } from '../../lib/cart';
 import { useDelivery } from '../../hooks/useDelivery';
 import { useAuth } from '../../lib/store';
+import { AnimatedFreeDeliveryBar } from '../../components/FreeDeliveryBar';
 
 const { width } = Dimensions.get('window');
 
@@ -522,23 +523,8 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* ── Minimal Free Delivery Progress Bar ──────────────────────────────── */}
-      {cartSubtotal > 0 && (
-        <View style={[
-          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 7, borderBottomWidth: 1, gap: 10 },
-          isDark ? { backgroundColor: '#050505', borderBottomColor: 'rgba(16,185,129,0.15)' } : { backgroundColor: '#ffffff', borderBottomColor: '#f1f5f9' },
-        ]}>
-          <Text style={{ fontSize: 11, fontWeight: '500', color: isFreeDelivery ? '#10b981' : (isDark ? '#94a3b8' : '#64748b'), flex: 1 }}>
-            {isFreeDelivery
-              ? '🎉 Free delivery unlocked!'
-              : `🚚 Add ₹${Math.ceil(freeDeliveryThreshold - cartSubtotal)} more for free delivery`}
-          </Text>
-          <View style={{ flex: 2, height: 4, borderRadius: 2, backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#f1f5f9', overflow: 'hidden' }}>
-            <View style={{ width: `${Math.min(100, Math.round((cartSubtotal / freeDeliveryThreshold) * 100))}%`, height: '100%', backgroundColor: '#10b981', borderRadius: 2 }} />
-          </View>
-          <Text style={{ fontSize: 10, fontWeight: '600', color: '#10b981' }}>₹{freeDeliveryThreshold}</Text>
-        </View>
-      )}
+      {/* ── Minimal Animated Free Delivery Progress Bar ──────────────────────────────── */}
+      <AnimatedFreeDeliveryBar subtotal={cartSubtotal} threshold={freeDeliveryThreshold} isDark={isDark} />
 
       {/* ── Scrollable Body ─────────────────────────────────────────────── */}
       <ScrollView

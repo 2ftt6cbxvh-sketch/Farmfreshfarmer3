@@ -13,6 +13,7 @@ import { useCartStore } from '../../lib/cart';
 import { useAuth } from '../../lib/store';
 import { api, resolveImgUrl } from '../../lib/api';
 import type { Product } from '../../lib/types';
+import { AnimatedFreeDeliveryBar } from '../../components/FreeDeliveryBar';
 
 interface PriceQuote {
   subtotal: number;
@@ -258,26 +259,8 @@ export default function BasketScreen() {
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16 }}>
         <Text style={[styles.pageTitle, { color: textColor }]}>Your cart</Text>
 
-        {/* ── Minimal Free Delivery Bar ─────────────────────────────────────── */}
-        {subtotal > 0 && (
-          <View style={[styles.freeBarWrap, isDark ? styles.freeBarWrapDark : styles.freeBarWrapLight]}>
-            <Text style={[styles.freeBarLabel, isDark && { color: '#94a3b8' }]}>
-              {isFreeDelivery
-                ? <Text style={{ color: '#10b981', fontWeight: '700' }}>🎉 Free delivery unlocked!</Text>
-                : <Text>🚚 Add <Text style={{ color: '#10b981', fontWeight: '700' }}>₹{Math.ceil(freeDeliveryThreshold - subtotal)}</Text> more for free delivery</Text>
-              }
-            </Text>
-            <View style={styles.freeBarTrack}>
-              <View
-                style={[
-                  styles.freeBarFill,
-                  { width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` },
-                  isFreeDelivery && { backgroundColor: '#10b981' },
-                ]}
-              />
-            </View>
-          </View>
-        )}
+        {/* ── Animated Free Delivery Bar ─────────────────────────────────────── */}
+        <AnimatedFreeDeliveryBar subtotal={subtotal} threshold={freeDeliveryThreshold} isDark={isDark} style={{ marginBottom: 14, borderRadius: 12 }} />
 
         {/* ── 1. Cart Items List ────────────────────────────────────────────── */}
         <View style={styles.itemsListContainer}>
