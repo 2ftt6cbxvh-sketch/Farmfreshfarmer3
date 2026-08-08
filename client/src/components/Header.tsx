@@ -96,32 +96,34 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 p-2 sm:p-3 max-w-7xl mx-auto">
+    <header className="sticky top-0 z-50 p-2 sm:p-3 w-full max-w-7xl mx-auto">
       {/* Floating Glass Island Navigation Bar */}
       <div
         ref={headerRef}
-        className="relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 hover:border-emerald-500/40 group"
+        className="w-full relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 hover:border-emerald-500/40 group"
       >
         {/* Ambient Subtle Glow */}
         <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/5 to-primary/10 opacity-30 overflow-hidden" />
         <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
 
         {/* Main Header Bar */}
-        <div className="px-2.5 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4 relative z-10 max-w-full overflow-hidden">
-          <button
-            className="lg:hidden shrink-0 p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
-            onClick={toggleMobileMenu}
-            aria-label="Menu"
-            data-testid="button-mobile-menu"
-          >
-            <div className={`transition-transform duration-300 ${mobileOpen ? "rotate-90 scale-110" : "rotate-0 scale-100"}`}>
-              {mobileOpen ? <X size={20} className="text-emerald-400" /> : <Menu size={20} />}
-            </div>
-          </button>
+        <div className="w-full px-3 py-2.5 sm:px-5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 relative z-10">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              className="lg:hidden shrink-0 p-2 rounded-xl bg-secondary/80 text-foreground hover:text-primary active:scale-90 transition-all duration-300 transform shadow-sm border border-emerald-500/20"
+              onClick={toggleMobileMenu}
+              aria-label="Menu"
+              data-testid="button-mobile-menu"
+            >
+              <div className={`transition-transform duration-300 ${mobileOpen ? "rotate-90 scale-110" : "rotate-0 scale-100"}`}>
+                {mobileOpen ? <X size={20} className="text-emerald-400" /> : <Menu size={20} />}
+              </div>
+            </button>
 
-          <Link href="/" data-testid="link-home" className="shrink-0">
-            <Logo />
-          </Link>
+            <Link href="/" data-testid="link-home" className="shrink-0">
+              <Logo />
+            </Link>
+          </div>
 
           {/* Search Bar with Live Predictions & Admin Recommendations */}
           <div ref={searchRef} className="hidden md:block flex-1 max-w-lg mx-auto relative z-50">
