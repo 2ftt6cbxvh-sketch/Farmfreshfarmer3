@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -233,6 +233,39 @@ export default function Cart() {
     queryFn: () => apiGet<ReferralSummary>("/api/referral/summary"),
     enabled: !!user,
   });
+
+  const { data: allProducts = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+    queryFn: () => apiGet<any[]>("/api/products"),
+  });
+
+  // Items in cart that are restricted to local warehouse delivery only
+  const localOnlyConflictItems = items.filter((cartItem) => {
+    const p = allProducts.find((prod) => prod.id === cartItem.productId);
+    return p && p.allowInternationalShipping === false;
+  });
+
+  const handleToggleInternational = (checked: boolean) => {
+    if (checked && localOnlyConflictItems.length > 0) {
+      setIsInternationalDelivery(false);
+      toast({
+        title: "Cannot Enable Out-of-Station Shipping",
+        description: `Your cart contains ${localOnlyConflictItems.length} item(s) restricted to local warehouse delivery only.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsInternationalDelivery(checked);
+  };
+
+  const handleRemoveLocalOnlyItems = () => {
+    localOnlyConflictItems.forEach((it) => remove(it.productId));
+    setIsInternationalDelivery(true);
+    toast({
+      title: "Local-Only Items Removed",
+      description: "International / Out-of-Station Shipping mode activated.",
+    });
+  };
 
   const quoteMutation = useMutation({
     mutationFn: () =>
@@ -539,7 +572,7 @@ export default function Cart() {
                   </div>
                 ) : isLocationUnserviceable ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs my-1 gap-1 sm:gap-2">
-                    <dt className="text-muted-foreground font-medium">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : ""}</dt>
+                    <dt className="text-muted-foreground font-medium">Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})</dt>
                     <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] sm:text-right leading-tight">
                       Unserviceable location — Cannot calculate fee
                     </dd>
@@ -578,10 +611,39 @@ export default function Cart() {
                 </div>
                 <Switch
                   checked={isInternationalDelivery}
-                  onCheckedChange={(checked) => setIsInternationalDelivery(checked)}
+                  onCheckedChange={handleToggleInternational}
                   data-testid="switch-international-delivery"
                 />
               </div>
+
+              {localOnlyConflictItems.length > 0 && (
+                <div className="p-4 rounded-2xl bg-red-950/30 border border-red-500/50 text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
+                  <div className="flex items-center gap-2 font-bold text-red-400">
+                    <AlertTriangle size={18} />
+                    <span>Cannot Enable Out-of-Station Shipping</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse 30km Area Only</strong> (fresh produce/raw items not eligible for express courier):
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 font-semibold text-white">
+                    {localOnlyConflictItems.map((it) => (
+                      <li key={it.productId}>{it.name} ({it.unit})</li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] text-red-300">
+                    Please remove these local-only items from your cart to proceed with International / Out-of-Station Shipping.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleRemoveLocalOnlyItems}
+                    className="w-full text-xs font-extrabold gap-1.5 cursor-pointer mt-1"
+                  >
+                    <Trash2 size={14} /> Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery
+                  </Button>
+                </div>
+              )}
 
               {isInternationalDelivery && (
                 <div className="p-3.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-950 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-2">

@@ -32,11 +32,13 @@ interface Form {
   dietTag: string;
   featured: boolean;
   featuredInHero: boolean;
+  allowInternationalShipping: boolean;
 }
 
 const EMPTY: Form = {
   name: "", description: "", categorySlug: "", price: "", discountPercent: "0",
   unit: "250 Grams", image: "", stock: "50", dietTag: "none", featured: false, featuredInHero: false,
+  allowInternationalShipping: true,
 };
 
 export default function AdminProducts() {
@@ -67,6 +69,7 @@ export default function AdminProducts() {
         dietTag: form.dietTag,
         featured: form.featured,
         featuredInHero: form.featuredInHero,
+        allowInternationalShipping: form.allowInternationalShipping,
       };
       if (form.id) {
         await apiRequest("PATCH", `/api/products/${form.id}`, payload);
@@ -119,6 +122,7 @@ export default function AdminProducts() {
       price: String(p.price), discountPercent: String(p.discountPercent), unit: p.unit,
       image: p.image, stock: String(p.stock), dietTag: p.dietTag, featured: p.featured,
       featuredInHero: (p as any).featuredInHero ?? false,
+      allowInternationalShipping: (p as any).allowInternationalShipping !== false,
     });
     setOpen(true);
   }
@@ -259,6 +263,13 @@ export default function AdminProducts() {
               <div>
                 <Label className="font-bold text-emerald-400">⭐ Show in Homepage Hero Showcase</Label>
                 <p className="text-[11px] text-muted-foreground">Photo will automatically rotate in the homepage hero showcase card.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <Switch checked={form.allowInternationalShipping} onCheckedChange={(v) => setForm({ ...form, allowInternationalShipping: v })} data-testid="switch-allow-international" />
+              <div>
+                <Label className="font-bold text-amber-400">🌐 Allow International / Out-of-Station Courier Delivery</Label>
+                <p className="text-[11px] text-muted-foreground">If turned OFF, this item is restricted to <strong>Local Active Warehouse 30km Area Only</strong>.</p>
               </div>
             </div>
           </div>

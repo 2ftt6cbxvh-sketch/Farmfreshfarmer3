@@ -164,17 +164,21 @@ export default function DeliveryBanner() {
 
   // RESOLVED NON-SERVICEABLE BANNER
   if (resolution && !resolution.serviceable) {
+    const unserviceableAreaText = resolution.locationArea ? `${resolution.locationArea}${resolution.pincode ? ` (${resolution.pincode})` : ""}` : (resolution.pincode ? `PIN ${resolution.pincode}` : "");
+
     return (
       <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
           <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
             <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-            <strong className="text-white font-extrabold shrink-0">Location Not Covered Yet</strong>
-            <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
+            <strong className="text-white font-extrabold shrink-0">
+              Location Not Covered Yet{unserviceableAreaText ? `: ${unserviceableAreaText}` : ""}
+            </strong>
+            <span className="ml-2 truncate">We are expanding fast! Change pincode to check another area.</span>
           </span>
           <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
             <DetectLocationBtn />
-            <button onClick={() => setShowPincodeInput(true)} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Enter Pincode</button>
+            <button onClick={() => setShowPincodeInput(true)} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Change Pincode</button>
           </div>
         </div>
       </div>

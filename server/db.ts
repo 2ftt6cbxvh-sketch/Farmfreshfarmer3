@@ -123,7 +123,8 @@ export async function runAutoMigrations() {
     // Add featured_in_hero column to products table if missing
     await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS gst_percent NUMERIC(5,2)`);
-    console.log('[db] auto-migration: products.gst_percent column ensured');
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_international_shipping BOOLEAN NOT NULL DEFAULT TRUE`);
+    console.log('[db] auto-migration: products.allow_international_shipping column ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }
