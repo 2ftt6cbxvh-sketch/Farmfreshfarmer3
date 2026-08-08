@@ -514,7 +514,7 @@ export default function Cart() {
 
               {isInternationalDelivery && (
                 <div className="p-3.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-950 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-2">
-                  <span>✈️ International Shipping Mode Active — Orders dispatched via express global courier.</span>
+                  <span>✈️ International / Out-of-Station Shipping Mode Active — Orders dispatched via partnered express global or local courier.</span>
                 </div>
               )}
 
