@@ -336,42 +336,34 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   if (discount > subtotal) discount = subtotal;
   const afterDiscount = round2(subtotal - discount);
 
-  // ---- Delivery fee ----
-  // Resolution order (server-side, so the client can never spoof it):
-  //   1. Per-city delivery (if enabled AND the chosen city has a rule) — the
-  //      most specific charge wins, with its own free-above threshold.
-  //   2. Flat/standard delivery (if enabled) — a single fee applied to EVERY
-  //      order regardless of city, with an optional global free-above threshold.
-  // Per-city takes precedence over the flat fee when both apply to an order.
-  const deliveryRules = parseDeliveryRules(settings.delivery_rules);
-  let deliveryFee = 0;
-  let deliveryCity: string | null = null;
-  let cityChargeResolved = false;
-  const chosenCity = req.city?.trim() || null;
-  if (deliveryRules.enabled && chosenCity) {
-    const rule = deliveryRules.cities.find(
-      (c) => c.name.toLowerCase() === chosenCity.toLowerCase(),
-    );
-    if (rule) {
-      cityChargeResolved = true;
-      deliveryCity = rule.name;
-      const qualifiesFree = rule.freeAbove > 0 && subtotal >= rule.freeAbove;
-      deliveryFee = qualifiesFree ? 0 : round2(rule.charge);
+  // ---- Delivery fee calculation using distance rules & geofencing ----
+  try {
+    const { resolveByPincode } = await import("../services/delivery");
+    const { deliveryFeeRules } = await import("@shared/schema");
+    const userPincode = req.pincode || "522502";
+    const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
+    if (resByPin && resByPin.serviceable) {
+      deliveryFee = resByPin.fee;
+      deliveryCity = resByPin.locationArea || null;
+    } else {
+      const feeRules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
+      if (feeRules.length > 0) {
+        const rule = feeRules[0];
+        const freeAbove = rule.freeDeliveryAboveOrderValue ? parseFloat(rule.freeDeliveryAboveOrderValue) : 0;
+        if (freeAbove > 0 && subtotal >= freeAbove) {
+          deliveryFee = 0;
+        } else {
+          const base = parseFloat(rule.baseFee || "30");
+          const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : 150;
+          deliveryFee = Math.min(Math.round(base), cap);
+        }
+      } else {
+        deliveryFee = subtotal >= 500 ? 0 : 30;
+      }
     }
-  }
-
-  // Flat/standard delivery fee — applies to all orders when a per-city charge
-  // was NOT resolved for this order. Set flat_delivery_enabled="true" and
-  // flat_delivery_fee to the amount; flat_delivery_free_above (optional, 0 =
-  // never) makes delivery free once the subtotal reaches that threshold.
-  if (!cityChargeResolved) {
-    const flatEnabled = settings.flat_delivery_enabled === "true";
-    const flatFee = Math.max(0, Number(settings.flat_delivery_fee) || 0);
-    const flatFreeAbove = Math.max(0, Number(settings.flat_delivery_free_above) || 0);
-    if (flatEnabled && flatFee > 0) {
-      const qualifiesFree = flatFreeAbove > 0 && subtotal >= flatFreeAbove;
-      deliveryFee = qualifiesFree ? 0 : round2(flatFee);
-    }
+  } catch (err: any) {
+    console.error("[pricing] Delivery fee calculation error:", err);
+    deliveryFee = subtotal >= 500 ? 0 : 30;
   }
 
   const total = round2(afterDiscount + deliveryFee);

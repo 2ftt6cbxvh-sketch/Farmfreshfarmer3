@@ -52,6 +52,10 @@ export default function AdminStaff() {
 
   const { data, isLoading, error } = useQuery<{ staff: any[] }>({
     queryKey: ["/api/admin/staff"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/staff");
+      return res.json();
+    },
   });
 
   const staffList = data?.staff || [];
