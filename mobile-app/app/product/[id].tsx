@@ -99,6 +99,16 @@ export default function ProductDetailScreen() {
             <Text style={styles.dietDot}>{product.dietTag === 'nonveg' ? '🔴' : '🟢'}</Text>
           </View>
         </View>
+
+        {(product as any).allowInternationalShipping === false && (
+          <View style={[styles.localBadgeCard, { backgroundColor: isDark ? '#451a03' : '#fef3c7', borderColor: isDark ? '#b45309' : '#f59e0b' }]}>
+            <Text style={[styles.localBadgeTitle, { color: isDark ? '#fcd34d' : '#92400e' }]}>🛵 Local Warehouse Only</Text>
+            <Text style={[styles.localBadgeSub, { color: isDark ? '#fef3c7' : '#78350f' }]}>
+              Available within local delivery area only. Cannot be shipped out-of-station or internationally.
+            </Text>
+          </View>
+        )}
+
         <Text style={[styles.unit, { color: mutedColor }]}>{product.unit}</Text>
         <View style={styles.priceRow}>
           <Text style={styles.price}>₹{effectivePrice.toFixed(0)}</Text>
@@ -243,6 +253,9 @@ const styles = StyleSheet.create({
   name: { fontSize: 24, fontWeight: '800', flex: 1, marginRight: 8 },
   dietBadge: { padding: 4 },
   dietDot: { fontSize: 20 },
+  localBadgeCard: { borderRadius: 12, padding: 10, marginVertical: 10, borderWidth: 1 },
+  localBadgeTitle: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  localBadgeSub: { fontSize: 11, fontWeight: '500' },
   unit: { fontSize: 14, marginTop: 4, marginBottom: 12 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
   price: { fontSize: 30, fontWeight: '900', color: '#10b981' },

@@ -19,10 +19,13 @@ function ProductCard({ product }: { product: Product }) {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
   const { user } = useAuth();
+  const items = useCartStore((state) => state.items) || [];
   const addItem = useCartStore((state) => state.addItem);
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent);
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
+  const isInCart = items.some(i => i.id === product.id || (i as any).productId === product.id);
+  const isLocalOnly = (product as any).allowInternationalShipping === false;
 
   // Touch press depth animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -44,16 +47,24 @@ function ProductCard({ product }: { product: Product }) {
         style={[styles.productCard, isDark && styles.productCardDark]}
         onPress={() => router.push(`/product/${product.id}`)}
       >
-        {product.image ? (
-          <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.productImage} resizeMode="cover" />
-        ) : (
-          <View style={[styles.productImage, styles.productImagePlaceholder]}>
-            <Text style={{ fontSize: 32 }}>🌱</Text>
-          </View>
-        )}
-        {discount > 0 && (
-          <View style={styles.discountBadge}><Text style={styles.discountText}>{Math.round(discount)}% OFF</Text></View>
-        )}
+        <View style={{ position: 'relative' }}>
+          {product.image ? (
+            <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.productImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.productImage, styles.productImagePlaceholder]}>
+              <Text style={{ fontSize: 32 }}>🌱</Text>
+            </View>
+          )}
+          {discount > 0 && (
+            <View style={styles.discountBadge}><Text style={styles.discountText}>{Math.round(discount)}% OFF</Text></View>
+          )}
+          {isLocalOnly && (
+            <View style={[styles.discountBadge, { backgroundColor: '#92400e', left: 8, bottom: 8, top: 'auto' }]}>
+              <Text style={[styles.discountText, { color: '#fef3c7' }]}>📍 Local Only</Text>
+            </View>
+          )}
+        </View>
+
         <View style={styles.productInfo}>
           <Text style={[styles.productName, isDark && styles.textWhite]} numberOfLines={2}>{product.name}</Text>
           <Text style={styles.productUnit}>{product.unit}</Text>
@@ -63,14 +74,14 @@ function ProductCard({ product }: { product: Product }) {
               {discount > 0 && <Text style={styles.originalPrice}>₹{price.toFixed(0)}</Text>}
             </View>
             <TouchableOpacity 
-              style={[styles.addBtn, items.some(i => i.id === product.id) && { backgroundColor: '#10b981' }]}
+              style={[styles.addBtn, isInCart && { backgroundColor: '#10b981' }]}
               onPress={() => {
                 if (!user) {
                   Alert.alert('Sign In Required 🔐', 'Please log in to your account to add fresh items to your basket.', [{ text: 'Cancel' }, { text: 'Sign In', onPress: () => router.push('/(auth)/login') }]);
                   return;
                 }
-                if (items.some(i => i.id === product.id)) {
-                  router.push('/(tabs)/cart');
+                if (isInCart) {
+                  router.push('/(tabs)/basket');
                   return;
                 }
                 const stock = Number(product.stock !== undefined ? product.stock : 999);
@@ -84,10 +95,10 @@ function ProductCard({ product }: { product: Product }) {
                   return;
                 }
                 addItem(product);
-                Alert.alert('Success', 'Added to Basket! 🎉');
+                Alert.alert('Success 🎉', `${product.name} added to your basket.`);
               }}
             >
-              <Text style={styles.addBtnText}>{items.some(i => i.id === product.id) ? 'Cart ➔' : 'Add'}</Text>
+              <Text style={styles.addBtnText}>{isInCart ? 'In Basket' : '+ Add'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -190,7 +201,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={[styles.headerTitle, { fontSize: 22 }, isDark && styles.textWhite]}>🌿 {BRAND.name}</Text>
-            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.3.0</Text></View>
+            <View style={[styles.versionTag, { alignItems: 'center', justifyContent: 'center' }]}><Text style={styles.versionTagText}>v3.3.1</Text></View>
           </View>
           <TouchableOpacity style={[styles.themeToggleBtn, { alignItems: 'center', justifyContent: 'center' }]} onPress={handleToggleTheme}>
             <Text style={{ fontSize: 20 }}>{isDark ? '☀️' : '🌕'}</Text>
