@@ -114,7 +114,7 @@ export default function ProductDetail() {
       <div className="mx-auto max-w-5xl px-4 py-8 space-y-12">
         {/* Main Product Specs */}
         <div className="grid md:grid-cols-2 gap-8 items-start">
-          <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group">
+          <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group w-full max-w-full">
             {product.image ? (
               <img src={imgUrl(product.image)} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
             ) : <div className="h-full flex items-center justify-center text-muted-foreground font-bold">No image</div>}
@@ -124,16 +124,16 @@ export default function ProductDetail() {
               </span>
             )}
             {(product as any).allowInternationalShipping === false && (
-              <span className="absolute bottom-4 left-4 bg-amber-950/85 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1 rounded-full shadow-lg backdrop-blur-md">
+              <span className="absolute bottom-4 left-4 max-w-[90%] truncate bg-amber-950/90 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
                 📍 Local Delivery Only ({activeRadiusKm}km Radius)
               </span>
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
+          <div className="space-y-4 max-w-full">
+            <div className="flex items-center gap-2 flex-wrap">
               <DietDot tag={product.dietTag} size={16} />
-              <h1 className="font-serif text-3xl sm:text-4xl font-extrabold text-foreground">{product.name}</h1>
+              <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-extrabold text-foreground break-words">{product.name}</h1>
             </div>
 
             {reviews.length > 0 && (
@@ -143,19 +143,19 @@ export default function ProductDetail() {
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground leading-relaxed">{product.description || "Fresh farm produce delivered directly with care."}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+            <p className="text-sm text-muted-foreground leading-relaxed break-words">{product.description || "Fresh farm produce delivered directly with care."}</p>
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 max-w-full truncate">
                 Pack Size: {product.unit}
-              </p>
+              </span>
               {(product as any).allowInternationalShipping === false ? (
-                <p className="text-xs font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1">
+                <span className="text-xs font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1 max-w-full truncate">
                   🛵 Local Warehouse Only ({activeRadiusKm}km Radius)
-                </p>
+                </span>
               ) : (
-                <p className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                <span className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1 max-w-full truncate">
                   ✈️ Local & Out-of-Station Delivery Eligible
-                </p>
+                </span>
               )}
             </div>
 
@@ -165,12 +165,12 @@ export default function ProductDetail() {
             </div>
 
             {product.stock > 0 ? (
-              <div className="space-y-2 pt-4">
+              <div className="space-y-3 pt-2 w-full">
                 <p className="text-xs font-bold text-emerald-500">In Stock: {product.stock} unit(s) available</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1">
+                <div className="flex flex-wrap items-stretch gap-3 w-full">
+                  <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1 shrink-0">
                     <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Decrease"><Minus size={16} /></button>
-                    <span className="w-10 text-center font-bold">{qty}</span>
+                    <span className="w-9 text-center font-bold">{qty}</span>
                     <button onClick={() => {
                       if (qty >= product.stock) {
                         toast({ title: "Stock Limit Reached", description: `Only ${product.stock} unit(s) in stock.`, variant: "destructive" });
@@ -179,6 +179,7 @@ export default function ProductDetail() {
                       setQty((q) => Math.min(product.stock, q + 1));
                     }} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
                   </div>
+                  
                   <Button onClick={() => { 
                     if (!user) {
                       toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
@@ -191,12 +192,12 @@ export default function ProductDetail() {
                     }
                     add(product, qty); 
                     toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); 
-                  }} className="gap-2 px-6 py-6 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
+                  }} className="flex-1 min-w-[140px] gap-2 px-6 py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
                     <ShoppingCart size={18} /> Add to Cart
                   </Button>
 
                   {items.some(i => i.productId === product.id) && (
-                    <Button onClick={() => setLocation("/cart")} className="gap-2 px-6 py-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/20 border border-emerald-300 transition-all hover:scale-105" data-testid="button-go-to-cart">
+                    <Button onClick={() => setLocation("/cart")} className="w-full sm:w-auto sm:flex-initial gap-2 px-6 py-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/20 border border-emerald-300 transition-all hover:scale-105" data-testid="button-go-to-cart">
                       🛒 Go to Cart ➔
                     </Button>
                   )}
