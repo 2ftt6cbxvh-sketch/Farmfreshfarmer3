@@ -144,6 +144,13 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
 
+          {/* Local Only Shipping Badge */}
+          {(product as any).allowInternationalShipping === false && (
+            <span className="absolute bottom-2.5 left-2.5 z-10 bg-amber-950/85 text-amber-300 border border-amber-500/50 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full shadow-md backdrop-blur-md flex items-center gap-1">
+              📍 Local Only
+            </span>
+          )}
+
           {/* In-Cart Badge */}
           {inCartQty > 0 && (
             <span className="absolute bottom-2.5 right-2.5 z-10 bg-emerald-600/90 text-white text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 sm:py-1 rounded-full shadow-lg border border-emerald-300/40 backdrop-blur-md flex items-center gap-1">

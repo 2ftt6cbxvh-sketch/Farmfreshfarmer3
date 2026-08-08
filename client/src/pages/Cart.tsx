@@ -535,35 +535,51 @@ export default function Cart() {
                 </div>
               )}
 
-              <dl className="space-y-1 text-sm">
-                <div className="flex justify-between"><dt className="text-muted-foreground">Taxable Subtotal (Excl. GST)</dt><dd data-testid="text-taxable-subtotal">{formatINR(quote?.taxableSubtotal ?? Math.round((displaySubtotal / 1.05) * 100) / 100)}</dd></div>
-                <div className="flex justify-between text-xs text-muted-foreground"><dt>CGST Tax Component</dt><dd>{formatINR(quote?.cgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd></div>
-                <div className="flex justify-between text-xs text-muted-foreground"><dt>SGST Tax Component</dt><dd>{formatINR(quote?.sgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd></div>
-                <div className="flex justify-between font-semibold pt-1 border-t border-card-border/40"><dt className="text-foreground">Cart Subtotal (Incl. GST)</dt><dd data-testid="text-subtotal">{formatINR(displaySubtotal)}</dd></div>
+              <dl className="space-y-1.5 text-xs sm:text-sm">
+                <div className="flex justify-between items-center gap-2">
+                  <dt className="text-muted-foreground truncate">Taxable Subtotal (Excl. GST)</dt>
+                  <dd data-testid="text-taxable-subtotal" className="font-mono shrink-0">{formatINR(quote?.taxableSubtotal ?? Math.round((displaySubtotal / 1.05) * 100) / 100)}</dd>
+                </div>
+                {quote?.cgstEnabled !== false && (
+                  <div className="flex justify-between items-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
+                    <dt className="truncate">CGST Tax Component</dt>
+                    <dd className="font-mono shrink-0">{formatINR(quote?.cgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd>
+                  </div>
+                )}
+                {quote?.sgstEnabled !== false && (
+                  <div className="flex justify-between items-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
+                    <dt className="truncate">SGST Tax Component</dt>
+                    <dd className="font-mono shrink-0">{formatINR(quote?.sgst ?? Math.round(((displaySubtotal - (displaySubtotal / 1.05)) / 2) * 100) / 100)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between items-center gap-2 font-semibold pt-1 border-t border-card-border/40">
+                  <dt className="text-foreground truncate">Cart Subtotal (Incl. GST)</dt>
+                  <dd data-testid="text-subtotal" className="font-mono shrink-0">{formatINR(displaySubtotal)}</dd>
+                </div>
 
                 {quote ? (
                   quote.breakdown.map((line, idx) => (
-                    <div key={idx} className="flex justify-between text-primary" data-testid={`breakdown-line-${idx}`}>
-                      <dt>{line.label}</dt><dd>−{formatINR(Number(line.amount))}</dd>
+                    <div key={idx} className="flex justify-between items-center gap-2 text-primary" data-testid={`breakdown-line-${idx}`}>
+                      <dt className="truncate">{line.label}</dt><dd className="font-mono shrink-0">−{formatINR(Number(line.amount))}</dd>
                     </div>
                   ))
                 ) : (
                   coupon && (
-                    <div className="flex justify-between text-primary">
-                      <dt>Coupon ({coupon.code})</dt><dd data-testid="text-discount">−{formatINR(displayDiscount)}</dd>
+                    <div className="flex justify-between items-center gap-2 text-primary">
+                      <dt className="truncate">Coupon ({coupon.code})</dt><dd data-testid="text-discount" className="font-mono shrink-0">−{formatINR(displayDiscount)}</dd>
                     </div>
                   )
                 )}
 
                 {isInternationalDelivery ? (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 space-y-1.5 my-2 shadow-sm font-medium">
-                    <div className="flex justify-between items-center font-bold text-xs">
-                      <span className="flex items-center gap-1.5 text-amber-950 dark:text-amber-300">
-                        <Globe size={14} className="text-amber-600 dark:text-amber-400" />
-                        <span>International / Out-of-Station Shipping</span>
+                  <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 space-y-1.5 my-2 shadow-sm font-medium">
+                    <div className="flex justify-between items-center font-bold text-xs gap-1">
+                      <span className="flex items-center gap-1.5 text-amber-950 dark:text-amber-300 truncate">
+                        <Globe size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="truncate">International Shipping</span>
                       </span>
-                      <span className="text-amber-950 dark:text-amber-300 font-mono text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/40 font-black">
-                        Calculated at Dispatch
+                      <span className="text-amber-950 dark:text-amber-300 font-mono text-[9px] sm:text-[10px] bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40 font-black shrink-0">
+                        At Dispatch
                       </span>
                     </div>
                     <p className="text-[11px] text-amber-900 dark:text-amber-200/90 leading-tight font-medium">
@@ -572,21 +588,21 @@ export default function Cart() {
                   </div>
                 ) : isLocationUnserviceable ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs my-1 gap-1 sm:gap-2">
-                    <dt className="text-muted-foreground font-medium">Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})</dt>
-                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] sm:text-right leading-tight">
+                    <dt className="text-muted-foreground font-medium truncate">Delivery ({deliveryRes?.locationArea || "Area"}{deliveryRes?.pincode ? ` - ${deliveryRes.pincode}` : ""})</dt>
+                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] sm:text-right leading-tight shrink-0">
                       Unserviceable location — Cannot calculate fee
                     </dd>
                   </div>
                 ) : (
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
-                    <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground" : "text-primary font-bold"}>
+                  <div className="flex justify-between items-center gap-2">
+                    <dt className="text-muted-foreground truncate">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
+                    <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground shrink-0 font-mono" : "text-primary font-bold shrink-0"}>
                       {effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free"}
                     </dd>
                   </div>
                 )}
-                <div className="flex justify-between border-t border-card-border pt-2 mt-2 font-bold text-base">
-                  <dt>Grand total</dt><dd data-testid="text-total">{formatINR(displayTotal)}</dd>
+                <div className="flex justify-between items-center gap-2 border-t border-card-border pt-2 mt-2 font-bold text-base">
+                  <dt>Grand total</dt><dd data-testid="text-total" className="font-mono">{formatINR(displayTotal)}</dd>
                 </div>
               </dl>
             </div>
@@ -635,12 +651,12 @@ export default function Cart() {
                   </p>
                   <Button
                     type="button"
-                    size="sm"
                     variant="destructive"
                     onClick={handleRemoveLocalOnlyItems}
-                    className="w-full text-xs font-extrabold gap-1.5 cursor-pointer mt-1"
+                    className="w-full h-auto py-2.5 px-3 text-[11px] font-black leading-tight whitespace-normal text-center gap-1.5 cursor-pointer mt-1 rounded-xl flex items-center justify-center"
                   >
-                    <Trash2 size={14} /> Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery
+                    <Trash2 size={14} className="shrink-0" />
+                    <span>Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery</span>
                   </Button>
                 </div>
               )}

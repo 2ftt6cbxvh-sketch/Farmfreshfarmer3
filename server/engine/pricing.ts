@@ -90,10 +90,14 @@ export interface ItemGstBreakdown {
   unit: string;
   qty: number;
   unitPrice: number;
-  itemSubtotal: number;
-  gstPercent: number;
-  gstAmount: number;
   baseAmount: number;
+  gstPercent: number;
+  cgstPercent: number;
+  sgstPercent: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  gstAmount: number;
+  itemSubtotal: number;
 }
 
 export interface PriceResult {
@@ -106,6 +110,8 @@ export interface PriceResult {
   totalGst: number;
   cgst: number;
   sgst: number;
+  cgstEnabled: boolean;
+  sgstEnabled: boolean;
   itemBreakdown: ItemGstBreakdown[];
   couponCode: string | null;
   firstOrderDiscount: number;
@@ -132,12 +138,16 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 export async function resolveLines(
   items: CartLine[],
-  defaultGstPercent = 5
-): Promise<{ lines: CartLine[]; subtotal: number; itemBreakdown: ItemGstBreakdown[]; taxableSubtotal: number; totalGst: number }> {
+  defaultGstPercent = 5,
+  cgstEnabled = true,
+  sgstEnabled = true
+): Promise<{ lines: CartLine[]; subtotal: number; itemBreakdown: ItemGstBreakdown[]; taxableSubtotal: number; totalGst: number; totalCgst: number; totalSgst: number }> {
   const lines: CartLine[] = [];
   const itemBreakdown: ItemGstBreakdown[] = [];
   let taxableSubtotal = 0;
   let totalGst = 0;
+  let totalCgst = 0;
+  let totalSgst = 0;
 
   for (const i of items) {
     const qty = Math.max(0, Math.floor(Number(i.qty) || 0));
@@ -166,13 +176,20 @@ export async function resolveLines(
       gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
     }
 
-    const itemSubtotal = round2(unitPrice * qty);
-    // Standard retail tax-inclusive GST formula: Taxable Base = Total / (1 + GST/100)
-    const baseAmount = round2(itemSubtotal / (1 + gstPercent / 100));
-    const gstAmount = round2(itemSubtotal - baseAmount);
+    const baseAmount = round2(unitPrice * qty);
+    const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
+    const sgstPercent = sgstEnabled ? round2(gstPercent / 2) : 0;
+    const effectiveGstPercent = round2(cgstPercent + sgstPercent);
+
+    const cgstAmount = round2(baseAmount * (cgstPercent / 100));
+    const sgstAmount = round2(baseAmount * (sgstPercent / 100));
+    const gstAmount = round2(cgstAmount + sgstAmount);
+    const itemSubtotal = round2(baseAmount + gstAmount);
 
     taxableSubtotal = round2(taxableSubtotal + baseAmount);
     totalGst = round2(totalGst + gstAmount);
+    totalCgst = round2(totalCgst + cgstAmount);
+    totalSgst = round2(totalSgst + sgstAmount);
 
     lines.push({
       productId: pId,
@@ -188,25 +205,32 @@ export async function resolveLines(
       unit,
       qty,
       unitPrice,
-      itemSubtotal,
-      gstPercent,
-      gstAmount,
       baseAmount,
+      gstPercent: effectiveGstPercent,
+      cgstPercent,
+      sgstPercent,
+      cgstAmount,
+      sgstAmount,
+      gstAmount,
+      itemSubtotal,
     });
   }
 
-  const subtotal = round2(lines.reduce((s, i) => s + i.price * i.qty, 0));
-  return { lines, subtotal, itemBreakdown, taxableSubtotal, totalGst };
+  const subtotal = round2(itemBreakdown.reduce((s, i) => s + i.itemSubtotal, 0));
+  return { lines, subtotal, itemBreakdown, taxableSubtotal, totalGst, totalCgst, totalSgst };
 }
 
 /** Compute the full price breakdown for a prospective order. */
 export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   const settings = await storage.settings.all();
   const defaultGstPercent = parseFloat(settings.default_gst_percent || "5") || 5;
+  const cgstEnabled = settings.cgst_enabled !== "false";
+  const sgstEnabled = settings.sgst_enabled !== "false";
+
   // Re-price every line from the database (authoritative), never trust the client.
-  const { subtotal, itemBreakdown, taxableSubtotal, totalGst } = await resolveLines(req.items, defaultGstPercent);
-  const cgst = round2(totalGst / 2);
-  const sgst = round2(totalGst - cgst);
+  const { subtotal, itemBreakdown, taxableSubtotal, totalGst, totalCgst, totalSgst } = await resolveLines(req.items, defaultGstPercent, cgstEnabled, sgstEnabled);
+  const cgst = totalCgst;
+  const sgst = totalSgst;
 
   const breakdown: DiscountLine[] = [];
   let firstOrderDiscount = 0;
@@ -420,7 +444,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
 
   return {
     subtotal, discount, deliveryFee, deliveryCity, total,
-    taxableSubtotal, totalGst, cgst, sgst, itemBreakdown,
+    taxableSubtotal, totalGst, cgst, sgst, cgstEnabled, sgstEnabled, itemBreakdown,
     couponCode,
     firstOrderDiscount, referralDiscount, referralRewardApplied,
     referralCodeUsed: referralValid ? referralCodeResolved : null,

@@ -17,6 +17,8 @@ import Forbidden403 from "../Forbidden403";
 interface GstSettings {
   defaultGstPercent: number;
   gstEnabled: boolean;
+  cgstEnabled?: boolean;
+  sgstEnabled?: boolean;
 }
 
 export default function AdminGST() {
@@ -51,12 +53,16 @@ export default function AdminGST() {
 
   const [globalGst, setGlobalGst] = useState<string>("");
   const [gstEnabled, setGstEnabled] = useState<boolean>(true);
+  const [cgstEnabled, setCgstEnabled] = useState<boolean>(true);
+  const [sgstEnabled, setSgstEnabled] = useState<boolean>(true);
   const [editingGst, setEditingGst] = useState<Record<number, string>>({});
 
   // Sync state once fetched
   if (gstSettings && globalGst === "" && !loadingGst) {
     setGlobalGst(String(gstSettings.defaultGstPercent));
     setGstEnabled(gstSettings.gstEnabled);
+    setCgstEnabled(gstSettings.cgstEnabled !== false);
+    setSgstEnabled(gstSettings.sgstEnabled !== false);
   }
 
   const saveSettingsMutation = useMutation({
@@ -64,6 +70,8 @@ export default function AdminGST() {
       const res = await apiRequest("PUT", "/api/admin/gst-settings", {
         defaultGstPercent: parseFloat(globalGst) || 5,
         gstEnabled,
+        cgstEnabled,
+        sgstEnabled,
       });
       return await res.json();
     },
@@ -177,6 +185,33 @@ export default function AdminGST() {
                     {gstEnabled ? "Active (Show GST Breakdown on Checkout)" : "Disabled"}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Separate CGST / SGST Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-card/60">
+                <div>
+                  <Label htmlFor="cgst-toggle" className="font-bold text-foreground">🏛 Central GST (CGST)</Label>
+                  <p className="text-[11px] text-muted-foreground">Enable CGST component on orders</p>
+                </div>
+                <Switch
+                  id="cgst-toggle"
+                  checked={cgstEnabled}
+                  onCheckedChange={(checked) => setCgstEnabled(checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-card/60">
+                <div>
+                  <Label htmlFor="sgst-toggle" className="font-bold text-foreground">🏛 State GST (SGST)</Label>
+                  <p className="text-[11px] text-muted-foreground">Enable SGST component on orders</p>
+                </div>
+                <Switch
+                  id="sgst-toggle"
+                  checked={sgstEnabled}
+                  onCheckedChange={(checked) => setSgstEnabled(checked)}
+                />
               </div>
             </div>
 

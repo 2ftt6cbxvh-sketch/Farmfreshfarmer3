@@ -110,6 +110,11 @@ export default function ProductDetail() {
                 {Math.round(Number(product.discountPercent))}% OFF
               </span>
             )}
+            {(product as any).allowInternationalShipping === false && (
+              <span className="absolute bottom-4 left-4 bg-amber-950/85 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1 rounded-full shadow-lg backdrop-blur-md">
+                📍 Local Delivery Only (30km Radius)
+              </span>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -126,9 +131,20 @@ export default function ProductDetail() {
             )}
 
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description || "Fresh farm produce delivered directly with care."}</p>
-            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full w-fit border border-emerald-500/20">
-              Pack Size: {product.unit}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                Pack Size: {product.unit}
+              </p>
+              {(product as any).allowInternationalShipping === false ? (
+                <p className="text-xs font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1">
+                  🛵 Local Warehouse Only (30km Radius)
+                </p>
+              ) : (
+                <p className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                  ✈️ Local & Out-of-Station Delivery Eligible
+                </p>
+              )}
+            </div>
 
             <div className="flex items-baseline gap-3 pt-2">
               <span className="text-3xl font-serif font-black text-primary">{formatINR(price)}</span>

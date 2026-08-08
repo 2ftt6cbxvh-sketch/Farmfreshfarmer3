@@ -65,8 +65,10 @@ router.get("/gst-settings", requireAdmin, async (req: any, res: any) => {
     
     const defaultGstPercent = parseFloat(map.get("default_gst_percent") || "5") || 5;
     const gstEnabled = map.get("gst_enabled") !== "false";
+    const cgstEnabled = map.get("cgst_enabled") !== "false";
+    const sgstEnabled = map.get("sgst_enabled") !== "false";
 
-    return res.json({ defaultGstPercent, gstEnabled });
+    return res.json({ defaultGstPercent, gstEnabled, cgstEnabled, sgstEnabled });
   } catch (err: any) {
     console.error("[admin/gst] Error fetching GST settings:", err);
     return res.status(500).json({ message: "Failed to fetch GST settings" });
@@ -83,7 +85,7 @@ router.put("/gst-settings", requireAdmin, async (req: any, res: any) => {
       return res.status(403).json({ message: "Access Denied: Only Super Admin can modify GST tax configurations." });
     }
 
-    const { defaultGstPercent, gstEnabled } = req.body;
+    const { defaultGstPercent, gstEnabled, cgstEnabled, sgstEnabled } = req.body;
     const cleanGst = Math.max(0, Math.min(100, parseFloat(defaultGstPercent) || 0));
 
     await db.insert(settings).values({ key: "default_gst_percent", value: String(cleanGst) })
@@ -92,7 +94,19 @@ router.put("/gst-settings", requireAdmin, async (req: any, res: any) => {
     await db.insert(settings).values({ key: "gst_enabled", value: gstEnabled ? "true" : "false" })
       .onConflictDoUpdate({ target: settings.key, set: { value: String(gstEnabled ? "true" : "false") } });
 
-    return res.json({ message: "GST settings updated successfully", defaultGstPercent: cleanGst, gstEnabled: !!gstEnabled });
+    await db.insert(settings).values({ key: "cgst_enabled", value: cgstEnabled !== false ? "true" : "false" })
+      .onConflictDoUpdate({ target: settings.key, set: { value: String(cgstEnabled !== false ? "true" : "false") } });
+
+    await db.insert(settings).values({ key: "sgst_enabled", value: sgstEnabled !== false ? "true" : "false" })
+      .onConflictDoUpdate({ target: settings.key, set: { value: String(sgstEnabled !== false ? "true" : "false") } });
+
+    return res.json({
+      message: "GST settings updated successfully",
+      defaultGstPercent: cleanGst,
+      gstEnabled: !!gstEnabled,
+      cgstEnabled: cgstEnabled !== false,
+      sgstEnabled: sgstEnabled !== false,
+    });
   } catch (err: any) {
     console.error("[admin/gst] Error updating GST settings:", err);
     return res.status(500).json({ message: "Failed to update GST settings" });

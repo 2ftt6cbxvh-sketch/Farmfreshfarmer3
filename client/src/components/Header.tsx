@@ -73,6 +73,13 @@ export function Header() {
     }, 220);
   };
 
+  const handleProductSearchClick = (productId: number) => {
+    setSearchFocused(false);
+    setSearch("");
+    closeMobileMenu();
+    navigate(`/product/${productId}`);
+  };
+
   const toggleMobileMenu = () => {
     if (mobileOpen) {
       closeMobileMenu();
@@ -186,11 +193,12 @@ export function Header() {
                     ) : (
                       <div className="space-y-1">
                         {predictions.map((p: any) => (
-                          <Link
+                          <div
                             key={p.id}
-                            href={`/product/${p.id}`}
-                            onClick={() => {
-                              setSearchFocused(false);
+                            onClick={() => handleProductSearchClick(p.id)}
+                            onTouchEnd={(e) => {
+                              e.preventDefault();
+                              handleProductSearchClick(p.id);
                             }}
                             className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
                           >
@@ -206,7 +214,7 @@ export function Header() {
                               </div>
                             </div>
                             <span className="text-xs font-black text-primary">₹{parseFloat(p.price).toFixed(0)}</span>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -343,11 +351,12 @@ export function Header() {
                   ) : (
                     <div className="space-y-1 max-h-56 overflow-y-auto">
                       {predictions.map((p: any) => (
-                        <Link
+                        <div
                           key={p.id}
-                          href={`/product/${p.id}`}
-                          onClick={() => {
-                            setSearchFocused(false);
+                          onClick={() => handleProductSearchClick(p.id)}
+                          onTouchEnd={(e) => {
+                            e.preventDefault();
+                            handleProductSearchClick(p.id);
                           }}
                           className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors active:scale-95"
                         >
@@ -363,7 +372,7 @@ export function Header() {
                             </div>
                           </div>
                           <span className="text-xs font-black text-primary ml-2 shrink-0">₹{parseFloat(p.price).toFixed(0)}</span>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}
