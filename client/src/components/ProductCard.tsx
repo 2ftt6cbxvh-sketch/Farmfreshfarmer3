@@ -137,17 +137,17 @@ export function ProductCard({ product }: { product: Product }) {
             </div>
           )}
 
-          {/* In-Cart Badge */}
-          {inCartQty > 0 && (
-            <span className="absolute top-3 right-3 bg-emerald-600/90 text-white text-[11px] font-black px-2.5 py-1 rounded-full shadow-lg border border-emerald-300/40 backdrop-blur-md flex items-center gap-1">
-              <Check size={12} strokeWidth={3} /> {inCartQty} in Cart
+          {/* Floating Glassmorphic Discount Badge */}
+          {hasDiscount && (
+            <span className="absolute top-2.5 left-2.5 z-10 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 sm:py-1 rounded-full shadow-lg border border-amber-300/40 backdrop-blur-md">
+              {Math.round(Number(product.discountPercent))}% OFF
             </span>
           )}
 
-          {/* Floating Glassmorphic Discount Badge */}
-          {hasDiscount && (
-            <span className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[11px] font-black px-3 py-1 rounded-full shadow-lg border border-amber-300/40 backdrop-blur-md animate-pulse">
-              {Math.round(Number(product.discountPercent))}% OFF
+          {/* In-Cart Badge */}
+          {inCartQty > 0 && (
+            <span className="absolute bottom-2.5 right-2.5 z-10 bg-emerald-600/90 text-white text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 sm:py-1 rounded-full shadow-lg border border-emerald-300/40 backdrop-blur-md flex items-center gap-1">
+              <Check size={11} strokeWidth={3} /> {inCartQty} in Cart
             </span>
           )}
 

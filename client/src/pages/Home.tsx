@@ -86,18 +86,26 @@ export default function Home() {
               {txt.hero_subtitle_text || "Hand-picked organic fruits, vine-ripened vegetables, authentic ghee sweets, traditional Andhra pickles, millets & spices."}
             </p>
 
-            <div className="flex flex-wrap gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2">
               <a
                 href="#categories-section"
                 onClick={(e) => {
                   e.preventDefault();
                   document.getElementById("categories-section")?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-8 py-4 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-7 py-3.5 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300 cursor-pointer"
                 data-testid="button-shop-now"
               >
                 Explore Categories <ArrowRight size={18} />
               </a>
+
+              <Link
+                href="/account/referrals"
+                className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 hover:bg-amber-500/25 px-5 py-3 text-xs font-black shadow-md hover:scale-105 transition-all duration-300 cursor-pointer"
+                data-testid="button-refer-earn"
+              >
+                🎁 Refer & Earn Rewards
+              </Link>
             </div>
 
             {/* Sleek Feature Bar */}
