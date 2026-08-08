@@ -95,6 +95,44 @@ export default function Cart() {
     try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
   });
 
+  const [inputPincode, setInputPincode] = useState<string>(deliveryRes?.pincode || "522502");
+
+  useEffect(() => {
+    if (deliveryRes?.pincode) {
+      setInputPincode(deliveryRes.pincode);
+    }
+  }, [deliveryRes?.pincode]);
+
+  const resolvePincodeMutation = useMutation({
+    mutationFn: async (p: string) => {
+      const res = await apiRequest("POST", "/api/delivery/resolve", { pincode: p });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data) {
+        setDeliveryRes(data);
+        localStorage.setItem("deliveryResolution", JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent("deliveryResolutionUpdated", { detail: data }));
+        if (data.locationArea) {
+          setAddress(data.locationArea);
+        }
+        toast({ title: "📍 Location & Delivery Fee Updated", description: `${data.locationArea || data.pincode} — Fee: ${data.fee > 0 ? "₹" + data.fee : "Free"}` });
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "Resolution Failed", description: err.message || "Invalid PIN code", variant: "destructive" });
+    },
+  });
+
+  const handleCheckPincode = (p: string) => {
+    const clean = p.trim();
+    if (/^[1-9][0-9]{5}$/.test(clean)) {
+      resolvePincodeMutation.mutate(clean);
+    } else {
+      toast({ title: "Invalid PIN Code", description: "Please enter a valid 6-digit Indian postal code (e.g. 522502)", variant: "destructive" });
+    }
+  };
+
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "");
@@ -419,17 +457,17 @@ export default function Cart() {
                 )}
 
                 {isInternationalDelivery ? (
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1.5 my-2 shadow-sm">
+                  <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 space-y-1.5 my-2 shadow-sm font-medium">
                     <div className="flex justify-between items-center font-bold text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <Globe size={14} className="text-amber-400" />
+                      <span className="flex items-center gap-1.5 text-amber-950 dark:text-amber-300">
+                        <Globe size={14} className="text-amber-600 dark:text-amber-400" />
                         <span>International / Out-of-Station Shipping</span>
                       </span>
-                      <span className="text-amber-400 font-mono text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 font-extrabold">
+                      <span className="text-amber-950 dark:text-amber-300 font-mono text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/40 font-black">
                         Calculated at Dispatch
                       </span>
                     </div>
-                    <p className="text-[11px] text-amber-200/90 leading-tight">
+                    <p className="text-[11px] text-amber-900 dark:text-amber-200/90 leading-tight font-medium">
                       Local delivery fee removed. Shipping charges will be calculated based on destination weight & address. Our support team will contact you for delivery payment before dispatch.
                     </p>
                   </div>
@@ -448,19 +486,19 @@ export default function Cart() {
             </div>
 
             <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
-              <h2 className="font-semibold">Delivery details</h2>
+              <h2 className="font-semibold text-foreground">Delivery details</h2>
 
               {/* International / Out-of-Station Delivery Toggle Switch */}
               <div className="p-3.5 rounded-2xl bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
                 <div className="flex items-center gap-3 pr-2">
-                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
                     <Globe size={18} />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <span>✈️ International / Out-of-Station Shipping</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground font-medium">
                       Turn on to ship to any city, state, or international country (bypasses 30km local warehouse radius limit).
                     </p>
                   </div>
@@ -473,48 +511,82 @@ export default function Cart() {
               </div>
 
               {isInternationalDelivery && (
-                <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <div className="p-3.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-950 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-2">
                   <span>✈️ International Shipping Mode Active — Orders dispatched via express global courier.</span>
                 </div>
               )}
 
               {/* Enhanced 3D Glass Delivery Breakdown Card */}
               {deliveryRes && deliveryRes.serviceable !== false && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm shadow-lg backdrop-blur-md relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="flex items-center justify-between font-bold text-emerald-400 mb-2 relative z-10">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-4 text-sm shadow-lg backdrop-blur-md relative overflow-hidden group">
+                  <div className="flex items-center justify-between font-bold text-emerald-950 dark:text-emerald-400 mb-2 relative z-10">
+                    <span className="flex items-center gap-1.5 font-extrabold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                       🏢 {deliveryRes.warehouseName || "Assigned Warehouse"}
                     </span>
-                    <span className="text-emerald-300 font-extrabold">⏱️ {deliveryRes.etaMinutes} mins</span>
+                    <span className="text-emerald-950 dark:text-emerald-300 font-black">⏱️ {deliveryRes.etaMinutes} mins</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-1.5 pt-2 text-emerald-200/80 border-t border-emerald-500/20 relative z-10 text-xs">
-                    <div>📍 Customer Area: <span className="font-medium text-emerald-100">{deliveryRes.locationArea || "Current Location"}</span></div>
-                    <div>⏱️ ETA Breakdown: <span className="font-medium text-emerald-100">{deliveryRes.packingTimeMinutes || 30}m packing + {deliveryRes.travelTimeMinutes || 0}m travel</span></div>
-                    <div>🚚 Delivery Fee: <span className="font-medium text-emerald-100">{quote && Number(quote.deliveryFee) > 0 ? formatINR(Number(quote.deliveryFee)) : "Free Delivery"}</span></div>
+                  <div className="grid grid-cols-1 gap-1.5 pt-2 text-emerald-900 dark:text-emerald-200/90 border-t border-emerald-500/30 relative z-10 text-xs font-medium">
+                    <div>📍 Customer Area: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.locationArea || "Current Location"}</span></div>
+                    <div>⏱️ ETA Breakdown: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.packingTimeMinutes || 30}m packing + {deliveryRes.travelTimeMinutes || 0}m travel</span></div>
+                    <div>🚚 Delivery Fee: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free Delivery"}</span></div>
                   </div>
                 </div>
               )}
               {/* Red Alert Card for Non-Serviceable Locations */}
               {deliveryRes && deliveryRes.serviceable === false && (
-                <div className="rounded-2xl border border-red-500/40 bg-red-950/60 p-4 space-y-2 text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
-                  <div className="flex items-center gap-2 text-red-400 font-extrabold text-sm">
+                <div className="rounded-2xl border border-red-500/40 bg-red-500/10 dark:bg-red-950/60 p-4 space-y-2 text-red-950 dark:text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold text-sm">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
                     <span>Delivery Unavailable for this Location</span>
                   </div>
-                  <p className="text-xs text-red-300">
-                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please change your pincode/GPS location in the top bar to place an order.
+                  <p className="text-xs text-red-900 dark:text-red-300 font-medium">
+                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please change your pincode/GPS location below or in the top bar to place an order.
                   </p>
                 </div>
               )}
+
+              {/* Dedicated PIN Code Input Field */}
               <div>
-                <Label htmlFor="ck-name" className="text-xs">Full name</Label>
-                <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" />
+                <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>PIN Code / Postal Code</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Auto-updates location & delivery fee</span>
+                </Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    id="ck-pincode"
+                    type="text"
+                    placeholder="e.g. 522502"
+                    maxLength={6}
+                    value={inputPincode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setInputPincode(val);
+                      if (val.length === 6) {
+                        handleCheckPincode(val);
+                      }
+                    }}
+                    className="font-mono text-sm font-extrabold rounded-xl border-emerald-500/40 bg-background text-foreground tracking-widest"
+                    data-testid="input-checkout-pincode"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => handleCheckPincode(inputPincode)}
+                    disabled={resolvePincodeMutation.isPending || inputPincode.length < 6}
+                    className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all shrink-0"
+                  >
+                    {resolvePincodeMutation.isPending ? "Checking…" : "Update PIN"}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="ck-name" className="text-xs font-bold text-foreground">Full name</Label>
+                <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" className="mt-1 font-medium" />
               </div>
               <div>
-                <Label htmlFor="ck-phone" className="text-xs">Phone</Label>
-                <Input id="ck-phone" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-phone" />
+                <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground">Phone</Label>
+                <Input id="ck-phone" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-phone" className="mt-1 font-medium" />
               </div>
               <div>
                 <Label htmlFor="ck-address" className="text-xs">Delivery address</Label>
