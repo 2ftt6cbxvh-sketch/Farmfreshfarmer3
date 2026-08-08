@@ -163,9 +163,11 @@ export default function Cart() {
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
   
-  const fallbackDeliveryFee = (deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30);
-  const effectiveDeliveryFee = quote ? Number(quote.deliveryFee) : fallbackDeliveryFee;
-  const displayTotal = quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100;
+  const fallbackDeliveryFee = isInternationalDelivery ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30));
+  const effectiveDeliveryFee = isInternationalDelivery ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
+  const displayTotal = isInternationalDelivery
+    ? (quote ? Math.round((Number(quote.total) - Number(quote.deliveryFee)) * 100) / 100 : Math.round((subtotal - displayDiscount) * 100) / 100)
+    : (quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100);
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
@@ -395,12 +397,29 @@ export default function Cart() {
                   )
                 )}
 
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
-                  <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground" : "text-primary font-bold"}>
-                    {effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free"}
-                  </dd>
-                </div>
+                {isInternationalDelivery ? (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1.5 my-2 shadow-sm">
+                    <div className="flex justify-between items-center font-bold text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <Globe size={14} className="text-amber-400" />
+                        <span>International / Out-of-Station Shipping</span>
+                      </span>
+                      <span className="text-amber-400 font-mono text-[10px] bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 font-extrabold">
+                        Calculated at Dispatch
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-200/90 leading-tight">
+                      Local delivery fee removed. Shipping charges will be calculated based on destination weight & address. Our support team will contact you for delivery payment before dispatch.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
+                    <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground" : "text-primary font-bold"}>
+                      {effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free"}
+                    </dd>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-card-border pt-2 mt-2 font-bold text-base">
                   <dt>Grand total</dt><dd data-testid="text-total">{formatINR(displayTotal)}</dd>
                 </div>
