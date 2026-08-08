@@ -150,11 +150,65 @@ export default function BasketScreen() {
           />
         </View>
 
+        {/* Itemized Order & GST Tax Breakdown */}
+        {items.length > 0 && (
+          <View style={[
+            styles.gstCard,
+            {
+              backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#f0fdf4',
+              borderColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#86efac',
+            }
+          ]}>
+            <View style={styles.gstHeader}>
+              <Text style={[styles.gstTitle, { color: isDark ? '#6ee7b7' : '#166534' }]}>🧾 Itemized Order & GST Breakdown</Text>
+              <Text style={[styles.gstTag, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#dcfce7', color: isDark ? '#a7f3d0' : '#15803d' }]}>Base + 5% GST</Text>
+            </View>
+            {items.map((it) => {
+              const baseTot = it.price * it.qty;
+              const gstVal = baseTot * 0.05;
+              const cgstVal = baseTot * 0.025;
+              const sgstVal = baseTot * 0.025;
+              const itemTot = baseTot + gstVal;
+              return (
+                <View key={it.id} style={styles.gstRow}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={[styles.gstItemName, { color: textColor }]}>{it.name} ({it.unit}) × {it.qty}</Text>
+                    <Text style={[styles.gstItemTotal, { color: COLORS.primary }]}>₹{itemTot.toFixed(0)}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
+                    <Text style={[styles.gstSubText, { color: mutedColor }]}>
+                      Base: ₹{it.price} × {it.qty} = ₹{baseTot.toFixed(0)}
+                    </Text>
+                    <Text style={[styles.gstPercentText, { color: isDark ? '#34d399' : '#15803d' }]}>
+                      +5% GST (₹{gstVal.toFixed(1)})
+                    </Text>
+                  </View>
+                  <Text style={[styles.gstSplitText, { color: mutedColor }]}>
+                    CGST (2.5%): ₹{cgstVal.toFixed(1)} | SGST (2.5%): ₹{sgstVal.toFixed(1)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Order Summary */}
         <View style={[styles.summaryCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: mutedColor }]}>Subtotal</Text>
+            <Text style={[styles.summaryLabel, { color: mutedColor }]}>Taxable Subtotal (Excl. GST)</Text>
             <Text style={[styles.summaryVal, { color: textColor }]}>₹{subtotal.toFixed(0)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: mutedColor }]}>CGST Component (2.5%)</Text>
+            <Text style={[styles.summaryVal, { color: mutedColor }]}>₹{(subtotal * 0.025).toFixed(1)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: mutedColor }]}>SGST Component (2.5%)</Text>
+            <Text style={[styles.summaryVal, { color: mutedColor }]}>₹{(subtotal * 0.025).toFixed(1)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: textColor, fontWeight: 'bold' }]}>Cart Subtotal (Incl. GST)</Text>
+            <Text style={[styles.summaryVal, { color: textColor }]}>₹{(subtotal * 1.05).toFixed(0)}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: mutedColor }]}>Delivery Charge</Text>
@@ -164,7 +218,7 @@ export default function BasketScreen() {
           </View>
           <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 10, marginTop: 10 }]}>
             <Text style={[styles.totalLabel, { color: textColor }]}>Grand Total</Text>
-            <Text style={styles.totalVal}>₹{total.toFixed(0)}</Text>
+            <Text style={styles.totalVal}>₹{((subtotal * 1.05) + deliveryFee).toFixed(0)}</Text>
           </View>
         </View>
 
@@ -223,10 +277,20 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10, fontSize: 14 },
   summaryCard: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  summaryLabel: { fontSize: 14 },
-  summaryVal: { fontSize: 14, fontWeight: 'bold' },
+  summaryLabel: { fontSize: 13 },
+  summaryVal: { fontSize: 13, fontWeight: 'bold' },
   totalLabel: { fontSize: 16, fontWeight: 'bold' },
   totalVal: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
   checkoutBtn: { backgroundColor: COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 40 },
   checkoutBtnText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  gstCard: { borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1 },
+  gstHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, marginBottom: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(16, 185, 129, 0.2)' },
+  gstTitle: { fontSize: 13, fontWeight: '800' },
+  gstTag: { fontSize: 10, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+  gstRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(16, 185, 129, 0.1)' },
+  gstItemName: { fontSize: 13, fontWeight: '700' },
+  gstItemTotal: { fontSize: 13, fontWeight: '800' },
+  gstSubText: { fontSize: 11, fontFamily: 'monospace' },
+  gstPercentText: { fontSize: 11, fontWeight: '800' },
+  gstSplitText: { fontSize: 10, marginTop: 2, fontFamily: 'monospace' },
 });
