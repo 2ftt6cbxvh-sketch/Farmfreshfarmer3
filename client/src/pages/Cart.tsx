@@ -292,10 +292,8 @@ export default function Cart() {
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 
-  const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
-  const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
-  
-  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= 500 ? 0 : 30));
+  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (rules?.freeAbove ?? 500));
+  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0) ? Number(deliveryRes.fee) : (subtotal >= freeDeliveryThreshold ? 0 : 30));
   const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
   const displayTotal = (isInternationalDelivery || isLocationUnserviceable)
     ? (quote ? Math.round((Number(quote.total) - Number(quote.deliveryFee)) * 100) / 100 : Math.round((subtotal - displayDiscount) * 100) / 100)
@@ -433,7 +431,33 @@ export default function Cart() {
   return (
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-6">Your cart</h1>
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-4">Your cart</h1>
+
+        {/* Dynamic Free Delivery Progress Banner */}
+        <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/40 p-4 shadow-sm space-y-2.5">
+          <div className="flex flex-wrap justify-between items-center text-xs sm:text-sm font-extrabold text-emerald-900 dark:text-emerald-300 gap-2">
+            {subtotal >= freeDeliveryThreshold ? (
+              <span className="flex items-center gap-2">
+                <span className="text-lg">🎉</span>
+                <span>You've unlocked <strong>FREE Express Delivery</strong> on this order!</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                🚚 Add <strong className="font-mono text-emerald-600 dark:text-emerald-400">{formatINR(freeDeliveryThreshold - subtotal)}</strong> more for <strong>FREE Delivery!</strong>
+              </span>
+            )}
+            <span className="font-mono text-[11px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-black shrink-0">
+              {subtotal >= freeDeliveryThreshold ? "FREE DELIVERED" : `Free Above ${formatINR(freeDeliveryThreshold)}`}
+            </span>
+          </div>
+
+          <div className="w-full h-2.5 rounded-full bg-emerald-500/20 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600 transition-all duration-500 rounded-full"
+              style={{ width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` }}
+            />
+          </div>
+        </div>
 
         {user && !user.phone && (
           <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 mb-4 flex items-center justify-between">
@@ -652,8 +676,18 @@ export default function Cart() {
                 ) : (
                   <div className="flex justify-between items-center gap-2">
                     <dt className="text-muted-foreground truncate">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : quote?.deliveryCity ? ` (${quote.deliveryCity})` : ""}</dt>
-                    <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground shrink-0 font-mono" : "text-primary font-bold shrink-0"}>
-                      {effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free"}
+                    <dd data-testid="text-delivery" className={effectiveDeliveryFee > 0 ? "font-bold text-foreground shrink-0 font-mono" : "text-primary font-bold shrink-0 font-mono"}>
+                      {effectiveDeliveryFee > 0 ? (
+                        <span>
+                          {formatINR(effectiveDeliveryFee)}{" "}
+                          <span className="text-[10px] text-muted-foreground font-normal">(Free above {formatINR(freeDeliveryThreshold)})</span>
+                        </span>
+                      ) : (
+                        <span>
+                          FREE{" "}
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">(Above {formatINR(freeDeliveryThreshold)})</span>
+                        </span>
+                      )}
                     </dd>
                   </div>
                 )}

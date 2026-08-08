@@ -14,6 +14,7 @@ export interface DeliveryResolution {
   serviceable: boolean;
   fee: number;
   etaMinutes: number;
+  freeDeliveryAbove?: number;
   packingTimeMinutes?: number;
   travelTimeMinutes?: number;
   warehouseId?: number;
@@ -139,27 +140,32 @@ export async function isDeliveryFeatureEnabled(): Promise<boolean> {
   return setting?.featureEnabled ?? false;
 }
 
-async function calculateFee(distanceKm: number, orderValue: number): Promise<number> {
+async function calculateFee(distanceKm: number, orderValue: number): Promise<{ fee: number; freeDeliveryAbove: number }> {
   const rules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
+  let freeAbove = 500;
   if (rules.length === 0) {
-    return Math.round(30 + distanceKm * 5);
+    const fee = (freeAbove > 0 && orderValue >= freeAbove) ? 0 : Math.round(30 + distanceKm * 5);
+    return { fee, freeDeliveryAbove: freeAbove };
   }
   for (const rule of rules) {
     const min = parseFloat(rule.minDistanceKm || "0");
     const max = parseFloat(rule.maxDistanceKm || "50");
     if (distanceKm >= min && distanceKm <= max) {
-      const freeAbove = rule.freeDeliveryAboveOrderValue ? parseFloat(rule.freeDeliveryAboveOrderValue) : 0;
+      if (rule.freeDeliveryAboveOrderValue) {
+        const val = parseFloat(rule.freeDeliveryAboveOrderValue);
+        if (!isNaN(val) && val > 0) freeAbove = val;
+      }
       if (freeAbove > 0 && orderValue > 0 && orderValue >= freeAbove) {
-        return 0;
+        return { fee: 0, freeDeliveryAbove: freeAbove };
       }
       const baseFee = parseFloat(rule.baseFee || "30");
       const perKmRate = parseFloat(rule.perKmFee || "5");
       const fee = baseFee + perKmRate * distanceKm;
       const cap = rule.maxFeeCap ? parseFloat(rule.maxFeeCap) : 150;
-      return Math.min(Math.round(fee), cap);
+      return { fee: Math.min(Math.round(fee), cap), freeDeliveryAbove: freeAbove };
     }
   }
-  return Math.round(30 + distanceKm * 5);
+  return { fee: Math.round(30 + distanceKm * 5), freeDeliveryAbove: freeAbove };
 }
 
 export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
@@ -173,6 +179,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
       serviceable: false,
       fee: 0,
       etaMinutes: 0,
+      freeDeliveryAbove: 500,
       pincode: cleanPin,
       locationArea: 'Invalid PIN Code',
       reason: 'Please enter a valid 6-digit Indian PIN code (e.g. 522001)',
@@ -373,7 +380,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
   const distanceKm = Math.round(minDistance * 10) / 10;
   const travelTimeMinutes = Math.ceil((distanceKm / speedKmph) * 60);
   const etaMinutes = Math.max(30, packingTimeMinutes + travelTimeMinutes);
-  const fee = await calculateFee(distanceKm, orderValue);
+  const { fee, freeDeliveryAbove } = await calculateFee(distanceKm, orderValue);
 
   await logResolution({ userId, latitude: lat, longitude: lng, source: "gps", serviceable: true, resolvedWarehouseId: nearestWarehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
 
@@ -381,6 +388,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     serviceable: true,
     fee,
     etaMinutes,
+    freeDeliveryAbove,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,

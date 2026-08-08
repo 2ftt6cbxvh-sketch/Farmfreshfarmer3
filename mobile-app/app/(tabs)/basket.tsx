@@ -139,7 +139,9 @@ export default function BasketScreen() {
   const sgst = Math.round((totalGst - cgst) * 100) / 100;
 
   const isLocationUnserviceable = !isInternationalDelivery && resolution && resolution.serviceable === false;
-  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((resolution?.fee && resolution.fee > 0) ? Number(resolution.fee) : (subtotal >= 500 ? 0 : 30));
+  const freeDeliveryThreshold = Number(resolution?.freeDeliveryAbove || 500);
+  const isFreeDelivery = subtotal >= freeDeliveryThreshold;
+  const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : ((resolution?.fee && resolution.fee > 0) ? Number(resolution.fee) : (isFreeDelivery ? 0 : 30));
   const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable) ? 0 : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
 
   const discountAmount = quote ? Number(quote.discount) : (coupon ? Math.round(subtotal * (coupon.discountPercent / 100)) : 0);
@@ -255,6 +257,41 @@ export default function BasketScreen() {
     <ScrollView style={[styles.container, { backgroundColor: bg }]} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16 }}>
         <Text style={[styles.pageTitle, { color: textColor }]}>Your cart</Text>
+
+        {/* ── Dynamic Free Delivery Progress Banner ────────────────────────── */}
+        <View style={[styles.freeDeliveryBanner, isDark ? styles.freeDeliveryBannerDark : styles.freeDeliveryBannerLight]}>
+          <View style={styles.freeDeliveryHeader}>
+            {isFreeDelivery ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 16 }}>🎉</Text>
+                <Text style={[styles.freeDeliveryTitle, isDark && styles.textWhite]}>
+                  You've unlocked <Text style={{ color: '#10b981', fontWeight: '900' }}>FREE Express Delivery</Text>!
+                </Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 16 }}>🚚</Text>
+                <Text style={[styles.freeDeliveryTitle, isDark && styles.textWhite]}>
+                  Add <Text style={{ color: '#10b981', fontWeight: '900' }}>₹{(freeDeliveryThreshold - subtotal).toFixed(0)}</Text> more for <Text style={{ fontWeight: '900' }}>FREE Delivery</Text>!
+                </Text>
+              </View>
+            )}
+            <View style={styles.freeDeliveryBadge}>
+              <Text style={styles.freeDeliveryBadgeText}>
+                {isFreeDelivery ? 'FREE DELIVERED' : `Free Above ₹${freeDeliveryThreshold}`}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressBarBg}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))}%` },
+              ]}
+            />
+          </View>
+        </View>
 
         {/* ── 1. Cart Items List ────────────────────────────────────────────── */}
         <View style={styles.itemsListContainer}>
@@ -403,9 +440,11 @@ export default function BasketScreen() {
             )}
 
             <View style={styles.calcRow}>
-              <Text style={[styles.calcLabel, { color: mutedColor }]}>Delivery Fee</Text>
-              <Text style={[styles.calcValue, { color: textColor }]}>
-                {effectiveDeliveryFee > 0 ? `₹${effectiveDeliveryFee}` : 'FREE'}
+              <Text style={[styles.calcLabel, { color: mutedColor }]}>
+                Delivery Fee {resolution?.locationArea ? `(${resolution.locationArea})` : ''}
+              </Text>
+              <Text style={[styles.calcValue, isFreeDelivery ? { color: '#10b981' } : { color: textColor }]}>
+                {isFreeDelivery ? `FREE (Above ₹${freeDeliveryThreshold})` : `₹${effectiveDeliveryFee} (Free above ₹${freeDeliveryThreshold})`}
               </Text>
             </View>
 
@@ -642,6 +681,16 @@ const styles = StyleSheet.create({
   startShoppingBtn: { backgroundColor: '#059669', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24 },
   startShoppingBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
 
+  freeDeliveryBanner: { borderRadius: 20, borderWidth: 1, padding: 14, marginBottom: 16 },
+  freeDeliveryBannerLight: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
+  freeDeliveryBannerDark: { backgroundColor: '#022c22', borderColor: 'rgba(52, 211, 153, 0.35)' },
+  freeDeliveryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 },
+  freeDeliveryTitle: { fontSize: 13, fontWeight: '700', color: '#065f46' },
+  freeDeliveryBadge: { backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
+  freeDeliveryBadgeText: { color: '#059669', fontSize: 10, fontWeight: '900' },
+  progressBarBg: { width: '100%', height: 8, borderRadius: 4, backgroundColor: 'rgba(16, 185, 129, 0.15)', overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 4 },
+
   itemsListContainer: { marginBottom: 16 },
   cartItemCard: {
     flexDirection: 'row',
@@ -746,4 +795,5 @@ const styles = StyleSheet.create({
   checkoutSubmitBtn: { backgroundColor: '#059669', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 18 },
   checkoutSubmitBtnDisabled: { backgroundColor: '#475569', opacity: 0.6 },
   checkoutSubmitBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  textWhite: { color: '#ffffff' },
 });

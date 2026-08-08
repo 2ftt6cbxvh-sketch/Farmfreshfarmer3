@@ -57,6 +57,7 @@ export interface DeliveryResolution {
   serviceable: boolean;
   fee: number;
   etaMinutes: number;
+  freeDeliveryAbove?: number;
   packingTimeMinutes?: number;
   travelTimeMinutes?: number;
   distanceKm?: number;
