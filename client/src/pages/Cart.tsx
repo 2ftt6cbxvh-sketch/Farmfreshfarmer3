@@ -105,6 +105,27 @@ export default function Cart() {
     }
   }, [deliveryRes]);
 
+  useEffect(() => {
+    const handleLocationUpdate = (e: any) => {
+      const updatedRes = e.detail || (() => {
+        try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
+      })();
+      if (updatedRes) {
+        setDeliveryRes(updatedRes);
+        if (updatedRes.locationArea) {
+          setAddress(updatedRes.locationArea);
+        }
+      }
+    };
+
+    window.addEventListener("deliveryResolutionUpdated", handleLocationUpdate);
+    window.addEventListener("storage", handleLocationUpdate);
+    return () => {
+      window.removeEventListener("deliveryResolutionUpdated", handleLocationUpdate);
+      window.removeEventListener("storage", handleLocationUpdate);
+    };
+  }, []);
+
   const [city, setCity] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
 

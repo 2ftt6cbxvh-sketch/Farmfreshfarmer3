@@ -40,6 +40,7 @@ export default function DeliveryBanner() {
     onSuccess: (data: DeliveryResolution) => {
       setResolution(data);
       localStorage.setItem("deliveryResolution", JSON.stringify(data));
+      window.dispatchEvent(new CustomEvent("deliveryResolutionUpdated", { detail: data }));
       setShowPincodeInput(false);
     },
   });
