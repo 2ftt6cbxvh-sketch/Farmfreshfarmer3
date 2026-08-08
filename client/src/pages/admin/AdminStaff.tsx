@@ -223,7 +223,7 @@ export default function AdminStaff() {
           ) : error ? (
             <div className="p-8 text-center text-xs text-destructive flex items-center justify-center gap-2">
               <ShieldAlert size={16} />
-              <span>Access Denied: Only the Primary Admin can view sub-admin controls.</span>
+              <span>{(error as any)?.message || "Failed to load sub-admin roster"}</span>
             </div>
           ) : staffList.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">No sub-admins configured yet. Click "Add Sub-Admin" to create staff credentials.</div>

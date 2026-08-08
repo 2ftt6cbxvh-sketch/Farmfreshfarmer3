@@ -7,7 +7,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../../db";
 import { users } from "@shared/schema";
-import { eq, ne, sql } from "drizzle-orm";
+import { eq, ne, and, sql } from "drizzle-orm";
 
 /** Helper: Ensure user is authenticated AND is Primary Admin */
 async function requirePrimaryAdmin(req: Request, res: Response, next: NextFunction) {
