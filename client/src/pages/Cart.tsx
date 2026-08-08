@@ -135,13 +135,14 @@ export default function Cart() {
 
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [address, setAddress] = useState(user?.address || "");
+  const [cityArea, setCityArea] = useState(deliveryRes?.locationArea || "");
+  const [streetAddress, setStreetAddress] = useState(user?.address || "");
 
   useEffect(() => {
-    if (deliveryRes?.locationArea && !address) {
-      setAddress(deliveryRes.locationArea);
+    if (deliveryRes?.locationArea) {
+      setCityArea(deliveryRes.locationArea);
     }
-  }, [deliveryRes]);
+  }, [deliveryRes?.locationArea]);
 
   useEffect(() => {
     const handleLocationUpdate = (e: any) => {
@@ -151,7 +152,7 @@ export default function Cart() {
       if (updatedRes) {
         setDeliveryRes(updatedRes);
         if (updatedRes.locationArea) {
-          setAddress(updatedRes.locationArea);
+          setCityArea(updatedRes.locationArea);
         }
       }
     };
@@ -172,7 +173,7 @@ export default function Cart() {
     queryKey: ["/api/delivery-rules"],
     queryFn: () => apiGet<DeliveryRules>("/api/delivery-rules"),
   });
-  const deliveryEnabled = !!deliveryRules?.enabled && (deliveryRules?.cities.length ?? 0) > 0;
+  const deliveryEnabled = deliveryRules?.enabled ?? false;
 
   // Checkout config — whether Cash on Delivery is offered (admin toggle).
   const { data: checkoutConfig } = useQuery<{ codEnabled: boolean }>({
@@ -202,10 +203,10 @@ export default function Cart() {
     mutationFn: () =>
       apiRequest("POST", "/api/price/quote", {
         items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
-        couponCode: coupon?.code || undefined,
-        referralCode: referralInput.trim() || undefined,
+        couponCode: coupon?.code ?? null,
+        referralCode: referralInput.trim() || null,
         redeemReward,
-        city: city || undefined,
+        city: city || null,
         pincode: deliveryRes?.pincode || "522502",
       }).then((r) => r.json() as Promise<PriceQuote>),
     onSuccess: (data) => setQuote(data),
@@ -236,7 +237,7 @@ export default function Cart() {
         toast({ title: "Coupon applied", description: `${res.discountPercent}% off` });
       } else {
         setCoupon(null);
-        toast({ title: "Invalid coupon", description: res.message || "This code can't be used.", variant: "destructive" });
+        toast({ title: "Coupon not valid", description: res.message || "Please check the code.", variant: "destructive" });
       }
     },
     onError: () => toast({ title: "Invalid coupon", variant: "destructive" }),
@@ -258,18 +259,19 @@ export default function Cart() {
 
   const initiatePayment = useMutation({
     mutationFn: async (orderId: number) => {
-      const res = await apiRequest("POST", "/api/payments/initiate", { orderId });
-      return res.json() as Promise<InitiatePaymentResult>;
+      const res = await apiRequest("POST", `/api/payments/phonepe/initiate`, { orderId });
+      return res.json() as Promise<{ merchantOrderId: string; redirectUrl: string }>;
     },
   });
 
   const placeOrder = useMutation({
     mutationFn: async () => {
+      const fullAddress = `${streetAddress.trim()}, ${cityArea.trim()}${inputPincode ? ` - ${inputPincode}` : ""}`;
       const payload = {
         userId: user?.id ?? null,
         customerName: name.trim(),
         phone: phone.trim(),
-        address: address.trim(),
+        address: fullAddress,
         items: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, price: i.price, qty: i.qty })),
         couponCode: coupon?.code ?? undefined,
         referralCode: referralInput.trim() || undefined,
@@ -312,8 +314,8 @@ export default function Cart() {
       toast({ title: "Delivery unavailable", description: "Your current location is not serviceable right now. Please change location to proceed.", variant: "destructive" });
       return;
     }
-    if (!name.trim() || !phone.trim() || !address.trim()) {
-      toast({ title: "Please fill all delivery details", variant: "destructive" });
+    if (!name.trim() || !phone.trim() || !cityArea.trim() || !streetAddress.trim()) {
+      toast({ title: "Please fill complete delivery details", description: "Name, Phone, City/Area, and Complete Street Address are required.", variant: "destructive" });
       return;
     }
     if (deliveryEnabled && !city) {
@@ -585,12 +587,35 @@ export default function Cart() {
                 <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" className="mt-1 font-medium" />
               </div>
               <div>
-                <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground">Phone</Label>
+                <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground">Phone number</Label>
                 <Input id="ck-phone" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-phone" className="mt-1 font-medium" />
               </div>
               <div>
-                <Label htmlFor="ck-address" className="text-xs">Delivery address</Label>
-                <Textarea id="ck-address" value={address} onChange={(e) => setAddress(e.target.value)} data-testid="input-address" />
+                <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>City / Area / District</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Auto-detected location</span>
+                </Label>
+                <Input
+                  id="ck-city-area"
+                  value={cityArea}
+                  onChange={(e) => setCityArea(e.target.value)}
+                  placeholder="e.g. Narsipatnam, Visakhapatnam"
+                  className="mt-1 font-extrabold bg-secondary/40 text-foreground"
+                  data-testid="input-city-area"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ck-street-address" className="text-xs font-bold text-foreground">
+                  Complete Address (Door No, Street Name, Landmark)
+                </Label>
+                <Textarea
+                  id="ck-street-address"
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
+                  placeholder="Enter Door/Flat No., Street Name, Colony & Landmark (e.g. Door No. 4-12, Main Road, Near SBI Bank)"
+                  className="mt-1 font-medium min-h-[75px]"
+                  data-testid="input-street-address"
+                />
               </div>
 
               {deliveryEnabled && (

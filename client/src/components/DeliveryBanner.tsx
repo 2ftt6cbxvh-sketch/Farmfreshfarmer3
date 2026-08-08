@@ -95,52 +95,7 @@ export default function DeliveryBanner() {
     </button>
   );
 
-  // RESOLVED SERVICEABLE BANNER
-  if (resolution?.serviceable) {
-    return (
-      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl z-40 relative shadow-xl animate-mobile-drawer">
-        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 mx-auto max-w-7xl w-full truncate">
-          <span className="flex items-center gap-1.5 font-bold text-amber-400 truncate w-full sm:w-auto justify-center sm:justify-start">
-            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="truncate">Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode && !resolution.locationArea?.includes(resolution.pincode) ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
-          </span>
-
-          {resolution.etaMinutes > 0 && (
-            <span className="flex items-center gap-1.5 text-emerald-200 truncate w-full sm:w-auto justify-center sm:justify-start">
-              <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <strong className="text-white truncate">⚡ {resolution.etaMinutes} Mins Express Delivery • {resolution.warehouseName}</strong>
-            </span>
-          )}
-
-          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
-            <DetectLocationBtn />
-            <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold shrink-0">Change Pincode</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // RESOLVED NON-SERVICEABLE BANNER
-  if (resolution && !resolution.serviceable) {
-    return (
-      <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
-        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
-          <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
-            <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-            <strong className="text-white font-extrabold shrink-0">Location Not Covered Yet</strong>
-            <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
-          </span>
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
-            <DetectLocationBtn />
-            <button onClick={() => { setResolution(null); setShowPincodeInput(true); }} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Enter Pincode</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // SLEEK ANIMATED PINCODE INPUT BAR
+  // SLEEK ANIMATED PINCODE INPUT BAR (Takes top precedence when user clicks Change Pincode!)
   if (showPincodeInput) {
     return (
       <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
@@ -168,13 +123,58 @@ export default function DeliveryBanner() {
             <button
               onClick={handlePincodeSubmit}
               disabled={resolveMutation.isPending || pincode.length !== 6}
-              className="h-8 text-xs bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold px-3.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 flex items-center gap-1"
+              className="h-8 text-xs bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-extrabold px-3.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-40 flex items-center gap-1 cursor-pointer"
             >
               <span>{resolveMutation.isPending ? "Checking…" : "Check ETA"}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
             <DetectLocationBtn />
-            <button onClick={() => setShowPincodeInput(false)} className="text-emerald-400 hover:text-white p-1" title="Close"><X className="w-4 h-4" /></button>
+            <button onClick={() => setShowPincodeInput(false)} className="text-emerald-400 hover:text-white p-1 cursor-pointer" title="Close"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // RESOLVED SERVICEABLE BANNER
+  if (resolution?.serviceable) {
+    return (
+      <div className="bg-gradient-to-r from-emerald-950/95 via-black/90 to-emerald-950/95 border-b border-emerald-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-emerald-100 backdrop-blur-2xl z-40 relative shadow-xl animate-mobile-drawer">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 mx-auto max-w-7xl w-full truncate">
+          <span className="flex items-center gap-1.5 font-bold text-amber-400 truncate w-full sm:w-auto justify-center sm:justify-start">
+            <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate">Delivering to: <strong className="text-white">{resolution.locationArea}{resolution.pincode && !resolution.locationArea?.includes(resolution.pincode) ? ` (PIN ${resolution.pincode})` : ""}</strong></span>
+          </span>
+
+          {resolution.etaMinutes > 0 && (
+            <span className="flex items-center gap-1.5 text-emerald-200 truncate w-full sm:w-auto justify-center sm:justify-start">
+              <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <strong className="text-white truncate">⚡ {resolution.etaMinutes} Mins Express Delivery • {resolution.warehouseName}</strong>
+            </span>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
+            <DetectLocationBtn />
+            <button onClick={() => setShowPincodeInput(true)} className="text-emerald-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Change Pincode</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // RESOLVED NON-SERVICEABLE BANNER
+  if (resolution && !resolution.serviceable) {
+    return (
+      <div className="bg-gradient-to-r from-amber-950/95 via-black/90 to-amber-950/95 border-b border-amber-500/30 max-w-full overflow-hidden flex-col sm:flex-row p-2 text-xs flex justify-between items-center text-amber-100 backdrop-blur-2xl shadow-xl animate-mobile-drawer">
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 justify-between mx-auto max-w-7xl w-full truncate">
+          <span className="flex items-center gap-2 font-semibold truncate w-full sm:w-auto justify-center sm:justify-start">
+            <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+            <strong className="text-white font-extrabold shrink-0">Location Not Covered Yet</strong>
+            <span className="ml-2 truncate">We are expanding fast! Enter your PIN code to check serviceability.</span>
+          </span>
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end mt-1 sm:mt-0">
+            <DetectLocationBtn />
+            <button onClick={() => setShowPincodeInput(true)} className="text-amber-300 hover:text-white text-xs underline font-semibold shrink-0 cursor-pointer">Enter Pincode</button>
           </div>
         </div>
       </div>
