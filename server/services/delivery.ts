@@ -18,6 +18,7 @@ export interface DeliveryResolution {
   travelTimeMinutes?: number;
   warehouseId?: number;
   warehouseName?: string;
+  maxRadiusKm?: number;
   locationArea?: string;
   distanceKm?: number;
   reason?: string;
@@ -241,7 +242,15 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
 
   const maxRadiusKm = parseFloat(warehouse.maxRadiusKm || 30);
   if (distanceKm > maxRadiusKm) {
-    return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${warehouse.maxRadiusKm || 30}km` };
+    return {
+      serviceable: false,
+      fee: 0,
+      etaMinutes: 0,
+      pincode,
+      locationArea: geo.areaName,
+      maxRadiusKm,
+      reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${maxRadiusKm}km`
+    };
   }
 
   // Calculate Travel Duration using Warehouse Rider Speed
@@ -260,6 +269,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
+    maxRadiusKm,
     warehouseId: warehouse.id,
     warehouseName: warehouse.name,
     locationArea: `${geo.areaName} (${pincode})`,
@@ -352,7 +362,8 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
       etaMinutes: 0,
       pincode: detectedPincode || undefined,
       locationArea,
-      reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${nearestWarehouse.maxRadiusKm || 30}km`,
+      maxRadiusKm: maxRange,
+      reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${maxRange}km`,
       distanceKm
     };
   }
@@ -373,6 +384,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
+    maxRadiusKm: maxRange,
     pincode: detectedPincode || undefined,
     warehouseId: nearestWarehouse.id,
     warehouseName: nearestWarehouse.name,

@@ -68,6 +68,19 @@ export default function ProductDetail() {
     queryFn: () => apiGet<Product[]>("/api/products?featured=1"),
   });
 
+  const { data: deliveryRes } = useQuery<any>({
+    queryKey: ["deliveryResolution"],
+    queryFn: async () => {
+      try {
+        const saved = localStorage.getItem("deliveryResolution");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+      return null;
+    },
+  });
+
+  const activeRadiusKm = deliveryRes?.maxRadiusKm || 30;
+
   const similarList = categoryProducts.filter((p) => p.id !== id);
   const fallbackList = featuredProducts.filter((p) => p.id !== id && !similarList.some((s) => s.id === p.id));
   const displaySimilar = [...similarList, ...fallbackList].slice(0, 4);
@@ -112,7 +125,7 @@ export default function ProductDetail() {
             )}
             {(product as any).allowInternationalShipping === false && (
               <span className="absolute bottom-4 left-4 bg-amber-950/85 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1 rounded-full shadow-lg backdrop-blur-md">
-                📍 Local Delivery Only (30km Radius)
+                📍 Local Delivery Only ({activeRadiusKm}km Radius)
               </span>
             )}
           </div>
@@ -137,7 +150,7 @@ export default function ProductDetail() {
               </p>
               {(product as any).allowInternationalShipping === false ? (
                 <p className="text-xs font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1">
-                  🛵 Local Warehouse Only (30km Radius)
+                  🛵 Local Warehouse Only ({activeRadiusKm}km Radius)
                 </p>
               ) : (
                 <p className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">

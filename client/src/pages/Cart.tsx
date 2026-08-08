@@ -200,6 +200,8 @@ export default function Cart() {
     };
   }, []);
 
+  const activeRadiusKm = deliveryRes?.maxRadiusKm || 30;
+
   const [city, setCity] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
 
@@ -621,7 +623,7 @@ export default function Cart() {
                       <span>✈️ International / Out-of-Station Shipping</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground font-medium">
-                      Turn on to ship to any city, state, or international country (bypasses 30km local warehouse radius limit).
+                      Turn on to ship to any city, state, or international country (bypasses {activeRadiusKm}km local warehouse radius limit).
                     </p>
                   </div>
                 </div>
@@ -639,7 +641,7 @@ export default function Cart() {
                     <span>Cannot Enable Out-of-Station Shipping</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
-                    Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse 30km Area Only</strong> (fresh produce/raw items not eligible for express courier):
+                    Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse {activeRadiusKm}km Area Only</strong> (fresh produce/raw items not eligible for express courier):
                   </p>
                   <ul className="list-disc pl-5 space-y-1 font-semibold text-white">
                     {localOnlyConflictItems.map((it) => (
