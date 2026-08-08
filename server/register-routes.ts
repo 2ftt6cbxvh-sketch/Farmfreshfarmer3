@@ -464,10 +464,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /* =========================== IMAGE UPLOAD ======================== */
-  app.post("/api/upload", requireAdmin, upload.single("image"), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No file" });
-    const b64 = req.file.buffer.toString("base64");
-    res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
+  app.post("/api/upload", requireAdmin, (req, res) => {
+    upload.single("image")(req, res, (err: any) => {
+      if (err) {
+        console.error("Multer upload error:", err);
+        return res.status(400).json({ message: err.message || "File upload failed" });
+      }
+      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+      const b64 = req.file.buffer.toString("base64");
+      res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
+    });
   });
 
   /* ============================= REVIEWS =========================== */

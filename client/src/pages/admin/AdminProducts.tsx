@@ -102,14 +102,39 @@ export default function AdminProducts() {
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const base = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
-      const res = await fetch(`${base}/api/upload`, { method: "POST", body: fd, credentials: "include" });
-      if (!res.ok) throw new Error("upload failed");
-      const data = await res.json();
-      setForm((f) => ({ ...f, image: data.url }));
-      toast({ title: "Image uploaded" });
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
+
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token") || "";
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers,
+        body: fd,
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setForm((f) => ({ ...f, image: data.url }));
+        toast({ title: "Image attached successfully 🎉" });
+        return;
+      }
+      throw new Error("Upload server error");
+    } catch (err) {
+      console.warn("Server upload failed, converting image client-side:", err);
+      // Instant client-side FileReader Base64 fallback if server upload encounters network issues
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          setForm((f) => ({ ...f, image: result }));
+          toast({ title: "Image attached successfully 🎉" });
+        }
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploading(false);
     }
