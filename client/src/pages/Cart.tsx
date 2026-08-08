@@ -612,7 +612,7 @@ export default function Cart() {
                   id="ck-street-address"
                   value={streetAddress}
                   onChange={(e) => setStreetAddress(e.target.value)}
-                  placeholder="Enter Door/Flat No., Street Name, Colony & Landmark (e.g. Door No. 4-12, Main Road, Near SBI Bank)"
+                  placeholder="Enter complete address"
                   className="mt-1 font-medium min-h-[75px]"
                   data-testid="input-street-address"
                 />
