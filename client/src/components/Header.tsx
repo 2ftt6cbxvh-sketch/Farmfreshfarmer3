@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { imgUrl } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles, Truck } from "lucide-react";
@@ -183,17 +184,17 @@ export function Header() {
                     ) : (
                       <div className="space-y-1">
                         {predictions.map((p: any) => (
-                          <div
+                          <Link
                             key={p.id}
+                            href={`/product/${p.id}`}
                             onClick={() => {
-                              navigate(`/product/${p.id}`);
                               setSearchFocused(false);
                             }}
                             className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
                           >
                             <div className="flex items-center gap-3">
                               {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
+                                <img src={imgUrl(p.image)} alt={p.name} className="w-9 h-9 rounded-lg object-cover" />
                               ) : (
                                 <div className="w-9 h-9 rounded-lg bg-emerald-900/40 flex items-center justify-center text-xs">🌱</div>
                               )}
@@ -203,7 +204,7 @@ export function Header() {
                               </div>
                             </div>
                             <span className="text-xs font-black text-primary">₹{parseFloat(p.price).toFixed(0)}</span>
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     )}
@@ -340,17 +341,17 @@ export function Header() {
                   ) : (
                     <div className="space-y-1 max-h-56 overflow-y-auto">
                       {predictions.map((p: any) => (
-                        <div
+                        <Link
                           key={p.id}
+                          href={`/product/${p.id}`}
                           onClick={() => {
-                            navigate(`/product/${p.id}`);
                             setSearchFocused(false);
                           }}
                           className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors active:scale-95"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             {p.image ? (
-                              <img src={p.image} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                              <img src={imgUrl(p.image)} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
                             ) : (
                               <div className="w-7 h-7 rounded-lg bg-emerald-900/40 flex items-center justify-center text-[10px] shrink-0">🌱</div>
                             )}
@@ -360,7 +361,7 @@ export function Header() {
                             </div>
                           </div>
                           <span className="text-xs font-black text-primary ml-2 shrink-0">₹{parseFloat(p.price).toFixed(0)}</span>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
