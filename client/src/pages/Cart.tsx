@@ -633,16 +633,25 @@ export default function Cart() {
               </div>
 
               <Button
-                className="w-full h-12 text-sm font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer"
+                className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
                 onClick={handleCheckout}
                 disabled={!isServiceable || placeOrder.isPending || initiatePayment.isPending}
                 data-testid="button-place-order"
               >
-                {placeOrder.isPending || initiatePayment.isPending
-                  ? "Placing order…"
-                  : !isServiceable
-                  ? "🔒 Delivery Unavailable — Change PIN or Enable International Shipping"
-                  : `Place order · ${formatINR(displayTotal)}`}
+                {placeOrder.isPending || initiatePayment.isPending ? (
+                  "Placing order…"
+                ) : !isServiceable ? (
+                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                    <span className="font-black text-amber-950 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                      🔒 Delivery Unavailable for this Location
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-900/90 dark:text-amber-300/90">
+                      Change PIN code above or enable International Shipping
+                    </span>
+                  </div>
+                ) : (
+                  `Place order · ${formatINR(displayTotal)}`
+                )}
               </Button>
               {!user && (
                 <p className="text-xs text-muted-foreground text-center">
