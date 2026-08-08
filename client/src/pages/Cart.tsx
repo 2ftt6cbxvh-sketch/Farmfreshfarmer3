@@ -511,10 +511,10 @@ export default function Cart() {
                     </p>
                   </div>
                 ) : isLocationUnserviceable ? (
-                  <div className="flex justify-between items-center text-xs my-1 gap-2">
-                    <dt className="text-muted-foreground shrink-0">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : ""}</dt>
-                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] text-right">
-                      Unserviceable location — Cannot calculate delivery fee
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs my-1 gap-1 sm:gap-2">
+                    <dt className="text-muted-foreground font-medium">Delivery{deliveryRes?.locationArea ? ` (${deliveryRes.locationArea})` : ""}</dt>
+                    <dd data-testid="text-delivery-unserviceable" className="text-red-500 font-extrabold text-[11px] sm:text-right leading-tight">
+                      Unserviceable location — Cannot calculate fee
                     </dd>
                   </div>
                 ) : (
