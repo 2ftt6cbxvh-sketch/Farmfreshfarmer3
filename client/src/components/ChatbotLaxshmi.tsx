@@ -1,16 +1,3 @@
-/**
- * ChatbotLaxshmi — FarmFreshFarmer AI Assistant
- * ================================================
- * Floating bottom-right chat widget powered by Google Gemini Flash.
- * Features:
- *  - Small round icon with "Namaste!" speech bubble
- *  - Full chat window with language switcher (EN / HI / TE)
- *  - Voice input via Web Speech API (SpeechRecognition)
- *  - Text-to-Speech (Listen button) via Web Speech API (SpeechSynthesis)
- *  - "Connect to Human" button → Telegram alert
- *  - Add to cart / Go to checkout actions from AI responses
- *  - Missed queries stored in DB for Admin review
- */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink } from "lucide-react";
@@ -30,6 +17,48 @@ interface ChatMessage {
 }
 
 const LANG_LABELS: Record<Language, string> = { en: "English", hi: "हिंदी", te: "తెలుగు" };
+
+const UI_STRINGS = {
+  en: {
+    bubbleGreeting: "🙏 Namaste! How can I help?",
+    headerSubtitle: "FarmFreshFarmer AI Assistant",
+    connectHuman: "Connect to Human Support",
+    connecting: "Connecting…",
+    listen: "Listen",
+    stop: "Stop",
+    placeholder: "Type your message...",
+    poweredBy: "Powered by Gemini AI · FarmFreshFarmer",
+    viewProduct: "View Product",
+    goToCart: "Go to Cart & Checkout",
+    thinking: "thinking",
+  },
+  hi: {
+    bubbleGreeting: "🙏 नमस्ते! मैं कैसे मदद कर सकती हूँ?",
+    headerSubtitle: "FarmFreshFarmer AI सहायक",
+    connectHuman: "मानव सहायता से जुड़ें",
+    connecting: "जोड़ रहे हैं…",
+    listen: "सुनें",
+    stop: "रोकें",
+    placeholder: "यहाँ टाइप करें...",
+    poweredBy: "Gemini AI द्वारा संचालित · FarmFreshFarmer",
+    viewProduct: "उत्पाद देखें",
+    goToCart: "कार्ट पर जाएं",
+    thinking: "सोच रही हूँ",
+  },
+  te: {
+    bubbleGreeting: "🙏 నమస్తే! నేను ఎలా సహాయం చేయగలను?",
+    headerSubtitle: "FarmFreshFarmer AI సహాయకురాలు",
+    connectHuman: "మానవ సహాయానికి కనెక్ట్ చేయండి",
+    connecting: "కనెక్ట్ అవుతోంది…",
+    listen: "వినండి",
+    stop: "ఆపండి",
+    placeholder: "ఇక్కడ టైప్ చేయండి...",
+    poweredBy: "Gemini AI ద్వారా · FarmFreshFarmer",
+    viewProduct: "ఉత్పత్తి చూడండి",
+    goToCart: "కార్ట్కు వెళ్ళండి",
+    thinking: "ఆలోచిస్తోంది",
+  },
+};
 
 const WELCOME_MESSAGES: Record<Language, string> = {
   en: "🙏 Namaste! I'm Laxshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart",
@@ -53,21 +82,6 @@ function getSessionToken(): string {
   return token;
 }
 
-function LaxshmiIcon({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="20" cy="20" r="18" fill="url(#lg1)" />
-      <text x="20" y="27" textAnchor="middle" fontSize="18" fill="white">🙏</text>
-      <defs>
-        <linearGradient id="lg1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#16a34a" />
-          <stop offset="1" stopColor="#15803d" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
 export function ChatbotLaxshmi() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,6 +96,7 @@ export function ChatbotLaxshmi() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const sessionToken = getSessionToken();
+  const strings = UI_STRINGS[language];
 
   const { data: publicSettings } = useQuery<Record<string, string>>({
     queryKey: ["/api/settings/public"],
@@ -210,47 +225,60 @@ export function ChatbotLaxshmi() {
     <>
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-end gap-2 pointer-events-auto">
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto">
           {/* Speech bubble */}
-          <div
-            className="relative bg-white dark:bg-zinc-800 rounded-2xl rounded-br-none px-3 py-2 shadow-2xl border border-emerald-200 dark:border-emerald-800 text-xs font-medium text-gray-700 dark:text-gray-200 cursor-pointer max-w-[160px] select-none"
-            onClick={() => setIsOpen(true)}
-            style={{ animation: "laxBubble 4s ease-in-out infinite" }}
-          >
-            🙏 Namaste! How can I help?
-            {/* Triangle tail */}
-            <div className="absolute -right-2 bottom-3 w-0 h-0"
-              style={{ borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "8px solid white" }}
-            />
+          <div className="relative cursor-pointer" onClick={() => setIsOpen(true)}
+            style={{ animation: 'laxBounce 3s ease-in-out infinite' }}>
+            <div className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md rounded-2xl rounded-br-none px-3 py-2 shadow-2xl text-xs font-semibold text-gray-800 dark:text-gray-100 border border-white/50 max-w-[180px]"
+              style={{ boxShadow: '0 8px 32px rgba(212,20,90,0.15)' }}>
+              {strings.bubbleGreeting}
+            </div>
+            {/* tail */}
+            <div className="absolute -bottom-2 right-4 w-0 h-0"
+              style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.9)' }} />
           </div>
-          {/* Round icon */}
-          <button
-            id="chatbot-open-btn"
-            onClick={() => setIsOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform active:scale-95"
-            style={{ background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)" }}
-            aria-label="Open Laxshmi AI assistant"
-          >
-            <LaxshmiIcon size={32} />
-          </button>
+          
+          {/* Main button with pulse ring */}
+          <div className="relative">
+            {/* Animated pulse ring */}
+            <div className="absolute inset-0 rounded-2xl"
+              style={{ animation: 'laxPulseRing 2s ease-out infinite', background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)', borderRadius: '16px' }} />
+            
+            <button id="chatbot-open-btn" onClick={() => setIsOpen(true)}
+              className="relative w-16 h-16 flex flex-col items-center justify-center rounded-2xl hover:scale-110 active:scale-95 transition-all duration-200"
+              style={{
+                background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
+                animation: 'laxGlow 3s ease-in-out infinite',
+                boxShadow: '0 8px 32px rgba(212,20,90,0.4)',
+                borderRadius: '16px',
+              }}
+              aria-label="Open Laxshmi AI assistant">
+              <span style={{ fontSize: '28px', lineHeight: 1 }}>🪔</span>
+              <span style={{ fontSize: '9px', fontWeight: 800, color: 'white', letterSpacing: '0.05em', marginTop: '2px' }}>LAXSHMI</span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* ── Chat window (when open) ── */}
       {isOpen && (
-        <div
-          id="chatbot-window"
-          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900"
-          style={{ width: "360px", maxWidth: "calc(100vw - 24px)", height: "540px", maxHeight: "calc(100vh - 80px)" }}
-        >
+        <div id="chatbot-window"
+          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-white dark:bg-zinc-900"
+          style={{ 
+            width: '360px', maxWidth: 'calc(100vw - 24px)', height: '540px', maxHeight: 'calc(100vh - 80px)',
+            animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            border: '1px solid rgba(212,20,90,0.2)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,107,53,0.1)',
+          }}>
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: "linear-gradient(135deg, #16a34a 0%, #15803d 100%)" }}>
-            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-              <LaxshmiIcon size={22} />
+          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+            <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <span style={{ fontSize: '20px' }}>🪔</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-sm leading-none">Laxshmi</p>
-              <p className="text-green-100 text-[10px] mt-0.5">FarmFreshFarmer AI Assistant</p>
+              <p className="text-white font-bold text-sm leading-none">Laxshmi</p>
+              <p className="text-white/80 text-[10px] mt-0.5">{strings.headerSubtitle}</p>
             </div>
             {/* Language selector */}
             <div className="relative">
@@ -265,7 +293,7 @@ export function ChatbotLaxshmi() {
                 <div className="absolute right-0 top-8 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-emerald-100 dark:border-emerald-800 overflow-hidden z-10 min-w-[120px]">
                   {(Object.keys(LANG_LABELS) as Language[]).map((l) => (
                     <button key={l} onClick={() => { setLanguage(l); setShowLangPicker(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition ${language === l ? "text-emerald-600 font-semibold" : "text-gray-700 dark:text-gray-300"}`}>
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition ${language === l ? "text-purple-600 font-semibold" : "text-gray-700 dark:text-gray-300"}`}>
                       {LANG_LABELS[l]}
                     </button>
                   ))}
@@ -283,37 +311,40 @@ export function ChatbotLaxshmi() {
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "model" && (
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                    <Leaf size={12} className="text-emerald-600" />
+                  <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
+                    style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+                    <span style={{ fontSize: '12px' }}>🪔</span>
                   </div>
                 )}
                 <div className="max-w-[78%]">
                   <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-emerald-600 text-white rounded-tr-sm"
+                      ? "text-white rounded-tr-sm"
                       : "bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 rounded-tl-sm"
-                  }`}>
+                  }`}
+                  style={msg.role === "user" ? { background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' } : {}}
+                  >
                     {msg.content}
                   </div>
                   {/* Action buttons */}
                   {msg.action === "GO_TO_CHECKOUT" && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
-                      className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold hover:underline">
-                      <ShoppingCart size={12} /> Go to Cart & Checkout
+                      className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
+                      <ShoppingCart size={12} /> {strings.goToCart}
                     </button>
                   )}
                   {msg.action === "ADD_TO_CART" && msg.actionData?.productId && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
-                      className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold hover:underline">
-                      <ExternalLink size={12} /> View Product
+                      className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
+                      <ExternalLink size={12} /> {strings.viewProduct}
                     </button>
                   )}
                   {/* Listen button */}
                   {msg.role === "model" && (
                     <button id={`chatbot-listen-${msg.id}`}
                       onClick={() => speakText(msg.content, msg.id, language)}
-                      className={`mt-1 flex items-center gap-1 text-[10px] transition ${speakingId === msg.id ? "text-red-500 font-medium" : "text-gray-400 hover:text-emerald-600"}`}>
-                      {speakingId === msg.id ? <><VolumeX size={11} /> Stop</> : <><Volume2 size={11} /> Listen</>}
+                      className={`mt-1 flex items-center gap-1 text-[10px] transition ${speakingId === msg.id ? "text-red-500 font-medium" : "text-gray-400 hover:text-purple-600"}`}>
+                      {speakingId === msg.id ? <><VolumeX size={11} /> {strings.stop}</> : <><Volume2 size={11} /> {strings.listen}</>}
                     </button>
                   )}
                 </div>
@@ -322,12 +353,13 @@ export function ChatbotLaxshmi() {
             {/* Loading dots */}
             {sendMutation.isPending && (
               <div className="flex justify-start">
-                <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mr-2 mt-1">
-                  <Leaf size={12} className="text-emerald-600" />
+                <div className="w-6 h-6 rounded-full flex items-center justify-center mr-2 mt-1"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+                  <span style={{ fontSize: '12px' }}>🪔</span>
                 </div>
                 <div className="bg-gray-100 dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3.5 flex gap-1.5 items-center">
                   {[0, 150, 300].map((d) => (
-                    <span key={d} className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                    <span key={d} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#7B2FF7', animationDelay: `${d}ms` }} />
                   ))}
                 </div>
               </div>
@@ -338,43 +370,56 @@ export function ChatbotLaxshmi() {
           {/* Connect to Human */}
           <div className="px-3 pb-1.5 flex-shrink-0">
             <button id="chatbot-human-btn" onClick={handleConnectHuman} disabled={humanMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition disabled:opacity-50">
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800 text-xs font-medium text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition disabled:opacity-50">
               <Users size={13} />
-              {humanMutation.isPending ? "Connecting…" : "Connect to Human Support"}
+              {humanMutation.isPending ? strings.connecting : strings.connectHuman}
             </button>
           </div>
 
           {/* Input bar */}
           <div className="px-3 pb-3 pt-0.5 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-emerald-400 transition">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-purple-400 transition">
               <input ref={inputRef} id="chatbot-input" type="text" value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder={language === "te" ? "ఇక్కడ టైప్ చేయండి..." : language === "hi" ? "यहाँ टाइप करें..." : "Type your message..."}
+                placeholder={strings.placeholder}
                 className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
               />
               {/* Mic button */}
               <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
-                className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"}`}
+                className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30"}`}
                 aria-label={isListening ? "Stop recording" : "Start voice input"}>
                 {isListening ? <MicOff size={14} /> : <Mic size={14} />}
               </button>
               {/* Send button */}
               <button id="chatbot-send-btn" onClick={handleSend} disabled={!input.trim() || sendMutation.isPending}
-                className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 transition disabled:opacity-40"
+                className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' }}
                 aria-label="Send message">
                 <Send size={13} />
               </button>
             </div>
-            <p className="text-center text-[9px] text-gray-400 mt-1">Powered by Gemini AI · FarmFreshFarmer</p>
+            <p className="text-center text-[9px] text-gray-400 mt-1">{strings.poweredBy}</p>
           </div>
         </div>
       )}
 
       <style>{`
-        @keyframes laxBubble {
-          0%, 100% { transform: translateY(0); opacity: 1; }
-          50% { transform: translateY(-4px); opacity: 0.9; }
+        @keyframes laxGlow {
+          0%, 100% { box-shadow: 0 0 20px rgba(212,20,90,0.4), 0 0 40px rgba(123,47,247,0.2); }
+          50% { box-shadow: 0 0 30px rgba(255,107,53,0.6), 0 0 60px rgba(212,20,90,0.4); }
+        }
+        @keyframes laxPulseRing {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes laxSlideUp {
+          from { transform: translateY(20px) scale(0.95); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes laxBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
         }
       `}</style>
     </>
