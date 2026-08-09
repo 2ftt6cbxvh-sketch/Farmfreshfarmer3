@@ -82,7 +82,9 @@ export default function AdminDashboardScreen() {
   const [selectedPerms, setSelectedPerms] = useState<string[]>(['/admin', '/admin/orders']);
 
   // Super Admin Password State
-  const [superAdminPass, setSuperAdminPass] = useState('');
+  const [currentSuperAdminPass, setCurrentSuperAdminPass] = useState('');
+  const [newSuperAdminPass, setNewSuperAdminPass] = useState('');
+  const [totpSuperAdminCode, setTotpSuperAdminCode] = useState('');
 
   // Business Settings State (Matching Web screenshots)
   const [settings, setSettings] = useState<Record<string, any>>({
@@ -262,12 +264,15 @@ export default function AdminDashboardScreen() {
   });
 
   const updateSuperAdminPasswordMutation = useMutation({
-    mutationFn: (newPassword: string) => api.post('/api/admin/update-password', { newPassword }),
+    mutationFn: (payload: { currentPassword: string; newPassword: string; totpCode: string }) =>
+      api.post('/api/admin/update-password', payload),
     onSuccess: () => {
-      setSuperAdminPass('');
-      Alert.alert('Password Updated 🔑', 'Super Admin password updated successfully!');
+      setCurrentSuperAdminPass('');
+      setNewSuperAdminPass('');
+      setTotpSuperAdminCode('');
+      Alert.alert('🔑 Password Updated!', 'Super Admin password updated successfully following Current Password & 2FA TOTP verification.');
     },
-    onError: (err: any) => Alert.alert('Error', err.response?.data?.message || 'Failed to update password')
+    onError: (err: any) => Alert.alert('Security Validation Failed', err.response?.data?.message || 'Failed to update password')
   });
 
   const saveSettingsMutation = useMutation({
@@ -318,23 +323,55 @@ export default function AdminDashboardScreen() {
             {/* SUPER ADMIN PASSWORD UPDATE SECURITY CARD */}
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>🔐 Super Admin Password Update</Text>
-              <Text style={{ fontSize: 12, color: mutedColor }}>Change your Super Admin account password securely.</Text>
+              <Text style={{ fontSize: 12, color: mutedColor }}>
+                Requires Current Super Admin Password AND live 6-Digit Authenticator TOTP 2FA code.
+              </Text>
+
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>Current (Old) Password *</Text>
+              <TextInput
+                style={[styles.input, { color: textColor, borderColor: borderCol }]}
+                placeholder="Enter Current Super Admin Password"
+                placeholderTextColor={mutedColor}
+                secureTextEntry
+                value={currentSuperAdminPass}
+                onChangeText={setCurrentSuperAdminPass}
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>New Password (min 6 chars) *</Text>
               <TextInput
                 style={[styles.input, { color: textColor, borderColor: borderCol }]}
                 placeholder="Enter New Super Admin Password"
                 placeholderTextColor={mutedColor}
                 secureTextEntry
-                value={superAdminPass}
-                onChangeText={setSuperAdminPass}
+                value={newSuperAdminPass}
+                onChangeText={setNewSuperAdminPass}
               />
+
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#10b981', marginTop: 4 }}>🔑 6-Digit Authenticator TOTP 2FA Code *</Text>
+              <TextInput
+                style={[styles.input, { color: '#10b981', borderColor: '#10b981', fontWeight: '900', letterSpacing: 3, textAlign: 'center', fontSize: 18 }]}
+                placeholder="123456"
+                placeholderTextColor={mutedColor}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={totpSuperAdminCode}
+                onChangeText={setTotpSuperAdminCode}
+              />
+
               <TouchableOpacity
                 style={styles.actionBtn}
                 onPress={() => {
-                  if (superAdminPass.length < 6) { Alert.alert('Error', 'Password must be at least 6 characters'); return; }
-                  updateSuperAdminPasswordMutation.mutate(superAdminPass);
+                  if (!currentSuperAdminPass) { Alert.alert('Validation Error', 'Please enter your Current Super Admin Password'); return; }
+                  if (newSuperAdminPass.length < 6) { Alert.alert('Validation Error', 'New password must be at least 6 characters'); return; }
+                  if (totpSuperAdminCode.length < 6) { Alert.alert('Validation Error', 'Please enter your 6-digit Authenticator TOTP code'); return; }
+                  updateSuperAdminPasswordMutation.mutate({
+                    currentPassword: currentSuperAdminPass,
+                    newPassword: newSuperAdminPass,
+                    totpCode: totpSuperAdminCode,
+                  });
                 }}
               >
-                <Text style={styles.actionBtnText}>Update Super Admin Password 🔑</Text>
+                <Text style={styles.actionBtnText}>Verify TOTP & Update Password 🔑</Text>
               </TouchableOpacity>
             </View>
 

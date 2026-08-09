@@ -222,20 +222,58 @@ export function registerStaffRoutes(app: Express) {
     }
   });
 
-  /** POST /api/admin/update-password — Update Super Admin password securely */
+  /** POST /api/admin/update-password — Update Super Admin password securely (Requires Current Password + 6-digit TOTP 2FA) */
   app.post("/api/admin/update-password", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { newPassword } = req.body || {};
-      if (!newPassword || newPassword.trim().length < 6) {
-        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      const { currentPassword, newPassword, totpCode } = req.body || {};
+
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Current (old) Super Admin password is required." });
       }
 
-      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
-      await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.email, "admin@farmfreshfarmer.com"));
+      if (!newPassword || newPassword.trim().length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters long." });
+      }
 
-      return res.json({ success: true, message: "🔑 Super Admin password updated successfully!" });
+      if (!totpCode || String(totpCode).trim().length < 6) {
+        return res.status(400).json({ message: "6-Digit Authenticator TOTP 2FA verification code is required." });
+      }
+
+      // 1. Verify 6-Digit TOTP Code
+      const { verifyTotpCode, generateTotpSecret } = await import("../../services/totp");
+      const { storage } = await import("../../storage");
+      let secret = await storage.settings.get("admin_totp_secret");
+      if (!secret) {
+        secret = generateTotpSecret().secret;
+        await storage.settings.set("admin_totp_secret", secret);
+        await storage.settings.set("admin_totp_enabled", "true");
+      }
+
+      const isTotpValid = verifyTotpCode(secret, String(totpCode).trim());
+      if (!isTotpValid) {
+        return res.status(400).json({ message: "Invalid 6-digit TOTP code. Check Apple Passwords or Authenticator App." });
+      }
+
+      // 2. Fetch Super Admin User
+      const [adminUser] = await db.select().from(users).where(eq(users.email, "admin@farmfreshfarmer.com")).limit(1);
+      if (!adminUser) {
+        return res.status(404).json({ message: "Super Admin account not found." });
+      }
+
+      // 3. Verify Current Password against bcrypt hash
+      const isPasswordValid = await bcrypt.compare(currentPassword, adminUser.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: "Current Super Admin password is incorrect." });
+      }
+
+      // 4. Update Password to new bcrypt hash
+      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+      await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.id, adminUser.id));
+
+      return res.json({ success: true, message: "🔑 Super Admin password updated successfully following Current Password & TOTP 2FA verification!" });
     } catch (err: any) {
-      return res.status(500).json({ message: "Failed to update Super Admin password" });
+      console.error("[update-password] Error:", err);
+      return res.status(500).json({ message: err?.message || "Failed to update Super Admin password." });
     }
   });
 }

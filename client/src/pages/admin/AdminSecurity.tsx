@@ -7,11 +7,98 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock } from "lucide-react";
+import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 
 import { apiRequest } from "@/lib/queryClient";
+
+function SuperAdminPasswordUpdateCard() {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/update-password", {
+        currentPassword,
+        newPassword,
+        totpCode,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "🔑 Super Admin Password Updated!", description: data.message });
+      setCurrentPassword("");
+      setNewPassword("");
+      setTotpCode("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Security Validation Failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card className="border-emerald-500/40 bg-card shadow-xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-foreground font-serif">
+          <KeyRound className="w-5 h-5 text-emerald-400" />
+          <span>Super Admin Password & 2FA TOTP Security</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Updating the Super Admin master account password requires validating your <strong>Current Password</strong> AND entering a live <strong>6-Digit Authenticator TOTP Code</strong>.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-xs font-bold text-foreground">Current (Old) Super Admin Password *</Label>
+            <Input
+              type="password"
+              placeholder="Enter current password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-foreground">New Super Admin Password *</Label>
+            <Input
+              type="password"
+              placeholder="Min 6 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-emerald-400">🔑 6-Digit TOTP Code *</Label>
+            <Input
+              type="text"
+              placeholder="123456"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="mt-1 font-mono text-center tracking-widest font-bold border-emerald-500/50"
+            />
+          </div>
+        </div>
+
+        <Button
+          onClick={() => updateMutation.mutate()}
+          disabled={updateMutation.isPending || !currentPassword || newPassword.length < 6 || totpCode.length < 6}
+          className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold rounded-xl shadow-lg"
+        >
+          {updateMutation.isPending ? "Validating Password & 2FA TOTP..." : "Verify Current Password + TOTP & Update Super Admin Password 🔑"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function ChiefAdminTotpCard() {
   const { toast } = useToast();
@@ -269,6 +356,9 @@ export default function AdminSecurity() {
 
       {/* Chief Admin 2FA TOTP & Passkeys */}
       <ChiefAdminTotpCard />
+
+      {/* Super Admin Password Change with TOTP & Old Password Validation */}
+      <SuperAdminPasswordUpdateCard />
 
       {/* Telegram Security Bot Controller */}
       <Card className="border-emerald-500/30 bg-card shadow-xl overflow-hidden">
