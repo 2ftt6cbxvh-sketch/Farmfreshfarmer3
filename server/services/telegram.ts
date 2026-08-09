@@ -67,8 +67,7 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
       if (data.startsWith("approve_")) {
         const token = data.replace("approve_", "");
         approveTelegramUnlockToken(token);
-        await setLockdown(false, "", 1);
-        const reply = `✅ <b>SUPER ADMIN EMERGENCY UNLOCK APPROVED!</b>\nToken: <code>${token}</code>\nPlatform Lockdown deactivated & session authorized.`;
+        const reply = `✅ <b>SUPER ADMIN OVERRIDE SESSION APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
         await sendTelegramAlert(reply);
         return { handled: true, reply };
       } else if (data.startsWith("reject_")) {
@@ -183,8 +182,7 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     if (!token) return { handled: true, reply: "⚠️ Usage: <code>/approve 123456</code> or tap the inline button." };
     const success = approveTelegramUnlockToken(token);
     if (success) {
-      await setLockdown(false, "", 1);
-      const reply = `✅ <b>SUPER ADMIN OVERRIDE APPROVED!</b>\nToken: <code>${token}</code>\nPlatform Lockdown deactivated & session authorized.`;
+      const reply = `✅ <b>SUPER ADMIN OVERRIDE SESSION APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
       await sendTelegramAlert(reply);
       return { handled: true, reply };
     } else {
