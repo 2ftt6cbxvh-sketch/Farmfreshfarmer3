@@ -40,7 +40,17 @@ function AppContent() {
     return () => clearInterval(interval);
   }, []);
 
-  if (lockdownActive) {
+  const isSuperAdminUser = (() => {
+    try {
+      const user = JSON.parse((typeof localStorage !== 'undefined' ? localStorage.getItem('user') : null) || 'null');
+      const token = (typeof localStorage !== 'undefined' ? (localStorage.getItem('admin_token') || localStorage.getItem('token')) : null);
+      return !!(token && user && (user.email === 'admin@farmfreshfarmer.com' || user.role === 'superadmin'));
+    } catch {
+      return false;
+    }
+  })();
+
+  if (lockdownActive && !isSuperAdminUser) {
     return (
       <View style={styles.lockdownContainer}>
         <StatusBar style="light" />

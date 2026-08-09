@@ -156,14 +156,15 @@ function AppContent() {
 
   return (
     <>
-      <LockdownOverlay active={lockdownActive} reason={lockdownReason} />
       <TooltipProvider>
         <AuthProvider>
           <CartProvider>
             <Toaster />
             <Router hook={useHashLocation}>
               <ScrollToTop />
-              <AppRouter />
+              <NavHeader />
+              <AppRoutes />
+              <Footer />
             </Router>
           </CartProvider>
         </AuthProvider>
