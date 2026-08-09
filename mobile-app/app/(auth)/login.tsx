@@ -43,10 +43,7 @@ export default function LoginScreen() {
     androidClientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
     webClientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
     scopes: ['profile', 'email'],
-    redirectUri: AuthSession.makeRedirectUri({
-      scheme: 'farmfreshfarmer',
-      // useProxy routes through auth.expo.io which is already whitelisted
-    }),
+    redirectUri: 'farmfreshfarmer://oauthredirect',
   });
 
   useEffect(() => {
