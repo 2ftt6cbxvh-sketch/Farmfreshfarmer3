@@ -875,6 +875,37 @@ function resolveCartQty(
       }
       // === END CART ADD INTENT ===
 
+      // === PINCODE DIRECT ETA LOOKUP ===
+      const pincodeMatch = message.trim().match(/\b([1-9][0-9]{5})\b/);
+      if (pincodeMatch) {
+        const pincode = pincodeMatch[1];
+        try {
+          const etaResult = await resolveByPincode(pincode);
+          let etaReply = '';
+          if (etaResult.serviceable) {
+            const area = etaResult.locationArea ? ` (${etaResult.locationArea})` : '';
+            const feeStr = etaResult.fee === 0 ? 'FREE' : `Rs.${etaResult.fee}`;
+            etaReply = `Great news for PIN code ${pincode}${area}! We deliver to your area! 🚀\n\n` +
+              `Estimated Delivery Time: ${etaResult.etaMinutes} minutes\n` +
+              `Delivery Fee: ${feeStr}\n` +
+              `(Free delivery on orders above Rs.499!)\n\n` +
+              `We deliver fresh organic produce daily between 6:00 AM and 10:00 PM.`;
+          } else {
+            const reason = etaResult.reason || 'outside our instant delivery zone';
+            etaReply = `Sorry! PIN code ${pincode} is currently ${reason}. However, we offer Pan-India shipping for non-perishable items like pickles, sweets, millets, and spices! Would you like to explore those options?`;
+          }
+          return res.json({
+            reply: etaReply,
+            needsHuman: false,
+            isEtaResponse: true,
+          });
+        } catch (pincodeErr) {
+          console.warn('[chatbot] pincode ETA lookup error:', pincodeErr);
+          // Fall through to Gemini if lookup fails
+        }
+      }
+      // === END PINCODE DIRECT ETA LOOKUP ===
+
       // === ETA/DELIVERY TIME INTENT DETECTION ===
       if (detectETAIntent(message)) {
         return res.json({
@@ -1023,11 +1054,12 @@ function resolveCartQty(
         })).slice(0, 4);
       }
 
-      // Show product cards if products were mentioned in user message OR in AI response
+      // Do NOT show product cards for ETA/delivery/pincode queries
+      const isEtaOrDeliveryQuery = detectETAIntent(message) || /\b([1-9][0-9]{5})\b/.test(message);
       const finalProducts = matchedProducts.length > 0 ? matchedProducts : responseProducts;
-      const showProductCards = finalProducts.length > 0 && (
+      const showProductCards = !isEtaOrDeliveryQuery && finalProducts.length > 0 && (
         isProductInquiry(message) || 
-        responseProducts.length > 0  // also show when AI mentions products
+        responseProducts.length > 0
       );
 
       return res.json({
