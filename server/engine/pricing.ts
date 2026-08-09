@@ -414,7 +414,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   try {
     const { resolveByPincode } = await import("../services/delivery");
     const { deliveryFeeRules } = await import("@shared/schema");
-    const userPincode = req.pincode || "522502";
+    const userPincode = req.pincode ?? null;
     const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
     const freeThreshold = resByPin?.freeDeliveryAbove || 500;
 

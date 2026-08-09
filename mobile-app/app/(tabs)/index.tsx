@@ -1206,8 +1206,8 @@ const styles = StyleSheet.create({
   catCardTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'serif', textAlign: 'center' },
 
   // 5. Featured Products Grid (Screenshot 2)
-  productsSection: { paddingHorizontal: 16, marginTop: 24 },
-  sectionHeaderLeft: { marginBottom: 16 },
+  productsSection: { paddingHorizontal: 16, marginTop: 16 },
+  sectionHeaderLeft: { marginBottom: 14, paddingTop: 4, overflow: 'visible' },
   favoritesBadgePill: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   favoritesBadgePillText: { color: '#fbbf24', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  productsSectionTitle: { fontSize: 24, fontWeight: '900', fontFamily: 'serif' },
+  productsSectionTitle: { fontSize: 22, fontWeight: '800', lineHeight: 30 },
   productCountSubtitle: { fontSize: 12, marginTop: 2, fontWeight: '600' },
   clearCategoryFilterBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -1231,8 +1231,8 @@ const styles = StyleSheet.create({
   },
   clearCategoryFilterBtnText: { color: '#ef4444', fontSize: 11, fontWeight: '800' },
 
-  productsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
-  productCardWrapper: { width: '47%', marginHorizontal: '1.5%', marginBottom: 16 },
+  productsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  productCardWrapper: { width: '48%' },
   productCard: {
     borderRadius: 24,
     overflow: 'hidden',

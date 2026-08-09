@@ -119,7 +119,7 @@ export default function BasketScreen() {
         referralCode: referralValidated || null,
         redeemReward,
         city: cityArea || null,
-        pincode: inputPincode || '522502',
+        pincode: inputPincode || resolution?.pincode || null,
       });
       return res.data;
     },
@@ -512,7 +512,7 @@ export default function BasketScreen() {
             <View style={styles.pincodeRow}>
               <TextInput
                 style={[styles.pincodeInput, isDark ? styles.inputDark : styles.inputLight]}
-                placeholder="e.g. 522502"
+                placeholder="e.g. 520001, 500001"
                 placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={inputPincode}
                 onChangeText={setInputPincode}
@@ -559,7 +559,7 @@ export default function BasketScreen() {
             </View>
             <TextInput
               style={[styles.fullWidthInput, isDark ? styles.inputDark : styles.inputLight]}
-              placeholder="e.g. Vaddeswaram, Guntur"
+              placeholder="e.g. Vijayawada, Guntur, Hyderabad"
               placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
               value={cityArea}
               onChangeText={setCityArea}

@@ -23,14 +23,27 @@ export function useDelivery() {
           const parsed = JSON.parse(cached);
           if (parsed && typeof parsed === 'object') {
             setResolution(parsed);
+            // Still try a silent GPS refresh in background to keep location fresh
+            autoDetectGps();
             return;
           }
         }
       } catch {}
 
-      // Auto-detect GPS if permission was already granted previously
+      // No cached resolution — actively request GPS on first launch
       if (mounted) {
-        autoDetectGps();
+        // Request permission immediately (will show system dialog if not granted)
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            autoDetectGps();
+          } else {
+            // Permission denied — set a neutral "not detected" state, don't hardcode any location
+            setResolution(null);
+          }
+        } catch {
+          setResolution(null);
+        }
       }
     };
     init();
