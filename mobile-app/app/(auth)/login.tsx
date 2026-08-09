@@ -39,8 +39,7 @@ export default function LoginScreen() {
   }, []);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: '983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com',
-    webClientId: '983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com',
+    clientId: '983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com',
     scopes: ['profile', 'email'],
     redirectUri: 'https://auth.expo.io/@ganeshvarma/farmfreshfarmer',
   });
