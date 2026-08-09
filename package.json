@@ -20,6 +20,7 @@
     "db:setup": "tsx script/migrate.ts && tsx script/apply-views.ts && tsx script/seed.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@radix-ui/react-accordion": "^1.2.4",

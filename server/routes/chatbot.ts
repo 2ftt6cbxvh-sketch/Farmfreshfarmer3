@@ -186,40 +186,28 @@ async function callGemini(
   history: HistoryEntry[],
   language: Language
 ): Promise<string> {
+  const { GoogleGenerativeAI } = await import("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(apiKey);
   const systemPrompt = buildSystemPrompt(language);
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-  const body = {
-    system_instruction: {
-      parts: [{ text: systemPrompt }],
-    },
-    contents: [
-      ...history.map((h) => ({
-        role: h.role,
-        parts: [{ text: h.content }],
-      })),
-      { role: "user", parts: [{ text: message }] },
-    ],
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: systemPrompt 
+  });
+
+  const chat = model.startChat({
+    history: history.map((h) => ({
+      role: h.role,
+      parts: [{ text: h.content }],
+    })),
     generationConfig: {
       temperature: 0.7,
       maxOutputTokens: 500,
     },
-  };
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${errText}`);
-  }
-
-  const data: any = await res.json();
-  const text: string =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const result = await chat.sendMessage(message);
+  const text = result.response.text();
 
   if (!text) {
     throw new Error("Gemini returned empty response");
@@ -227,6 +215,7 @@ async function callGemini(
 
   return text.trim();
 }
+
 
 // ---------------------------------------------------------------------------
 // Parse action from Gemini reply
@@ -325,10 +314,10 @@ export function registerChatbotRoutes(app: any, storage: any) {
         : "en") as Language;
 
       // Fetch Gemini API key from settings
-      let geminiApiKey: string | null = null;
+      let geminiApiKey: string = "";
       try {
         const allSettings = await storage.settings.all();
-        geminiApiKey = allSettings?.gemini_api_key || null;
+        geminiApiKey = allSettings.gemini_api_key || process.env.GEMINI_API_KEY || "";
       } catch (err) {
         console.warn("[Chatbot] Could not fetch settings:", err);
       }
