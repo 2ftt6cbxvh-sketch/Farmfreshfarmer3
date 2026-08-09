@@ -1,13 +1,30 @@
 import { Layout } from "@/components/Layout";
+import { useQuery } from "@tanstack/react-query";
 
-const BUSINESS = "FarmFreshFarmer";
-const EMAIL = "admin@farmfreshfarmer.com";
-const PHONE = "+91 79897 93669";
-const CITY = "Vijayawada";
 const LAST_UPDATED = "07 July 2026";
 
 /** Shared page shell so all four policies look consistent. */
 function PolicyShell({ title, children }: { title: string; children: React.ReactNode }) {
+  const { data: publicSettings } = useQuery<{
+    contact_phone?: string;
+    contact_email?: string;
+    contact_address?: string;
+    operating_hours?: string;
+    store_name?: string;
+  }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const phone = publicSettings?.contact_phone || "+91 79897 93669";
+  const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const address = publicSettings?.contact_address || "Vijayawada, Andhra Pradesh";
+  const hours = publicSettings?.operating_hours || "6:00 AM – 10:00 PM IST";
+
   return (
     <Layout>
       <div className="mx-auto max-w-3xl px-4 py-12">
@@ -18,10 +35,12 @@ function PolicyShell({ title, children }: { title: string; children: React.React
         <div className="prose-policy mt-6 space-y-5 text-sm leading-relaxed text-foreground/90">
           {children}
         </div>
-        <div className="mt-10 rounded-lg border border-card-border bg-card p-4 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">Contact us</p>
-          <p className="mt-1">{BUSINESS} · {CITY}</p>
-          <p>Email: {EMAIL} · Phone: {PHONE}</p>
+        <div className="mt-10 rounded-xl border border-emerald-500/30 bg-card p-5 text-sm text-muted-foreground shadow-md">
+          <p className="font-bold text-foreground text-base">📞 Contact Us & Support</p>
+          <p className="mt-2 text-foreground/90">📍 {business} · {address}</p>
+          <p className="mt-1">📱 Phone / WhatsApp: <span className="font-semibold text-emerald-400">{phone}</span></p>
+          <p className="mt-1">✉️ Email: <span className="font-semibold text-emerald-400">{email}</span></p>
+          <p className="mt-1">⏱️ Support Operating Hours: <span className="font-semibold text-foreground">{hours}</span></p>
         </div>
       </div>
     </Layout>

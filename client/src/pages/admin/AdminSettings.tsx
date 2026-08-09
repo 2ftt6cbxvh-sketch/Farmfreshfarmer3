@@ -727,9 +727,17 @@ const STORE_KEYS = [
 const PAYMENT_KEYS = [
   { key: "cod_enabled", label: "Allow Cash on Delivery at checkout", type: "bool" as const },
 ];
+const LEGAL_CONTACT_KEYS = [
+  { key: "contact_phone", label: "Customer Support Phone / WhatsApp", type: "text" as const },
+  { key: "contact_email", label: "Customer Support Email Address", type: "text" as const },
+  { key: "contact_address", label: "Company Headquarters Address", type: "text" as const },
+  { key: "operating_hours", label: "Customer Support Operating Hours", type: "text" as const },
+  { key: "return_window_hours", label: "Perishable Claim Return Window (Hours)", type: "amount" as const },
+  { key: "shipping_policy_custom_notes", label: "Custom Shipping Policy Notes", type: "text" as const },
+];
 
 const ALL_KNOWN_KEYS = [
-  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS,
+  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS,
 ].map((k) => k.key).concat("delivery_rules");
 
 function FieldRow({
@@ -1089,6 +1097,7 @@ function AuthMethodsCustomizer() {
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security">("delivery");
 
   // ---------- Business settings ----------
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -1099,8 +1108,6 @@ export default function AdminSettings() {
   const [form, setForm] = useState<SettingsMap>({});
 
   useEffect(() => {
-    // COD defaults to enabled when unset, so show the toggle ON unless the
-    // admin has explicitly saved "false".
     if (settingsData) setForm({ cod_enabled: "true", ...settingsData });
   }, [settingsData]);
 
@@ -1114,7 +1121,7 @@ export default function AdminSettings() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
-      toast({ title: "Settings saved", description: "Business settings updated successfully." });
+      toast({ title: "Settings saved", description: "Business & Legal settings updated successfully." });
     },
     onError: () => {
       toast({ title: "Could not save settings", description: "Please try again.", variant: "destructive" });
@@ -1158,51 +1165,76 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout title="Settings">
-      <div className="max-w-2xl space-y-6">
-        {/* Business settings */}
-        <div className="rounded-xl border border-card-border bg-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-serif text-xl">Business settings</h2>
-            <Button
-              size="sm"
-              onClick={() => saveSettings.mutate()}
-              disabled={saveSettings.isPending || settingsLoading}
-              data-testid="button-save-settings"
-            >
-              <Save size={16} className="mr-1.5" />
-              {saveSettings.isPending ? "Saving…" : "Save changes"}
-            </Button>
+      <div className="max-w-4xl space-y-6">
+        {/* Header & Quick Save Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-card-border p-5 rounded-2xl shadow-sm">
+          <div>
+            <h2 className="font-serif text-xl font-bold text-foreground">Super Admin Platform Controls</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage delivery fees, legal policy terms, contact details, payment gateways, and security.</p>
           </div>
+          <Button
+            size="sm"
+            onClick={() => saveSettings.mutate()}
+            disabled={saveSettings.isPending || settingsLoading}
+            className="bg-emerald-600 hover:bg-emerald-500 font-extrabold gap-2 self-start sm:self-auto shadow-md"
+            data-testid="button-save-settings"
+          >
+            <Save size={16} />
+            {saveSettings.isPending ? "Saving..." : "Save All Settings"}
+          </Button>
+        </div>
 
-          {settingsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading settings…</p>
-          ) : (
-            <div className="space-y-6">
-              <section>
-                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                  <Percent size={16} /> Discounts
-                </div>
-                <div className="divide-y divide-card-border">
-                  {DISCOUNT_KEYS.map((f) => (
-                    <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
-                  ))}
-                </div>
-              </section>
+        {/* Organized Category Sub-Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-card-border pb-3">
+          <button
+            onClick={() => setActiveCategory("delivery")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "delivery" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <Truck size={16} /> 🚚 Delivery & Logistics
+          </button>
+          <button
+            onClick={() => setActiveCategory("legal")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "legal" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <MapPin size={16} /> 📜 Legal & Contact Info
+          </button>
+          <button
+            onClick={() => setActiveCategory("branding")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "branding" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <Sparkles size={16} /> 🎨 Storefront & Branding
+          </button>
+          <button
+            onClick={() => setActiveCategory("payments")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "payments" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <CreditCard size={16} /> 💳 Payments & Discounts
+          </button>
+          <button
+            onClick={() => setActiveCategory("security")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "security" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <KeyRound size={16} /> 🔐 Security & Accounts
+          </button>
+        </div>
 
+        {/* ── TAB 1: 🚚 DELIVERY & LOGISTICS ────────────────────────────── */}
+        {activeCategory === "delivery" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <section>
-                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                  <Gift size={16} /> Referrals
-                </div>
-                <div className="divide-y divide-card-border">
-                  {REFERRAL_KEYS.map((f) => (
-                    <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                  <Truck size={16} /> Delivery
+                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                  <Truck size={16} /> Instant Local & Subscription Delivery Rules
                 </div>
                 <div className="divide-y divide-card-border">
                   {DELIVERY_KEYS.map((f) => (
@@ -1211,33 +1243,91 @@ export default function AdminSettings() {
                 </div>
               </section>
 
-              <section>
-                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                  <MapPin size={16} /> Delivery charges by city
+              <section className="pt-4 border-t border-card-border">
+                <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-primary">
+                  <MapPin size={16} /> Per-City Express Delivery Fees & Free Thresholds
                 </div>
                 <DeliveryRulesEditor
                   value={form["delivery_rules"]}
                   onChange={(json) => setField("delivery_rules", json)}
                 />
               </section>
+            </div>
+          </div>
+        )}
 
+        {/* ── TAB 2: 📜 LEGAL, CONTACT & SUPPORT ───────────────────────── */}
+        {activeCategory === "legal" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                <MapPin size={16} /> Customer Support & Operational Hub Contact Info
+              </div>
+              <p className="text-xs text-muted-foreground">
+                These settings control the contact details, phone numbers, HQ address, operating hours, and return policy terms displayed across Web & Mobile App.
+              </p>
+              <div className="divide-y divide-card-border">
+                {LEGAL_CONTACT_KEYS.map((f) => (
+                  <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 3: 🎨 STOREFRONT & BRANDING ──────────────────────────── */}
+        {activeCategory === "branding" && (
+          <div className="space-y-6">
+            <HeroShowcaseCustomizer />
+            <SiteTextCustomizer />
+            <SearchRecommendationsManager />
+            <EmployeePerksCustomizer />
+          </div>
+        )}
+
+        {/* ── TAB 4: 💳 PAYMENTS & DISCOUNTS ───────────────────────────── */}
+        {activeCategory === "payments" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <section>
-                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                  <CreditCard size={16} /> Payments
+                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                  <CreditCard size={16} /> Checkout Payment Gateways
                 </div>
                 <div className="divide-y divide-card-border">
                   {PAYMENT_KEYS.map((f) => (
                     <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  When off, customers must pay online (PhonePe) and Cash on Delivery is hidden at checkout.
+                <p className="text-xs text-muted-foreground mt-2">
+                  When COD is toggled OFF, customers must pay online via PhonePe/UPI/Card at checkout.
                 </p>
               </section>
 
-              <section>
-                <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                  <Store size={16} /> Store
+              <section className="pt-4 border-t border-card-border">
+                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                  <Percent size={16} /> First Order Discounts
+                </div>
+                <div className="divide-y divide-card-border">
+                  {DISCOUNT_KEYS.map((f) => (
+                    <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                  ))}
+                </div>
+              </section>
+
+              <section className="pt-4 border-t border-card-border">
+                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                  <Gift size={16} /> Referral Rewards Program
+                </div>
+                <div className="divide-y divide-card-border">
+                  {REFERRAL_KEYS.map((f) => (
+                    <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                  ))}
+                </div>
+              </section>
+
+              <section className="pt-4 border-t border-card-border">
+                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                  <Store size={16} /> Store Identity
                 </div>
                 <div className="divide-y divide-card-border">
                   {STORE_KEYS.map((f) => (
@@ -1245,100 +1335,85 @@ export default function AdminSettings() {
                   ))}
                 </div>
               </section>
-
-              {unknownKeys.length > 0 && (
-                <section>
-                  <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-                    Other settings
-                  </div>
-                  <div className="divide-y divide-card-border">
-                    {unknownKeys.map((key) => (
-                      <div key={key} className="py-2">
-                        <Label htmlFor={`set-${key}`}>{key}</Label>
-                        <Input
-                          id={`set-${key}`}
-                          value={form[key] ?? ""}
-                          onChange={(e) => setField(key, e.target.value)}
-                          className="mt-1"
-                          data-testid={`input-setting-${key}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
             </div>
-          )}
-        </div>
-
-        {/* Hero Showcase Card Manager */}
-        <HeroShowcaseCustomizer />
-
-        {/* Employee & Delivery Partner Perk Discounts Manager */}
-        <EmployeePerksCustomizer />
-
-        {/* Website Badges, Pills & Headlines Customizer */}
-        <SiteTextCustomizer />
-
-        {/* Customer Login Method Controls (Email / OTP / Google) */}
-        <AuthMethodsCustomizer />
-
-        {/* Production Email & SMTP Settings */}
-        <SmtpEmailCustomizer />
-
-        {/* Search Recommendations Manager */}
-        <SearchRecommendationsManager />
-
-        {/* Password change */}
-        <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl">
-          <div className="flex items-center gap-2 mb-1">
-            <KeyRound size={18} className="text-emerald-400" />
-            <h2 className="font-serif font-bold text-lg text-foreground">Change Super Admin Password</h2>
           </div>
-          <p className="text-xs text-muted-foreground mb-4">
-            Logged in as <strong>{user?.email}</strong>. Requires validating Current Password AND live 6-Digit Authenticator TOTP 2FA code.
-          </p>
-          <form onSubmit={submitPassword} className="space-y-4">
-            <div>
-              <Label htmlFor="cur" className="text-xs font-bold">Current (Old) Password *</Label>
-              <Input id="cur" type="password" placeholder="Enter current password" value={current} onChange={(e) => setCurrent(e.target.value)} required data-testid="input-current-password" className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="new" className="text-xs font-bold">New Password (min 6 chars) *</Label>
-              <Input id="new" type="password" placeholder="Enter new password" value={next} onChange={(e) => setNext(e.target.value)} required data-testid="input-new-password" className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="conf" className="text-xs font-bold">Confirm New Password *</Label>
-              <Input id="conf" type="password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required data-testid="input-confirm-password" className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="totp" className="text-xs font-bold text-emerald-400">🔑 6-Digit Authenticator TOTP 2FA Code *</Label>
-              <Input
-                id="totp"
-                type="text"
-                placeholder="123456"
-                maxLength={6}
-                value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                required
-                className="mt-1 text-center font-mono text-lg font-extrabold tracking-widest border-emerald-500/50"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={change.isPending || !current || next.length < 6 || next !== confirm || totpCode.length < 6}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 font-extrabold text-white rounded-xl shadow-lg"
-              data-testid="button-change-password"
-            >
-              {change.isPending ? "Validating Password & TOTP..." : "Verify Current Password + TOTP & Update Password 🔑"}
-            </Button>
-          </form>
-        </div>
+        )}
 
-        <p className="text-xs text-muted-foreground">
-          Tip: the default admin password is set in the code at <code className="bg-secondary px-1 rounded">server/storage.ts</code>.
-          Changing it here updates it instantly without touching code.
-        </p>
+        {/* ── TAB 5: 🔐 SECURITY & ACCOUNTS ────────────────────────────── */}
+        {activeCategory === "security" && (
+          <div className="space-y-6">
+            <AuthMethodsCustomizer />
+            <SmtpEmailCustomizer />
+
+            {/* Password change */}
+            <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <KeyRound size={18} className="text-emerald-400" />
+                <h2 className="font-serif font-bold text-lg text-foreground">Change Super Admin Password</h2>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Logged in as <strong>{user?.email}</strong>. Requires validating Current Password AND live 6-Digit Authenticator TOTP 2FA code.
+              </p>
+              <form onSubmit={submitPassword} className="space-y-4">
+                <div>
+                  <Label htmlFor="cur" className="text-xs font-bold">Current (Old) Password *</Label>
+                  <Input id="cur" type="password" placeholder="Enter current password" value={current} onChange={(e) => setCurrent(e.target.value)} required data-testid="input-current-password" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="new" className="text-xs font-bold">New Password (min 6 chars) *</Label>
+                  <Input id="new" type="password" placeholder="Enter new password" value={next} onChange={(e) => setNext(e.target.value)} required data-testid="input-new-password" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="conf" className="text-xs font-bold">Confirm New Password *</Label>
+                  <Input id="conf" type="password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required data-testid="input-confirm-password" className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="totp" className="text-xs font-bold text-emerald-400">🔑 6-Digit Authenticator TOTP 2FA Code *</Label>
+                  <Input
+                    id="totp"
+                    type="text"
+                    placeholder="123456"
+                    maxLength={6}
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    required
+                    className="mt-1 text-center font-mono text-lg font-extrabold tracking-widest border-emerald-500/50"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={change.isPending || !current || next.length < 6 || next !== confirm || totpCode.length < 6}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 font-extrabold text-white rounded-xl shadow-lg"
+                  data-testid="button-change-password"
+                >
+                  {change.isPending ? "Validating Password & TOTP..." : "Verify Current Password + TOTP & Update Password 🔑"}
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {unknownKeys.length > 0 && (
+          <div className="rounded-xl border border-card-border bg-card p-6">
+            <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
+              Other Custom Settings
+            </div>
+            <div className="divide-y divide-card-border">
+              {unknownKeys.map((key) => (
+                <div key={key} className="py-2">
+                  <Label htmlFor={`set-${key}`}>{key}</Label>
+                  <Input
+                    id={`set-${key}`}
+                    value={form[key] ?? ""}
+                    onChange={(e) => setField(key, e.target.value)}
+                    className="mt-1"
+                    data-testid={`input-setting-${key}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

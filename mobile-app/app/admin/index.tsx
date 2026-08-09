@@ -85,6 +85,7 @@ export default function AdminDashboardScreen() {
   const [currentSuperAdminPass, setCurrentSuperAdminPass] = useState('');
   const [newSuperAdminPass, setNewSuperAdminPass] = useState('');
   const [totpSuperAdminCode, setTotpSuperAdminCode] = useState('');
+  const [settingsCategory, setSettingsCategory] = useState<'delivery' | 'legal' | 'payments' | 'perks' | 'security'>('delivery');
 
   // Business Settings State (Matching Web screenshots)
   const [settings, setSettings] = useState<Record<string, any>>({
@@ -94,6 +95,11 @@ export default function AdminDashboardScreen() {
     referral_discount_percent: '10',
     referrer_reward_percent: '5',
     max_referral_reward_cap_percent: '30',
+    contact_phone: '+91 79897 93669',
+    contact_email: 'admin@farmfreshfarmer.com',
+    contact_address: 'Vijayawada, Andhra Pradesh',
+    operating_hours: '6:00 AM – 10:00 PM IST',
+    return_window_hours: '4',
     subscription_delivery_days: 'Both Saturday & Sunday',
     charge_standard_delivery_fee: 'false',
     standard_delivery_fee: '40',
@@ -101,7 +107,7 @@ export default function AdminDashboardScreen() {
     enable_per_city_delivery_charges: 'false',
     allow_cod: 'true',
     store_name: 'FarmFreshFarmer',
-    store_city: 'Visakhapatnam',
+    store_city: 'Vijayawada',
     site_custom_text: 'Fresh from local farms, delivered straight to your doorstep.',
     telegram_chat_id: '1927711332',
     telegram_bot_token: '',
@@ -809,140 +815,174 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── ⚙️ BUSINESS SETTINGS (PERFECT MATCH TO WEB SCREENSHOTS) ─────────── */}
+        {/* ── ⚙️ BUSINESS & PLATFORM SETTINGS ─────────── */}
         {activeTab === 'settings' && (
           <View style={styles.tabContent}>
-            {/* % DISCOUNTS */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>% Discounts</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable first-order discount</Text>
-                <Switch
-                  value={settings.enable_first_order_discount === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_first_order_discount: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+            {/* Settings Sub-Category Navigation Bar */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[
+                  { key: 'delivery', label: '🚚 Delivery' },
+                  { key: 'legal', label: '📜 Legal & Contact' },
+                  { key: 'payments', label: '💳 Payments & Store' },
+                  { key: 'perks', label: '🎁 Discounts & Perks' },
+                  { key: 'security', label: '🔒 Security & Auth' },
+                ].map(sub => (
+                  <TouchableOpacity
+                    key={sub.key}
+                    onPress={() => setSettingsCategory(sub.key as any)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      backgroundColor: settingsCategory === sub.key ? '#059669' : cardBg,
+                      borderColor: settingsCategory === sub.key ? '#10b981' : borderCol,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: settingsCategory === sub.key ? '#ffffff' : textColor }}>
+                      {sub.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <Text style={{ fontSize: 12, color: mutedColor }}>First order discount %</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.first_order_discount_percent} onChangeText={t => setSettings(p => ({ ...p, first_order_discount_percent: t }))} />
-            </View>
+            </ScrollView>
 
-            {/* 🎁 REFERRALS */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🎁 Referrals</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable referral program</Text>
-                <Switch
-                  value={settings.enable_referral_program === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_referral_program: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+            {/* 🚚 SUB-TAB 1: DELIVERY */}
+            {settingsCategory === 'delivery' && (
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🚚 Delivery Configuration</Text>
+                <Text style={{ fontSize: 12, color: mutedColor }}>Subscription delivery days</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.subscription_delivery_days} onChangeText={t => setSettings(p => ({ ...p, subscription_delivery_days: t }))} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: textColor, fontWeight: 'bold' }}>Charge a standard delivery fee</Text>
+                  <Switch
+                    value={settings.charge_standard_delivery_fee === 'true'}
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, charge_standard_delivery_fee: String(v) }))}
+                    trackColor={{ false: '#ef4444', true: '#10b981' }}
+                  />
+                </View>
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery fee (₹)</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.standard_delivery_fee} onChangeText={t => setSettings(p => ({ ...p, standard_delivery_fee: t }))} />
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery free above (₹)</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.free_delivery_threshold} onChangeText={t => setSettings(p => ({ ...p, free_delivery_threshold: t }))} />
               </View>
-              <Text style={{ fontSize: 12, color: mutedColor }}>New customer referral discount %</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referral_discount_percent} onChangeText={t => setSettings(p => ({ ...p, referral_discount_percent: t }))} />
-              
-              <Text style={{ fontSize: 12, color: mutedColor }}>Referrer reward %</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referrer_reward_percent} onChangeText={t => setSettings(p => ({ ...p, referrer_reward_percent: t }))} />
-              
-              <Text style={{ fontSize: 12, color: mutedColor }}>Max referral reward cap % per order</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.max_referral_reward_cap_percent} onChangeText={t => setSettings(p => ({ ...p, max_referral_reward_cap_percent: t }))} />
-            </View>
+            )}
 
-            {/* 🚚 DELIVERY & PER-CITY CHARGES */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🚚 Delivery Configuration</Text>
-              <Text style={{ fontSize: 12, color: mutedColor }}>Subscription delivery days</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.subscription_delivery_days} onChangeText={t => setSettings(p => ({ ...p, subscription_delivery_days: t }))} />
+            {/* 📜 SUB-TAB 2: LEGAL & CONTACT */}
+            {settingsCategory === 'legal' && (
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>📜 Legal & Support Contact</Text>
+                
+                <Text style={{ fontSize: 12, color: mutedColor }}>Customer Support Phone / WhatsApp</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.contact_phone} onChangeText={t => setSettings(p => ({ ...p, contact_phone: t }))} />
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Charge a standard delivery fee</Text>
-                <Switch
-                  value={settings.charge_standard_delivery_fee === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, charge_standard_delivery_fee: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+                <Text style={{ fontSize: 12, color: mutedColor }}>Customer Support Email</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.contact_email} onChangeText={t => setSettings(p => ({ ...p, contact_email: t }))} />
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Company Headquarters Address</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.contact_address} onChangeText={t => setSettings(p => ({ ...p, contact_address: t }))} />
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Operating Hours</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.operating_hours} onChangeText={t => setSettings(p => ({ ...p, operating_hours: t }))} />
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Perishable Product Return Window (Hours)</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.return_window_hours} onChangeText={t => setSettings(p => ({ ...p, return_window_hours: t }))} />
               </View>
+            )}
 
-              <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery fee (₹)</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.standard_delivery_fee} onChangeText={t => setSettings(p => ({ ...p, standard_delivery_fee: t }))} />
+            {/* 💳 SUB-TAB 3: PAYMENTS & STORE */}
+            {settingsCategory === 'payments' && (
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>💳 Payments & Store Info</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: textColor, fontWeight: 'bold' }}>Allow Cash on Delivery at checkout</Text>
+                  <Switch
+                    value={settings.allow_cod === 'true'}
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, allow_cod: String(v) }))}
+                    trackColor={{ false: '#ef4444', true: '#10b981' }}
+                  />
+                </View>
 
-              <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery free above (₹)</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.free_delivery_threshold} onChangeText={t => setSettings(p => ({ ...p, free_delivery_threshold: t }))} />
+                <Text style={{ fontSize: 12, color: mutedColor }}>Store Name</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_name} onChangeText={t => setSettings(p => ({ ...p, store_name: t }))} />
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable per-city delivery charges</Text>
-                <Switch
-                  value={settings.enable_per_city_delivery_charges === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_per_city_delivery_charges: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+                <Text style={{ fontSize: 12, color: mutedColor }}>Store City</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_city} onChangeText={t => setSettings(p => ({ ...p, store_city: t }))} />
+
+                <Text style={{ fontSize: 12, color: mutedColor }}>Telegram Chat ID</Text>
+                <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.telegram_chat_id} onChangeText={t => setSettings(p => ({ ...p, telegram_chat_id: t }))} />
               </View>
-            </View>
+            )}
 
-            {/* 💳 PAYMENTS & STORE INFO */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>💳 Payments & Store Info</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Allow Cash on Delivery at checkout</Text>
-                <Switch
-                  value={settings.allow_cod === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, allow_cod: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+            {/* 🎁 SUB-TAB 4: DISCOUNTS & PERKS */}
+            {settingsCategory === 'perks' && (
+              <View style={{ gap: 12 }}>
+                <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>% First Order Discounts</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable first-order discount</Text>
+                    <Switch
+                      value={settings.enable_first_order_discount === 'true'}
+                      onValueChange={(v) => setSettings(prev => ({ ...prev, enable_first_order_discount: String(v) }))}
+                      trackColor={{ false: '#ef4444', true: '#10b981' }}
+                    />
+                  </View>
+                  <Text style={{ fontSize: 12, color: mutedColor }}>First order discount %</Text>
+                  <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.first_order_discount_percent} onChangeText={t => setSettings(p => ({ ...p, first_order_discount_percent: t }))} />
+                </View>
+
+                <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🎁 Referral Rewards</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable referral program</Text>
+                    <Switch
+                      value={settings.enable_referral_program === 'true'}
+                      onValueChange={(v) => setSettings(prev => ({ ...prev, enable_referral_program: String(v) }))}
+                      trackColor={{ false: '#ef4444', true: '#10b981' }}
+                    />
+                  </View>
+                  <Text style={{ fontSize: 12, color: mutedColor }}>New customer referral discount %</Text>
+                  <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referral_discount_percent} onChangeText={t => setSettings(p => ({ ...p, referral_discount_percent: t }))} />
+                  
+                  <Text style={{ fontSize: 12, color: mutedColor }}>Referrer reward %</Text>
+                  <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referrer_reward_percent} onChangeText={t => setSettings(p => ({ ...p, referrer_reward_percent: t }))} />
+                </View>
               </View>
+            )}
 
-              <Text style={{ fontSize: 12, color: mutedColor }}>Store Name</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_name} onChangeText={t => setSettings(p => ({ ...p, store_name: t }))} />
+            {/* 🔒 SUB-TAB 5: SECURITY & AUTH */}
+            {settingsCategory === 'security' && (
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🔒 Customer Authentication Controls</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: textColor, fontWeight: 'bold' }}>Email & 6-Digit OTP Login</Text>
+                  <Switch
+                    value={settings.email_otp_enabled === 'true'}
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, email_otp_enabled: String(v) }))}
+                    trackColor={{ false: '#ef4444', true: '#10b981' }}
+                  />
+                </View>
 
-              <Text style={{ fontSize: 12, color: mutedColor }}>Store City</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_city} onChangeText={t => setSettings(p => ({ ...p, store_city: t }))} />
-
-              <Text style={{ fontSize: 12, color: mutedColor }}>Telegram Chat ID</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.telegram_chat_id} onChangeText={t => setSettings(p => ({ ...p, telegram_chat_id: t }))} />
-            </View>
-
-            {/* 🎁 EMPLOYEE & DELIVERY PARTNER PERK DISCOUNTS */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🎁 Employee & Partner Perks</Text>
-              <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 14 }}>🛡️ Sub-Admin Staff Discounts</Text>
-              <Text style={{ fontSize: 12, color: mutedColor }}>Discount Percentage (%)</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.subadmin_discount_percent} onChangeText={t => setSettings(p => ({ ...p, subadmin_discount_percent: t }))} />
-              
-              <Text style={{ fontSize: 12, color: mutedColor }}>Max Discount Cap per Order (₹)</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.subadmin_max_discount_cap} onChangeText={t => setSettings(p => ({ ...p, subadmin_max_discount_cap: t }))} />
-
-              <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 14, marginTop: 8 }}>🚚 Delivery Partner Perks</Text>
-              <Text style={{ fontSize: 12, color: mutedColor }}>Discount Percentage (%)</Text>
-              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.partner_discount_percent} onChangeText={t => setSettings(p => ({ ...p, partner_discount_percent: t }))} />
-            </View>
-
-            {/* 🔒 CUSTOMER LOGIN & AUTH CONTROLS */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🔒 Customer Authentication Controls</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Email & 6-Digit OTP Login</Text>
-                <Switch
-                  value={settings.email_otp_enabled === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, email_otp_enabled: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <Text style={{ color: textColor, fontWeight: 'bold' }}>Google One-Tap & OAuth Login</Text>
+                  <Switch
+                    value={settings.google_oauth_enabled === 'true'}
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, google_oauth_enabled: String(v) }))}
+                    trackColor={{ false: '#ef4444', true: '#10b981' }}
+                  />
+                </View>
               </View>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                <Text style={{ color: textColor, fontWeight: 'bold' }}>Google One-Tap & OAuth Login</Text>
-                <Switch
-                  value={settings.google_oauth_enabled === 'true'}
-                  onValueChange={(v) => setSettings(prev => ({ ...prev, google_oauth_enabled: String(v) }))}
-                  trackColor={{ false: '#ef4444', true: '#10b981' }}
-                />
-              </View>
-            </View>
+            )}
 
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => saveSettingsMutation.mutate(settings)}
             >
-              <Text style={styles.actionBtnText}>Save All Business Settings ⚙️</Text>
+              <Text style={styles.actionBtnText}>Save All Settings ⚙️</Text>
             </TouchableOpacity>
           </View>
         )}

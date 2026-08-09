@@ -969,6 +969,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.settings.all());
   }));
 
+  /** GET /api/settings/public — Fetch public store settings (contact info, delivery rules, return hours) */
+  app.get("/api/settings/public", h(async (_req, res) => {
+    const all = await storage.settings.all();
+    res.json({
+      contact_phone: all.contact_phone || "+91 79897 93669",
+      contact_email: all.contact_email || "admin@farmfreshfarmer.com",
+      contact_address: all.contact_address || "Vijayawada, Andhra Pradesh",
+      operating_hours: all.operating_hours || "6:00 AM – 10:00 PM IST",
+      return_window_hours: all.return_window_hours || "4",
+      free_delivery_min: all.free_delivery_threshold || "499",
+      panindia_shipping_base: all.panindia_shipping_base || "60",
+      cod_enabled: all.cod_enabled !== "false",
+      allow_cod: all.allow_cod !== "false",
+      store_name: all.store_name || "FarmFreshFarmer",
+      store_city: all.store_city || "Vijayawada",
+    });
+  }));
+
   /** POST /api/admin/smtp/test — Send Test Email to verify SMTP configuration */
   app.post("/api/admin/smtp/test", requireAdmin, h(async (req, res) => {
     const { to } = req.body || {};

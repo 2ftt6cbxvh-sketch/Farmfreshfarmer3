@@ -435,7 +435,7 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <View style={{ backgroundColor: cardBg, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: borderCol, gap: 10 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>📍 Main Operational Hub</Text>
-                <Text style={{ fontSize: 14, color: textColor }}>FarmFreshFarmer Headquarters\nVijayawada, Andhra Pradesh, India</Text>
+                <Text style={{ fontSize: 14, color: textColor }}>FarmFreshFarmer Headquarters{"\n"}Vijayawada, Andhra Pradesh, India</Text>
 
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>📱 Phone & WhatsApp Support</Text>
                 <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>+91 79897 93669</Text>
