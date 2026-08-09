@@ -71,16 +71,24 @@ export default function AdminDashboardScreen() {
   });
 
   // Data Queries
-  const { data: orders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
-  const { data: products, isLoading: productsLoading } = useQuery({ queryKey: ['admin-products'], queryFn: () => api.get('/api/products').then(r => r.data), enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard' });
-  const { data: categories } = useQuery({ queryKey: ['admin-cats'], queryFn: () => api.get('/api/categories').then(r => r.data.categories || r.data), enabled: activeTab === 'categories' || activeTab === 'products' });
-  const { data: pincodes } = useQuery({ queryKey: ['admin-pincodes'], queryFn: () => api.get('/api/admin/delivery').then(r => r.data), enabled: activeTab === 'delivery' });
-  const { data: users } = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/api/admin/users').then(r => r.data), enabled: activeTab === 'customers' });
-  const { data: reviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
-  const { data: warehouses, isLoading: warehousesLoading } = useQuery({ queryKey: ['admin-warehouses'], queryFn: () => api.get('/api/admin/warehouses').then(r => r.data), enabled: activeTab === 'warehouses' });
-  const { data: staffData, isLoading: staffLoading } = useQuery({ queryKey: ['admin-staff'], queryFn: () => api.get('/api/admin/staff').then(r => r.data), enabled: activeTab === 'staff' });
+  const { data: rawOrders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
+  const { data: rawProducts, isLoading: productsLoading } = useQuery({ queryKey: ['admin-products'], queryFn: () => api.get('/api/products').then(r => r.data), enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard' });
+  const { data: rawCategories } = useQuery({ queryKey: ['admin-cats'], queryFn: () => api.get('/api/categories').then(r => r.data), enabled: activeTab === 'categories' || activeTab === 'products' });
+  const { data: rawPincodes } = useQuery({ queryKey: ['admin-pincodes'], queryFn: () => api.get('/api/admin/delivery').then(r => r.data), enabled: activeTab === 'delivery' });
+  const { data: rawUsers } = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/api/admin/users').then(r => r.data), enabled: activeTab === 'customers' });
+  const { data: rawReviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
+  const { data: rawWarehouses, isLoading: warehousesLoading } = useQuery({ queryKey: ['admin-warehouses'], queryFn: () => api.get('/api/admin/warehouses').then(r => r.data), enabled: activeTab === 'warehouses' });
+  const { data: rawStaffData, isLoading: staffLoading } = useQuery({ queryKey: ['admin-staff'], queryFn: () => api.get('/api/admin/staff').then(r => r.data), enabled: activeTab === 'staff' });
 
-  const staffList = staffData?.staff || staffData || [];
+  // Safe Array Extractions (Prevents TypeError: map is not a function)
+  const orders: any[] = Array.isArray(rawOrders) ? rawOrders : (rawOrders?.orders || []);
+  const products: any[] = Array.isArray(rawProducts) ? rawProducts : (rawProducts?.products || []);
+  const categories: any[] = Array.isArray(rawCategories) ? rawCategories : (rawCategories?.categories || []);
+  const pincodes: any[] = Array.isArray(rawPincodes) ? rawPincodes : (rawPincodes?.pincodes || rawPincodes?.delivery || []);
+  const users: any[] = Array.isArray(rawUsers) ? rawUsers : (rawUsers?.users || rawUsers?.customers || []);
+  const reviews: any[] = Array.isArray(rawReviews) ? rawReviews : (rawReviews?.reviews || []);
+  const warehouses: any[] = Array.isArray(rawWarehouses) ? rawWarehouses : (rawWarehouses?.warehouses || []);
+  const staffList: any[] = Array.isArray(rawStaffData) ? rawStaffData : (rawStaffData?.staff || []);
 
   // Mutations
   const updateOrderStatus = useMutation({
