@@ -330,6 +330,14 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       parts: [{ text: message }],
     });
 
+    // Helper: extract actual reply text from Gemini/Gemma response parts (skips thought parts)
+    function extractReplyText(parts: Array<{ text?: string; thought?: boolean }>): string {
+      if (!Array.isArray(parts)) return '';
+      // Prefer the first non-thought part
+      const actualPart = parts.find(p => !p.thought && typeof p.text === 'string' && p.text.trim().length > 0);
+      return actualPart?.text?.trim() || '';
+    }
+
     // 1. Try Official @google/generative-ai SDK
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
@@ -349,7 +357,17 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
           });
           const result = await model.generateContent(contents);
           const response = await result.response;
-          const text = response.text();
+          // response.text() may throw for thinking models — extract manually
+          let text = '';
+          try {
+            text = response.text();
+          } catch (_) {}
+          if (!text || !text.trim()) {
+            // Extract from raw parts, skipping thought parts
+            const rawParts: Array<{ text?: string; thought?: boolean }> =
+              (response as any)?.candidates?.[0]?.content?.parts || [];
+            text = extractReplyText(rawParts);
+          }
           if (text && text.trim()) {
             console.log(`[chatbot] Gemini SDK (${mName}) success`);
             return text.trim();
@@ -386,10 +404,13 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
           });
           if (res.ok) {
             const data = await res.json();
-            const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (replyText && typeof replyText === 'string') {
+            // Gemma-4 thinking models return parts[0] as internal thought — skip thought parts
+            const parts: Array<{ text?: string; thought?: boolean }> =
+              data?.candidates?.[0]?.content?.parts || [];
+            const replyText = extractReplyText(parts);
+            if (replyText) {
               console.log('[chatbot] Gemini REST API success');
-              return replyText.trim();
+              return replyText;
             }
           } else {
             const errText = await res.text();
