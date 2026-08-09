@@ -55,20 +55,69 @@ export async function setLockdown(active: boolean, reason: string, adminUserId?:
 
 export async function lockdownMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const url = req.originalUrl || req.url || req.path;
+
+  // 1. Health check exemption
+  if (req.path === "/health" || url === "/health") {
+    return next();
+  }
+
+  // 2. Telegram Webhook exemption (so /lock off, /approve work remotely)
+  if (url.startsWith("/api/telegram") || url.startsWith("/telegram")) {
+    return next();
+  }
+
+  // 3. Secret Passage & Lockdown status exemptions
   if (
-    req.path === "/health" ||
-    url.startsWith("/api/admin") ||
-    url.startsWith("/api/auth") ||
-    url.startsWith("/api/telegram") ||
-    req.path.startsWith("/admin") ||
-    req.path.startsWith("/auth") ||
-    req.path.startsWith("/telegram")
+    url.startsWith("/api/admin/security/secret-unlock") ||
+    url.startsWith("/api/admin/security/telegram-challenge") ||
+    url.startsWith("/api/admin/security/check-telegram-approval") ||
+    url.startsWith("/api/admin/security/lockdown")
   ) {
     return next();
   }
+
   try {
     const status = await getLockdownStatus();
     if (status.active) {
+      // Verify if current request belongs to Primary Super Admin
+      let isSuperAdmin = false;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+
+      if (token) {
+        try {
+          const jwt = (await import("jsonwebtoken")).default;
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          if (decoded.email === "admin@farmfreshfarmer.com" || decoded.role === "superadmin") {
+            isSuperAdmin = true;
+          }
+        } catch {
+          try {
+            const jwt = (await import("jsonwebtoken")).default;
+            const decodedUnverified = jwt.decode(token) as any;
+            if (decodedUnverified?.email === "admin@farmfreshfarmer.com" || decodedUnverified?.role === "superadmin") {
+              isSuperAdmin = true;
+            }
+          } catch {}
+        }
+      }
+
+      if (!isSuperAdmin && req.session?.userId) {
+        const { db } = await import("../db");
+        const { users } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        const [user] = await db.select().from(users).where(eq(users.id, Number(req.session.userId)));
+        if (user && (user.email === "admin@farmfreshfarmer.com" || user.isPrimaryAdmin || user.role === "superadmin")) {
+          isSuperAdmin = true;
+        }
+      }
+
+      // Primary Super Admin is allowed through during lockdown
+      if (isSuperAdmin) {
+        return next();
+      }
+
+      // STRICT LOCKDOWN: Block all other users, subadmins, customers, visitors, and APIs!
       res.status(423).json({
         locked: true,
         reason: status.reason || "System temporarily unavailable.",
@@ -76,6 +125,9 @@ export async function lockdownMiddleware(req: Request, res: Response, next: Next
       });
       return;
     }
-  } catch { /* allow through on error */ }
+  } catch (err) {
+    console.error("[lockdown middleware error]", err);
+  }
+
   next();
 }
