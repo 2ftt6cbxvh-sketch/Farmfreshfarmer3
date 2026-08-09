@@ -95,20 +95,45 @@ export function registerChatbotRoutes(app: Express, storage: any) {
   });
 
   // Call Gemini REST API with fallback models
-  async function callGeminiAPI(apiKey: string, message: string, catalogContext: string, language: string): Promise<string | null> {
+  async function callGeminiAPI(
+    apiKey: string,
+    message: string,
+    fullProductsContext: string,
+    legalContext: string,
+    contactContext: string,
+    language: string
+  ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) return null;
 
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
-    const systemPrompt = `You are Laxshmi, the friendly AI assistant for FarmFreshFarmer (instant organic farm-to-doorstep delivery platform operating in Vijayawada & Andhra Pradesh, India).
-We sell 100% naturally grown fresh organic fruits, vegetables, homemade ghee sweets, authentic Andhra pickles (Avakaya, Gongura, Tomato), millets, and spices.
-Current Catalog & Live Prices: ${catalogContext || 'Farm Tomatoes (₹40/kg), Lady Finger (₹50/500g), Fresh Carrots (₹45/500g), Green Spinach (₹25/bunch)'}
+    const systemPrompt = `You are Laxshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
 
-Rules:
-1. Be extremely helpful, warm, polite, and concise (max 2-3 sentences).
-2. Answer customer questions about products, exact prices, delivery ETAs (typically 30-90 mins), return policy (within 4 hours for perishables), and payments (PhonePe, Cards, COD).
-3. If asked about a PIN code or location delivery, explain that we deliver across Vijayawada & major Andhra cities in 30-90 mins.
-4. Respond strictly in ${langName}. Use a natural conversational tone.`;
+==================== LIVE DATABASE CONTEXT ====================
+1. PRODUCT CATALOG & PRICING:
+${fullProductsContext || 'No product catalog available.'}
+
+2. STORE LEGAL POLICIES & TERMS:
+${legalContext}
+
+3. CUSTOMER SUPPORT & CONTACT INFORMATION:
+${contactContext}
+
+==================== YOUR ROLE & INSTRUCTIONS ====================
+- You have complete access to the store's product database, legal policies, and customer support details.
+- Respond accurately and warmly in ${langName}.
+
+HEALTH, NUTRITION & WELLNESS GUIDANCE:
+- When a customer asks about any product, fruit, vegetable, pickle, sweet, or millet:
+  1. NUTRITION & HEALTH BENEFITS: Provide detailed health benefits, vitamins, minerals, antioxidants, and nutritional advantages of eating this fresh farm item.
+  2. WHO SHOULD EAT & ADVANTAGES: Explain who benefits most (e.g., heart health, diabetics, pregnant mothers, growing children, skin/hair, digestive health).
+  3. PRECAUTIONS & WHO SHOULD AVOID/LIMIT: Clearly state any health cautions, precautions, or dietary limits (e.g., high sodium/salt warning for pickles in hypertension patients, high sugar/ghee warning for sweets in diabetics, oxalate cautions for raw spinach in kidney stone patients).
+  4. HEALTH TIPS: Give practical health or culinary advice on how to consume or store it.
+
+STORE & LEGAL QUERIES:
+- Provide exact information from the store legal policies, contact numbers, email addresses, operating hours, delivery ETAs (30-90 mins), return policy (4 hours with photo proof), and grievance redressal officer details.
+
+Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use clear paragraphs or bullet points where helpful.`;
 
     // 1. Try Official @google/generative-ai SDK
     try {
@@ -132,7 +157,7 @@ Rules:
       console.warn('[chatbot] Gemini SDK exception:', sdkErr);
     }
 
-    // 2. Try native globalThis.fetch REST API (No node-fetch CJS import)
+    // 2. Try native globalThis.fetch REST API
     const fetchFn = (globalThis as any).fetch;
     if (fetchFn) {
       const restEndpoints = [
@@ -148,7 +173,7 @@ Rules:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nCustomer: ${message}` }] }],
-              generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
+              generationConfig: { maxOutputTokens: 768, temperature: 0.7 },
             }),
           });
           if (res.ok) {
@@ -349,15 +374,17 @@ Rules:
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || '';
 
       // Build live catalog context & product matching
-      let catalogContext = '';
+      let fullProductsContext = '';
       let matchedProducts: any[] = [];
       try {
         const activeProducts = await storage.products.list();
         if (activeProducts && activeProducts.length > 0) {
-          catalogContext = activeProducts
-            .slice(0, 35)
-            .map((p: any) => `${p.name} (₹${p.price}/${p.unit || 'unit'})`)
-            .join(', ');
+          fullProductsContext = activeProducts
+            .slice(0, 50)
+            .map((p: any) => 
+              `• Product: ${p.name} | Price: ₹${p.price} per ${p.unit || 'unit'} | Category: ${p.categorySlug || 'General'} | Stock: ${p.stock > 0 ? 'In Stock (' + p.stock + ' available)' : 'Out of Stock'} | Scope: ${!p.allowInternationalShipping ? 'Local Vijayawada Farm Harvest Only' : 'Express Delivery'} | Description: ${p.description || 'Fresh natural produce'}`
+            )
+            .join('\n');
 
           const lowerMsg = message.toLowerCase();
           matchedProducts = activeProducts.filter((p: any) => {
@@ -383,11 +410,33 @@ Rules:
         console.warn('[chatbot] Could not fetch live catalog:', catErr);
       }
 
+      // Legal policies context
+      const legalContext = `
+• Platform Name: FarmFreshFarmer
+• Service Area: Instant 30-90 minute delivery across Vijayawada & major Andhra Pradesh locations. Express delivery 2-4 days for non-perishables.
+• Terms & Conditions: 100% naturally grown organic produce sourced direct from local Andhra farmers with zero chemical preservatives.
+• Return & Refund Policy: Perishable goods & damaged items can be returned within 4 hours of delivery with photo proof. Refunds are credited to original payment method within 2 business days.
+• Shipping Policy: Free delivery on orders above minimum threshold. Delivered fresh daily between 6:00 AM and 10:00 PM.
+• Payment Methods Accepted: PhonePe, Google Pay, UPI, Netbanking, Debit/Credit Cards, and Cash on Delivery (COD).
+• Grievance Policy: Formal complaints acknowledged within 24-48 hours and resolved within 7 business days by the Grievance Redressal Officer.
+      `.trim();
+
+      // Contact info context
+      const contactContext = `
+• Customer Support Phone / WhatsApp: ${(allSettings as any)?.contact_phone || '+91 79897 93669'}
+• Customer Support Email: ${(allSettings as any)?.contact_email || 'admin@farmfreshfarmer.com'}
+• Operating Hours: ${(allSettings as any)?.operating_hours || '6:00 AM – 10:00 PM IST (Daily)'}
+• Store Location / Address: ${(allSettings as any)?.contact_address || 'Vijayawada, Andhra Pradesh, India'}
+• Grievance Redressal Officer Name: ${(allSettings as any)?.grievance_officer_name || 'Grievance Officer'}
+• Grievance Officer Email: ${(allSettings as any)?.grievance_officer_email || 'admin@farmfreshfarmer.com'}
+• Grievance Officer Phone: ${(allSettings as any)?.grievance_officer_phone || '+91 79897 93669'}
+      `.trim();
+
       let reply: string | null = null;
       let needsHuman = false;
 
       if (geminiApiKey) {
-        reply = await callGeminiAPI(geminiApiKey, message, catalogContext, lang);
+        reply = await callGeminiAPI(geminiApiKey, message, fullProductsContext, legalContext, contactContext, lang);
       }
 
       if (!reply) {
