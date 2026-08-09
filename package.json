@@ -1,7 +1,7 @@
 {
   "name": "farmfreshfarmer",
   "type": "module",
-  "version": "6.5.0",
+  "version": "6.6.0",
   "license": "MIT",
   "engines": {
     "node": "24.x"

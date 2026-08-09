@@ -270,49 +270,76 @@ export function ShippingPage() {
   return (
     <PolicyShell title="Shipping & Delivery Policy">
       <p>
-        {BUSINESS} is an instant-delivery business. This policy explains where, when and how we
-        deliver.
+        {BUSINESS} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight. This policy details our delivery locations, PIN code coverage, ETAs, deliverable radiuses, and delivery fee structures.
       </p>
 
-      <H2>1. Service area</H2>
+      <H2>1. Deliverable Locations & Service Areas</H2>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          <strong>Hyper-Local Express Instant Delivery Cities</strong>: We provide instant 30-to-60 minute doorstep delivery across <strong>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</strong>.
+        </li>
+        <li>
+          <strong>Out-of-Station / Pan-India Express Delivery</strong>: We ship homemade pickles, traditional sweets, spices, ghee, and namkeens to <strong>19,000+ PIN codes across all states and Union Territories in India</strong> via trusted express courier partners (BlueDart, DTDC, Delhivery).
+        </li>
+        <li>
+          <strong>International Worldwide Shipping</strong>: We export authentic homemade Andhra pickles, pure ghee sweets, and farm-fresh spices directly to <strong>USA, UK, Canada, UAE, Australia, Singapore, Europe, and worldwide</strong> via DHL / FedEx Express.
+        </li>
+      </ul>
+
+      <H2>2. Deliverable Radius & Local Warehouse Hubs</H2>
       <p>
-        We currently deliver within {CITY} and nearby serviceable areas. If your address falls
-        outside our delivery zone, we will notify you and refund any prepaid amount.
+        Fresh produce (fruits, vegetables, leafy greens) is dispatched directly from our neighborhood dark store warehouse hubs. Each hub operates on a dynamic deliverable radius ranging from <strong>8 km to 25 km</strong> to guarantee maximum freshness.
+      </p>
+      <p>
+        When you enter your 6-digit postal PIN code or enable GPS location detection, our intelligent routing system automatically maps your address to the nearest dispatch warehouse hub.
       </p>
 
-      <H2>2. Delivery timelines</H2>
+      <H2>3. Estimated Delivery Timelines (ETAs)</H2>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          <strong>Hyper-Local Instant Delivery</strong>: Delivered in <strong>30 minutes to 60 minutes</strong> (calculated as ~20–30 minutes packing time + live road travel time).
+        </li>
+        <li>
+          <strong>Out-of-Station Domestic Shipping</strong>: Dispatched within 24 hours; delivered in <strong>2 to 4 business days</strong>.
+        </li>
+        <li>
+          <strong>International Air Express Shipping</strong>: Dispatched within 24–48 hours; delivered in <strong>4 to 7 business days</strong>.
+        </li>
+        <li>
+          <strong>Weekly Subscriptions</strong>: Delivered during morning slots (7:00 AM – 10:00 AM) on your selected subscription days (e.g., Saturday and/or Sunday).
+        </li>
+      </ul>
+
+      <H2>4. Delivery Fee Structure & Free Delivery Thresholds</H2>
       <p>
-        We aim for <strong>same-day delivery</strong> within {CITY} for orders placed during
-        working hours. Subscription orders are delivered on their scheduled days (for example,
-        Saturday and/or Sunday). All timelines are estimates and may be affected by weather, traffic,
-        stock or operational factors.
+        Our transparent delivery fee model ensures fair pricing based on order value and distance:
+      </p>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          <strong>Hyper-Local Base Delivery Fee</strong>: ₹30 – ₹50 per order (city-dependent: Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).
+        </li>
+        <li>
+          <strong>FREE Local Delivery Threshold</strong>: Enjoy <strong>FREE Delivery on all local orders above ₹499</strong> (or ₹999 depending on active store promotional settings).
+        </li>
+        <li>
+          <strong>Pan-India Express Shipping Fee</strong>: Standard flat rate of ₹60 – ₹120 based on parcel weight. FREE shipping available on bulk orders above ₹1,499.
+        </li>
+        <li>
+          <strong>International Freight Shipping Fee</strong>: Real-time air cargo rate calculated at checkout based on destination country and total shipment weight.
+        </li>
+      </ul>
+
+      <H2>5. PIN Code Verification & Real-time Tracking</H2>
+      <p>
+        You can test PIN code serviceability anytime by using the PIN code checker on our website header, app homepage, or checkout screen.
+      </p>
+      <p>
+        Once your order is placed, you can track its live status under <strong>“My Orders”</strong>. For hyper-local orders, live packing, dispatch, and driver contact updates are provided.
       </p>
 
-      <H2>3. Delivery charges</H2>
+      <H2>6. Order Receipt & Perishable Freshness Guarantee</H2>
       <p>
-        Any applicable delivery charge is shown at checkout before you pay. Charges may vary based on
-        order value and distance. Free-delivery thresholds, if any, are displayed at checkout.
-      </p>
-
-      <H2>4. Order tracking & confirmation</H2>
-      <p>
-        You will receive confirmation of your order and can view its status under “My Orders”. Our
-        team may contact you by phone for delivery coordination.
-      </p>
-
-      <H2>5. Receiving your order</H2>
-      <p>
-        Please ensure someone is available at the delivery address to receive fresh produce.
-        <strong> We recommend checking your items at the time of delivery</strong>, since damaged or
-        wrong items must be reported within 4 hours (see our Refund, Return & Cancellation Policy).
-        If a delivery fails because no one is available or the address is incorrect, re-delivery may
-        incur an additional charge, and perishable items may not be re-delivered.
-      </p>
-
-      <H2>6. Delays</H2>
-      <p>
-        In rare cases of unavoidable delay (weather, road conditions, high demand), we will keep you
-        informed. Fresh produce is dispatched as quickly as possible to preserve quality.
+        Please ensure someone is available at the delivery address to receive fresh produce. We recommend checking your items immediately upon arrival. Damaged or missing items must be reported <strong>within 4 hours of delivery</strong> (see our Refund & Cancellation Policy).
       </p>
     </PolicyShell>
   );
