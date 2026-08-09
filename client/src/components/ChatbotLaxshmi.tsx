@@ -283,7 +283,8 @@ export function ChatbotLaxshmi() {
     <>
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto">
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto"
+          style={{ animation: 'laxFloatIcon 3.2s ease-in-out infinite' }}>
           {/* Speech bubble */}
           <div className="relative cursor-pointer" onClick={() => setIsOpen(true)}
             style={{ animation: 'laxBounce 3s ease-in-out infinite' }}>
@@ -541,6 +542,10 @@ export function ChatbotLaxshmi() {
         @keyframes laxBounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-6px); }
+        }
+        @keyframes laxFloatIcon {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-8px) rotate(1.5deg); }
         }
       `}</style>
     </>

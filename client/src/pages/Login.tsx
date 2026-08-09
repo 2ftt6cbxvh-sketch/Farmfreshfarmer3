@@ -432,13 +432,25 @@ export default function Login() {
                 {mode === "login" ? "Sign up now" : "Log in"}
               </button>
             </p>
+
+            <p className="text-[11px] text-center text-muted-foreground leading-relaxed pt-2 border-t border-card-border/60">
+              By signing in you agree to all our{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/terms")}
+                className="text-emerald-500 font-bold underline hover:text-emerald-400 cursor-pointer"
+              >
+                Legal Terms &amp; Conditions, and all other policies. To read click here.
+              </button>
+            </p>
+
             <div className="text-center pt-1">
               <button
                 type="button"
                 onClick={() => navigate("/admin/login")}
                 className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
               >
-                <span>🔐 Admin & Partner Logins</span>
+                <span>🔐 Admin &amp; Partner Logins</span>
               </button>
             </div>
           </div>

@@ -1,7 +1,37 @@
 import { Layout } from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 
 const LAST_UPDATED = "10 August 2026";
+
+const LEGAL_NAV_ITEMS = [
+  { href: "/terms", label: "📜 Terms & Conditions" },
+  { href: "/privacy", label: "🔒 Privacy Policy" },
+  { href: "/refund-policy", label: "💸 Refund & Cancellation" },
+  { href: "/shipping-policy", label: "🚚 Shipping & Delivery" },
+  { href: "/grievance", label: "⚖️ Grievance Redressal" },
+];
+
+function LegalSubNav() {
+  const [location] = useLocation();
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 border-b border-card-border/80 no-scrollbar">
+      {LEGAL_NAV_ITEMS.map((item) => (
+        <Link key={item.href} href={item.href}>
+          <a
+            className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              location === item.href
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {item.label}
+          </a>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 interface PublicSettings {
   contact_phone?: string;
@@ -40,6 +70,7 @@ function PolicyShell({ title, children }: { title: string; children: React.React
   return (
     <Layout>
       <div className="mx-auto max-w-3xl px-4 py-12">
+        <LegalSubNav />
         <h1 className="font-serif text-xl font-bold text-foreground" data-testid={`heading-${title}`}>
           {title}
         </h1>
