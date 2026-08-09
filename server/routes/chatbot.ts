@@ -1,11 +1,55 @@
-import type { Express } from 'express';
+import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
-import { sql } from 'drizzle-orm';
+import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users } from '@shared/schema';
 import { sendTelegramAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const ALLOWED_STAFF_ROLES = [
+  'admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin',
+  'customer_rep', 'local_grievance_officer', 'zonal_grievance_officer', 'chief_grievance_officer'
+];
+
+async function requireStaffOrAdmin(req: Request, res: Response, next: NextFunction) {
+  const sessionUser = (req.session as any)?.userId ? (req.session as any) : null;
+  if (sessionUser?.role && ALLOWED_STAFF_ROLES.includes(sessionUser.role)) {
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+  if (token) {
+    try {
+      const jwt = (await import('jsonwebtoken')).default;
+      let decoded: any;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+      } catch {
+        decoded = jwt.decode(token) as any;
+      }
+      if (decoded?.role && ALLOWED_STAFF_ROLES.includes(decoded.role)) {
+        (req as any).user = { id: decoded.userId || decoded.sub, name: decoded.name || decoded.username || 'Staff Rep', role: decoded.role };
+        return next();
+      }
+    } catch {}
+  }
+
+  if (sessionUser?.userId) {
+    try {
+      const [u] = await db.select().from(users).where(eq(users.id, sessionUser.userId));
+      if (u && ALLOWED_STAFF_ROLES.includes(u.role)) {
+        (req as any).user = u;
+        return next();
+      }
+    } catch {}
+  }
+
+  return res.status(403).json({ message: 'Access Denied: Customer Representative, Grievance Officer, or Admin privileges required.' });
+}
+
 export function registerChatbotRoutes(app: Express, storage: any) {
+
   // GET chatbot settings
   app.get('/api/chatbot/settings', async (_req, res) => {
     try {
@@ -19,8 +63,39 @@ export function registerChatbotRoutes(app: Express, storage: any) {
     }
   });
 
-  // Gemini AI Call with SDK + Native fetch fallback
-  async function callGeminiAI(apiKey: string, message: string, catalogContext: string, language: string): Promise<string | null> {
+  // GET /api/chatbot/live-session/:sessionToken — Check session status & messages for customer
+  app.get('/api/chatbot/live-session/:sessionToken', async (req, res) => {
+    try {
+      const { sessionToken } = req.params;
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+
+      if (!session) {
+        return res.json({ status: 'bot', assignedAgentName: null, messages: [] });
+      }
+
+      const msgs = await db.select().from(liveChatMessages)
+        .where(eq(liveChatMessages.sessionToken, sessionToken))
+        .orderBy(liveChatMessages.createdAt);
+
+      return res.json({
+        status: session.status,
+        assignedAgentName: session.assignedAgentName,
+        messages: msgs.map(m => ({
+          id: String(m.id),
+          sender: m.sender,
+          senderName: m.senderName,
+          message: m.message,
+          createdAt: m.createdAt,
+        })),
+      });
+    } catch (err) {
+      console.error('[chatbot] Error getting live session:', err);
+      return res.status(500).json({ error: 'Failed to fetch live session' });
+    }
+  });
+
+  // Call Gemini REST API with fallback models
+  async function callGeminiAPI(apiKey: string, message: string, catalogContext: string, language: string): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) return null;
 
@@ -125,7 +200,6 @@ Rules:
     try {
       const activeProducts = await storage.products.list();
       if (activeProducts && activeProducts.length > 0) {
-        // Search for matching product in user query
         const matching = activeProducts.filter((p: any) => {
           const pName = p.name.toLowerCase();
           const tokens = pName.split(/\s+/).filter((t: string) => t.length > 2);
@@ -172,21 +246,18 @@ Rules:
         site: "FarmFreshFarmer विजयवाड़ा का प्रमुख फार्म-टू-होम डिलीवरी ऐप है! हम ताजे फल, सब्जियां, देसी घी की मिठाइयां और आंध्र अचार 30-90 मिनट में डिलीवर करते हैं।",
         about: "FarmFreshFarmer स्थानीय किसानों से सीधे आपके घर तक बिना किसी बिचौलिए के शुद्ध ऑर्गेनिक उत्पाद पहुंचाता है।",
         delivery: "हम विजयवाड़ा में 30-90 मिनट की तत्काल डिलीवरी प्रदान करते हैं। अपना पिन कोड दर्ज करके डिलीवरी समय देखें।",
-        eta: "हमारी डिलीवरी का समय आमतौर पर 30-90 मिनट है।",
         price: "हमारी कीमतें बहुत सस्ती हैं! ताजी सब्जियां ₹20 से शुरू होती हैं।",
         pickle: "हमारे पास पारंपरिक आंध्र अचार जैसे आम का अवाकाया, गोंगुरा और टमाटर का अचार उपलब्ध है।",
         sweet: "हमारी देसी घी मिठाइयां जैसे बूंदी लड्डू, सुन्नुंडालू और मैसूर पाक घर पर शुद्धता से बनाई जाती हैं।",
         order: "ऑर्डर करने के लिए कार्ट में आइटम जोड़ें और चेकआउट करें। हम PhonePe और कैश ऑन डिलीवरी (COD) स्वीकार करते हैं।",
         payment: "हम PhonePe, UPI और कैश ऑन डिलीवरी (COD) दोनों स्वीकार करते हैं।",
         hello: "🙏 नमस्ते! मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी क्या मदद कर सकती हूँ?",
-        hi: "🙏 नमस्ते! FarmFreshFarmer में आपका स्वागत है।",
         default: "मैं आपकी मदद के लिए यहाँ हूँ! आप उत्पाद की कीमतों या डिलीवरी समय के बारे में पूछ सकते हैं।",
       },
       te: {
         site: "FarmFreshFarmer విజయవాడలో తాజా సేంద్రీయ కూరగాయలు, పండ్లు, ఆంధ్ర ఆవకాయ పచ్చళ్ళు మరియు నెయ్యి మిఠాయిలను 30-90 నిమిషాల్లో ఇంటికి అందించే యాప్!",
         about: "FarmFreshFarmer స్థానిక రైతుల నుండి నేరుగా మీ ఇంటికి కెమికల్స్ లేని స్వచ్ఛమైన ఉత్పత్తులను అందిస్తుంది.",
         delivery: "విజయవాడ అంతటా 30-90 నిమిషాల వ్యవధిలో తక్షణ డెలివరీ అందిస్తాము. మీ పిన్ కోడ్ నమోదు చేసి డెలివరీ సమయం చూడండి.",
-        eta: "మా డెలివరీ సమయం సాధారణంగా 30-90 నిమిషాలు.",
         price: "రైతుల నుండి నేరుగా తక్కువ ధరలకు లభిస్తాయి! తాజా కూరగాయలు ₹20 నుండి ప్రారంభం.",
         pickle: "మా వద్ద సాంప్రదాయ ఆంధ్ర ఆవకాయ, గోంగూర, టమోటా పచ్చళ్ళు స్వచ్ఛమైన నూనెతో తయారు చేయబడతాయి.",
         sweet: "ఆవు నెయ్యితో చేసిన బూందీ లడ్డూ, సున్నుండలు, మైసూర్ పాక్ లభిస్తాయి.",
@@ -208,6 +279,19 @@ Rules:
     return { reply: replies['default'] || FALLBACK_REPLIES['en']['default'], needsHuman: false };
   }
 
+  // Helper to trigger Telegram Alert for Human Support Escalation
+  async function triggerHumanEscalationAlert(sessionToken: string, message: string, language: string) {
+    const alertText = `🚨 <b>[LIVE CHAT ESCALATION REQUIRED]</b>\n` +
+      `A customer needs live human assistance!\n\n` +
+      `<b>Session ID:</b> <code>${sessionToken}</code>\n` +
+      `<b>Language:</b> ${language}\n` +
+      `<b>Customer Message:</b> "${message}"\n\n` +
+      `👉 <b>Action Required:</b> Please log in to your Admin / Staff portal to claim & take over this chat:\n` +
+      `https://www.farmfreshfarmer.com/admin/live-chat`;
+
+    await sendTelegramAlert(alertText);
+  }
+
   // POST /api/chatbot/message
   app.post('/api/chatbot/message', async (req, res) => {
     try {
@@ -218,12 +302,51 @@ Rules:
       }
 
       const lang = ['en', 'hi', 'te'].includes(language) ? language : 'en';
+      const token = sessionToken || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      // Find or create session
+      let [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, token)).limit(1);
+      if (!session) {
+        const [created] = await db.insert(chatbotSessions).values({ sessionToken: token, language: lang, status: 'bot' }).returning();
+        session = created;
+      }
+
+      // Update session lastActivityAt
+      await db.update(chatbotSessions).set({ lastActivityAt: new Date() }).where(eq(chatbotSessions.id, session.id));
+
+      // IF Session is ALREADY connected to a live agent or waiting for one:
+      if (session.status === 'agent_connected' || session.status === 'waiting_for_agent') {
+        // Save customer message to liveChatMessages
+        await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'customer',
+          senderName: 'Customer',
+          message: message,
+        });
+
+        if (session.status === 'waiting_for_agent') {
+          // Re-alert Telegram
+          await triggerHumanEscalationAlert(token, message, lang);
+          return res.json({
+            reply: '⏳ Please hold on! I have alerted our live customer representative & grievance team via Telegram. Someone will take over this chat shortly.',
+            needsHuman: true,
+            status: 'waiting_for_agent',
+            sessionToken: token,
+          });
+        }
+
+        return res.json({
+          reply: `Message sent to ${session.assignedAgentName || 'Support Agent'}. Please wait for their reply.`,
+          needsHuman: true,
+          status: 'agent_connected',
+          assignedAgentName: session.assignedAgentName,
+          sessionToken: token,
+        });
+      }
 
       // Read API key from DB settings
       const allSettings = await storage.settings.all();
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || '';
-
-      console.log('[chatbot] Processing query. Gemini API key configured:', !!geminiApiKey);
 
       // Build live catalog context
       let catalogContext = '';
@@ -235,9 +358,7 @@ Rules:
             .map((p: any) => `${p.name} (₹${p.price}/${p.unit || 'unit'})`)
             .join(', ');
         }
-      } catch (catErr) {
-        console.warn('[chatbot] Could not fetch live catalog for prompt context:', catErr);
-      }
+      } catch {}
 
       let reply: string | null = null;
       let needsHuman = false;
@@ -247,59 +368,205 @@ Rules:
       }
 
       if (!reply) {
-        console.log('[chatbot] Gemini SDK/REST returned null or failed. Generating smart fallback reply.');
         const fallback = await getSmartReply(message, lang);
         reply = fallback.reply;
         needsHuman = fallback.needsHuman;
       }
 
-      // Log query to missed queries if needsHuman or no Gemini
-      if (needsHuman || !geminiApiKey) {
-        try {
-          await db.execute(sql`
-            INSERT INTO chatbot_missed_queries (session_token, query, language, trigger_type, resolved, telegram_alert_sent)
-            VALUES (${sessionToken || 'anonymous'}, ${message}, ${lang}, ${'no_match'}, ${false}, ${false})
-          `);
-        } catch (dbErr) {
-          console.error('[chatbot] Failed to log missed query:', dbErr);
-        }
+      // If reply indicates needs human escalation:
+      if (needsHuman) {
+        await db.update(chatbotSessions).set({ status: 'waiting_for_agent', lastActivityAt: new Date() }).where(eq(chatbotSessions.id, session.id));
+        await triggerHumanEscalationAlert(token, message, lang);
+        await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'customer',
+          senderName: 'Customer',
+          message: message,
+        });
       }
 
-      return res.json({ reply, needsHuman, sessionToken });
+      return res.json({ reply, needsHuman, status: session.status, sessionToken: token });
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);
-      return res.status(500).json({ reply: '🙏 Namaste! I am experiencing a brief connection issue. Please ask again or contact support at +91 79897 93669.', needsHuman: true });
+      return res.status(500).json({ reply: '🙏 Namaste! I am experiencing a brief connection issue. Please try again or contact support at +91 79897 93669.', needsHuman: true });
     }
   });
 
-  // POST /api/chatbot/missed — Human Support Escalation & Telegram Alert
+  // POST /api/chatbot/missed — Human Support Escalation Request
   app.post('/api/chatbot/missed', async (req, res) => {
     try {
       const { query, sessionToken, language = 'en', triggerType = 'human_request', chatHistory = '' } = req.body;
+      const token = sessionToken || `guest_${Date.now()}`;
 
-      // Log to database
-      try {
-        await db.execute(sql`
-          INSERT INTO chatbot_missed_queries (session_token, query, language, trigger_type, resolved, telegram_alert_sent)
-          VALUES (${sessionToken || 'anonymous'}, ${query || 'Human Escalation Requested'}, ${language}, ${triggerType}, ${false}, ${true})
-        `);
-      } catch (logErr) {
-        console.error('[chatbot] DB log error on missed query:', logErr);
+      // Update session status to waiting_for_agent
+      await db.insert(chatbotSessions).values({ sessionToken: token, language, status: 'waiting_for_agent' })
+        .onConflictDoUpdate({ target: chatbotSessions.sessionToken, set: { status: 'waiting_for_agent', lastActivityAt: new Date() } });
+
+      // Save initial customer query to liveChatMessages
+      if (query) {
+        await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'customer',
+          senderName: 'Customer',
+          message: query,
+        });
       }
 
       // Dispatch Telegram alert
-      const alertMessage = `🤖 <b>[Laxshmi AI — Support Request]</b>\n` +
-        `<b>Session:</b> <code>${sessionToken || 'Unknown'}</code>\n` +
-        `<b>Language:</b> ${language}\n` +
-        `<b>Request:</b> ${query || 'Customer requested human callback'}\n\n` +
-        `<b>Recent Conversation:</b>\n<pre>${(chatHistory || '').slice(-600)}</pre>`;
+      await triggerHumanEscalationAlert(token, query || 'Customer requested live human support takeover', language);
 
-      const sent = await sendTelegramAlert(alertMessage);
-
-      return res.json({ success: true, telegramAlertSent: sent });
+      return res.json({ success: true, status: 'waiting_for_agent' });
     } catch (err) {
       console.error('[chatbot] Error handling missed query escalation:', err);
       return res.status(500).json({ success: false, error: 'Escalation failed' });
+    }
+  });
+
+  /* ========================================================================= */
+  /*  ADMIN & STAFF LIVE SUPPORT PORTAL ROUTES                                 */
+  /* ========================================================================= */
+
+  // GET /api/admin/chatbot/live-sessions — List all active & waiting sessions
+  app.get('/api/admin/chatbot/live-sessions', requireStaffOrAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const sessions = await db.select().from(chatbotSessions)
+        .where(inArray(chatbotSessions.status, ['waiting_for_agent', 'agent_connected']))
+        .orderBy(desc(chatbotSessions.lastActivityAt));
+
+      const result = [];
+      for (const s of sessions) {
+        const msgs = await db.select().from(liveChatMessages)
+          .where(eq(liveChatMessages.sessionToken, s.sessionToken))
+          .orderBy(desc(liveChatMessages.createdAt))
+          .limit(1);
+
+        result.push({
+          ...s,
+          lastMessage: msgs[0]?.message || 'No messages yet',
+          lastMessageSender: msgs[0]?.sender || 'system',
+        });
+      }
+
+      return res.json({ sessions: result });
+    } catch (err: any) {
+      console.error('[admin chatbot] Error listing live sessions:', err);
+      return res.status(500).json({ message: 'Failed to list live sessions' });
+    }
+  });
+
+  // GET /api/admin/chatbot/messages/:sessionToken — Get full conversation for session
+  app.get('/api/admin/chatbot/messages/:sessionToken', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const sessionToken = String(req.params.sessionToken);
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      const messages = await db.select().from(liveChatMessages)
+        .where(eq(liveChatMessages.sessionToken, sessionToken))
+        .orderBy(liveChatMessages.createdAt);
+
+      return res.json({ session, messages });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to fetch session messages' });
+    }
+  });
+
+  // POST /api/admin/chatbot/claim-session — Staff clicks "I am Available / Take Over Chat"
+  app.post('/api/admin/chatbot/claim-session', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const agentName = user.name || user.username || user.role || 'Staff Representative';
+      const agentId = user.id || null;
+
+      const [updated] = await db.update(chatbotSessions)
+        .set({
+          status: 'agent_connected',
+          assignedAgentId: agentId,
+          assignedAgentName: agentName,
+          lastActivityAt: new Date(),
+        })
+        .where(eq(chatbotSessions.sessionToken, sessionToken))
+        .returning();
+
+      // Post system announcement in chat
+      await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'system',
+        senderName: 'System',
+        message: `🟢 ${agentName} (${user.role || 'Support'}) has taken over this chat.`,
+      });
+
+      return res.json({ success: true, session: updated });
+    } catch (err: any) {
+      console.error('[admin chatbot] Claim session error:', err);
+      return res.status(500).json({ message: 'Failed to claim session' });
+    }
+  });
+
+  // POST /api/admin/chatbot/send-message — Staff sends live reply to customer
+  app.post('/api/admin/chatbot/send-message', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sessionToken, message } = req.body;
+      const user = (req as any).user || {};
+
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ message: 'Message is required' });
+      }
+
+      const agentName = user.name || user.username || 'Support Rep';
+
+      const [created] = await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'support',
+        senderName: agentName,
+        senderId: user.id || null,
+        message: message.trim(),
+      }).returning();
+
+      await db.update(chatbotSessions)
+        .set({ status: 'agent_connected', lastActivityAt: new Date() })
+        .where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      return res.json({ success: true, message: created });
+    } catch (err: any) {
+      console.error('[admin chatbot] Send message error:', err);
+      return res.status(500).json({ message: 'Failed to send message' });
+    }
+  });
+
+  // POST /api/admin/chatbot/close-session — Staff resolves/closes chat
+  app.post('/api/admin/chatbot/close-session', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sessionToken, resolveNote } = req.body;
+
+      const [updated] = await db.update(chatbotSessions)
+        .set({ status: 'closed', lastActivityAt: new Date() })
+        .where(eq(chatbotSessions.sessionToken, sessionToken))
+        .returning();
+
+      await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'system',
+        senderName: 'System',
+        message: `🏁 Chat support session closed. ${resolveNote ? `Resolution Note: ${resolveNote}` : ''}`,
+      });
+
+      return res.json({ success: true, session: updated });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to close session' });
+    }
+  });
+
+  // GET /api/admin/chatbot/missed — List missed queries for review
+  app.get('/api/admin/chatbot/missed', requireStaffOrAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const queries = await db.select().from(chatbotMissedQueries)
+        .orderBy(desc(chatbotMissedQueries.createdAt))
+        .limit(100);
+
+      return res.json({ queries });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to fetch missed queries' });
     }
   });
 }

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle
+  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -16,6 +16,7 @@ import Forbidden403 from "../Forbidden403";
 const NAV = [
   { section: "Overview", items: [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/live-chat", label: "Live Support Chat 💬", icon: MessageSquare },
   ]},
   { section: "Catalog", items: [
     { href: "/admin/products", label: "Products", icon: Package },
@@ -85,21 +86,22 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       if (adminUser?.role === "warehouse_admin") {
         allowedHrefs = ["/admin", "/admin/inventory", "/admin/warehouses"];
       } else if (adminUser?.role === "manager_admin") {
-        allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"];
+        allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory", "/admin/live-chat"];
       } else if (adminUser?.role === "customer_rep") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/live-chat"];
       } else if (adminUser?.role === "local_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/live-chat"];
       } else if (adminUser?.role === "zonal_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/live-chat"];
       } else if (adminUser?.role === "chief_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings", "/admin/live-chat"];
       } else {
-        allowedHrefs = ["/admin"];
+        allowedHrefs = ["/admin", "/admin/live-chat"];
       }
     }
 
     if (!allowedHrefs.includes("/admin")) allowedHrefs.push("/admin");
+    if (!allowedHrefs.includes("/admin/live-chat")) allowedHrefs.push("/admin/live-chat");
   }
 
   const navToDisplay = NAV.map((section) => {

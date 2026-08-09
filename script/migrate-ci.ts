@@ -32,7 +32,7 @@ async function migrateCi() {
   `);
   console.log("[migrate-ci] product_approval_history table ready");
 
-  // Create chatbot_sessions table
+  // Create chatbot_sessions table & add columns
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS chatbot_sessions (
       id SERIAL PRIMARY KEY,
@@ -44,7 +44,25 @@ async function migrateCi() {
       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
     )
   `);
+  await db.execute(sql`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'bot'`);
+  await db.execute(sql`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS assigned_agent_id INTEGER`);
+  await db.execute(sql`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS assigned_agent_name TEXT`);
+  await db.execute(sql`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()`);
   console.log("[migrate-ci] chatbot_sessions table ready");
+
+  // Create live_chat_messages table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS live_chat_messages (
+      id SERIAL PRIMARY KEY,
+      session_token VARCHAR(128) NOT NULL,
+      sender VARCHAR(16) NOT NULL,
+      sender_name TEXT,
+      sender_id INTEGER,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+  console.log("[migrate-ci] live_chat_messages table ready");
 
   // Create chatbot_missed_queries table
   await db.execute(sql`

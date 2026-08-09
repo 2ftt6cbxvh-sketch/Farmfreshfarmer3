@@ -106,6 +106,40 @@ export function ChatbotLaxshmi() {
     },
   });
 
+  // Poll live chat session status and messages every 2 seconds when chat is open
+  const { data: liveSessionData } = useQuery<{
+    status: "bot" | "waiting_for_agent" | "agent_connected" | "closed";
+    assignedAgentName?: string | null;
+    messages: Array<{ id: string; sender: string; senderName?: string; message: string; createdAt: string }>;
+  }>({
+    queryKey: ["/api/chatbot/live-session", sessionToken],
+    queryFn: async () => {
+      const r = await fetch(`/api/chatbot/live-session/${sessionToken}`);
+      return r.json();
+    },
+    enabled: isOpen,
+    refetchInterval: 2000,
+  });
+
+  // Sync live messages from support agent into chat stream
+  useEffect(() => {
+    if (liveSessionData?.messages && liveSessionData.messages.length > 0) {
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newLive = liveSessionData.messages
+          .filter((lm) => !existingIds.has(lm.id))
+          .map((lm) => ({
+            id: lm.id,
+            role: lm.sender === "customer" ? ("user" as const) : ("model" as const),
+            content: lm.sender === "system" ? lm.message : `${lm.senderName ? `[${lm.senderName}] ` : ""}${lm.message}`,
+            timestamp: new Date(lm.createdAt),
+          }));
+        if (newLive.length === 0) return prev;
+        return [...prev, ...newLive];
+      });
+    }
+  }, [liveSessionData]);
+
   const sendMutation = useMutation({
     mutationFn: async (payload: { message: string; history: Array<{ role: string; content: string }> }) => {
       const r = await fetch("/api/chatbot/message", {
@@ -135,11 +169,23 @@ export function ChatbotLaxshmi() {
         .slice(-6)
         .map((m) => `${m.role === "user" ? "Customer" : "Laxshmi"}: ${m.content}`)
         .join("\n");
-      await fetch("/api/chatbot/missed", {
+      const r = await fetch("/api/chatbot/missed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, sessionToken, language, triggerType: "human_request", chatHistory: history }),
       });
+      return r.json();
+    },
+    onSuccess: () => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys_${Date.now()}`,
+          role: "model",
+          content: "⏳ Live Support Requested! Our Super Admin & Customer Representatives have been alerted via Telegram. Please stay on this window — a team member will respond shortly.",
+          timestamp: new Date(),
+        },
+      ]);
     },
   });
 
@@ -305,6 +351,20 @@ export function ChatbotLaxshmi() {
               <X size={18} />
             </button>
           </div>
+
+          {/* Live Support Status Banner */}
+          {liveSessionData?.status === "waiting_for_agent" && (
+            <div className="bg-amber-500 text-white text-[11px] font-bold px-3 py-1.5 flex items-center justify-between animate-pulse flex-shrink-0">
+              <span>⏳ Waiting for Live Representative...</span>
+              <span className="text-[9px] opacity-90 font-mono">Telegram Alert Sent</span>
+            </div>
+          )}
+          {liveSessionData?.status === "agent_connected" && (
+            <div className="bg-emerald-600 text-white text-[11px] font-bold px-3 py-1.5 flex items-center justify-between flex-shrink-0">
+              <span>🟢 Live Chat: {liveSessionData.assignedAgentName || "Support Representative"}</span>
+              <span className="text-[9px] opacity-90 font-mono font-normal">Active</span>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">

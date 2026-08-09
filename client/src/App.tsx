@@ -45,7 +45,9 @@ import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminStaff from "@/pages/admin/AdminStaff";
 import AdminDeliveryPartners from "@/pages/admin/AdminDeliveryPartners";
 import AdminGST from "@/pages/admin/AdminGST";
+import { AdminLiveChat } from "@/pages/admin/AdminLiveChat";
 import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
+import DeliveryPartnerLogin from "@/pages/DeliveryPartnerLogin";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
 
@@ -74,6 +76,7 @@ function AppRouter() {
       <Route path="/grievance" component={GrievancePage} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/live-chat" component={AdminLiveChat} />
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/admin/categories" component={AdminCategories} />
       <Route path="/admin/approvals" component={AdminApprovals} />

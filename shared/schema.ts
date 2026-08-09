@@ -803,18 +803,37 @@ export const productApprovalHistory = pgTable("product_approval_history", {
 }));
 export type ProductApprovalHistory = typeof productApprovalHistory.$inferSelect;
 
-/* ====================== CHATBOT TABLES ======================== */
+/* ====================== CHATBOT & LIVE SUPPORT TABLES ======================== */
 // Session tracking — one per conversation (guest or logged-in user).
 export const chatbotSessions = pgTable("chatbot_sessions", {
   id: serial("id").primaryKey(),
   sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
   userId: integer("user_id"), // null for guests
   language: varchar("language", { length: 8 }).notNull().default("en"), // en | hi | te
+  status: varchar("status", { length: 32 }).notNull().default("bot"), // bot | waiting_for_agent | agent_connected | closed
+  assignedAgentId: integer("assigned_agent_id"),
+  assignedAgentName: text("assigned_agent_name"),
+  lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   tokenIdx: uniqueIndex("chatbot_sessions_token_idx").on(t.sessionToken),
+  statusIdx: index("chatbot_sessions_status_idx").on(t.status),
 }));
 export type ChatbotSession = typeof chatbotSessions.$inferSelect;
+
+// Messages in live chat between customer and human support rep
+export const liveChatMessages = pgTable("live_chat_messages", {
+  id: serial("id").primaryKey(),
+  sessionToken: varchar("session_token", { length: 128 }).notNull(),
+  sender: varchar("sender", { length: 16 }).notNull(), // 'customer' | 'support' | 'bot' | 'system'
+  senderName: text("sender_name"),
+  senderId: integer("sender_id"),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  sessionIdx: index("live_chat_messages_session_idx").on(t.sessionToken),
+}));
+export type LiveChatMessage = typeof liveChatMessages.$inferSelect;
 
 // Queries the chatbot could not answer — stored for admin review.
 export const chatbotMissedQueries = pgTable("chatbot_missed_queries", {
