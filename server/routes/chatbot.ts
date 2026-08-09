@@ -251,14 +251,15 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
   });
 }
 
-  // Call Gemini REST API with fallback models
+  // Call Gemini REST API with fallback models & conversation history
   async function callGeminiAPI(
     apiKey: string,
     message: string,
     fullProductsContext: string,
     legalContext: string,
     contactContext: string,
-    language: string
+    language: string,
+    history?: Array<{ role: string; content: string }>
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) {
@@ -281,6 +282,7 @@ ${contactContext}
 
 ==================== YOUR ROLE & INSTRUCTIONS ====================
 - Respond accurately, naturally, and warmly in ${langName}.
+- Maintain conversation context (e.g. if the customer previously asked about tomatoes and now asks "are they healthy?", understand that "they" refers to tomatoes!).
 - NEVER give generic template responses. Answer the exact question asked by the customer.
 
 HEALTH, NUTRITION & WELLNESS GUIDANCE:
@@ -295,6 +297,23 @@ STORE & LOCATION & ETA QUERIES:
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 
+    // Build chat contents with full conversation history
+    const contents: any[] = [];
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history.slice(-6)) {
+        if (h.role && h.content) {
+          contents.push({
+            role: h.role === 'model' ? 'model' : 'user',
+            parts: [{ text: String(h.content) }],
+          });
+        }
+      }
+    }
+    contents.push({
+      role: 'user',
+      parts: [{ text: `${systemPrompt}\n\nCustomer Current Question: ${message}` }],
+    });
+
     // 1. Try Official @google/generative-ai SDK
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
@@ -302,7 +321,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       for (const mName of modelNames) {
         try {
           const model = genAI.getGenerativeModel({ model: mName });
-          const result = await model.generateContent(`${systemPrompt}\n\nCustomer Question: ${message}`);
+          const result = await model.generateContent({ contents });
           const response = await result.response;
           const text = response.text();
           if (text && text.trim()) {
@@ -332,7 +351,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nCustomer Question: ${message}` }] }],
+              contents,
               generationConfig: { maxOutputTokens: 768, temperature: 0.7 },
             }),
           });
@@ -478,7 +497,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
   // POST /api/chatbot/message
   app.post('/api/chatbot/message', async (req, res) => {
     try {
-      const { message, language = 'en', sessionToken } = req.body;
+      const { message, language = 'en', sessionToken, history } = req.body;
 
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'Message is required' });
@@ -586,7 +605,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       let needsHuman = false;
 
       if (geminiApiKey) {
-        reply = await callGeminiAPI(geminiApiKey, message, fullProductsContext, legalContext, contactContext, lang);
+        reply = await callGeminiAPI(geminiApiKey, message, fullProductsContext, legalContext, contactContext, lang, history);
       }
 
       if (!reply) {
