@@ -408,12 +408,17 @@ export default function BasketScreen() {
               </View>
             )}
 
-            <View style={styles.calcRow}>
-              <Text style={[styles.calcLabel, { color: mutedColor }]}>
-                Delivery Fee {resolution?.locationArea ? `(${resolution.locationArea})` : ''}
-              </Text>
-              <Text style={[styles.calcValue, isFreeDelivery ? { color: '#10b981' } : { color: textColor }]}>
-                {isFreeDelivery ? `FREE (Above ₹${freeDeliveryThreshold})` : `₹${effectiveDeliveryFee} (Free above ₹${freeDeliveryThreshold})`}
+            <View style={{ marginVertical: 4 }}>
+              <View style={styles.calcRow}>
+                <Text style={[styles.calcLabel, { color: mutedColor, flex: 1 }]} numberOfLines={1}>
+                  Delivery Fee {resolution?.locationArea ? `(${resolution.locationArea})` : ''}
+                </Text>
+                <Text style={[styles.calcValue, isFreeDelivery ? { color: '#10b981', fontWeight: '900' } : { color: textColor }]}>
+                  {isFreeDelivery ? 'FREE' : `₹${effectiveDeliveryFee}`}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 10, color: isFreeDelivery ? '#10b981' : mutedColor, textAlign: 'right', marginTop: 1 }}>
+                {isFreeDelivery ? `🎉 Qualified for Free Delivery (Above ₹${freeDeliveryThreshold})` : `Free delivery on orders above ₹${freeDeliveryThreshold}`}
               </Text>
             </View>
 
