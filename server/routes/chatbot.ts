@@ -258,6 +258,8 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     apiKey: string,
     message: string,
     fullProductsContext: string,
+    categoriesContext: string,
+    securityAndAuthContext: string,
     legalContext: string,
     contactContext: string,
     language: string,
@@ -272,29 +274,34 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
     const systemPrompt = `You are Laxshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
 
-==================== LIVE DATABASE CONTEXT ====================
+==================== LIVE DATABASE & SYSTEM CONTEXT ====================
 1. PRODUCT CATALOG & PRICING:
 ${fullProductsContext || 'No product catalog available.'}
 
-2. STORE LEGAL POLICIES & TERMS:
+2. PRODUCT CATEGORIES:
+${categoriesContext || 'Fruits, Vegetables, Homemade Sweets, Avakaya Pickles, Millets, Pulses, Spices.'}
+
+3. CUSTOMER LOGIN, DASHBOARD & SECURITY HELP:
+${securityAndAuthContext}
+
+4. STORE LEGAL POLICIES & TERMS:
 ${legalContext}
 
-3. CUSTOMER SUPPORT & CONTACT INFORMATION:
+5. CUSTOMER SUPPORT & CONTACT INFORMATION:
 ${contactContext}
 
 ==================== YOUR ROLE & INSTRUCTIONS ====================
-- Respond accurately, naturally, and warmly in ${langName}.
+- Respond accurately, dynamically, naturally, and warmly in ${langName}.
+- NEVER use hardcoded or generic template responses. Always generate a personalized, intelligent answer using your full AI capabilities and live database context.
 - Maintain conversation context (e.g. if the customer previously asked about tomatoes and now asks "are they healthy?", understand that "they" refers to tomatoes!).
-- NEVER give generic template responses. Answer the exact question asked by the customer.
 
 HEALTH, NUTRITION & WELLNESS GUIDANCE:
-- When asked about health, nutrition, or benefits of any fruit, vegetable, pickle, sweet, or product:
-  1. NUTRITION & HEALTH BENEFITS: Explain vitamins, minerals, antioxidants, and health advantages of eating this item.
-  2. WHO SHOULD EAT & ADVANTAGES: Explain who benefits most (e.g. heart health, diabetics, pregnant mothers, growing children, skin/hair, digestion).
-  3. PRECAUTIONS & WHO SHOULD AVOID/LIMIT: State health cautions (e.g. sodium warning for pickles in hypertension, sugar/ghee moderation for sweets in diabetics, oxalate cautions for raw spinach).
-  4. HEALTH TIPS: Give practical consumption advice.
+- When asked about health, nutrition, or medical suitability of any food item (e.g., for diabetes, blood pressure, heart health, pregnancy, children):
+  1. Provide a detailed, accurate nutrition breakdown (vitamins, minerals, antioxidants, glycemic index).
+  2. Explain who benefits and why.
+  3. Mention any precautions or health tips.
 
-STORE & LOCATION & ETA QUERIES:
+STORE, LOCATION, ETA & SERVICE QUERIES:
 - When asked about delivery ETAs or locations (e.g. Vaddeswaram, Vijayawada, Guntur, etc.), state that instant farm delivery is 30-90 minutes across Vijayawada & local Andhra areas.
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
@@ -611,16 +618,22 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42S2hmTkxfa2hOeFdadWRMMmtyWU5iajhtRU1wbmRGN3JLWHl4LTV3TTQ4UQ==', 'base64').toString('ascii');
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || DEFAULT_GEMINI_KEY;
 
-      // Build live catalog context & product matching
+      // Build live database context for Gemini AI
       let fullProductsContext = '';
+      let categoriesContext = '';
       let matchedProducts: any[] = [];
+
       try {
-        const activeProducts = await storage.products.list();
+        const [activeProducts, categoriesList] = await Promise.all([
+          storage.products.list(),
+          storage.categories.list(),
+        ]);
+
         if (activeProducts && activeProducts.length > 0) {
           fullProductsContext = activeProducts
-            .slice(0, 50)
+            .slice(0, 100)
             .map((p: any) => 
-              `• Product: ${p.name} | Price: ₹${p.price} per ${p.unit || 'unit'} | Category: ${p.categorySlug || 'General'} | Stock: ${p.stock > 0 ? 'In Stock (' + p.stock + ' available)' : 'Out of Stock'} | Scope: ${!p.allowInternationalShipping ? 'Local Vijayawada Farm Harvest Only' : 'Express Delivery'} | Description: ${p.description || 'Fresh natural produce'}`
+              `• Product: ${p.name} | Price: ₹${p.price} per ${p.unit || 'unit'} | Category: ${p.categorySlug || 'General'} | Stock: ${p.stock > 0 ? 'In Stock (' + p.stock + ' available)' : 'Out of Stock'} | Scope: ${!p.allowInternationalShipping ? 'Local Vijayawada Farm Harvest Only' : 'Express Delivery'} | Description: ${p.description || '100% fresh natural produce'}`
             )
             .join('\n');
 
@@ -636,9 +649,22 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
             categorySlug: p.categorySlug,
           })).slice(0, 4);
         }
+
+        if (categoriesList && categoriesList.length > 0) {
+          categoriesContext = categoriesList.map((c: any) => `• Category Name: ${c.name} | Category Slug: ${c.slug}`).join('\n');
+        }
       } catch (catErr) {
-        console.warn('[chatbot] Could not fetch live catalog:', catErr);
+        console.warn('[chatbot] Could not fetch live database context:', catErr);
       }
+
+      // Login, Dashboard & Security context
+      const securityAndAuthContext = `
+• Customer Login Options:
+  1. 🌐 Google One-Tap Sign In (Instant 1-click passwordless login).
+  2. ✉️ Email OTP Sign In (6-Digit One-Time Password sent to your email inbox).
+• Account Security: SSL/TLS 256-bit encryption, Argon2id password hashing, and optional 2FA TOTP authentication for staff/admin.
+• Customer Dashboard: View live order status, track support tickets, manage delivery addresses, and view recurring subscription boxes at /account.
+      `.trim();
 
       // Legal policies context
       const legalContext = `
@@ -666,13 +692,22 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       let needsHuman = false;
 
       if (geminiApiKey) {
-        reply = await callGeminiAPI(geminiApiKey, message, fullProductsContext, legalContext, contactContext, lang, history);
+        reply = await callGeminiAPI(
+          geminiApiKey,
+          message,
+          fullProductsContext,
+          categoriesContext,
+          securityAndAuthContext,
+          legalContext,
+          contactContext,
+          lang,
+          history
+        );
       }
 
       if (!reply) {
-        const fallback = await getSmartReply(message, lang);
-        reply = fallback.reply;
-        needsHuman = fallback.needsHuman;
+        reply = '🙏 I am currently experiencing a brief connection delay reaching Gemini AI. Please try sending your message again or tap "Connect to Human Support".';
+        needsHuman = false;
       }
 
       // If reply indicates needs human escalation:
@@ -717,6 +752,8 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         keyToTest,
         'Hello Laxshmi! Confirm that your Gemini AI connection is working.',
         'Farm Tomatoes - ₹40/kg',
+        'Vegetables, Fruits, Sweets, Pickles',
+        'Google One-Tap & Email OTP Sign In',
         '30-90 min Vijayawada delivery',
         '+91 79897 93669',
         'en'
