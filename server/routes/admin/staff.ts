@@ -210,8 +210,8 @@ export function registerStaffRoutes(app: Express) {
       const [target] = await db.select().from(users).where(eq(users.id, staffId)).limit(1);
       if (!target) return res.status(404).json({ message: "Staff account not found" });
 
-      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin) {
-        return res.status(403).json({ message: "Cannot delete Primary Admin account" });
+      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin || target.role === "admin") {
+        return res.status(403).json({ message: "Super Admin account cannot be revoked or deleted." });
       }
 
       await db.delete(users).where(eq(users.id, staffId));
@@ -219,6 +219,23 @@ export function registerStaffRoutes(app: Express) {
     } catch (err: any) {
       console.error("[staff] DELETE error:", err);
       return res.status(500).json({ message: "Failed to delete staff account" });
+    }
+  });
+
+  /** POST /api/admin/update-password — Update Super Admin password securely */
+  app.post("/api/admin/update-password", requirePrimaryAdmin, async (req: Request, res: Response) => {
+    try {
+      const { newPassword } = req.body || {};
+      if (!newPassword || newPassword.trim().length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+      await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.email, "admin@farmfreshfarmer.com"));
+
+      return res.json({ success: true, message: "🔑 Super Admin password updated successfully!" });
+    } catch (err: any) {
+      return res.status(500).json({ message: "Failed to update Super Admin password" });
     }
   });
 }

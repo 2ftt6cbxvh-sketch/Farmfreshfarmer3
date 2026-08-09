@@ -535,7 +535,7 @@ export default function BasketScreen() {
             <Text style={[styles.fieldLabel, { color: mutedColor }]}>Full name *</Text>
             <TextInput
               style={[styles.fullWidthInput, isDark ? styles.inputDark : styles.inputLight]}
-              placeholder="e.g. Store Admin"
+              placeholder="e.g. Super Admin"
               placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
               value={customerName}
               onChangeText={setCustomerName}

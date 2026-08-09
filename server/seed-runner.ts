@@ -64,7 +64,7 @@ export async function ensureSeeded(opts?: { log?: boolean }): Promise<void> {
   if (admin.length === 0) {
     const hash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10);
     const [created] = await db.insert(users).values({
-      name: "Store Admin", email: ADMIN_EMAIL, username: "admin",
+      name: "Super Admin", email: ADMIN_EMAIL, username: "admin",
       password: hash, role: "admin",
     }).returning();
     await db.insert(referralCodes).values({ userId: created.id, code: generateReferralCode() });

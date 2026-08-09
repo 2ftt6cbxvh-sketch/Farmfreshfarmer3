@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Switch, Modal, Image } from 'react-native';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '../../lib/api';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS } from '../../constants/config';
@@ -21,7 +22,24 @@ const STAFF_ROLES = [
   { value: 'warehouse_admin', label: 'Warehouse Admin' },
   { value: 'manager_admin', label: 'Manager Admin' },
   { value: 'delivery_partner', label: 'Delivery Partner / Rider' },
-  { value: 'admin', label: 'Full Admin' },
+  { value: 'admin', label: 'Super Admin' },
+];
+
+const ALL_MENU_PERMISSIONS = [
+  { href: '/admin', label: 'Dashboard Overview' },
+  { href: '/admin/products', label: 'Products Management' },
+  { href: '/admin/categories', label: 'Categories' },
+  { href: '/admin/inventory', label: 'Inventory Stock' },
+  { href: '/admin/orders', label: 'Orders & Fulfillment' },
+  { href: '/admin/subscriptions', label: 'Subscriptions' },
+  { href: '/admin/payments', label: 'Payments' },
+  { href: '/admin/customers', label: 'Customers' },
+  { href: '/admin/reviews', label: 'Reviews & Ratings' },
+  { href: '/admin/coupons', label: 'Coupons & Promos' },
+  { href: '/admin/discounts', label: 'Discounts' },
+  { href: '/admin/referrals', label: 'Referrals' },
+  { href: '/admin/warehouses', label: 'Warehouses Hubs' },
+  { href: '/admin/delivery', label: 'Delivery & Pincodes' },
 ];
 
 export default function AdminDashboardScreen() {
@@ -59,16 +77,84 @@ export default function AdminDashboardScreen() {
   const [newWarehouse, setNewWarehouse] = useState({ name: '', latitude: '', longitude: '', maxRadiusKm: '', averageSpeedKmph: '', active: true });
 
   // Sub-Admin / Staff Form State
-  const [newStaff, setNewStaff] = useState({ name: '', email: '', phone: '', password: '', role: 'custom_subadmin', customTitle: '' });
+  const [newStaff, setNewStaff] = useState({ name: '', email: '', phone: '', password: '', role: 'custom_subadmin', customTitle: 'Sub-Admin' });
+  const [editingStaff, setEditingStaff] = useState<any>(null);
   const [selectedPerms, setSelectedPerms] = useState<string[]>(['/admin', '/admin/orders']);
 
-  // Settings State
-  const [settingsForm, setSettingsForm] = useState({
-    freeDeliveryThreshold: '500',
-    supportPhone: '+919876543210',
-    remoteLockdown: false,
-    storeOpen: true,
+  // Super Admin Password State
+  const [superAdminPass, setSuperAdminPass] = useState('');
+
+  // Business Settings State (Matching Web screenshots)
+  const [settings, setSettings] = useState<Record<string, any>>({
+    enable_first_order_discount: 'true',
+    first_order_discount_percent: '10',
+    enable_referral_program: 'true',
+    referral_discount_percent: '10',
+    referrer_reward_percent: '5',
+    max_referral_reward_cap_percent: '30',
+    subscription_delivery_days: 'Both Saturday & Sunday',
+    charge_standard_delivery_fee: 'false',
+    standard_delivery_fee: '40',
+    free_delivery_threshold: '500',
+    enable_per_city_delivery_charges: 'false',
+    allow_cod: 'true',
+    store_name: 'FarmFreshFarmer',
+    store_city: 'Visakhapatnam',
+    site_custom_text: 'Fresh from local farms, delivered straight to your doorstep.',
+    telegram_chat_id: '1927711332',
+    telegram_bot_token: '',
+    smtp_host: 'smtp.titan.email',
+    smtp_port: '465',
+    subadmin_discount_percent: '100',
+    subadmin_max_discount_cap: '500',
+    subadmin_monthly_purchases: '4',
+    partner_discount_percent: '20',
+    partner_max_discount_cap: '300',
+    partner_monthly_purchases: '6',
+    hero_pill_badge: "Vijayawada's #1 Instant Organic Farm Delivery",
+    promise_pill_badge: 'Vijayawada Farm to Fork',
+    hero_headline: 'Fresh from local farms, delivered straight to your doorstep.',
+    promise_title: 'Our Farm-to-Home Promise',
+    promise_description: 'Connecting households directly with local organic farms.',
+    email_otp_enabled: 'true',
+    google_oauth_enabled: 'true',
+    resend_api_key: '',
+    smtp_username: '',
+    smtp_password: '',
   });
+
+  // Fetch Settings on mount
+  useEffect(() => {
+    api.get('/api/settings').then(res => {
+      if (res.data) setSettings(prev => ({ ...prev, ...res.data }));
+    }).catch(() => {});
+  }, []);
+
+  // Device Image Picker Function
+  const handlePickImageFromGallery = async (setImageFn: (url: string) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo gallery permissions to upload product images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.base64) {
+        const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        setImageFn(dataUri);
+        Alert.alert('Success 🖼️', 'Device image loaded & ready to save!');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not open image picker.');
+    }
+  };
 
   // Data Queries
   const { data: rawOrders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
@@ -153,23 +239,49 @@ export default function AdminDashboardScreen() {
     mutationFn: (data: any) => api.post('/api/admin/staff', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
-      setNewStaff({ name: '', email: '', phone: '', password: '', role: 'custom_subadmin', customTitle: '' });
-      Alert.alert('Success', '🛡️ Sub-Admin / Staff Member Credentials & Permissions Saved');
+      setNewStaff({ name: '', email: '', phone: '', password: '', role: 'custom_subadmin', customTitle: 'Sub-Admin' });
+      Alert.alert('Success', '🛡️ Sub-Admin Credentials & Permissions Saved');
     },
-    onError: (err: any) => {
-      Alert.alert('Error', err.response?.data?.message || 'Could not add sub-admin');
-    }
+    onError: (err: any) => Alert.alert('Error', err.response?.data?.message || 'Could not add sub-admin')
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: any }) => api.patch(`/api/admin/staff/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
+      setEditingStaff(null);
+      Alert.alert('Success', '✨ Sub-Admin Credentials & Permissions Updated!');
+    },
+    onError: (err: any) => Alert.alert('Error', err.response?.data?.message || 'Could not update sub-admin')
   });
 
   const deleteStaffMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/admin/staff/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-staff'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-staff'] }),
+    onError: (err: any) => Alert.alert('Revoke Protected', err.response?.data?.message || 'Super Admin cannot be revoked.')
+  });
+
+  const updateSuperAdminPasswordMutation = useMutation({
+    mutationFn: (newPassword: string) => api.post('/api/admin/update-password', { newPassword }),
+    onSuccess: () => {
+      setSuperAdminPass('');
+      Alert.alert('Password Updated 🔑', 'Super Admin password updated successfully!');
+    },
+    onError: (err: any) => Alert.alert('Error', err.response?.data?.message || 'Failed to update password')
   });
 
   const saveSettingsMutation = useMutation({
-    mutationFn: (settings: any) => api.post('/api/admin/settings', settings),
-    onSuccess: () => Alert.alert('Success', '⚙️ Platform Settings Saved')
+    mutationFn: (settingsPayload: any) => api.post('/api/admin/settings', settingsPayload),
+    onSuccess: () => Alert.alert('Success ⚙️', 'All Business & Platform Settings Saved Globally')
   });
+
+  const togglePerm = (href: string, currentList: string[], setFn: (list: string[]) => void) => {
+    if (currentList.includes(href)) {
+      setFn(currentList.filter(p => p !== href));
+    } else {
+      setFn([...currentList, href]);
+    }
+  };
 
   const statuses = ['placed', 'packed', 'out_for_delivery', 'delivered'];
   const statusLabels: Record<string, string> = { 'placed': 'Placed', 'packed': 'Packed', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered' };
@@ -180,7 +292,7 @@ export default function AdminDashboardScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: textColor }]}>Admin Control</Text>
+        <Text style={[styles.navTitle, { color: textColor }]}>Super Admin Control</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -195,23 +307,49 @@ export default function AdminDashboardScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* ── 📊 DASHBOARD OVERVIEW ────────────────────────────────────────────── */}
         {activeTab === 'dashboard' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>Revenue total</Text>
-              <Text style={[styles.stockText, { color: textColor }]}>₹{(orders || []).reduce((acc: number, o: any) => acc + (o.total || 0), 0)}</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>₹{orders.reduce((acc: number, o: any) => acc + (o.total || 0), 0)}</Text>
             </View>
+
+            {/* SUPER ADMIN PASSWORD UPDATE SECURITY CARD */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>🔐 Super Admin Password Update</Text>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Change your Super Admin account password securely.</Text>
+              <TextInput
+                style={[styles.input, { color: textColor, borderColor: borderCol }]}
+                placeholder="Enter New Super Admin Password"
+                placeholderTextColor={mutedColor}
+                secureTextEntry
+                value={superAdminPass}
+                onChangeText={setSuperAdminPass}
+              />
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => {
+                  if (superAdminPass.length < 6) { Alert.alert('Error', 'Password must be at least 6 characters'); return; }
+                  updateSuperAdminPasswordMutation.mutate(superAdminPass);
+                }}
+              >
+                <Text style={styles.actionBtnText}>Update Super Admin Password 🔑</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>Active orders count</Text>
-              <Text style={[styles.stockText, { color: textColor }]}>{(orders || []).filter((o: any) => o.status !== 'delivered').length}</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>{orders.filter((o: any) => o.status !== 'delivered').length}</Text>
             </View>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>Products count</Text>
-              <Text style={[styles.stockText, { color: textColor }]}>{(products || []).length}</Text>
+              <Text style={[styles.stockText, { color: textColor }]}>{products.length}</Text>
             </View>
           </View>
         )}
 
+        {/* ── 🏢 WAREHOUSES TAB ──────────────────────────────────────────────── */}
         {activeTab === 'warehouses' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -225,7 +363,7 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.actionBtnText}>Add Warehouse</Text>
               </TouchableOpacity>
             </View>
-            {warehousesLoading ? <ActivityIndicator size="large" color="#10b981" /> : (warehouses || []).map((w: any) => (
+            {warehousesLoading ? <ActivityIndicator size="large" color="#10b981" /> : warehouses.map((w: any) => (
               <View key={w.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
                 <View>
                   <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{w.name}</Text>
@@ -240,9 +378,10 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
+        {/* ── 🧾 ORDERS TAB ──────────────────────────────────────────────────── */}
         {activeTab === 'orders' && (
           <View style={styles.tabContent}>
-            {ordersLoading ? <ActivityIndicator size="large" color="#10b981" /> : (orders || []).map((order: any) => (
+            {ordersLoading ? <ActivityIndicator size="large" color="#10b981" /> : orders.map((order: any) => (
               <View key={order.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>Order #{order.id}</Text>
                 <Text style={[styles.cardSubtitle, { color: mutedColor }]}>{order.customerName || 'Guest'} • ₹{order.total}</Text>
@@ -260,9 +399,10 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
+        {/* ── 🌾 INVENTORY TAB ──────────────────────────────────────────────── */}
         {activeTab === 'inventory' && (
           <View style={styles.tabContent}>
-            {productsLoading ? <ActivityIndicator size="large" color="#10b981" /> : (products || []).map((product: any) => (
+            {productsLoading ? <ActivityIndicator size="large" color="#10b981" /> : products.map((product: any) => (
               <View key={product.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor }]}>{product.name}</Text>
                 <Text style={[styles.stockText, { color: product.stock < 20 ? '#ef4444' : textColor }]}>
@@ -277,7 +417,7 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── 📦 PRODUCTS TAB (WITH IMAGE UPLOADER & PRESETS) ───────────────────── */}
+        {/* ── 📦 PRODUCTS TAB (WITH FUNCTIONAL DEVICE IMAGE UPLOADER) ──────────── */}
         {activeTab === 'products' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -288,12 +428,20 @@ export default function AdminDashboardScreen() {
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Unit (e.g. 1 Kg, 500 Grams)" value={newProduct.unit} onChangeText={(t) => setNewProduct(prev => ({...prev, unit: t}))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Category ID (optional)" keyboardType="numeric" value={newProduct.categoryId} onChangeText={(t) => setNewProduct(prev => ({...prev, categoryId: t}))} />
               
-              {/* IMAGE URL INPUT + PRESETS */}
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>🖼️ Product Image URL:</Text>
+              {/* FUNCTIONAL DEVICE IMAGE UPLOADER + PRESETS */}
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>🖼️ Product Image Source:</Text>
+              
+              <TouchableOpacity
+                style={{ backgroundColor: '#10b981', padding: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 }}
+                onPress={() => handlePickImageFromGallery((url) => setNewProduct(prev => ({ ...prev, image: url })))}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>📷 Upload Image from Device Gallery</Text>
+              </TouchableOpacity>
+
               <TextInput
                 style={[styles.input, { color: textColor, borderColor: borderCol }]}
                 placeholderTextColor={mutedColor}
-                placeholder="https://example.com/product-image.jpg"
+                placeholder="Or paste image URL (https://...)"
                 value={newProduct.image}
                 onChangeText={(t) => setNewProduct(prev => ({...prev, image: t}))}
               />
@@ -333,7 +481,7 @@ export default function AdminDashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {(products || []).map((product: any) => (
+            {products.map((product: any) => (
               <View key={product.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
                 {product.image ? (
                   <Image source={{ uri: product.image }} style={{ width: 64, height: 64, borderRadius: 12 }} />
@@ -369,20 +517,15 @@ export default function AdminDashboardScreen() {
                     <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Unit" value={editingProduct.unit} onChangeText={t => setEditingProduct({...editingProduct, unit: t})} />
                     <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Category ID" keyboardType="numeric" value={editingProduct.categoryId?.toString()} onChangeText={t => setEditingProduct({...editingProduct, categoryId: t})} />
                     
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>🖼️ Product Image URL:</Text>
-                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Image URL" value={editingProduct.image} onChangeText={t => setEditingProduct({...editingProduct, image: t})} />
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>🖼️ Product Image Source:</Text>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#10b981', padding: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 }}
+                      onPress={() => handlePickImageFromGallery((url) => setEditingProduct({ ...editingProduct, image: url }))}
+                    >
+                      <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>📷 Upload New Image from Device</Text>
+                    </TouchableOpacity>
 
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                      {PRESET_PRODUCT_IMAGES.map((preset, idx) => (
-                        <TouchableOpacity
-                          key={idx}
-                          style={{ backgroundColor: 'rgba(16,185,129,0.15)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 }}
-                          onPress={() => setEditingProduct({ ...editingProduct, image: preset.url })}
-                        >
-                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: 'bold' }}>{preset.label}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Image URL" value={editingProduct.image} onChangeText={t => setEditingProduct({...editingProduct, image: t})} />
 
                     <TouchableOpacity style={styles.actionBtn} onPress={() => updateProduct.mutate({
                       id: editingProduct.id,
@@ -408,6 +551,7 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
+        {/* ── 🏷️ CATEGORIES TAB ──────────────────────────────────────────────── */}
         {activeTab === 'categories' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -418,7 +562,7 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.actionBtnText}>Add Category</Text>
               </TouchableOpacity>
             </View>
-            {(categories || []).map((cat: any) => (
+            {categories.map((cat: any) => (
               <View key={cat.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{cat.name}</Text>
                 <Text style={{ color: mutedColor }}>/{cat.slug}</Text>
@@ -427,6 +571,7 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
+        {/* ── 🚚 PINCODES TAB ───────────────────────────────────────────────── */}
         {activeTab === 'delivery' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -438,7 +583,7 @@ export default function AdminDashboardScreen() {
                 <Text style={styles.actionBtnText}>Add Pincode</Text>
               </TouchableOpacity>
             </View>
-            {(pincodes || []).map((p: any) => (
+            {pincodes.map((p: any) => (
               <View key={p.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>PIN: {p.pincode}</Text>
                 <Text style={{ color: mutedColor }}>Fee: ₹{p.fee} • ETA: {p.etaMinutes}m</Text>
@@ -447,20 +592,27 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── 🛡️ SUB-ADMINS & STAFF MANAGEMENT TAB (MATCHING WEB) ────────────────── */}
+        {/* ── 🛡️ SUB-ADMINS & STAFF MANAGEMENT TAB ──────────────────────────── */}
         {activeTab === 'staff' && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>➕ Add Sub-Admin / Staff Member</Text>
-              <Text style={{ fontSize: 12, color: mutedColor, marginBottom: 8 }}>
-                Grant custom sub-admin permissions or create warehouse admins & riders.
-              </Text>
               
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Staff Full Name *" value={newStaff.name} onChangeText={(t) => setNewStaff(prev => ({ ...prev, name: t }))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Email Address *" keyboardType="email-address" autoCapitalize="none" value={newStaff.email} onChangeText={(t) => setNewStaff(prev => ({ ...prev, email: t }))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Phone Number *" keyboardType="phone-pad" value={newStaff.phone} onChangeText={(t) => setNewStaff(prev => ({ ...prev, phone: t }))} />
               <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholderTextColor={mutedColor} placeholder="Initial Password *" secureTextEntry value={newStaff.password} onChangeText={(t) => setNewStaff(prev => ({ ...prev, password: t }))} />
               
+              {/* CUSTOM SUB-ADMIN TITLE INPUT BOX */}
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>Custom Sub-Admin Title / Designation:</Text>
+              <TextInput
+                style={[styles.input, { color: textColor, borderColor: borderCol }]}
+                placeholderTextColor={mutedColor}
+                placeholder="e.g. Inventory Manager, Regional Orders Supervisor"
+                value={newStaff.customTitle}
+                onChangeText={(t) => setNewStaff(prev => ({ ...prev, customTitle: t }))}
+              />
+
               <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>Select Role:</Text>
               <View style={{ gap: 6 }}>
                 {STAFF_ROLES.map((r) => (
@@ -476,6 +628,22 @@ export default function AdminDashboardScreen() {
                     <Text style={{ color: newStaff.role === r.value ? '#10b981' : textColor, fontWeight: 'bold', fontSize: 13 }}>
                       {newStaff.role === r.value ? '✓ ' : ''}{r.label}
                     </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 8 }}>Grant Granular Menu Permissions:</Text>
+              <View style={{ gap: 6 }}>
+                {ALL_MENU_PERMISSIONS.map((perm) => (
+                  <TouchableOpacity
+                    key={perm.href}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                    onPress={() => togglePerm(perm.href, selectedPerms, setSelectedPerms)}
+                  >
+                    <Text style={{ color: selectedPerms.includes(perm.href) ? '#10b981' : mutedColor, fontSize: 14 }}>
+                      {selectedPerms.includes(perm.href) ? '☑️' : '⏹️'}
+                    </Text>
+                    <Text style={{ color: selectedPerms.includes(perm.href) ? textColor : mutedColor, fontSize: 13 }}>{perm.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -499,27 +667,81 @@ export default function AdminDashboardScreen() {
             {staffLoading ? (
               <ActivityIndicator size="large" color="#10b981" />
             ) : (
-              (staffList || []).map((s: any) => (
-                <View key={s.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>🛡️ {s.name || s.username}</Text>
-                    <Text style={{ color: mutedColor, fontSize: 12 }}>{s.email} • {s.phone || 'No phone'}</Text>
-                    <View style={{ backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 }}>
-                      <Text style={{ color: '#10b981', fontSize: 11, fontWeight: 'bold' }}>ROLE: {s.role}</Text>
+              staffList.map((s: any) => {
+                const isSuperAdmin = s.isPrimaryAdmin || s.role === 'admin' || s.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
+                return (
+                  <View key={s.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>
+                          {isSuperAdmin ? '👑 Super Admin' : `🛡️ ${s.name}`}
+                        </Text>
+                        {s.customTitle ? <Text style={{ color: '#10b981', fontSize: 12, fontWeight: 'bold' }}>Title: {s.customTitle}</Text> : null}
+                        <Text style={{ color: mutedColor, fontSize: 12 }}>{s.email} • {s.phone || 'No phone'}</Text>
+                        <View style={{ backgroundColor: isSuperAdmin ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 }}>
+                          <Text style={{ color: isSuperAdmin ? '#f59e0b' : '#10b981', fontSize: 11, fontWeight: 'bold' }}>ROLE: {s.role.toUpperCase()}</Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        {!isSuperAdmin && (
+                          <TouchableOpacity onPress={() => setEditingStaff(s)}>
+                            <Text style={{ color: '#3b82f6', fontWeight: 'bold' }}>✏️ Edit</Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {isSuperAdmin ? (
+                          <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: 'bold' }}>🔒 Super Admin (Protected)</Text>
+                        ) : (
+                          <TouchableOpacity onPress={() => deleteStaffMutation.mutate(s.id)}>
+                            <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Revoke Access</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => deleteStaffMutation.mutate(s.id)}>
-                    <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Revoke</Text>
-                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            {/* EDIT SUB-ADMIN CREDENTIALS & PERMISSIONS MODAL */}
+            {editingStaff && (
+              <Modal visible transparent animationType="slide">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', padding: 20 }}>
+                  <ScrollView contentContainerStyle={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    <Text style={[styles.cardTitle, { color: textColor }]}>Edit Sub-Admin Credentials</Text>
+                    
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Full Name" value={editingStaff.name} onChangeText={t => setEditingStaff({...editingStaff, name: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Phone Number" keyboardType="phone-pad" value={editingStaff.phone} onChangeText={t => setEditingStaff({...editingStaff, phone: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="New Password (optional)" secureTextEntry onChangeText={t => setEditingStaff({...editingStaff, password: t})} />
+                    <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Custom Sub-Admin Title" value={editingStaff.customTitle} onChangeText={t => setEditingStaff({...editingStaff, customTitle: t})} />
+
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => updateStaffMutation.mutate({
+                      id: editingStaff.id,
+                      data: {
+                        name: editingStaff.name,
+                        phone: editingStaff.phone,
+                        customTitle: editingStaff.customTitle,
+                        password: editingStaff.password,
+                        role: editingStaff.role,
+                        permissions: editingStaff.permissions || [],
+                      }
+                    })}>
+                      <Text style={styles.actionBtnText}>💾 Update Credentials</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setEditingStaff(null)}>
+                      <Text style={{ color: mutedColor, fontWeight: 'bold' }}>Cancel</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
                 </View>
-              ))
+              </Modal>
             )}
           </View>
         )}
 
         {activeTab === 'customers' && (
           <View style={styles.tabContent}>
-            {(users || []).map((u: any) => (
+            {users.map((u: any) => (
               <View key={u.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{u.name || u.username}</Text>
                 <Text style={{ color: mutedColor }}>Email: {u.email} • Role: {u.role}</Text>
@@ -528,11 +750,11 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── ⭐ REVIEWS MANAGEMENT TAB (MATCHING WEB) ─────────────────────────── */}
+        {/* ── ⭐ REVIEWS MANAGEMENT TAB ──────────────────────────────────────── */}
         {activeTab === 'reviews' && (
           <View style={styles.tabContent}>
             <Text style={[styles.cardTitle, { color: textColor }]}>Customer Ratings & Reviews</Text>
-            {(reviews || []).map((r: any) => (
+            {reviews.map((r: any) => (
               <View key={r.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.cardTitle, { color: textColor, fontSize: 15 }]}>
@@ -550,59 +772,141 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── ⚙️ SETTINGS & PLATFORM CONTROLS TAB (MATCHING WEB) ──────────────── */}
+        {/* ── ⚙️ BUSINESS SETTINGS (PERFECT MATCH TO WEB SCREENSHOTS) ─────────── */}
         {activeTab === 'settings' && (
           <View style={styles.tabContent}>
+            {/* % DISCOUNTS */}
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>Store & Platform Controls</Text>
-              
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>Store Status (Open/Close)</Text>
-                  <Text style={{ color: mutedColor, fontSize: 12 }}>Accept new orders across app and web</Text>
-                </View>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>% Discounts</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable first-order discount</Text>
                 <Switch
-                  value={settingsForm.storeOpen}
-                  onValueChange={(v) => setSettingsForm(prev => ({ ...prev, storeOpen: v }))}
+                  value={settings.enable_first_order_discount === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_first_order_discount: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
+                />
+              </View>
+              <Text style={{ fontSize: 12, color: mutedColor }}>First order discount %</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.first_order_discount_percent} onChangeText={t => setSettings(p => ({ ...p, first_order_discount_percent: t }))} />
+            </View>
+
+            {/* 🎁 REFERRALS */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🎁 Referrals</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable referral program</Text>
+                <Switch
+                  value={settings.enable_referral_program === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_referral_program: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
+                />
+              </View>
+              <Text style={{ fontSize: 12, color: mutedColor }}>New customer referral discount %</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referral_discount_percent} onChangeText={t => setSettings(p => ({ ...p, referral_discount_percent: t }))} />
+              
+              <Text style={{ fontSize: 12, color: mutedColor }}>Referrer reward %</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.referrer_reward_percent} onChangeText={t => setSettings(p => ({ ...p, referrer_reward_percent: t }))} />
+              
+              <Text style={{ fontSize: 12, color: mutedColor }}>Max referral reward cap % per order</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.max_referral_reward_cap_percent} onChangeText={t => setSettings(p => ({ ...p, max_referral_reward_cap_percent: t }))} />
+            </View>
+
+            {/* 🚚 DELIVERY & PER-CITY CHARGES */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🚚 Delivery Configuration</Text>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Subscription delivery days</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.subscription_delivery_days} onChangeText={t => setSettings(p => ({ ...p, subscription_delivery_days: t }))} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Charge a standard delivery fee</Text>
+                <Switch
+                  value={settings.charge_standard_delivery_fee === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, charge_standard_delivery_fee: String(v) }))}
                   trackColor={{ false: '#ef4444', true: '#10b981' }}
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 }}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>Emergency Platform Lockdown</Text>
-                  <Text style={{ color: mutedColor, fontSize: 12 }}>Block non-admin API routes immediately</Text>
-                </View>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery fee (₹)</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.standard_delivery_fee} onChangeText={t => setSettings(p => ({ ...p, standard_delivery_fee: t }))} />
+
+              <Text style={{ fontSize: 12, color: mutedColor }}>Standard delivery free above (₹)</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.free_delivery_threshold} onChangeText={t => setSettings(p => ({ ...p, free_delivery_threshold: t }))} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Enable per-city delivery charges</Text>
                 <Switch
-                  value={settingsForm.remoteLockdown}
-                  onValueChange={(v) => setSettingsForm(prev => ({ ...prev, remoteLockdown: v }))}
-                  trackColor={{ false: '#334155', true: '#ef4444' }}
+                  value={settings.enable_per_city_delivery_charges === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, enable_per_city_delivery_charges: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
+                />
+              </View>
+            </View>
+
+            {/* 💳 PAYMENTS & STORE INFO */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>💳 Payments & Store Info</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Allow Cash on Delivery at checkout</Text>
+                <Switch
+                  value={settings.allow_cod === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, allow_cod: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
                 />
               </View>
 
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 8 }}>Free Delivery Order Threshold (₹):</Text>
-              <TextInput
-                style={[styles.input, { color: textColor, borderColor: borderCol }]}
-                keyboardType="numeric"
-                value={settingsForm.freeDeliveryThreshold}
-                onChangeText={(t) => setSettingsForm(prev => ({ ...prev, freeDeliveryThreshold: t }))}
-              />
+              <Text style={{ fontSize: 12, color: mutedColor }}>Store Name</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_name} onChangeText={t => setSettings(p => ({ ...p, store_name: t }))} />
 
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor }}>WhatsApp Support Contact Number:</Text>
-              <TextInput
-                style={[styles.input, { color: textColor, borderColor: borderCol }]}
-                keyboardType="phone-pad"
-                value={settingsForm.supportPhone}
-                onChangeText={(t) => setSettingsForm(prev => ({ ...prev, supportPhone: t }))}
-              />
+              <Text style={{ fontSize: 12, color: mutedColor }}>Store City</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.store_city} onChangeText={t => setSettings(p => ({ ...p, store_city: t }))} />
 
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => saveSettingsMutation.mutate(settingsForm)}
-              >
-                <Text style={styles.actionBtnText}>Save Platform Settings ⚙️</Text>
-              </TouchableOpacity>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Telegram Chat ID</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={settings.telegram_chat_id} onChangeText={t => setSettings(p => ({ ...p, telegram_chat_id: t }))} />
             </View>
+
+            {/* 🎁 EMPLOYEE & DELIVERY PARTNER PERK DISCOUNTS */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🎁 Employee & Partner Perks</Text>
+              <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 14 }}>🛡️ Sub-Admin Staff Discounts</Text>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Discount Percentage (%)</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.subadmin_discount_percent} onChangeText={t => setSettings(p => ({ ...p, subadmin_discount_percent: t }))} />
+              
+              <Text style={{ fontSize: 12, color: mutedColor }}>Max Discount Cap per Order (₹)</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.subadmin_max_discount_cap} onChangeText={t => setSettings(p => ({ ...p, subadmin_max_discount_cap: t }))} />
+
+              <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 14, marginTop: 8 }}>🚚 Delivery Partner Perks</Text>
+              <Text style={{ fontSize: 12, color: mutedColor }}>Discount Percentage (%)</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={settings.partner_discount_percent} onChangeText={t => setSettings(p => ({ ...p, partner_discount_percent: t }))} />
+            </View>
+
+            {/* 🔒 CUSTOMER LOGIN & AUTH CONTROLS */}
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor, fontSize: 18 }]}>🔒 Customer Authentication Controls</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Email & 6-Digit OTP Login</Text>
+                <Switch
+                  value={settings.email_otp_enabled === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, email_otp_enabled: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
+                />
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <Text style={{ color: textColor, fontWeight: 'bold' }}>Google One-Tap & OAuth Login</Text>
+                <Switch
+                  value={settings.google_oauth_enabled === 'true'}
+                  onValueChange={(v) => setSettings(prev => ({ ...prev, google_oauth_enabled: String(v) }))}
+                  trackColor={{ false: '#ef4444', true: '#10b981' }}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => saveSettingsMutation.mutate(settings)}
+            >
+              <Text style={styles.actionBtnText}>Save All Business Settings ⚙️</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>

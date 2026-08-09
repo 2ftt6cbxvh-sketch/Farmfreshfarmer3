@@ -15,6 +15,7 @@
     "expo-constants": "~17.0.5",
     "expo-crypto": "~14.0.2",
     "expo-font": "~13.0.3",
+    "expo-image-picker": "~16.0.6",
     "expo-location": "~18.0.5",
     "expo-modules-core": "~2.0.3",
     "expo-router": "~4.0.16",
