@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
@@ -95,6 +95,7 @@ function getSessionToken(): string {
 }
 
 export function ChatbotLaxshmi() {
+  const queryClient = useQueryClient();
   const { add, items } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -205,6 +206,11 @@ export function ChatbotLaxshmi() {
         products: data.products,
       };
       setMessages((prev) => [...prev, reply]);
+      
+      if (data.cartAdded) {
+        queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/cart/count'] });
+      }
     },
   });
 

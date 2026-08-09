@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
-import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users } from '@shared/schema';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems } from '@shared/schema';
 import { sendTelegramAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -134,10 +134,9 @@ STORE & LEGAL QUERIES:
 - Provide exact information from the store legal policies, contact numbers, email addresses, operating hours, delivery ETAs (30-90 mins), return policy (4 hours with photo proof), and grievance redressal officer details.
 
 CRITICAL CART & LOGIN RULES:
-- You CANNOT add items to cart, place orders, or make any purchase on behalf of the customer. NEVER say "I have added X to your cart" or "I've successfully added" because this is false - you have no cart access.
-- When a customer asks to add items to cart (e.g. "add 1kg tomatoes to cart", "add them to cart"), respond: "To add items to your cart, please make sure you are logged in first! 🔐 You can sign in using Google One-Tap or Email OTP at the top right corner. Once logged in, simply click the 'Add to Cart' button on the product card below, or visit the product page directly."
-- If the customer is asking a follow-up like "add them" or "add it", understand they mean the previously mentioned product and give the same login + product card guidance.
-- You can show product cards, give prices, give health/nutrition info, and answer questions - but NEVER claim to have performed any cart, order, or payment action.
+- Laxshmi CAN detect cart requests and the server will handle adding to cart automatically.
+- If you detect the user wants to add to cart ("add X to cart", "add them", "add it"), the server-side code will intercept and handle it. You do NOT need to say anything about this - the system handles it.
+- If asked about order status or payment, instruct the customer to log in at /account to view their dashboard.
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use clear paragraphs or bullet points where helpful.`;
 
@@ -320,10 +319,9 @@ SECURITY & PRIVACY RULES:
 - If asked about specific user account data or order details, instruct the customer to log in securely at /account to view their personal dashboard.
 
 CRITICAL CART & LOGIN RULES:
-- You CANNOT add items to cart, place orders, or make any purchase on behalf of the customer. NEVER say "I have added X to your cart" or "I've successfully added" because this is false - you have no cart access.
-- When a customer asks to add items to cart (e.g. "add 1kg tomatoes to cart", "add them to cart"), respond: "To add items to your cart, please make sure you are logged in first! 🔐 You can sign in using Google One-Tap or Email OTP at the top right corner. Once logged in, simply click the 'Add to Cart' button on the product card below, or visit the product page directly."
-- If the customer is asking a follow-up like "add them" or "add it", understand they mean the previously mentioned product and give the same login + product card guidance.
-- You can show product cards, give prices, give health/nutrition info, and answer questions - but NEVER claim to have performed any cart, order, or payment action.
+- Laxshmi CAN detect cart requests and the server will handle adding to cart automatically.
+- If you detect the user wants to add to cart ("add X to cart", "add them", "add it"), the server-side code will intercept and handle it. You do NOT need to say anything about this - the system handles it.
+- If asked about order status or payment, instruct the customer to log in at /account to view their dashboard.
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 
@@ -606,6 +604,82 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
     await sendTelegramAlert(alertText);
   }
 
+// === CART HELPER FUNCTIONS ===
+function detectCartIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
+  const lower = message.toLowerCase().trim();
+  // Patterns: "add 2 kg tomatoes to cart", "add 2kgs of tomatoes", "add 2 tomatoes", "put 1.5kg spinach in cart"
+  const patterns = [
+    /(?:add|put|place|order)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)?\s+(?:of\s+)?([a-z\s]+?)\s+(?:to|in|into)\s+(?:my\s+)?cart/i,
+    /(?:add|put|place|order)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)\s+(?:of\s+)?([a-z\s]+)/i,
+    /(?:add|put|place|order)\s+([a-z\s]+?)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)\s+(?:to|in|into)\s+(?:my\s+)?cart/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = lower.match(pattern);
+    if (match) {
+      let rawQty = parseFloat((match[1] || '1').replace(',', '.'));
+      let rawProduct = (match[2] || match[1] || '').trim();
+      let rawUnit = 'kg';
+      
+      // Detect unit from message
+      if (/gram|\bg\b/.test(lower)) rawUnit = 'g';
+      else if (/piece|pc|unit/.test(lower)) rawUnit = 'piece';
+      else if (/pack|packet/.test(lower)) rawUnit = 'pack';
+      else rawUnit = 'kg';
+      
+      if (rawProduct.length >= 2) {
+        return { rawProduct, rawQty, rawUnit };
+      }
+    }
+  }
+  return null;
+}
+
+function resolveCartQty(
+  requestedQty: number,
+  requestedUnit: string,
+  product: any
+): { unitsToAdd: number; explanation: string | null; alternatives: string[] | null } {
+  // product.unit is the pack unit (e.g. 'kg', '500g', 'piece', 'bunch')
+  // product.weight might also be set
+  const productUnit = (product.unit || 'kg').toLowerCase();
+  
+  // Parse product pack size in kg
+  let packSizeKg = 1; // default 1 kg
+  if (productUnit.includes('500g') || productUnit.includes('500 g')) packSizeKg = 0.5;
+  else if (productUnit.includes('250g')) packSizeKg = 0.25;
+  else if (productUnit.includes('100g')) packSizeKg = 0.1;
+  else if (productUnit === 'kg' || productUnit.includes('kg')) packSizeKg = 1;
+  else if (productUnit === 'g' || productUnit.includes('gram')) packSizeKg = 0.001;
+  else packSizeKg = 1; // treat as 1 unit per pack
+  
+  // Convert requested quantity to kg
+  let requestedKg = requestedQty;
+  if (requestedUnit === 'g') requestedKg = requestedQty / 1000;
+  
+  // Calculate how many packs needed
+  const exactPacks = requestedKg / packSizeKg;
+  const floorPacks = Math.floor(exactPacks);
+  const ceilPacks = Math.ceil(exactPacks);
+  
+  if (exactPacks === floorPacks) {
+    // Perfect fit - no rounding needed
+    return { unitsToAdd: Math.max(1, floorPacks), explanation: null, alternatives: null };
+  } else {
+    // Fractional packs needed - explain clearly
+    const lowerKg = floorPacks * packSizeKg;
+    const upperKg = ceilPacks * packSizeKg;
+    const unitLabel = packSizeKg >= 1 ? `${packSizeKg}kg` : `${packSizeKg * 1000}g`;
+    
+    return {
+      unitsToAdd: 0,
+      explanation: `Sorry! ${product.name} is sold in ${unitLabel} packs. We don't have a ${requestedQty}${requestedUnit} option. I can add:\n• ${floorPacks} pack${floorPacks !== 1 ? 's' : ''} = ${lowerKg}kg for ₹${(floorPacks * product.price).toFixed(0)}\n• ${ceilPacks} pack${ceilPacks !== 1 ? 's' : ''} = ${upperKg}kg for ₹${(ceilPacks * product.price).toFixed(0)}\n\nWhich would you prefer? (Reply with the quantity)`,
+      alternatives: [`${floorPacks} pack`, `${ceilPacks} packs`],
+    };
+  }
+}
+// === END CART HELPER FUNCTIONS ===
+
   // POST /api/chatbot/message
   app.post('/api/chatbot/message', async (req, res) => {
     try {
@@ -660,6 +734,118 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 
       // Read ALL settings from DB first
       const allSettings = await storage.settings.all();
+
+      // === CART ADD INTENT DETECTION ===
+      const cartIntent = detectCartIntent(message);
+      if (cartIntent) {
+        // Find matching product
+        const allProds = await storage.products.list();
+        const productMatches = allProds.filter((p: any) => {
+          const pname = p.name.toLowerCase();
+          const qname = cartIntent.rawProduct.toLowerCase();
+          return pname.includes(qname) || qname.includes(pname) ||
+            pname.split(' ').some((w: string) => w.length >= 3 && qname.includes(w));
+        });
+        
+        if (productMatches.length > 0) {
+          const product = productMatches[0];
+          const qtyResult = resolveCartQty(cartIntent.rawQty, cartIntent.rawUnit, product);
+          
+          if (qtyResult.unitsToAdd === 0 && qtyResult.explanation) {
+            // Fractional pack - explain and offer alternatives
+            return res.json({
+              reply: qtyResult.explanation,
+              needsHuman: false,
+              products: [product].map((p: any) => ({
+                id: p.id, name: p.name, price: String(p.price),
+                discountPercent: String(p.discountPercent || 0),
+                unit: p.unit || 'unit', image: p.image,
+                stock: p.stock, allowInternationalShipping: p.allowInternationalShipping,
+                categorySlug: p.categorySlug,
+              })),
+            });
+          }
+          
+          // Try to add to cart - check if user is logged in
+          let userId: number | null = null;
+          if ((req.session as any)?.userId) {
+            userId = (req.session as any).userId;
+          } else {
+            const authHeader = req.headers.authorization;
+            const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+            if (token) {
+              try {
+                const jwt = (await import("jsonwebtoken")).default;
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+                if (decoded && (decoded.userId || decoded.sub)) {
+                  userId = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
+                }
+              } catch {}
+            }
+          }
+          
+          if (!userId) {
+            // Not logged in
+            return res.json({
+              reply: `To add ${cartIntent.rawQty}${cartIntent.rawUnit} of ${product.name} to your cart, please login first! Sign in using Google One-Tap or Email OTP at the top right corner, then I can add it right away for you.`,
+              needsHuman: false,
+              requiresLogin: true,
+              pendingCartItem: {
+                productId: product.id,
+                quantity: qtyResult.unitsToAdd,
+                productName: product.name,
+              },
+              products: [product].map((p: any) => ({
+                id: p.id, name: p.name, price: String(p.price),
+                discountPercent: String(p.discountPercent || 0),
+                unit: p.unit || 'unit', image: p.image,
+                stock: p.stock, allowInternationalShipping: p.allowInternationalShipping,
+                categorySlug: p.categorySlug,
+              })),
+            });
+          }
+          
+          // User is logged in - add to cart using DB directly
+          try {
+            let [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+            if (!userCart) {
+              const [inserted] = await db.insert(carts).values({ userId }).returning();
+              userCart = inserted;
+            }
+            
+            let [existingItem] = await db.select().from(cartItems).where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, product.id))).limit(1);
+            
+            if (existingItem) {
+              await db.update(cartItems).set({ qty: existingItem.qty + qtyResult.unitsToAdd }).where(eq(cartItems.id, existingItem.id));
+            } else {
+              await db.insert(cartItems).values({ cartId: userCart.id, productId: product.id, qty: qtyResult.unitsToAdd });
+            }
+            
+            const totalCost = (qtyResult.unitsToAdd * product.price).toFixed(0);
+            return res.json({
+              reply: `Done! I have added ${qtyResult.unitsToAdd} pack${qtyResult.unitsToAdd > 1 ? 's' : ''} (${cartIntent.rawQty}${cartIntent.rawUnit}) of ${product.name} to your cart! Total: Rs.${totalCost}. You can checkout anytime from the cart icon at the top right.`,
+              needsHuman: false,
+              cartAdded: true,
+              cartItem: { productId: product.id, quantity: qtyResult.unitsToAdd },
+            });
+          } catch (cartErr: any) {
+            console.error('[chatbot] Cart add error:', cartErr);
+            return res.json({
+              reply: `I found ${product.name} for you (Rs.${product.price} per ${product.unit}). To add it to your cart, please click the product card button or visit the product page. Our cart system is available in the main store!`,
+              needsHuman: false,
+              products: [product].map((p: any) => ({
+                id: p.id, name: p.name, price: String(p.price),
+                discountPercent: String(p.discountPercent || 0),
+                unit: p.unit || 'unit', image: p.image,
+                stock: p.stock,
+                allowInternationalShipping: p.allowInternationalShipping,
+                categorySlug: p.categorySlug,
+              })),
+            });
+          }
+        }
+      }
+      // === END CART ADD INTENT ===
 
       // Read API key from DB settings or process.env or fallback to DEFAULT_GEMINI_KEY
       const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42S2hmTkxfa2hOeFdadWRMMmtyWU5iajhtRU1wbmRGN3JLWHl4LTV3TTQ4UQ==', 'base64').toString('ascii');
