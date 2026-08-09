@@ -1194,6 +1194,19 @@ export default function AdminSettings() {
     },
   });
 
+  const testGeminiMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/gemini/test", { apiKey: form["gemini_api_key"] });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "🤖 Gemini AI Connection Success!", description: data.message });
+    },
+    onError: (e: any) => {
+      toast({ title: "Gemini API Test Failed", description: e?.message || "Verify your API key at ai.google.dev.", variant: "destructive" });
+    },
+  });
+
   const unknownKeys = Object.keys(form).filter((k) => !ALL_KNOWN_KEYS.includes(k));
 
   // ---------- Password change ----------
@@ -1481,6 +1494,23 @@ export default function AdminSettings() {
                 {CHATBOT_KEYS.map((f) => (
                   <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
                 ))}
+              </div>
+              <div className="pt-3 flex items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">⚡ Test Gemini API Key in Real Time</p>
+                  <p className="text-[11px] text-muted-foreground">Click to verify if your entered API key can connect to Google Gemini AI servers.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => testGeminiMutation.mutate()}
+                  disabled={testGeminiMutation.isPending}
+                  className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 font-bold text-xs gap-2 shrink-0 py-4 shadow-sm"
+                >
+                  <Sparkles size={14} className={testGeminiMutation.isPending ? "animate-spin text-yellow-400" : "text-yellow-400"} />
+                  {testGeminiMutation.isPending ? "Testing API Connection..." : "Test Connection ⚡"}
+                </Button>
               </div>
               <div className="pt-4 border-t border-card-border">
                 <TelegramChatIdsEditor

@@ -297,8 +297,8 @@ STORE & LOCATION & ETA QUERIES:
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 
-    // Build chat contents with full conversation history
-    const contents: any[] = [];
+    // Build chat contents for SDK & REST API
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
     if (Array.isArray(history) && history.length > 0) {
       for (const h of history.slice(-6)) {
         if (h.role && h.content) {
@@ -309,19 +309,24 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         }
       }
     }
+
+    // Always append current user message
     contents.push({
       role: 'user',
-      parts: [{ text: `${systemPrompt}\n\nCustomer Current Question: ${message}` }],
+      parts: [{ text: message }],
     });
 
     // 1. Try Official @google/generative-ai SDK
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
-      const modelNames = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+      const modelNames = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-pro'];
       for (const mName of modelNames) {
         try {
-          const model = genAI.getGenerativeModel({ model: mName });
-          const result = await model.generateContent({ contents });
+          const model = genAI.getGenerativeModel({
+            model: mName,
+            systemInstruction: systemPrompt,
+          });
+          const result = await model.generateContent(contents);
           const response = await result.response;
           const text = response.text();
           if (text && text.trim()) {
@@ -336,7 +341,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       console.warn('[chatbot] Gemini SDK exception:', sdkErr);
     }
 
-    // 2. Try native globalThis.fetch REST API
+    // 2. Try native globalThis.fetch REST API with system_instruction
     const fetchFn = (globalThis as any).fetch;
     if (fetchFn) {
       const restEndpoints = [
@@ -351,6 +356,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
               contents,
               generationConfig: { maxOutputTokens: 768, temperature: 0.7 },
             }),
@@ -671,6 +677,42 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);
       return res.status(500).json({ reply: '🙏 Namaste! I am experiencing a brief connection issue. Please try again or contact support at +91 79897 93669.', needsHuman: true });
+    }
+  });
+
+  // POST /api/admin/gemini/test — Live test Gemini API key connection
+  app.post('/api/admin/gemini/test', async (req, res) => {
+    try {
+      const { apiKey } = req.body || {};
+      const allSettings = await storage.settings.all();
+      const keyToTest = (apiKey || (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || '').trim();
+
+      if (!keyToTest) {
+        return res.status(400).json({ message: 'No Gemini API key supplied. Please enter a key in Settings first.' });
+      }
+
+      const testReply = await callGeminiAPI(
+        keyToTest,
+        'Hello Laxshmi! Confirm that your Gemini AI connection is working.',
+        'Farm Tomatoes - ₹40/kg',
+        '30-90 min Vijayawada delivery',
+        '+91 79897 93669',
+        'en'
+      );
+
+      if (testReply) {
+        return res.json({
+          success: true,
+          message: `✨ Connection Verified! Gemini AI output: "${testReply.substring(0, 90)}..."`,
+          reply: testReply,
+        });
+      } else {
+        return res.status(400).json({
+          message: '❌ Gemini API Key test failed. Please verify your key at ai.google.dev.',
+        });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: `Gemini Test Error: ${err?.message || err}` });
     }
   });
 
