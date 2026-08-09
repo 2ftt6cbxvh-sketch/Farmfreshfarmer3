@@ -353,6 +353,54 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       }
     }
 
+    return null;
+  }
+
+  // Dynamic & Smart Fallback Reply Generator
+  async function getSmartReply(message: string, lang: string): Promise<{ reply: string; needsHuman: boolean }> {
+    const lower = message.toLowerCase();
+
+    // 1. PIN code / Delivery ETA check (e.g., "531116", "520008", "eta for 520001", "is delivery available to 531116")
+    const pincodeMatch = lower.match(/\b([1-9][0-9]{5})\b/);
+    if (pincodeMatch) {
+      const pincode = pincodeMatch[1];
+      try {
+        const res = await resolveByPincode(pincode);
+        if (res.serviceable) {
+          const area = res.locationArea ? ` (${res.locationArea})` : '';
+          const feeStr = res.fee === 0 ? 'FREE' : `₹${res.fee}`;
+          return {
+            reply: `Yes! Instant farm delivery is available to PIN code ${pincode}${area}. Estimated delivery time is ${res.etaMinutes} minutes. Delivery fee: ${feeStr} (Free delivery on orders above ₹499).`,
+            needsHuman: false,
+          };
+        } else {
+          return {
+            reply: `Currently, PIN code ${pincode} is outside our primary 30-90 minute delivery zone. However, we offer Pan-India shipping for non-perishable items (pickles, sweets, millets, spices)!`,
+            needsHuman: false,
+          };
+        }
+      } catch (pinErr) {
+        console.warn('[chatbot] Pincode resolution error in chatbot:', pinErr);
+      }
+    }
+
+    // 2. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
+    try {
+      const activeProducts = await storage.products.list();
+      if (activeProducts && activeProducts.length > 0) {
+        const matching = matchProductsFuzzy(message, activeProducts);
+        if (matching.length > 0) {
+          const productList = matching.slice(0, 3).map((p: any) => `• ${p.name}: ₹${p.price} per ${p.unit || 'unit'}`).join('\n');
+          return {
+            reply: `Here are the current prices for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes!`,
+            needsHuman: false,
+          };
+        }
+      }
+    } catch (prodErr) {
+      console.warn('[chatbot] Product lookup error in fallback:', prodErr);
+    }
+
     // 3. Keyword-based conversational fallbacks
     const FALLBACK_REPLIES: Record<string, Record<string, string>> = {
       en: {
