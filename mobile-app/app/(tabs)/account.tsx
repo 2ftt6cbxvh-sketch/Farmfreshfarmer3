@@ -115,6 +115,55 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Preferences */}
+        <View style={styles.menuSection}>
+          <Text style={[styles.sectionTitle, { color: mutedColor }]}>Preferences</Text>
+          <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={handleToggleTheme}>
+            <Text style={{ fontSize: 20 }}>{isDark ? '🌙' : '☀️'}</Text>
+            <Text style={[styles.menuItemText, { color: textColor }]}>Theme: {isDark ? 'Pitch Black OLED' : 'Light Mode'}</Text>
+            <Text style={styles.chevron}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Legal & Help */}
+        <View style={styles.menuSection}>
+          <Text style={[styles.sectionTitle, { color: mutedColor }]}>Legal & Help</Text>
+          {[
+            { key: 'shipping', label: '🚚 Shipping & Delivery Policy' },
+            { key: 'terms', label: '📋 Terms & Conditions' },
+            { key: 'privacy', label: '🔒 Privacy Policy' },
+            { key: 'refund', label: '↩️ Refund & Cancellation' },
+            { key: 'contact', label: '📞 Contact Us & Support' },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]}
+              onPress={() => setActiveModal(item.key as any)}
+            >
+              <Text style={[styles.menuItemText, { color: textColor, flex: 1 }]}>{item.label}</Text>
+              <Text style={styles.chevron}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Contact Info Card */}
+        <TouchableOpacity style={[styles.contactCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setActiveModal('contact')}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>📞 Contact Us</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 Vijayawada, Andhra Pradesh</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {BRAND.phone}</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {BRAND.email}</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.8.0 · {BRAND.email}</Text>
+
+        {activeModal && (
+          <LegalViewerModal
+            type={activeModal}
+            onClose={() => setActiveModal(null)}
+            isDark={isDark}
+          />
+        )}
       </ScrollView>
     );
   }
@@ -442,7 +491,7 @@ const styles = StyleSheet.create({
   logoutBtnText: { color: COLORS.error, fontSize: 15, fontWeight: '700' },
   footer: { textAlign: 'center', fontSize: 11, marginBottom: 32, paddingHorizontal: 16 },
 
-  authPrompt: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, marginTop: 80 },
+  authPrompt: { alignItems: 'center', justifyContent: 'center', padding: 20, paddingTop: 40 },
   authIcon: { fontSize: 64, marginBottom: 16 },
   authTitle: { fontSize: 22, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
   authText: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
