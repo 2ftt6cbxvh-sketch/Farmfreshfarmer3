@@ -162,9 +162,7 @@ function AppContent() {
             <Toaster />
             <Router hook={useHashLocation}>
               <ScrollToTop />
-              <NavHeader />
-              <AppRoutes />
-              <Footer />
+              <AppRouter />
             </Router>
           </CartProvider>
         </AuthProvider>
