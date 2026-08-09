@@ -111,6 +111,7 @@ export function ChatbotLaxshmi() {
   const [ticketData, setTicketData] = useState({ name: "", phone: "", email: "", concern: "" });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const sessionToken = getSessionToken();
@@ -242,7 +243,16 @@ export function ChatbotLaxshmi() {
   }, [isOpen, hasOpened, language]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg) return;
+    
+    if (lastMsg.role === 'user') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setTimeout(() => {
+        lastAssistantMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -526,8 +536,8 @@ export function ChatbotLaxshmi() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            {messages.map((msg, index) => (
+              <div key={msg.id} ref={index === messages.length - 1 && msg.role === 'model' ? lastAssistantMessageRef : null} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "model" && (
                   <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
                     style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
