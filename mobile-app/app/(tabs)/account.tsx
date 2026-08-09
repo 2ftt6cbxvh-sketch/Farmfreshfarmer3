@@ -19,6 +19,21 @@ export default function AccountScreen() {
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'refund' | 'shipping' | 'contact' | null>(null);
 
+  const { data: publicSettings } = useQuery<{
+    contact_phone?: string;
+    contact_email?: string;
+    contact_address?: string;
+    store_name?: string;
+  }>({
+    queryKey: ['public-settings'],
+    queryFn: () => api.get('/api/settings/public').then(r => r.data),
+  });
+
+  const phone = publicSettings?.contact_phone || BRAND.phone;
+  const email = publicSettings?.contact_email || BRAND.email;
+  const address = publicSettings?.contact_address || 'Vijayawada, Andhra Pradesh';
+  const storeName = publicSettings?.store_name || BRAND.name;
+
   const handleToggleTheme = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     toggleTheme();
@@ -151,12 +166,12 @@ export default function AccountScreen() {
         {/* Contact Info Card */}
         <TouchableOpacity style={[styles.contactCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setActiveModal('contact')}>
           <Text style={[styles.sectionTitle, { color: textColor }]}>📞 Contact Us</Text>
-          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 Vijayawada, Andhra Pradesh</Text>
-          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {BRAND.phone}</Text>
-          <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {BRAND.email}</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 {address}</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {phone}</Text>
+          <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {email}</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.8.0 · {BRAND.email}</Text>
+        <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v6.9.5 · {email}</Text>
 
         {activeModal && (
           <LegalViewerModal
@@ -293,16 +308,16 @@ export default function AccountScreen() {
       {/* Contact Info Card */}
       <TouchableOpacity style={[styles.contactCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setActiveModal('contact')}>
         <Text style={[styles.sectionTitle, { color: textColor }]}>📞 Contact Us</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 Vijayawada, Andhra Pradesh</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {BRAND.phone}</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {BRAND.email}</Text>
+        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 {address}</Text>
+        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {phone}</Text>
+        <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {email}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.9.4 · {BRAND.email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v6.9.5 · {email}</Text>
 
       {/* Interactive Legal Policy Modal */}
       {activeModal && (

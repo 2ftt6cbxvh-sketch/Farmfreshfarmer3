@@ -59,17 +59,28 @@ function H2({ children }: { children: React.ReactNode }) {
 /* 1. Terms & Conditions                                              */
 /* ------------------------------------------------------------------ */
 export function TermsPage() {
+  const { data: publicSettings } = useQuery<{ store_name?: string; store_city?: string }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const city = publicSettings?.store_city || "Vijayawada";
+
   return (
     <PolicyShell title="Terms & Conditions">
       <p>
-        Welcome to {BUSINESS}. By accessing or placing an order on our website, you agree to be
+        Welcome to {business}. By accessing or placing an order on our website, you agree to be
         bound by these Terms & Conditions. Please read them carefully. If you do not agree, please
         do not use our service.
       </p>
 
       <H2>1. About us</H2>
       <p>
-        {BUSINESS} is a farm-fresh instant-delivery business operating in {CITY}. We sell fresh
+        {business} is a farm-fresh instant-delivery business operating in {city}. We sell fresh
         fruits, vegetables, homemade sweets, namkeen, spices and related items for same-day delivery
         within our service area.
       </p>
@@ -106,7 +117,7 @@ export function TermsPage() {
 
       <H2>6. Delivery</H2>
       <p>
-        We deliver only within our current service area in and around Visakhapatnam. Delivery
+        We deliver only within our current service area in and around {city}. Delivery
         timelines are estimates and may be affected by weather, traffic or operational factors. See
         our Shipping & Delivery Policy for details.
       </p>
@@ -126,7 +137,7 @@ export function TermsPage() {
 
       <H2>9. Limitation of liability</H2>
       <p>
-        To the extent permitted by law, {BUSINESS} is not liable for indirect or consequential
+        To the extent permitted by law, {business} is not liable for indirect or consequential
         losses. Our total liability for any order is limited to the amount you paid for that order.
       </p>
 
@@ -134,7 +145,7 @@ export function TermsPage() {
       <p>
         We may update these Terms from time to time; the latest version is always posted here.
         These Terms are governed by the laws of India, and disputes are subject to the jurisdiction
-        of the courts in Visakhapatnam, Andhra Pradesh.
+        of the courts in {city}, Andhra Pradesh.
       </p>
     </PolicyShell>
   );
@@ -144,10 +155,21 @@ export function TermsPage() {
 /* 2. Privacy Policy                                                  */
 /* ------------------------------------------------------------------ */
 export function PrivacyPage() {
+  const { data: publicSettings } = useQuery<{ store_name?: string; contact_email?: string }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+
   return (
     <PolicyShell title="Privacy Policy">
       <p>
-        This Privacy Policy explains how {BUSINESS} collects, uses and protects your personal
+        This Privacy Policy explains how {business} collects, uses and protects your personal
         information when you use our website and services.
       </p>
 
@@ -195,7 +217,7 @@ export function PrivacyPage() {
       <H2>7. Your rights</H2>
       <p>
         You may request access to, correction of, or deletion of your personal information by
-        contacting us at {EMAIL}. Some data may be retained where required for legal or accounting
+        contacting us at {email}. Some data may be retained where required for legal or accounting
         reasons.
       </p>
 
@@ -212,7 +234,7 @@ export function PrivacyPage() {
 /* 3. Refund, Return & Cancellation Policy                            */
 /* ------------------------------------------------------------------ */
 export function RefundPage() {
-  const { data: publicSettings } = useQuery<{ return_window_hours?: string; contact_email?: string; contact_phone?: string }>({
+  const { data: publicSettings } = useQuery<{ return_window_hours?: string; contact_email?: string; contact_phone?: string; store_name?: string }>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -221,13 +243,14 @@ export function RefundPage() {
   });
 
   const returnHours = publicSettings?.return_window_hours || "4";
-  const contactEmail = publicSettings?.contact_email || EMAIL;
-  const contactPhone = publicSettings?.contact_phone || PHONE;
+  const contactEmail = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const contactPhone = publicSettings?.contact_phone || "+91 79897 93669";
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
 
   return (
     <PolicyShell title="Refund, Return & Cancellation Policy">
       <p>
-        {BUSINESS} sells fresh, perishable produce (fruits, vegetables and homemade items). Because
+        {business} sells fresh, perishable produce (fruits, vegetables and homemade items). Because
         of the nature of these products, our refund and return rules are strict. Please read this
         policy carefully before ordering.
       </p>
@@ -302,7 +325,7 @@ export function RefundPage() {
 /* 4. Shipping & Delivery Policy                                      */
 /* ------------------------------------------------------------------ */
 export function ShippingPage() {
-  const { data: publicSettings } = useQuery<{ return_window_hours?: string; shipping_policy_custom_notes?: string }>({
+  const { data: publicSettings } = useQuery<{ return_window_hours?: string; shipping_policy_custom_notes?: string; store_name?: string }>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -312,11 +335,12 @@ export function ShippingPage() {
 
   const returnHours = publicSettings?.return_window_hours || "4";
   const customNotes = publicSettings?.shipping_policy_custom_notes;
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
 
   return (
     <PolicyShell title="Shipping & Delivery Policy">
       <p>
-        {BUSINESS} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight. This policy details our delivery locations, PIN code coverage, ETAs, deliverable radiuses, and delivery fee structures.
+        {business} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight. This policy details our delivery locations, PIN code coverage, ETAs, deliverable radiuses, and delivery fee structures.
       </p>
 
       <H2>1. Delivery Coverage & Service Areas</H2>

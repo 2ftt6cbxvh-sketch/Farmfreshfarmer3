@@ -3,6 +3,7 @@
  * Web Audio API Police Siren Generator, and Legal Notices (IT Act 2000 Sec 43/66 & BNS 2023 Sec 318).
  */
 import { useEffect, useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert, Volume2, VolumeX, Lock } from "lucide-react";
 
 interface LockdownOverlayProps {
@@ -86,6 +87,17 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
       stopSirenAudio();
     };
   }, [active]);
+
+  const { data: publicSettings } = useQuery<{ contact_email?: string; store_name?: string }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const storeName = publicSettings?.store_name || "FarmFreshFarmer";
 
   if (!active) return null;
 
@@ -178,14 +190,14 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
             All customer and Sub-admin API routes returning 423 (Locked) except Chief Admin.
           </p>
           <p className="text-gray-300">
-            FarmFreshFarmer platform is currently in restricted emergency mode. All requests, IP addresses, and session fingerprints are actively logged under IT Act 2000 & BNS 2023.
+            {storeName} platform is currently in restricted emergency mode. All requests, IP addresses, and session fingerprints are actively logged under IT Act 2000 & BNS 2023.
           </p>
         </div>
 
         <p className="text-gray-500 text-xs">
           Authorized owner query support:{" "}
-          <a href="mailto:admin@farmfreshfarmer.com" className="text-emerald-400 underline hover:text-emerald-300">
-            admin@farmfreshfarmer.com
+          <a href={`mailto:${email}`} className="text-emerald-400 underline hover:text-emerald-300">
+            {email}
           </a>
         </p>
 
@@ -239,7 +251,7 @@ function SecretPassageTrigger() {
             style={{ width: `${holdProgress}%` }}
           />
         )}
-        <span className="relative z-10">v6.9.4</span>
+        <span className="relative z-10">v6.9.5</span>
       </button>
 
       {modalOpen && <SecretPassageModal onClose={() => setModalOpen(false)} />}
