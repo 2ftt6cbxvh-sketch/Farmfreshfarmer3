@@ -239,7 +239,7 @@ function SecretPassageTrigger() {
             style={{ width: `${holdProgress}%` }}
           />
         )}
-        <span className="relative z-10">v6.9.1</span>
+        <span className="relative z-10">v6.9.2</span>
       </button>
 
       {modalOpen && <SecretPassageModal onClose={() => setModalOpen(false)} />}

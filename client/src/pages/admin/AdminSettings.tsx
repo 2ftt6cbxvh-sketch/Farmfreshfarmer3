@@ -732,7 +732,7 @@ const LEGAL_CONTACT_KEYS = [
   { key: "contact_email", label: "Customer Support Email Address", type: "text" as const },
   { key: "contact_address", label: "Company Headquarters Address", type: "text" as const },
   { key: "operating_hours", label: "Customer Support Operating Hours", type: "text" as const },
-  { key: "return_window_hours", label: "Perishable Claim Return Window (Hours)", type: "amount" as const },
+  { key: "return_window_hours", label: "Perishable Claim Return Window (Hours)", type: "text" as const },
   { key: "shipping_policy_custom_notes", label: "Custom Shipping Policy Notes", type: "text" as const },
 ];
 
