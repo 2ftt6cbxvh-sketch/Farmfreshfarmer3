@@ -106,6 +106,39 @@ export default function RegisterScreen() {
           <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={styles.link}>
             <Text style={styles.linkText}>Already have an account? <Text style={styles.linkBold}>Sign In</Text></Text>
           </TouchableOpacity>
+
+          {/* ── STAFF & PARTNER PORTAL ACCESS BUTTONS ──────────────────────────────── */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 14, gap: 10 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0' }} />
+            <Text style={{ fontSize: 10, fontWeight: '900', letterSpacing: 1, color: isDark ? '#94a3b8' : '#64748b' }}>STAFF & PARTNER ACCESS</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0' }} />
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1,
+                backgroundColor: isDark ? '#091510' : '#f8fafc', borderColor: isDark ? 'rgba(52, 211, 153, 0.25)' : '#e2e8f0'
+              }}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <Text style={{ fontSize: 16 }}>🛡️</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#ffffff' : '#0f172a' }}>Admin Portal</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1,
+                backgroundColor: isDark ? '#091510' : '#f8fafc', borderColor: isDark ? 'rgba(52, 211, 153, 0.25)' : '#e2e8f0'
+              }}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <Text style={{ fontSize: 16 }}>🚚</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#ffffff' : '#0f172a' }}>Delivery Partner</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

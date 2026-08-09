@@ -14,7 +14,7 @@ export interface User {
 interface AuthStore {
   user: User | null;
   setUser: (user: User | null) => void;
-  login: (identifier: string, pass: string) => Promise<void>;
+  login: (identifier: string, pass: string) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -36,6 +36,7 @@ export const useAuth = create<AuthStore>((set) => ({
     }
     const userObj = res.data?.user || res.data;
     set({ user: userObj });
+    return userObj;
   },
   logout: async () => {
     await tokenStorage.clearAll();
