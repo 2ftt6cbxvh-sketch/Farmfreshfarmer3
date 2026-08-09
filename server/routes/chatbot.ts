@@ -193,6 +193,14 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
     return null;
   }
 
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'is', 'are', 'you', 'how', 'much', 'what', 'who', 'they',
+  'can', 'have', 'this', 'that', 'with', 'from', 'does', 'did', 'do', 'please',
+  'show', 'tell', 'want', 'need', 'get', 'give', 'any', 'some', 'many', 'more',
+  'about', 'where', 'when', 'why', 'which', 'will', 'your', 'their', 'there',
+  'here', 'also', 'just', 'like', 'than', 'then', 'them', 'both', 'each'
+]);
+
 function stemWord(w: string): string {
   let clean = (w || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
   if (clean.length <= 3) return clean;
@@ -209,63 +217,140 @@ function matchesWord(w1: string, w2: string): boolean {
   return s1 === s2 || s1.includes(s2) || s2.includes(s1);
 }
 
+function isProductInquiry(message: string): boolean {
+  const lower = message.toLowerCase();
+  
+  const nonProductKeywords = [
+    'eta', 'delivery', 'pincode', 'location', 'where', 'when', 'time', 'hours',
+    'contact', 'phone', 'email', 'address', 'grievance', 'refund', 'return',
+    'cancel', 'status', 'order', 'tracking', 'track', 'help', 'hi', 'hello',
+    'namaste', 'healthy', 'benefit', 'benefits', 'side effect', 'nutrition',
+    'how to', 'why', 'who should', 'avoid', 'recipe', 'cook', 'legal', 'policy'
+  ];
+
+  if (nonProductKeywords.some(kw => lower.includes(kw))) {
+    return false;
+  }
+
+  return true;
+}
+
 function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
-  const userWords = userMessage.toLowerCase().split(/\s+/).map(stemWord).filter(w => w.length >= 3);
+  if (!isProductInquiry(userMessage)) return [];
+
+  const rawWords = userMessage.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, ''));
+  const userWords = rawWords.filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
   if (userWords.length === 0) return [];
 
   return activeProducts.filter((p: any) => {
     const pName = p.name.toLowerCase();
     const cat = (p.categorySlug || '').toLowerCase();
-    const desc = (p.description || '').toLowerCase();
-    const pWords = (pName + ' ' + cat + ' ' + desc).split(/\s+/).map(stemWord).filter(w => w.length >= 3);
+    const pWords = (pName + ' ' + cat).split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
     
     return userWords.some(uw => pWords.some(pw => matchesWord(uw, pw)));
   });
 }
 
-  // Dynamic & Smart Fallback Reply Generator
-  async function getSmartReply(message: string, lang: string): Promise<{ reply: string; needsHuman: boolean }> {
-    const lower = message.toLowerCase();
-
-    // 1. PIN code / Delivery ETA check (e.g., "531116", "520008", "eta for 520001", "is delivery available to 531116")
-    const pincodeMatch = lower.match(/\b([1-9][0-9]{5})\b/);
-    if (pincodeMatch) {
-      const pincode = pincodeMatch[1];
-      try {
-        const res = await resolveByPincode(pincode);
-        if (res.serviceable) {
-          const area = res.locationArea ? ` (${res.locationArea})` : '';
-          const feeStr = res.fee === 0 ? 'FREE' : `₹${res.fee}`;
-          return {
-            reply: `Yes! Instant farm delivery is available to PIN code ${pincode}${area}. Estimated delivery time is ${res.etaMinutes} minutes. Delivery fee: ${feeStr} (Free delivery on orders above ₹499).`,
-            needsHuman: false,
-          };
-        } else {
-          return {
-            reply: `Currently, PIN code ${pincode} is outside our primary 30-90 minute delivery zone. However, we offer Pan-India shipping for non-perishable items (pickles, sweets, millets, spices)!`,
-            needsHuman: false,
-          };
-        }
-      } catch (pinErr) {
-        console.warn('[chatbot] Pincode resolution error in chatbot:', pinErr);
-      }
+  // Call Gemini REST API with fallback models
+  async function callGeminiAPI(
+    apiKey: string,
+    message: string,
+    fullProductsContext: string,
+    legalContext: string,
+    contactContext: string,
+    language: string
+  ): Promise<string | null> {
+    const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
+    if (!cleanKey) {
+      console.warn('[chatbot] Gemini API key is empty');
+      return null;
     }
 
-    // 2. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
+    const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
+    const systemPrompt = `You are Laxshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
+
+==================== LIVE DATABASE CONTEXT ====================
+1. PRODUCT CATALOG & PRICING:
+${fullProductsContext || 'No product catalog available.'}
+
+2. STORE LEGAL POLICIES & TERMS:
+${legalContext}
+
+3. CUSTOMER SUPPORT & CONTACT INFORMATION:
+${contactContext}
+
+==================== YOUR ROLE & INSTRUCTIONS ====================
+- Respond accurately, naturally, and warmly in ${langName}.
+- NEVER give generic template responses. Answer the exact question asked by the customer.
+
+HEALTH, NUTRITION & WELLNESS GUIDANCE:
+- When asked about health, nutrition, or benefits of any fruit, vegetable, pickle, sweet, or product:
+  1. NUTRITION & HEALTH BENEFITS: Explain vitamins, minerals, antioxidants, and health advantages of eating this item.
+  2. WHO SHOULD EAT & ADVANTAGES: Explain who benefits most (e.g. heart health, diabetics, pregnant mothers, growing children, skin/hair, digestion).
+  3. PRECAUTIONS & WHO SHOULD AVOID/LIMIT: State health cautions (e.g. sodium warning for pickles in hypertension, sugar/ghee moderation for sweets in diabetics, oxalate cautions for raw spinach).
+  4. HEALTH TIPS: Give practical consumption advice.
+
+STORE & LOCATION & ETA QUERIES:
+- When asked about delivery ETAs or locations (e.g. Vaddeswaram, Vijayawada, Guntur, etc.), state that instant farm delivery is 30-90 minutes across Vijayawada & local Andhra areas.
+
+Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
+
+    // 1. Try Official @google/generative-ai SDK
     try {
-      const activeProducts = await storage.products.list();
-      if (activeProducts && activeProducts.length > 0) {
-        const matching = matchProductsFuzzy(message, activeProducts);
-        if (matching.length > 0) {
-          const productList = matching.slice(0, 3).map((p: any) => `• ${p.name}: ₹${p.price} per ${p.unit || 'unit'}`).join('\n');
-          return {
-            reply: `Here are the current prices for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes!`,
-            needsHuman: false,
-          };
+      const genAI = new GoogleGenerativeAI(cleanKey);
+      const modelNames = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+      for (const mName of modelNames) {
+        try {
+          const model = genAI.getGenerativeModel({ model: mName });
+          const result = await model.generateContent(`${systemPrompt}\n\nCustomer Question: ${message}`);
+          const response = await result.response;
+          const text = response.text();
+          if (text && text.trim()) {
+            console.log(`[chatbot] Gemini SDK (${mName}) success`);
+            return text.trim();
+          }
+        } catch (mErr: any) {
+          console.warn(`[chatbot] Gemini SDK model ${mName} error:`, mErr?.message || mErr);
         }
       }
-    } catch (prodErr) {
-      console.warn('[chatbot] Product lookup error in fallback:', prodErr);
+    } catch (sdkErr) {
+      console.warn('[chatbot] Gemini SDK exception:', sdkErr);
+    }
+
+    // 2. Try native globalThis.fetch REST API
+    const fetchFn = (globalThis as any).fetch;
+    if (fetchFn) {
+      const restEndpoints = [
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${cleanKey}`,
+      ];
+
+      for (const endpoint of restEndpoints) {
+        try {
+          const res = await fetchFn(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nCustomer Question: ${message}` }] }],
+              generationConfig: { maxOutputTokens: 768, temperature: 0.7 },
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (replyText && typeof replyText === 'string') {
+              console.log('[chatbot] Gemini REST API success');
+              return replyText.trim();
+            }
+          } else {
+            const errText = await res.text();
+            console.warn(`[chatbot] Gemini REST endpoint ${endpoint} failed (${res.status}):`, errText);
+          }
+        } catch (restErr) {
+          console.warn('[chatbot] Gemini REST fetch error:', restErr);
+        }
+      }
     }
 
     // 3. Keyword-based conversational fallbacks
@@ -457,17 +542,9 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
       }
 
       if (!reply) {
-        if (matchedProducts.length > 0) {
-          reply = lang === 'te' 
-            ? `మీరు వెతుకుతున్న తాజా సేంద్రీయ ఉత్పత్తులు ఇక్కడ ఉన్నాయి:`
-            : lang === 'hi'
-            ? `आपकी खोज से मेल खाते ताजे उत्पाद यहाँ हैं:`
-            : `Here are the fresh organic products matching your request:`;
-        } else {
-          const fallback = await getSmartReply(message, lang);
-          reply = fallback.reply;
-          needsHuman = fallback.needsHuman;
-        }
+        const fallback = await getSmartReply(message, lang);
+        reply = fallback.reply;
+        needsHuman = fallback.needsHuman;
       }
 
       // If reply indicates needs human escalation:
@@ -482,12 +559,14 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
         });
       }
 
+      const showProductCards = isProductInquiry(message) && matchedProducts.length > 0;
+
       return res.json({
         reply,
         needsHuman,
         status: session.status,
         sessionToken: token,
-        products: matchedProducts.length > 0 ? matchedProducts : undefined,
+        products: showProductCards ? matchedProducts : undefined,
       });
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);
