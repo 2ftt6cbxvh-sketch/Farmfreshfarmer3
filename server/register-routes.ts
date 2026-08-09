@@ -58,6 +58,7 @@ import { registerAdminContentRoutes } from "./routes/admin/content";
 import { registerStaffRoutes } from "./routes/admin/staff";
 import { registerApprovalRoutes } from "./routes/admin/approval";
 import { registerChatbotRoutes } from "./routes/chatbot";
+import { registerTicketRoutes } from "./routes/tickets";
 import { registerAdminDeliveryPartnerRoutes } from "./routes/admin/delivery-partners";
 import { registerDeliveryPartnerPortalRoutes } from "./routes/delivery-partner-portal";
 import { registerPerkRoutes } from "./routes/admin/perks";
@@ -1115,6 +1116,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerStaffRoutes(app);
   try { registerApprovalRoutes(app, storage); } catch (e) { console.error('[approval routes] Failed to register:', e); }
   try { registerChatbotRoutes(app, storage); } catch (e) { console.error('[chatbot routes] Failed to register:', e); }
+  try { registerTicketRoutes(app); } catch (e) { console.error('[ticket routes] Failed to register:', e); }
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);
   registerPerkRoutes(app);

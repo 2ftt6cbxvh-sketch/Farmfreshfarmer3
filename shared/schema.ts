@@ -863,3 +863,35 @@ export const chatbotProductSuggestions = pgTable("chatbot_product_suggestions", 
   nameIdx: uniqueIndex("chatbot_suggestions_name_idx").on(t.productName),
 }));
 export type ChatbotProductSuggestion = typeof chatbotProductSuggestions.$inferSelect;
+
+/* ====================== SUPPORT TICKETS TABLE ======================== */
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  ticketId: varchar("ticket_id", { length: 32 }).notNull().unique(),
+  userId: integer("user_id"),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  customerEmail: text("customer_email").notNull(),
+  concern: text("concern").notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("open"), // open | under_solving | solved | closed
+  priority: varchar("priority", { length: 16 }).notNull().default("medium"), // low | medium | high | urgent
+  assignedAgentId: integer("assigned_agent_id"),
+  assignedAgentName: text("assigned_agent_name"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  ticketIdIdx: uniqueIndex("support_tickets_ticket_id_idx").on(t.ticketId),
+  userIdIdx: index("support_tickets_user_id_idx").on(t.userId),
+  statusIdx: index("support_tickets_status_idx").on(t.status),
+}));
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets, {
+  customerEmail: z.string().email(),
+  customerPhone: z.string().min(10),
+  concern: z.string().min(5),
+}).omit({ id: true, createdAt: true, updatedAt: true, ticketId: true, status: true, assignedAgentId: true, assignedAgentName: true, adminNotes: true });
+
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+

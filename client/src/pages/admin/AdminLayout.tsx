@@ -14,9 +14,10 @@ import AdminLogin from "./AdminLogin";
 import Forbidden403 from "../Forbidden403";
 
 const NAV = [
-  { section: "Overview", items: [
+  { section: "Core", items: [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/live-chat", label: "Live Support Chat 💬", icon: MessageSquare },
+    { href: "/admin/tickets", label: "Support Tickets", icon: Ticket },
   ]},
   { section: "Catalog", items: [
     { href: "/admin/products", label: "Products", icon: Package },
@@ -102,6 +103,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
     if (!allowedHrefs.includes("/admin")) allowedHrefs.push("/admin");
     if (!allowedHrefs.includes("/admin/live-chat")) allowedHrefs.push("/admin/live-chat");
+    if (!allowedHrefs.includes("/admin/tickets")) allowedHrefs.push("/admin/tickets");
   }
 
   const navToDisplay = NAV.map((section) => {
@@ -255,7 +257,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v7.0.5
+              v7.0.6
             </span>
           </div>
         </div>

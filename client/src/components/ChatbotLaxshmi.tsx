@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -106,11 +106,23 @@ export function ChatbotLaxshmi() {
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
 
+  /* Ticket Creation State */
+  const [ticketStep, setTicketStep] = useState<"name" | "phone" | "email" | "concern" | null>(null);
+  const [ticketData, setTicketData] = useState({ name: "", phone: "", email: "", concern: "" });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const sessionToken = getSessionToken();
   const strings = UI_STRINGS[language];
+
+  const { data: authMethods } = useQuery<{ emailEnabled: boolean; googleEnabled: boolean }>({
+    queryKey: ["/api/auth/methods"],
+    queryFn: async () => {
+      const r = await fetch("/api/auth/methods");
+      return r.json();
+    },
+  });
 
   const handleAddToCart = useCallback((product: any) => {
     if (!user) {
@@ -272,16 +284,125 @@ export function ChatbotLaxshmi() {
 
   const stopListening = useCallback(() => { recognitionRef.current?.stop(); setIsListening(false); }, []);
 
+  /* Start Ticket Flow */
+  const startTicketFlow = useCallback(() => {
+    setTicketData({
+      name: user?.name || "",
+      phone: user?.phone || "",
+      email: user?.email || "",
+      concern: "",
+    });
+
+    if (user?.name) {
+      setTicketStep("phone");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `t_start_${Date.now()}`,
+          role: "model",
+          content: `🎫 Let's raise a support ticket! Your name is saved as "${user.name}". Please enter your 10-digit Mobile Number:`,
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      setTicketStep("name");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `t_start_${Date.now()}`,
+          role: "model",
+          content: `🎫 Let's raise a support ticket! Please enter your Full Name:`,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, [user]);
+
   /* Send message */
   const handleSend = useCallback(async () => {
     const msg = input.trim();
     if (!msg || sendMutation.isPending) return;
     setInput("");
+
     const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: "user", content: msg, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
+
+    // Handle ticket flow steps
+    if (ticketStep) {
+      if (ticketStep === "name") {
+        setTicketData((prev) => ({ ...prev, name: msg }));
+        setTicketStep("phone");
+        setTimeout(() => {
+          setMessages((prev) => [
+            ...prev,
+            { id: `t_s_${Date.now()}`, role: "model", content: `Thanks ${msg}! Now please enter your 10-digit Mobile Number:`, timestamp: new Date() },
+          ]);
+        }, 300);
+        return;
+      }
+      if (ticketStep === "phone") {
+        setTicketData((prev) => ({ ...prev, phone: msg }));
+        setTicketStep("email");
+        setTimeout(() => {
+          setMessages((prev) => [
+            ...prev,
+            { id: `t_s_${Date.now()}`, role: "model", content: `Got it! Please enter your Email Address:`, timestamp: new Date() },
+          ]);
+        }, 300);
+        return;
+      }
+      if (ticketStep === "email") {
+        setTicketData((prev) => ({ ...prev, email: msg }));
+        setTicketStep("concern");
+        setTimeout(() => {
+          setMessages((prev) => [
+            ...prev,
+            { id: `t_s_${Date.now()}`, role: "model", content: `Almost done! Please describe your issue or concern in detail:`, timestamp: new Date() },
+          ]);
+        }, 300);
+        return;
+      }
+      if (ticketStep === "concern") {
+        const finalConcern = msg;
+        const currentTicketData = { ...ticketData, concern: finalConcern };
+        setTicketStep(null);
+        try {
+          const res = await fetch("/api/support-tickets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerName: currentTicketData.name,
+              customerPhone: currentTicketData.phone,
+              customerEmail: currentTicketData.email,
+              concern: currentTicketData.concern,
+              userId: user?.id,
+            }),
+          });
+          const data = await res.json();
+          setTimeout(() => {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `t_done_${Date.now()}`,
+                role: "model",
+                content: `✅ Support Ticket registered successfully!\n\nTicket ID: ${data?.ticket?.ticketId || 'TICK-NEW'}\nStatus: Open\n\nOur team and grievance officers have been notified via Telegram. You can view your live ticket status in your Account profile anytime!`,
+                timestamp: new Date(),
+              },
+            ]);
+          }, 300);
+        } catch (e) {
+          setMessages((prev) => [
+            ...prev,
+            { id: `t_err_${Date.now()}`, role: "model", content: "Could not submit ticket. Please try again or contact support at +91 79897 93669.", timestamp: new Date() },
+          ]);
+        }
+        return;
+      }
+    }
+
     const history = messages.filter((m) => m.id !== "welcome").slice(-8).map((m) => ({ role: m.role, content: m.content }));
     sendMutation.mutate({ message: msg, history });
-  }, [input, messages, sendMutation]);
+  }, [input, messages, sendMutation, ticketStep, ticketData, user]);
 
   /* Connect to human */
   const handleConnectHuman = useCallback(async () => {
@@ -504,14 +625,16 @@ export function ChatbotLaxshmi() {
                             }}
                             onError={() => { window.location.href = "/login"; }}
                           />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => { window.location.href = "/login"; }}
-                            className="w-full text-xs font-bold gap-1 h-8"
-                          >
-                            ✉️ Sign In with Email / OTP
-                          </Button>
+                          {authMethods?.emailEnabled !== false && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => { window.location.href = "/login"; }}
+                              className="w-full text-xs font-bold gap-1 h-8"
+                            >
+                              ✉️ Sign In with Email / OTP
+                            </Button>
+                          )}
                         </div>
                         <p className="text-[10px] text-muted-foreground leading-tight pt-2 border-t border-card-border/80">
                           By signing in you agree to all our{" "}
@@ -563,11 +686,17 @@ export function ChatbotLaxshmi() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Connect to Human */}
-          <div className="px-3 pb-1.5 flex-shrink-0">
+          {/* Action Buttons Bar (Ticket + Human Support) */}
+          <div className="px-3 pb-1.5 flex gap-2 flex-shrink-0">
+            <button id="chatbot-ticket-btn" onClick={startTicketFlow}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition">
+              <Ticket size={12} />
+              Raise a Ticket
+            </button>
+
             <button id="chatbot-human-btn" onClick={handleConnectHuman} disabled={humanMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800 text-xs font-medium text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition disabled:opacity-50">
-              <Users size={13} />
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border border-purple-200 dark:border-purple-800 text-[11px] font-bold text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition disabled:opacity-50">
+              <Users size={12} />
               {humanMutation.isPending ? strings.connecting : strings.connectHuman}
             </button>
           </div>
