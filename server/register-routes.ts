@@ -1113,8 +1113,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
   registerStaffRoutes(app);
-  registerApprovalRoutes(app, storage);
-  registerChatbotRoutes(app, storage);
+  try { registerApprovalRoutes(app, storage); } catch (e) { console.error('[approval routes] Failed to register:', e); }
+  try { registerChatbotRoutes(app, storage); } catch (e) { console.error('[chatbot routes] Failed to register:', e); }
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);
   registerPerkRoutes(app);

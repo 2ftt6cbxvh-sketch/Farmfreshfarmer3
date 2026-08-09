@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import { chatbotMissedQueries, chatbotProductSuggestions } from "@shared/schema";
+import { chatbotMissedQueries, chatbotProductSuggestions } from "../../shared/schema";
 import { eq, desc, sql, ilike } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
