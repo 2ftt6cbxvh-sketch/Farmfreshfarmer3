@@ -429,13 +429,13 @@ export function ChatbotLaxshmi() {
           {/* Speech bubble */}
           <div className="relative cursor-pointer" onClick={() => setIsOpen(true)}
             style={{ animation: 'laxBounce 3s ease-in-out infinite' }}>
-            <div className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md rounded-2xl rounded-br-none px-3 py-2 shadow-2xl text-xs font-semibold text-gray-800 dark:text-gray-100 border border-white/50 max-w-[180px]"
-              style={{ boxShadow: '0 8px 32px rgba(212,20,90,0.15)' }}>
+            <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md rounded-2xl rounded-br-none px-3.5 py-2 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/5 dark:border-white/10 max-w-[185px]"
+              style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06)' }}>
               {strings.bubbleGreeting}
             </div>
             {/* tail */}
             <div className="absolute -bottom-2 right-4 w-0 h-0"
-              style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.9)' }} />
+              style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.95)' }} />
           </div>
           
           {/* Main button with pulse ring */}
@@ -445,11 +445,11 @@ export function ChatbotLaxshmi() {
               style={{ animation: 'laxPulseRing 2.2s ease-out infinite', background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)', borderRadius: '20px' }} />
             
             <button id="chatbot-open-btn" onClick={() => setIsOpen(true)}
-              className="relative px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-105 active:scale-95 transition-all duration-300 shadow-2xl cursor-pointer"
+              className="relative px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-[1.03] active:scale-95 transition-all duration-300 cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
                 animation: 'laxGlow 3s ease-in-out infinite',
-                boxShadow: '0 12px 36px rgba(212,20,90,0.45), 0 0 0 2px rgba(255,255,255,0.2)',
+                boxShadow: '0 10px 30px -4px rgba(212, 20, 90, 0.35), 0 6px 16px -2px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
                 borderRadius: '20px',
               }}
               aria-label="Open Laxshmi AI assistant">
@@ -468,12 +468,11 @@ export function ChatbotLaxshmi() {
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl shadow-2xl overflow-hidden bg-white dark:bg-zinc-900"
+          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-black/10 dark:border-purple-900/40"
           style={{ 
             width: '360px', maxWidth: 'calc(100vw - 24px)', height: '540px', maxHeight: 'calc(100vh - 80px)',
             animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-            border: '1px solid rgba(212,20,90,0.2)',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,107,53,0.1)',
+            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(212, 20, 90, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
           }}>
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
