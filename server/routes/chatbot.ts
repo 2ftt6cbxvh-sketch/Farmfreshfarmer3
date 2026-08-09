@@ -701,6 +701,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 • Shipping Policy: Free delivery on orders above minimum threshold. Delivered fresh daily between 6:00 AM and 10:00 PM.
 • Payment Methods Accepted: PhonePe, Google Pay, UPI, Netbanking, Debit/Credit Cards, and Cash on Delivery (COD).
 • Grievance Policy: Formal complaints acknowledged within 24-48 hours and resolved within 7 business days by the Grievance Redressal Officer.
+• Customer Support Tickets: Customers can raise a support ticket directly in the Laxshmi AI chatbot by clicking the 'Raise a Ticket' button. Ticket details are submitted to the admin team and customers can track live ticket status from their account dashboard at /account.
       `.trim();
 
       // Contact info context

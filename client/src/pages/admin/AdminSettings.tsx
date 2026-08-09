@@ -833,8 +833,6 @@ function FieldRow({
     );
   }
   if (field.key === "gemini_api_key") {
-    const isValidPrefix = v.trim().startsWith("AIzaSy");
-    const isInvalidKey = v.trim().length > 0 && !isValidPrefix;
     return (
       <div className="py-2.5 space-y-1.5">
         <div className="flex items-center justify-between">
@@ -852,26 +850,11 @@ function FieldRow({
           id={`set-${field.key}`}
           type="text"
           value={v}
-          placeholder="Paste your Google Gemini API key starting with AIzaSy..."
+          placeholder="Paste your Google Gemini API key..."
           onChange={(e) => onChange(field.key, e.target.value)}
-          className={`mt-1 font-mono text-xs ${isInvalidKey ? "border-amber-500/80 bg-amber-500/10 text-amber-300" : ""}`}
+          className="mt-1 font-mono text-xs"
           data-testid={`input-setting-${field.key}`}
         />
-        {isInvalidKey && (
-          <div className="text-[11px] font-bold text-amber-300 bg-amber-500/15 p-2.5 rounded-xl border border-amber-500/30 space-y-1">
-            <p className="flex items-center gap-1">
-              ⚠️ <strong>Invalid API Key Format Detected:</strong>
-            </p>
-            <p className="font-normal opacity-90">
-              Google Gemini API keys ALWAYS start with <code>AIzaSy...</code> (obtained from <a href="https://aistudio.google.dev/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-black text-amber-200">aistudio.google.dev</a>). Your current key starts with <code>{v.trim().substring(0, 7)}...</code> which is not a Google Gemini key.
-            </p>
-          </div>
-        )}
-        {isValidPrefix && (
-          <p className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-            ✓ Valid Google Gemini API Key format (starts with AIzaSy)
-          </p>
-        )}
       </div>
     );
   }
