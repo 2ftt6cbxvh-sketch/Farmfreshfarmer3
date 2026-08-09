@@ -594,28 +594,14 @@ export default function BasketScreen() {
               <TouchableOpacity
                 style={[
                   styles.paymentOptionBtn,
-                  paymentMethod === 'PHONEPE' ? styles.paymentOptionActive : (isDark ? styles.paymentOptionDark : styles.paymentOptionLight)
+                  styles.paymentOptionActive
                 ]}
-                onPress={() => setPaymentMethod('PHONEPE')}
+                onPress={() => setPaymentMethod('COD')}
               >
-                <Text style={[styles.paymentOptionText, paymentMethod === 'PHONEPE' && { color: '#ffffff' }]}>
-                  ⚡ PhonePe UPI / Card
+                <Text style={[styles.paymentOptionText, { color: '#ffffff' }]}>
+                  💵 Cash on Delivery
                 </Text>
               </TouchableOpacity>
-
-              {checkoutConfig?.codEnabled !== false && (
-                <TouchableOpacity
-                  style={[
-                    styles.paymentOptionBtn,
-                    paymentMethod === 'COD' ? styles.paymentOptionActive : (isDark ? styles.paymentOptionDark : styles.paymentOptionLight)
-                  ]}
-                  onPress={() => setPaymentMethod('COD')}
-                >
-                  <Text style={[styles.paymentOptionText, paymentMethod === 'COD' && { color: '#ffffff' }]}>
-                    💵 Cash on Delivery
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
 
@@ -635,7 +621,7 @@ export default function BasketScreen() {
               <Text style={styles.checkoutSubmitBtnText}>Delivery Unavailable for this Location</Text>
             ) : (
               <Text style={styles.checkoutSubmitBtnText}>
-                {paymentMethod === 'PHONEPE' ? `Pay with PhonePe ₹${grandTotal}` : `Place Order (Cash on Delivery) ₹${grandTotal}`}
+                {`Place Order (Cash on Delivery) ₹${grandTotal}`}
               </Text>
             )}
           </TouchableOpacity>
