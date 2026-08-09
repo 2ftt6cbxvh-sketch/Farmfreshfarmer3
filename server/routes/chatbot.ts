@@ -134,8 +134,8 @@ STORE & LEGAL QUERIES:
 - Provide exact information from the store legal policies, contact numbers, email addresses, operating hours, delivery ETAs (30-90 mins), return policy (4 hours with photo proof), and grievance redressal officer details.
 
 CRITICAL CART & LOGIN RULES:
-- Laxshmi CAN detect cart requests and the server will handle adding to cart automatically.
-- If you detect the user wants to add to cart ("add X to cart", "add them", "add it"), the server-side code will intercept and handle it. You do NOT need to say anything about this - the system handles it.
+- You CANNOT add items to cart, place orders, or make any purchase. NEVER say "I have added X to your cart" or "I've successfully added" — you have NO cart access.
+- When a customer asks to add to cart ("add bananas", "add 2kg tomatoes", "buy spinach"), say ONLY: "Please use the Add button on the product card below to add this to your cart! If you are not logged in, please sign in first using Google One-Tap or Email OTP at the top right."
 - If asked about order status or payment, instruct the customer to log in at /account to view their dashboard.
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use clear paragraphs or bullet points where helpful.`;
@@ -319,8 +319,8 @@ SECURITY & PRIVACY RULES:
 - If asked about specific user account data or order details, instruct the customer to log in securely at /account to view their personal dashboard.
 
 CRITICAL CART & LOGIN RULES:
-- Laxshmi CAN detect cart requests and the server will handle adding to cart automatically.
-- If you detect the user wants to add to cart ("add X to cart", "add them", "add it"), the server-side code will intercept and handle it. You do NOT need to say anything about this - the system handles it.
+- You CANNOT add items to cart, place orders, or make any purchase. NEVER say "I have added X to your cart" or "I've successfully added" — you have NO cart access.
+- When a customer asks to add to cart ("add bananas", "add 2kg tomatoes", "buy spinach"), say ONLY: "Please use the Add button on the product card below to add this to your cart! If you are not logged in, please sign in first using Google One-Tap or Email OTP at the top right."
 - If asked about order status or payment, instruct the customer to log in at /account to view their dashboard.
 
 Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
@@ -621,32 +621,46 @@ function detectETAIntent(message: string): boolean {
 // === CART HELPER FUNCTIONS ===
 function detectCartIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
   const lower = message.toLowerCase().trim();
-  // Patterns: "add 2 kg tomatoes to cart", "add 2kgs of tomatoes", "add 2 tomatoes", "put 1.5kg spinach in cart"
-  const patterns = [
-    /(?:add|put|place|order)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)?\s+(?:of\s+)?([a-z\s]+?)\s+(?:to|in|into)\s+(?:my\s+)?cart/i,
-    /(?:add|put|place|order)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)\s+(?:of\s+)?([a-z\s]+)/i,
-    /(?:add|put|place|order)\s+([a-z\s]+?)\s+(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|grams?|g|pieces?|pcs?|units?|packets?|packs?)\s+(?:to|in|into)\s+(?:my\s+)?cart/i,
+  
+  // Must contain add/put/order/want intent
+  const hasAddIntent = /\\b(add|put|order|buy|get|want|need|give me|take)\\b/.test(lower);
+  if (!hasAddIntent) return null;
+  
+  // Must NOT be a question or general inquiry
+  if (/\\b(how|what|when|where|why|which|can i|should|do you|is there|are there|do we|available|price|cost|stock)\\b/.test(lower)) return null;
+  
+  // Try to extract quantity and unit first
+  const qtyUnitPatterns = [
+    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:kgs?|kilograms?)/i, unit: 'kg' },
+    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:grams?|gms?|\\bg\\b)/i, unit: 'g' },
+    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:pieces?|pcs?|nos?|numbers?)/i, unit: 'piece' },
+    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:packets?|packs?|bunches?|bundles?|dozens?|doz)/i, unit: 'pack' },
+    { pattern: /(\\d+(?:[.,]\\d+)?)/i, unit: 'unit' },
   ];
   
-  for (const pattern of patterns) {
-    const match = lower.match(pattern);
-    if (match) {
-      let rawQty = parseFloat((match[1] || '1').replace(',', '.'));
-      let rawProduct = (match[2] || match[1] || '').trim();
-      let rawUnit = 'kg';
-      
-      // Detect unit from message
-      if (/gram|\bg\b/.test(lower)) rawUnit = 'g';
-      else if (/piece|pc|unit/.test(lower)) rawUnit = 'piece';
-      else if (/pack|packet/.test(lower)) rawUnit = 'pack';
-      else rawUnit = 'kg';
-      
-      if (rawProduct.length >= 2) {
-        return { rawProduct, rawQty, rawUnit };
-      }
+  let rawQty = 1;
+  let rawUnit = 'unit';
+  let messageWithoutQty = lower;
+  
+  for (const { pattern, unit } of qtyUnitPatterns) {
+    const m = lower.match(pattern);
+    if (m) {
+      rawQty = parseFloat(m[1].replace(',', '.'));
+      rawUnit = unit;
+      messageWithoutQty = lower.replace(m[0], ' ');
+      break;
     }
   }
-  return null;
+  
+  // Remove common filler words to get product name
+  const fillerWords = ['add', 'put', 'order', 'buy', 'get', 'want', 'need', 'give', 'me', 'my', 'some', 'please', 'to', 'in', 'into', 'the', 'a', 'an', 'cart', 'basket', 'bag', 'take', 'also', 'and'];
+  const words = messageWithoutQty.split(/\\s+/).map(w => w.replace(/[^a-z]/g, '')).filter(w => w.length >= 2 && !fillerWords.includes(w));
+  
+  if (words.length === 0) return null;
+  const rawProduct = words.join(' ').trim();
+  if (rawProduct.length < 2) return null;
+  
+  return { rawProduct, rawQty, rawUnit };
 }
 
 function resolveCartQty(
@@ -994,7 +1008,7 @@ function resolveCartQty(
       if (reply && globalActiveProducts && globalActiveProducts.length > 0) {
         const replyLower = reply.toLowerCase();
         responseProducts = globalActiveProducts.filter((p: any) => {
-          const productWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 4);
+          const productWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 5);
           return productWords.some((w: string) => replyLower.includes(w));
         }).map((p: any) => ({
             id: p.id,
