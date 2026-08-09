@@ -734,11 +734,25 @@ const LEGAL_CONTACT_KEYS = [
   { key: "operating_hours", label: "Customer Support Operating Hours", type: "text" as const },
   { key: "return_window_hours", label: "Perishable Claim Return Window (Hours)", type: "text" as const },
   { key: "shipping_policy_custom_notes", label: "Custom Shipping Policy Notes", type: "text" as const },
+  { key: "grievance_officer_name", label: "Grievance Officer Full Name", type: "text" as const },
+  { key: "grievance_officer_designation", label: "Grievance Officer Designation", type: "text" as const },
+  { key: "grievance_officer_email", label: "Grievance Officer Email Address", type: "text" as const },
+  { key: "grievance_officer_phone", label: "Grievance Officer Direct Phone", type: "text" as const },
+  { key: "grievance_officer_address", label: "Grievance Officer Office Address", type: "text" as const },
+  { key: "complaint_ack_hours", label: "Complaint Acknowledgment SLA (hours)", type: "text" as const },
+  { key: "complaint_resolve_days", label: "Complaint Resolution Timeline (working days)", type: "text" as const },
+];
+
+const CHATBOT_KEYS = [
+  { key: "chatbot_enabled", label: "Enable Laxshmi AI Chatbot", type: "bool" as const },
+  { key: "gemini_api_key", label: "Google Gemini API Key (Free tier at ai.google.dev)", type: "text" as const },
+  { key: "chatbot_welcome_message", label: "Chatbot Welcome Message", type: "text" as const },
+  { key: "telegram_bot_token", label: "Telegram Bot Token (from @BotFather)", type: "text" as const },
 ];
 
 const ALL_KNOWN_KEYS = [
-  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS,
-].map((k) => k.key).concat("delivery_rules");
+  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS, ...CHATBOT_KEYS,
+].map((k) => k.key).concat("delivery_rules", "telegram_chat_ids");
 
 function FieldRow({
   field,
@@ -828,6 +842,58 @@ function FieldRow({
         className="mt-1"
         data-testid={`input-setting-${field.key}`}
       />
+    </div>
+  );
+}
+
+function TelegramChatIdsEditor({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (key: string, val: string) => void;
+}) {
+  // value is JSON array stored as string e.g. "[\"-100123\",\"-100456\"]"
+  let ids: string[] = [];
+  try { ids = JSON.parse(value || "[]"); } catch { ids = []; }
+  if (!Array.isArray(ids)) ids = [];
+
+  const commit = (newIds: string[]) => onChange("telegram_chat_ids", JSON.stringify(newIds));
+
+  return (
+    <div className="space-y-2">
+      <Label>Telegram Alert Chat IDs</Label>
+      <p className="text-xs text-muted-foreground">Add the Chat IDs of Telegram groups/channels to receive customer support alerts. Get IDs by adding your bot to a group, then visiting: api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</p>
+      {ids.length === 0 && <p className="text-sm text-muted-foreground italic">No Chat IDs added yet.</p>}
+      {ids.map((chatId, idx) => (
+        <div key={idx} className="flex gap-2 items-center">
+          <Input
+            value={chatId}
+            placeholder="e.g. -100123456789"
+            onChange={(e) => {
+              const updated = [...ids];
+              updated[idx] = e.target.value;
+              commit(updated);
+            }}
+            data-testid={`input-telegram-chat-id-${idx}`}
+          />
+          <Button
+            type="button" variant="ghost" size="icon"
+            onClick={() => commit(ids.filter((_, i) => i !== idx))}
+            data-testid={`btn-remove-chat-id-${idx}`}
+          >
+            <Trash2 size={16} className="text-destructive" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button" variant="outline" size="sm"
+        onClick={() => commit([...ids, ""])}
+        className="gap-2"
+        data-testid="btn-add-chat-id"
+      >
+        <Plus size={14} /> Add Chat ID
+      </Button>
     </div>
   );
 }
@@ -1097,7 +1163,7 @@ function AuthMethodsCustomizer() {
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security">("delivery");
+  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security" | "chatbot">("delivery");
 
   // ---------- Business settings ----------
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -1225,6 +1291,14 @@ export default function AdminSettings() {
             }`}
           >
             <KeyRound size={16} /> 🔐 Security & Accounts
+          </button>
+          <button
+            onClick={() => setActiveCategory("chatbot")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "chatbot" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            🤖 Chatbot & Alerts
           </button>
         </div>
 
@@ -1389,6 +1463,31 @@ export default function AdminSettings() {
                   {change.isPending ? "Validating Password & TOTP..." : "Verify Current Password + TOTP & Update Password 🔑"}
                 </Button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 6: 🤖 CHATBOT & ALERTS ────────────────────────────── */}
+        {activeCategory === "chatbot" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                🤖 Laxshmi AI Chatbot & Telegram Integration
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure your Gemini API key for the AI chatbot, welcome messages, and Telegram notifications for customer support alerts.
+              </p>
+              <div className="divide-y divide-card-border">
+                {CHATBOT_KEYS.map((f) => (
+                  <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                ))}
+              </div>
+              <div className="pt-4 border-t border-card-border">
+                <TelegramChatIdsEditor
+                  value={form["telegram_chat_ids"]}
+                  onChange={setField}
+                />
+              </div>
             </div>
           </div>
         )}

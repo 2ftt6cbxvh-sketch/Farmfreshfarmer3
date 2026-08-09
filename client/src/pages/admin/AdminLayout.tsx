@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key
+  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -20,6 +20,7 @@ const NAV = [
   { section: "Catalog", items: [
     { href: "/admin/products", label: "Products", icon: Package },
     { href: "/admin/categories", label: "Categories", icon: FolderTree },
+    { href: "/admin/approvals", label: "Approvals", icon: CheckCircle },
     { href: "/admin/inventory", label: "Inventory", icon: Boxes },
   ]},
   { section: "Sales", items: [
@@ -85,6 +86,14 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
         allowedHrefs = ["/admin", "/admin/inventory", "/admin/warehouses"];
       } else if (adminUser?.role === "manager_admin") {
         allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"];
+      } else if (adminUser?.role === "customer_rep") {
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers"];
+      } else if (adminUser?.role === "local_grievance_officer") {
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews"];
+      } else if (adminUser?.role === "zonal_grievance_officer") {
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports"];
+      } else if (adminUser?.role === "chief_grievance_officer") {
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings"];
       } else {
         allowedHrefs = ["/admin"];
       }
@@ -95,8 +104,8 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
   const navToDisplay = NAV.map((section) => {
     const filteredItems = section.items.filter((item) => {
-      // Security, Settings, Staff, and Delivery Partners menus are strictly reserved for Primary Admin
-      if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings") {
+      // Security, Settings, Staff, Approvals, and Delivery Partners menus are strictly reserved for Primary Admin
+      if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings" || item.href === "/admin/approvals") {
         return isPrimaryAdmin;
       }
       return isPrimaryAdmin || allowedHrefs.includes(item.href);
@@ -106,8 +115,13 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
   const flatDisplayed = navToDisplay.flatMap((s) => s.items);
 
+  const STAFF_ROLES = [
+    "admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin",
+    "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"
+  ];
+
   useEffect(() => {
-    const isStaffOrAdmin = adminUser && ["admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin"].includes(adminUser.role);
+    const isStaffOrAdmin = adminUser && STAFF_ROLES.includes(adminUser.role);
     if (isStaffOrAdmin) {
       localStorage.setItem("adminUser", JSON.stringify(adminUser));
     } else if (user === null && !loading) {
@@ -134,7 +148,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
 
-  const isStaffOrAdmin = adminUser && ["admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin"].includes(adminUser.role);
+  const isStaffOrAdmin = adminUser && STAFF_ROLES.includes(adminUser.role);
 
   const [mfaVerified, setMfaVerified] = useState<boolean>(() => {
     return sessionStorage.getItem("admin_mfa_verified") === "true";

@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [method, setMethod] = useState<'password' | 'otp'>('otp');
   const [otpSent, setOtpSent] = useState(false);
@@ -33,6 +34,8 @@ export default function LoginScreen() {
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [staffEmail, setStaffEmail] = useState('admin@farmfreshfarmer.com');
   const [staffPassword, setStaffPassword] = useState('');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+  const [showPartnerPassword, setShowPartnerPassword] = useState(false);
 
   // TOTP 2FA Challenge Modal State for Primary Admin
   const [showTotpModal, setShowTotpModal] = useState(false);
@@ -315,14 +318,22 @@ export default function LoginScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
-                  <TextInput
-                    style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                    placeholder="Password"
-                    placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                  />
+                  <View style={{ position: 'relative', justifyContent: 'center' }}>
+                    <TextInput
+                      style={[styles.input, isDark ? styles.inputDark : styles.inputLight, { paddingRight: 45 }]}
+                      placeholder="Password"
+                      placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: 12, padding: 4 }}
+                    >
+                      <Text style={{ fontSize: 18 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleLogin} disabled={isLoading}>
                     {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Sign In</Text>}
                   </TouchableOpacity>
@@ -416,14 +427,22 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                placeholder="Password"
-                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                value={staffPassword}
-                onChangeText={setStaffPassword}
-                secureTextEntry
-              />
+              <View style={{ position: 'relative', justifyContent: 'center' }}>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : styles.inputLight, { paddingRight: 45 }]}
+                  placeholder="Password"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={staffPassword}
+                  onChangeText={setStaffPassword}
+                  secureTextEntry={!showStaffPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowStaffPassword(!showStaffPassword)}
+                  style={{ position: 'absolute', right: 12, padding: 4 }}
+                >
+                  <Text style={{ fontSize: 18 }}>{showStaffPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.modalBtnRow}>
@@ -457,14 +476,22 @@ export default function LoginScreen() {
                 onChangeText={setStaffEmail}
                 autoCapitalize="none"
               />
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
-                placeholder="Password"
-                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                value={staffPassword}
-                onChangeText={setStaffPassword}
-                secureTextEntry
-              />
+              <View style={{ position: 'relative', justifyContent: 'center' }}>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : styles.inputLight, { paddingRight: 45 }]}
+                  placeholder="Password"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={staffPassword}
+                  onChangeText={setStaffPassword}
+                  secureTextEntry={!showPartnerPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPartnerPassword(!showPartnerPassword)}
+                  style={{ position: 'absolute', right: 12, padding: 4 }}
+                >
+                  <Text style={{ fontSize: 18 }}>{showPartnerPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.modalBtnRow}>

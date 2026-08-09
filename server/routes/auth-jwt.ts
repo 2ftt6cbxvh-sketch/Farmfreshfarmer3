@@ -8,6 +8,19 @@ import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../serv
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
 import { ensureReferralCode } from "../engine/referral";
 
+function validatePassword(password: string): { valid: boolean; error?: string } {
+  if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters long." };
+  if (!/[A-Z]/.test(password)) return { valid: false, error: "Password must contain at least one uppercase letter." };
+  if (!/[a-z]/.test(password)) return { valid: false, error: "Password must contain at least one lowercase letter." };
+  if (!/[0-9]/.test(password)) return { valid: false, error: "Password must contain at least one number." };
+  if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) return { valid: false, error: "Password must contain at least one special character (!@#$%^&*)." };
+  if (/(.)\1\1/.test(password)) return { valid: false, error: "Password must not contain 3 or more repeated consecutive characters." };
+  const SEQ = ["123","234","345","456","567","678","789","890","abc","bcd","cde","def","efg","fgh","ghi","hij","ijk","jkl","klm","lmn","mno","nop","opq","pqr","qrs","rst","stu","tuv","uvw","vwx","wxy","xyz","qwerty","asdf","zxcv"];
+  const lp = password.toLowerCase();
+  for (const seq of SEQ) { if (lp.includes(seq)) return { valid: false, error: "Password must not contain common sequential patterns (like '123', 'abc', 'qwerty')." }; }
+  return { valid: true };
+}
+
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
@@ -51,6 +64,9 @@ export function registerAuthJwtRoutes(app: Express) {
 
     const { name, email, password, phone, platform, deviceId } = parsed.data;
     const cleanEmail = email.toLowerCase().trim();
+
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
 
     const [existing] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
     if (existing) return res.status(409).json({ message: "Email is already registered" });
@@ -129,6 +145,34 @@ export function registerAuthJwtRoutes(app: Express) {
     if (refreshToken) await rotateRefreshToken(refreshToken).catch(() => {});
     if (req.session?.userId) req.session.destroy(() => {});
     return res.json({ message: "Logged out" });
+  });
+
+  /** POST /api/auth/change-password */
+  app.post("/api/auth/change-password", async (req: Request, res: Response) => {
+    const { currentPassword, newPassword } = req.body || {};
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let userId: number | undefined = req.session?.userId;
+    if (!userId && token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        userId = decoded?.userId || decoded?.sub;
+      } catch {}
+    }
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user || !user.password || !(await bcrypt.compare(String(currentPassword || ""), user.password))) {
+      return res.status(401).json({ message: "Current password incorrect" });
+    }
+
+    const pwCheck = validatePassword(String(newPassword || ""));
+    if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
+
+    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+    return res.json({ message: "Password updated successfully" });
   });
 
   /** POST /api/auth/google */

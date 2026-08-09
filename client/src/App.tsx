@@ -22,10 +22,11 @@ import { PaymentSuccess, PaymentFailure } from "@/pages/PaymentResult";
 import MySubscriptions from "@/pages/MySubscriptions";
 import MyReferrals from "@/pages/MyReferrals";
 import Account from "@/pages/Account";
-import { TermsPage, PrivacyPage, RefundPage, ShippingPage } from "@/pages/LegalPages";
+import { TermsPage, PrivacyPage, RefundPage, ShippingPage, GrievancePage } from "@/pages/LegalPages";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminCategories from "@/pages/admin/AdminCategories";
+import AdminApprovals from "@/pages/admin/AdminApprovals";
 import AdminInventory from "@/pages/admin/AdminInventory";
 import AdminOrders from "@/pages/admin/AdminOrders";
 import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
@@ -70,10 +71,12 @@ function AppRouter() {
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/refund-policy" component={RefundPage} />
       <Route path="/shipping-policy" component={ShippingPage} />
+      <Route path="/grievance" component={GrievancePage} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/products" component={AdminProducts} />
       <Route path="/admin/categories" component={AdminCategories} />
+      <Route path="/admin/approvals" component={AdminApprovals} />
       <Route path="/admin/inventory" component={AdminInventory} />
       <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin/subscriptions" component={AdminSubscriptions} />

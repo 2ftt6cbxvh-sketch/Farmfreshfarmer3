@@ -31,6 +31,10 @@ const PRESET_ROLES = [
   { value: "warehouse_admin", label: "Warehouse Admin", defaultPerms: ["/admin", "/admin/inventory", "/admin/warehouses"] },
   { value: "manager_admin", label: "Manager Admin", defaultPerms: ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"] },
   { value: "delivery_partner", label: "Delivery Partner / Rider", defaultPerms: ["/admin", "/admin/orders", "/admin/delivery"] },
+  { value: "customer_rep", label: "Customer Representative", defaultPerms: ["/admin", "/admin/orders", "/admin/customers"] },
+  { value: "local_grievance_officer", label: "Local Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews"] },
+  { value: "zonal_grievance_officer", label: "Zonal Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports"] },
+  { value: "chief_grievance_officer", label: "Chief Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings"] },
   { value: "admin", label: "Full Admin", defaultPerms: ALL_MENU_OPTIONS.map((m) => m.href) },
 ];
 

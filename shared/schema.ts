@@ -39,7 +39,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: varchar("phone", { length: 32 }),
   address: text("address"),
-  role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin
+  role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin | customer_rep | local_grievance_officer | zonal_grievance_officer | chief_grievance_officer
   customTitle: varchar("custom_title", { length: 128 }),
   permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
   isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
@@ -106,12 +106,16 @@ export const categories = pgTable("categories", {
   parentId: integer("parent_id"), // self-reference for child categories (nullable)
   active: boolean("active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Approval workflow
+  approvalStatus: varchar("approval_status", { length: 16 }).notNull().default("approved"), // approved | pending | rejected | under_review
+  submittedBy: integer("submitted_by"), // FK to users.id (sub-admin who submitted)
+  approvalNote: text("approval_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   slugIdx: uniqueIndex("categories_slug_idx").on(t.slug),
   parentIdx: index("categories_parent_idx").on(t.parentId),
 }));
-export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true, approvalStatus: true, submittedBy: true, approvalNote: true });
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
@@ -133,11 +137,16 @@ export const products = pgTable("products", {
   gstPercent: numeric("gst_percent", { precision: 5, scale: 2 }),
   allowInternationalShipping: boolean("allow_international_shipping").notNull().default(true),
   active: boolean("active").notNull().default(true),
+  // Approval workflow
+  approvalStatus: varchar("approval_status", { length: 16 }).notNull().default("approved"), // approved | pending | rejected | under_review | draft
+  submittedBy: integer("submitted_by"), // FK to users.id (sub-admin who submitted)
+  approvalNote: text("approval_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   categoryIdx: index("products_category_idx").on(t.categorySlug),
   featuredIdx: index("products_featured_idx").on(t.featured),
+  approvalIdx: index("products_approval_idx").on(t.approvalStatus),
 }));
 export const insertProductSchema = createInsertSchema(products, {
   price: z.coerce.number().min(0),
@@ -146,7 +155,7 @@ export const insertProductSchema = createInsertSchema(products, {
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   gstPercent: z.coerce.number().min(0).max(100).optional().nullable(),
   allowInternationalShipping: z.boolean().optional(),
-}).omit({ id: true, createdAt: true, updatedAt: true });
+}).omit({ id: true, createdAt: true, updatedAt: true, approvalStatus: true, submittedBy: true, approvalNote: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
@@ -773,3 +782,65 @@ export const lockdownState = pgTable("lockdown_state", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type LockdownState = typeof lockdownState.$inferSelect;
+
+/* ================= PRODUCT APPROVAL HISTORY =================== */
+// Append-only audit trail for all product/category approval actions.
+export const productApprovalHistory = pgTable("product_approval_history", {
+  id: serial("id").primaryKey(),
+  entityType: varchar("entity_type", { length: 16 }).notNull().default("product"), // product | category
+  entityId: integer("entity_id").notNull(),
+  entityName: text("entity_name").notNull().default(""),
+  action: varchar("action", { length: 16 }).notNull(), // approved | rejected | under_review | submitted | reverted
+  fromStatus: varchar("from_status", { length: 16 }),
+  toStatus: varchar("to_status", { length: 16 }),
+  adminUserId: integer("admin_user_id"), // who acted
+  submittedByUserId: integer("submitted_by_user_id"), // original submitter
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  entityIdx: index("prod_approval_entity_idx").on(t.entityType, t.entityId),
+  adminIdx: index("prod_approval_admin_idx").on(t.adminUserId),
+}));
+export type ProductApprovalHistory = typeof productApprovalHistory.$inferSelect;
+
+/* ====================== CHATBOT TABLES ======================== */
+// Session tracking — one per conversation (guest or logged-in user).
+export const chatbotSessions = pgTable("chatbot_sessions", {
+  id: serial("id").primaryKey(),
+  sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
+  userId: integer("user_id"), // null for guests
+  language: varchar("language", { length: 8 }).notNull().default("en"), // en | hi | te
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  tokenIdx: uniqueIndex("chatbot_sessions_token_idx").on(t.sessionToken),
+}));
+export type ChatbotSession = typeof chatbotSessions.$inferSelect;
+
+// Queries the chatbot could not answer — stored for admin review.
+export const chatbotMissedQueries = pgTable("chatbot_missed_queries", {
+  id: serial("id").primaryKey(),
+  sessionToken: varchar("session_token", { length: 128 }),
+  userId: integer("user_id"),
+  query: text("query").notNull(),
+  language: varchar("language", { length: 8 }).notNull().default("en"),
+  triggerType: varchar("trigger_type", { length: 24 }).notNull().default("unresolved"), // unresolved | human_request
+  resolved: boolean("resolved").notNull().default(false),
+  telegramAlertSent: boolean("telegram_alert_sent").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  createdIdx: index("chatbot_missed_created_idx").on(t.createdAt),
+}));
+export type ChatbotMissedQuery = typeof chatbotMissedQueries.$inferSelect;
+
+// Product suggestions from customers (unknown product names mentioned in chat).
+export const chatbotProductSuggestions = pgTable("chatbot_product_suggestions", {
+  id: serial("id").primaryKey(),
+  productName: text("product_name").notNull(),
+  mentionCount: integer("mention_count").notNull().default(1),
+  lastMentionedAt: timestamp("last_mentioned_at", { withTimezone: true }).notNull().defaultNow(),
+  resolved: boolean("resolved").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  nameIdx: uniqueIndex("chatbot_suggestions_name_idx").on(t.productName),
+}));
+export type ChatbotProductSuggestion = typeof chatbotProductSuggestions.$inferSelect;

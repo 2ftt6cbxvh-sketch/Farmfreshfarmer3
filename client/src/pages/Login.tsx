@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -35,6 +36,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [showForgotNewPwd, setShowForgotNewPwd] = useState(false);
 
   // OTP State
   const [otpSent, setOtpSent] = useState(false);
@@ -211,7 +214,7 @@ export default function Login() {
         toast({ title: "Welcome back!" });
         if (u?.role === "delivery_partner") {
           navigate("/partner-portal");
-        } else if (u?.role && ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(u.role)) {
+        } else if (u?.role && ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(u.role)) {
           navigate("/admin");
         } else {
           navigate("/");
@@ -402,7 +405,13 @@ export default function Login() {
                         </button>
                       )}
                     </div>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="rounded-xl" />
+                    <div className="relative">
+                      <Input id="password" type={showPwd ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} className="rounded-xl pr-10" />
+                      <button type="button" onClick={() => setShowPwd(!showPwd)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full py-5 rounded-xl bg-primary font-bold shadow-lg" disabled={busy}>
                     {busy ? "Please wait…" : mode === "login" ? "Log In with Password" : "Create Account"}
@@ -537,16 +546,22 @@ export default function Login() {
 
                   <div>
                     <Label htmlFor="forgot-new-password" className="text-xs font-bold">New Password</Label>
-                    <Input
-                      id="forgot-new-password"
-                      type="password"
-                      placeholder="Minimum 6 characters"
-                      minLength={6}
-                      value={forgotNewPassword}
-                      onChange={(e) => setForgotNewPassword(e.target.value)}
-                      required
-                      className="mt-1 rounded-xl"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        id="forgot-new-password"
+                        type={showForgotNewPwd ? "text" : "password"}
+                        placeholder="Minimum 6 characters"
+                        minLength={6}
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        required
+                        className="rounded-xl pr-10"
+                      />
+                      <button type="button" onClick={() => setShowForgotNewPwd(!showForgotNewPwd)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        {showForgotNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
 
                   <Button

@@ -56,6 +56,8 @@ import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
 import { registerAdminDeliveryRoutes } from "./routes/admin/delivery-admin";
 import { registerAdminContentRoutes } from "./routes/admin/content";
 import { registerStaffRoutes } from "./routes/admin/staff";
+import { registerApprovalRoutes } from "./routes/admin/approval";
+import { registerChatbotRoutes } from "./routes/chatbot";
 import { registerAdminDeliveryPartnerRoutes } from "./routes/admin/delivery-partners";
 import { registerDeliveryPartnerPortalRoutes } from "./routes/delivery-partner-portal";
 import { registerPerkRoutes } from "./routes/admin/perks";
@@ -985,6 +987,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       store_name: all.store_name || "FarmFreshFarmer",
       store_city: all.store_city || "Vijayawada",
       shipping_policy_custom_notes: all.shipping_policy_custom_notes || "",
+      // Grievance Officer details
+      grievance_officer_name: all.grievance_officer_name || "",
+      grievance_officer_email: all.grievance_officer_email || "",
+      grievance_officer_phone: all.grievance_officer_phone || "",
+      grievance_officer_designation: all.grievance_officer_designation || "",
+      grievance_officer_address: all.grievance_officer_address || "",
+      complaint_ack_hours: all.complaint_ack_hours || "48",
+      complaint_resolve_days: all.complaint_resolve_days || "30",
+      // Chatbot
+      chatbot_enabled: all.chatbot_enabled !== "false",
+      chatbot_welcome_message: all.chatbot_welcome_message || "",
     });
   }));
 
@@ -1100,6 +1113,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
   registerStaffRoutes(app);
+  registerApprovalRoutes(app, storage);
+  registerChatbotRoutes(app, storage);
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);
   registerPerkRoutes(app);

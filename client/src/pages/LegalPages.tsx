@@ -1,21 +1,29 @@
 import { Layout } from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 
-const LAST_UPDATED = "07 July 2026";
-const BUSINESS = "FarmFreshFarmer";
-const CITY = "Vijayawada";
-const EMAIL = "admin@farmfreshfarmer.com";
-const PHONE = "+91 79897 93669";
+const LAST_UPDATED = "10 August 2026";
 
-/** Shared page shell so all four policies look consistent. */
+interface PublicSettings {
+  contact_phone?: string;
+  contact_email?: string;
+  contact_address?: string;
+  operating_hours?: string;
+  store_name?: string;
+  store_city?: string;
+  grievance_officer_name?: string;
+  grievance_officer_email?: string;
+  grievance_officer_phone?: string;
+  grievance_officer_designation?: string;
+  grievance_officer_address?: string;
+  complaint_ack_hours?: string;
+  complaint_resolve_days?: string;
+  return_window_hours?: string;
+  shipping_policy_custom_notes?: string;
+}
+
+/** Shared page shell so all policies look consistent. */
 function PolicyShell({ title, children }: { title: string; children: React.ReactNode }) {
-  const { data: publicSettings } = useQuery<{
-    contact_phone?: string;
-    contact_email?: string;
-    contact_address?: string;
-    operating_hours?: string;
-    store_name?: string;
-  }>({
+  const { data: publicSettings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -59,7 +67,7 @@ function H2({ children }: { children: React.ReactNode }) {
 /* 1. Terms & Conditions                                              */
 /* ------------------------------------------------------------------ */
 export function TermsPage() {
-  const { data: publicSettings } = useQuery<{ store_name?: string; store_city?: string }>({
+  const { data: publicSettings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -73,79 +81,77 @@ export function TermsPage() {
   return (
     <PolicyShell title="Terms & Conditions">
       <p>
-        Welcome to {business}. By accessing or placing an order on our website, you agree to be
-        bound by these Terms & Conditions. Please read them carefully. If you do not agree, please
-        do not use our service.
+        Welcome to {business}. By accessing or placing an order on our website, you agree to be bound by these Terms & Conditions. Please read them carefully. If you do not agree, please do not use our service.
       </p>
 
-      <H2>1. About us</H2>
+      <H2>1. About Us</H2>
       <p>
-        {business} is a farm-fresh instant-delivery business operating in {city}. We sell fresh
-        fruits, vegetables, homemade sweets, namkeen, spices and related items for same-day delivery
-        within our service area.
+        {business} is a farm-fresh instant-delivery platform in {city}, Andhra Pradesh. We sell fresh fruits, vegetables, homemade sweets, namkeen, spices, and related items.
       </p>
 
-      <H2>2. Eligibility & accounts</H2>
+      <H2>2. Eligibility & Accounts</H2>
       <p>
-        You must be at least 18 years old to place an order. You are responsible for keeping your
-        account details and password secure and for all activity under your account. Please provide
-        accurate delivery and contact information — incorrect details may cause failed deliveries.
+        18+ required. Keep credentials secure. Provide accurate delivery info.
       </p>
 
-      <H2>3. Products & pricing</H2>
+      <H2>3. Perishable Goods & Natural Variance</H2>
       <p>
-        As our products are fresh and seasonal, availability, weight and appearance may vary. All
-        prices are listed in Indian Rupees (INR) and include applicable taxes unless stated
-        otherwise. We reserve the right to change prices and product listings at any time. In case
-        of an obvious pricing error, we may cancel the affected order and refund any amount paid.
+        Farm produce is perishable by nature. Minor variations in size, colour, weight, shape, or ripeness are INHERENT characteristics of fresh produce and are NOT grounds for return or refund. Products are sold as-is.
       </p>
 
-      <H2>4. Orders</H2>
+      <H2>4. Product Availability & Substitution Policy</H2>
       <p>
-        Placing an order is an offer to buy. An order is confirmed once payment is completed (for
-        prepaid orders) or accepted (for cash on delivery, where offered). We may refuse or cancel
-        an order due to stock unavailability, delivery-area limits, suspected fraud, or errors in
-        product or pricing information.
+        We reserve the right to substitute out-of-stock items with similar-value equivalents or issue a full refund. Customers will be notified before substitution. No extra charge applies.
       </p>
 
-      <H2>5. Payments</H2>
+      <H2>5. Pricing, GST & Market Rate Fluctuations</H2>
       <p>
-        Online payments are processed securely through our payment gateway partner, PhonePe. We do
-        not store your card, UPI or banking credentials on our servers. Payment success is confirmed
-        by a server-to-server verification with the payment gateway.
+        Prices in INR including applicable GST. Fresh produce prices may vary with seasonal market conditions. Subscription customers will receive 7 days advance notice for price changes. The price shown at order confirmation is final.
       </p>
 
-      <H2>6. Delivery</H2>
+      <H2>6. Orders & Cancellation Cutoff</H2>
       <p>
-        We deliver only within our current service area in and around {city}. Delivery
-        timelines are estimates and may be affected by weather, traffic or operational factors. See
-        our Shipping & Delivery Policy for details.
+        Placing an order is an offer to buy. Confirmed on payment or COD acceptance. Orders cannot be cancelled once packed or dispatched. Subscription delivery cycles must be cancelled by 8:00 PM the night before the scheduled delivery date.
       </p>
 
-      <H2>7. Cancellations, returns & refunds</H2>
+      <H2>7. Delivery Timelines & Force Majeure</H2>
       <p>
-        Because we sell perishable fresh produce, our cancellation and refund rules are specific.
-        Please read our Refund, Return & Cancellation Policy, which forms part of these Terms.
+        ETAs are estimates. {business} shall not be held liable for delivery delays caused by weather events, traffic disruptions, crop supply shortages, natural calamities, government restrictions, or power outages.
       </p>
 
-      <H2>8. Acceptable use</H2>
+      <H2>8. Subscription Services & RBI Mandate Compliance</H2>
       <p>
-        You agree not to misuse the website, attempt unauthorised access, interfere with its
-        operation, or use it for any unlawful purpose. Referral, coupon and subscription features
-        must not be abused; we may reverse rewards or suspend accounts involved in abuse.
+        Subscriptions auto-renew. Pre-debit notification sent 1 day before each billing cycle via SMS and email. Customers may pause, skip, or cancel at any time before the cutoff. Billing occurs on delivery day. We comply with RBI recurring mandate guidelines.
       </p>
 
-      <H2>9. Limitation of liability</H2>
+      <H2>9. Payments</H2>
       <p>
-        To the extent permitted by law, {business} is not liable for indirect or consequential
-        losses. Our total liability for any order is limited to the amount you paid for that order.
+        Online payments processed securely via PhonePe. COD available where offered. We do not store card, UPI, or banking credentials.
       </p>
 
-      <H2>10. Changes & governing law</H2>
+      <H2>10. Acceptable Use</H2>
       <p>
-        We may update these Terms from time to time; the latest version is always posted here.
-        These Terms are governed by the laws of India, and disputes are subject to the jurisdiction
-        of the courts in {city}, Andhra Pradesh.
+        No misuse. No abuse of referral codes, coupons, or subscription features.
+      </p>
+
+      <H2>11. Product Listings & Quality Assurance</H2>
+      <p>
+        All product listings are verified and approved by our Chief Administrator before going live. Product details, images, and weights are subject to seasonal updates.
+      </p>
+
+      <H2>12. Limitation of Liability</H2>
+      <p>
+        Maximum liability limited to the amount paid for the specific order.
+      </p>
+
+      <H2>13. Governing Law & Grievance Redressal</H2>
+      <p>
+        Governed by Indian law. Disputes subject to courts in {city}, Andhra Pradesh. For grievances see our Grievance Redressal page.
+      </p>
+
+      <H2>14. Changes to Terms</H2>
+      <p>
+        We may update these terms from time to time. The latest version is always on this page.
       </p>
     </PolicyShell>
   );
@@ -155,7 +161,7 @@ export function TermsPage() {
 /* 2. Privacy Policy                                                  */
 /* ------------------------------------------------------------------ */
 export function PrivacyPage() {
-  const { data: publicSettings } = useQuery<{ store_name?: string; contact_email?: string }>({
+  const { data: publicSettings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -163,68 +169,59 @@ export function PrivacyPage() {
     },
   });
 
-  const business = publicSettings?.store_name || "FarmFreshFarmer";
   const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const complaintResolveDays = publicSettings?.complaint_resolve_days || "30";
 
   return (
     <PolicyShell title="Privacy Policy">
+      <H2>1. Information We Collect</H2>
       <p>
-        This Privacy Policy explains how {business} collects, uses and protects your personal
-        information when you use our website and services.
+        We collect name, phone, email, address, order details, and payment transaction references (not card details).
       </p>
 
-      <H2>1. Information we collect</H2>
+      <H2>2. How We Use Information</H2>
       <p>
-        We collect information you provide directly — such as your name, phone number, email
-        address, delivery address, and order details. When you pay online, payment is handled by our
-        gateway partner (PhonePe); we receive a transaction reference and status, but we do not
-        collect or store your full card, UPI or banking credentials.
+        We process orders, manage subscriptions/referrals, provide customer support, prevent fraud, and comply with legal requirements.
       </p>
 
-      <H2>2. How we use your information</H2>
+      <H2>3. Laxshmi AI Chatbot Data</H2>
       <p>
-        We use your information to process and deliver orders, confirm and verify payments, manage
-        subscriptions and referrals, provide customer support, prevent fraud, and comply with legal
-        obligations. With your consent, we may send you order updates and offers.
+        Anonymized chatbot interaction data is used to improve service quality. Queries escalated to human support are shared only with customer representatives. No personally identifiable information is stored in chatbot sessions beyond a temporary session token.
       </p>
 
-      <H2>3. Sharing of information</H2>
+      <H2>4. Sharing of Information</H2>
       <p>
-        We share information only as needed to run our service — for example, with our payment
-        gateway to process payments and with delivery personnel to fulfil your order. We do not sell
-        your personal data. We may disclose information if required by law.
+        Shared only as needed: payment gateway for payments, delivery personnel for fulfilment. We do not sell personal data.
       </p>
 
-      <H2>4. Cookies & sessions</H2>
+      <H2>5. Cookies & Sessions</H2>
       <p>
-        We use secure session cookies to keep you logged in and to operate the cart and checkout.
-        These are necessary for the website to function.
+        Secure session cookies for login, cart, checkout. Necessary for site function.
       </p>
 
-      <H2>5. Data security</H2>
+      <H2>6. Data Security</H2>
       <p>
-        We use reasonable technical and organisational measures to protect your data, including
-        encrypted (HTTPS) connections and server-side payment verification. No method of transmission
-        over the internet is completely secure, but we work to safeguard your information.
+        HTTPS, server-side payment verification, reasonable technical safeguards.
       </p>
 
-      <H2>6. Data retention</H2>
+      <H2>7. Data Retention</H2>
       <p>
-        We retain order and transaction records for as long as necessary to provide the service and
-        to meet accounting, tax and legal requirements.
+        Order and transaction records: 7 years per Indian accounting and tax law. User accounts: retained while active and for 2 years after a deletion request is received.
       </p>
 
-      <H2>7. Your rights</H2>
+      <H2>8. Your Rights</H2>
       <p>
-        You may request access to, correction of, or deletion of your personal information by
-        contacting us at {email}. Some data may be retained where required for legal or accounting
-        reasons.
+        Request data access/correction/deletion at {email}. Data requests handled by our Grievance Officer within {complaintResolveDays} working days.
       </p>
 
-      <H2>8. Updates</H2>
+      <H2>9. Operational Workflow Data</H2>
       <p>
-        We may update this Privacy Policy from time to time. The latest version will always be
-        available on this page.
+        Product approval submissions, sub-admin activities, and admin login audit logs are retained for compliance and audit purposes.
+      </p>
+
+      <H2>10. Updates</H2>
+      <p>
+        Latest policy always on this page.
       </p>
     </PolicyShell>
   );
@@ -234,7 +231,7 @@ export function PrivacyPage() {
 /* 3. Refund, Return & Cancellation Policy                            */
 /* ------------------------------------------------------------------ */
 export function RefundPage() {
-  const { data: publicSettings } = useQuery<{ return_window_hours?: string; contact_email?: string; contact_phone?: string; store_name?: string }>({
+  const { data: publicSettings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -243,80 +240,41 @@ export function RefundPage() {
   });
 
   const returnHours = publicSettings?.return_window_hours || "4";
-  const contactEmail = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
-  const contactPhone = publicSettings?.contact_phone || "+91 79897 93669";
-  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const complaintResolveDays = publicSettings?.complaint_resolve_days || "30";
 
   return (
     <PolicyShell title="Refund, Return & Cancellation Policy">
+      <H2>1. No Refund After Delivery</H2>
+      <p>Due to the nature of perishables, there are no refunds after delivery.</p>
+
+      <H2>2. When We WILL Replace or Refund</H2>
+      <p>For damaged/wrong items reported within {returnHours} hours, accompanied by photos.</p>
+
+      <H2>3. Cancellations Before Dispatch</H2>
+      <p>Orders can be cancelled before dispatch for a full refund.</p>
+
+      <H2>4. Substitution Refunds</H2>
       <p>
-        {business} sells fresh, perishable produce (fruits, vegetables and homemade items). Because
-        of the nature of these products, our refund and return rules are strict. Please read this
-        policy carefully before ordering.
+        If we substitute an item and you are not satisfied with the substitution, you may reject it at delivery and a full refund for that item will be processed within 2 business days.
       </p>
 
-      <H2>1. No refund after delivery</H2>
+      <H2>5. Subscription Cancellations & Billing Disputes</H2>
       <p>
-        <strong>
-          Once a fresh-produce order has been delivered, it cannot be refunded, returned or
-          exchanged
-        </strong>{" "}
-        — except in the two situations described below (Section 2). This is because fruits,
-        vegetables and homemade foods are perishable and cannot be restocked or resold once handed
-        over.
+        Subscription delivery cycles must be cancelled by 8:00 PM the night before the scheduled delivery date. Billing disputes must be raised within 7 days of the billing date. Unresolved disputes may be escalated to our Grievance Officer. Resolution within {complaintResolveDays} working days.
       </p>
 
-      <H2>2. When we WILL replace or refund</H2>
-      <p>We will arrange a replacement or refund only if, at the time of delivery, the product is:</p>
+      <H2>6. How Refunds Are Processed</H2>
+      <p>
+        Refunds take 2 business days to initiate, and an additional 5-7 bank days to reflect in your account.
+      </p>
+
+      <H2>7. Non-Refundable</H2>
       <ul className="list-disc pl-6 space-y-1">
-        <li>
-          <strong>Completely damaged / spoiled</strong> — clearly rotten, crushed or unusable on
-          arrival; or
-        </li>
-        <li>
-          <strong>The wrong product</strong> — you received an item different from what you ordered.
-        </li>
+        <li>Change of mind after delivery</li>
+        <li>Customer unavailability or incorrect delivery address provided</li>
+        <li>Inherent natural variations in farm produce</li>
+        <li>Claims reported after the {returnHours}-hour window OR without photographic proof.</li>
       </ul>
-      <p>
-        To claim, you must report the issue <strong>within {returnHours} hours of delivery</strong> with clear
-        photos of the product and your order number, sent to {contactEmail} or {contactPhone}. Claims without
-        photographic proof, or reported after this window, cannot be accepted.
-      </p>
-
-      <H2>3. Cancellations before dispatch</H2>
-      <p>
-        You may cancel an order <strong>before it is dispatched / out for delivery</strong>. If you
-        paid online, the amount will be refunded to your original payment method. Once an order is
-        out for delivery, it can no longer be cancelled.
-      </p>
-
-      <H2>4. Subscriptions</H2>
-      <p>
-        For subscription deliveries, you can skip or cancel an upcoming cycle before it is generated
-        or dispatched. Cycles already delivered follow the no-refund rule above, subject to the
-        damaged/wrong-product exception.
-      </p>
-
-      <H2>5. How refunds are processed</H2>
-      <p>
-        Approved refunds are issued to your <strong>original payment method</strong> (PhonePe / UPI /
-        card / bank) through our payment gateway. Refunds are typically initiated within 2 business
-        days of approval and may take an additional 5–7 business days to reflect, depending on your
-        bank. Cash-on-delivery orders, where approved for refund, are settled via UPI/bank transfer.
-      </p>
-
-      <H2>6. Non-refundable situations</H2>
-      <ul className="list-disc pl-6 space-y-1">
-        <li>Change of mind after delivery.</li>
-        <li>Failure to be available to receive a delivered order.</li>
-        <li>Minor natural variation in size, colour, ripeness or weight of fresh produce.</li>
-        <li>Claims reported after the 4-hour window or without photo proof.</li>
-      </ul>
-
-      <p className="pt-2">
-        We want you to be happy with every order. If something is genuinely wrong, contact us
-        quickly and we will make it right.
-      </p>
     </PolicyShell>
   );
 }
@@ -325,7 +283,7 @@ export function RefundPage() {
 /* 4. Shipping & Delivery Policy                                      */
 /* ------------------------------------------------------------------ */
 export function ShippingPage() {
-  const { data: publicSettings } = useQuery<{ return_window_hours?: string; shipping_policy_custom_notes?: string; store_name?: string }>({
+  const { data: publicSettings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -333,92 +291,187 @@ export function ShippingPage() {
     },
   });
 
-  const returnHours = publicSettings?.return_window_hours || "4";
   const customNotes = publicSettings?.shipping_policy_custom_notes;
   const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const grievanceOfficerEmail = publicSettings?.grievance_officer_email;
 
   return (
     <PolicyShell title="Shipping & Delivery Policy">
       <p>
-        {business} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight. This policy details our delivery locations, PIN code coverage, ETAs, deliverable radiuses, and delivery fee structures.
+        {business} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight.
       </p>
 
       <H2>1. Delivery Coverage & Service Areas</H2>
       <ul className="list-disc pl-6 space-y-2">
         <li>
-          <strong>Instant Local Express (30–60 Mins)</strong>: Operates across <strong>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</strong>. Delivered directly from nearby farm fulfillment hubs within an 8km to 25km deliverable radius.
+          <strong>Instant Local Express (30–60 Mins)</strong>: Operates across our service cities.
         </li>
         <li>
-          <strong>Pan-India Domestic Express Courier (2–4 Days)</strong>: Servicing 19,000+ PIN codes across all Indian states and Union Territories for homemade pickles, podis, sweets, namkeens, and cold-pressed oils via BlueDart, DTDC & Delhivery Express.
+          <strong>Pan-India Domestic Express Courier (2–4 Days)</strong>: Servicing 19,000+ PIN codes.
         </li>
         <li>
-          <strong>International Air Cargo (4–7 Days)</strong>: Worldwide express delivery to USA, UK, Canada, UAE, Australia, and Europe via DHL Express & FedEx.
+          <strong>International Air Cargo (4–7 Days)</strong>: Worldwide express delivery.
         </li>
       </ul>
 
       <H2>2. Estimated Time of Arrival (ETA)</H2>
       <ul className="list-disc pl-6 space-y-2">
-        <li>
-          <strong>Local Instant Orders</strong>: 30 to 60 minutes from order placement.
-        </li>
-        <li>
-          <strong>Out-of-Station Domestic Shipping</strong>: Dispatched within 24 hours; delivered in <strong>2 to 4 business days</strong>.
-        </li>
-        <li>
-          <strong>International Orders</strong>: Dispatched within 24–48 hours; delivered in <strong>4 to 7 business days</strong> depending on customs clearance.
-        </li>
+        <li><strong>Local Instant Orders</strong>: 30 to 60 minutes from order placement.</li>
+        <li><strong>Out-of-Station Domestic Shipping</strong>: Delivered in 2 to 4 business days.</li>
+        <li><strong>International Orders</strong>: Delivered in 4 to 7 business days.</li>
       </ul>
 
-      <H2>3. Shipping Charges & Free Delivery Thresholds</H2>
-      <ul className="list-disc pl-6 space-y-2">
-        <li>
-          <strong>Local Instant Delivery</strong>: Standard delivery fee of ₹40 applies. <strong>FREE delivery on orders above ₹499</strong>.
-        </li>
-        <li>
-          <strong>Domestic Courier Shipping Rates</strong>:
-          <ul className="list-disc pl-6 mt-1 space-y-1 text-xs">
-            <li>Up to 1 kg parcel: ₹60 flat rate.</li>
-            <li>1 kg to 3 kg parcel: ₹90 flat rate.</li>
-            <li>3 kg to 5 kg parcel: ₹120 flat rate.</li>
-            <li><strong>FREE shipping on bulk domestic orders above ₹1,499</strong>.</li>
-          </ul>
-        </li>
-        <li>
-          <strong>International Air Cargo</strong>: Live calculated at checkout based on destination country and parcel weight tier.
-        </li>
-      </ul>
+      <H2>3. Shipping Charges & Thresholds</H2>
+      <p>Applicable shipping charges are calculated at checkout.</p>
 
       <H2>4. Delivery Process & Temperature Protection</H2>
-      <ul className="list-disc pl-6 space-y-2">
-        <li>
-          All local fresh produce, milk, and perishable items are packed in eco-friendly thermal insulated bags with ice packs to maintain 100% farm freshness during transit.
-        </li>
-        <li>
-          Domestic courier orders for pickles, sweets, and namkeens are sealed in triple-layer leakproof vacuum packaging.
-        </li>
-      </ul>
+      <p>Items are packed securely to maintain freshness.</p>
 
-      <H2>5. PIN Code Verification & Real-time Tracking</H2>
+      <H2>5. Delivery Delays & Force Majeure</H2>
       <p>
-        You can test PIN code serviceability anytime by using the PIN code checker on our website header, app homepage, or checkout screen.
-      </p>
-      <p>
-        Once your order is placed, you can track its live status under <strong>“My Orders”</strong>. For hyper-local orders, live packing, dispatch, and driver contact updates are provided.
+        {business} shall not be liable for delivery delays caused by weather events, traffic disruptions, crop supply shortages, natural calamities, or government restrictions. Estimated delivery times are indicative and non-binding.
       </p>
 
-      <H2>6. Order Receipt & Perishable Freshness Guarantee</H2>
+      <H2>6. Unresolved Delivery Issues</H2>
       <p>
-        Please ensure someone is available at the delivery address to receive fresh produce. We recommend checking your items immediately upon arrival. Damaged or missing items must be reported <strong>within {returnHours} hours of delivery</strong> (see our Refund & Cancellation Policy).
+        If your delivery complaint is not resolved within 48 hours, please contact our Grievance Officer directly{grievanceOfficerEmail ? ` at ${grievanceOfficerEmail}` : ""}.
       </p>
 
       {customNotes && (
         <>
-          <H2>7. Special Delivery Notes & Operational Updates</H2>
+          <H2>7. Special Delivery Notes</H2>
           <p className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-200 text-xs font-semibold leading-relaxed">
             {customNotes}
           </p>
         </>
       )}
+    </PolicyShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Grievance Redressal                                             */
+/* ------------------------------------------------------------------ */
+export function GrievancePage() {
+  const { data: publicSettings } = useQuery<PublicSettings>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const phone = publicSettings?.contact_phone || "+91 79897 93669";
+  const officerName = publicSettings?.grievance_officer_name || "";
+  const officerEmail = publicSettings?.grievance_officer_email || "";
+  const officerPhone = publicSettings?.grievance_officer_phone || "";
+  const officerDesignation = publicSettings?.grievance_officer_designation || "";
+  const officerAddress = publicSettings?.grievance_officer_address || "";
+  const ackHours = publicSettings?.complaint_ack_hours || "48";
+  const resolveDays = publicSettings?.complaint_resolve_days || "30";
+  const hasOfficer = officerName && officerEmail;
+
+  return (
+    <PolicyShell title="Grievance Redressal">
+      <p>
+        In accordance with the Consumer Protection (E-Commerce) Rules, 2020 and the Information Technology Act, 2000, {business} has established a Grievance Redressal mechanism to address customer complaints promptly and fairly.
+      </p>
+
+      <H2>1. How to Raise a Complaint</H2>
+      <ol className="list-decimal pl-6 space-y-2">
+        <li>
+          Contact our customer support team via WhatsApp/Call at {phone} or email {email}. You may also use our Laxshmi AI chatbot available on the website and app.
+        </li>
+        <li>
+          If your complaint is not resolved within {ackHours} hours, please escalate it to our Grievance Officer directly using the contact details below.
+        </li>
+        <li>
+          If your complaint remains unresolved after {resolveDays} working days, you may approach the appropriate consumer forum (SCDRC/NCDRC) or file a complaint on the National Consumer Helpline (NCH) at 1800-11-4000.
+        </li>
+      </ol>
+
+      <H2>2. Grievance Officer</H2>
+      {hasOfficer ? (
+        <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-900/10 p-5 space-y-2">
+          <p className="font-bold text-base text-emerald-700 dark:text-emerald-400">
+            🏛️ Designated Grievance Officer
+          </p>
+          <p>
+            <strong>Name:</strong> {officerName}
+          </p>
+          {officerDesignation && (
+            <p>
+              <strong>Designation:</strong> {officerDesignation}
+            </p>
+          )}
+          <p>
+            <strong>Email:</strong>{" "}
+            <a href={`mailto:${officerEmail}`} className="text-emerald-600 hover:underline">
+              {officerEmail}
+            </a>
+          </p>
+          {officerPhone && (
+            <p>
+              <strong>Phone:</strong> {officerPhone}
+            </p>
+          )}
+          {officerAddress && (
+            <p>
+              <strong>Office Address:</strong> {officerAddress}
+            </p>
+          )}
+          <div className="border-t border-emerald-200 dark:border-emerald-800 pt-2 mt-2">
+            <p className="text-xs text-muted-foreground">
+              Complaint Acknowledgment: within <strong>{ackHours} hours</strong> of receipt
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Resolution Timeline: within <strong>{resolveDays} working days</strong>
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/10 p-4 text-sm">
+          <p className="font-medium text-amber-700 dark:text-amber-400">
+            ⚠️ Grievance Officer details are being configured.
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            For immediate assistance, please contact us at{" "}
+            <a href={`mailto:${email}`} className="underline">
+              {email}
+            </a>{" "}
+            or call {phone}.
+          </p>
+        </div>
+      )}
+
+      <H2>3. Acknowledgment & Resolution Timeline</H2>
+      <ul className="list-disc pl-6 space-y-1">
+        <li>
+          Complaint Acknowledgment: within <strong>{ackHours} hours</strong> of receipt during business hours.
+        </li>
+        <li>
+          Resolution: within <strong>{resolveDays} working days</strong> from the date of complaint receipt.
+        </li>
+        <li>
+          If additional time is required, you will be informed with a reason and revised timeline.
+        </li>
+      </ul>
+
+      <H2>4. Escalation to Consumer Forum</H2>
+      <p>If your grievance is not resolved within the stipulated timeline, you may:</p>
+      <ul className="list-disc pl-6 space-y-1">
+        <li>
+          File a complaint with the <strong>State Consumer Disputes Redressal Commission (SCDRC)</strong> in Andhra Pradesh.
+        </li>
+        <li>
+          Contact the <strong>National Consumer Helpline</strong> at <strong>1800-11-4000</strong> (toll-free) or visit consumerhelpline.gov.in.
+        </li>
+        <li>
+          File an online complaint at <strong>edaakhil.nic.in</strong> (e-Daakhil portal for consumer complaints).
+        </li>
+      </ul>
     </PolicyShell>
   );
 }
