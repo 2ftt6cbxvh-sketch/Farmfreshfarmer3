@@ -171,7 +171,7 @@ export default function AccountScreen() {
           <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {email}</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v6.9.5 · {email}</Text>
+        <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v7.0.0 · {email}</Text>
 
         {activeModal && (
           <LegalViewerModal
@@ -317,7 +317,7 @@ export default function AccountScreen() {
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v6.9.5 · {email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v7.0.0 · {email}</Text>
 
       {/* Interactive Legal Policy Modal */}
       {activeModal && (
