@@ -315,9 +315,7 @@ export function registerAdminSecurityRoutes(app: Express) {
         return res.status(400).json({ message: "Current Super Admin password is incorrect." });
       }
 
-      // 4. Grant Master Access & Lift Lockdown
-      await setLockdown(false, "", 1);
-
+      // 4. Grant Master Access to Super Admin ONLY (Keep Global Lockdown Active for all other users!)
       const jwt = (await import("jsonwebtoken")).default;
       const token = jwt.sign(
         { userId: adminUser.id, role: adminUser.role, email: adminUser.email },
@@ -326,13 +324,13 @@ export function registerAdminSecurityRoutes(app: Express) {
       );
 
       const { sendTelegramAlert } = await import("../../services/telegram");
-      await sendTelegramAlert(`🚨 <b>SUPER ADMIN MASTER EMERGENCY OVERRIDE GRANTED!</b>\nMethod: Direct Vault (Password + TOTP)\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`);
+      await sendTelegramAlert(`🚨 <b>SUPER ADMIN MASTER SESSION UNLOCKED</b>\nMethod: Direct Vault (Password + TOTP)\nGlobal Platform Lockdown remains ACTIVE for all other users!\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`);
 
       return res.json({
         success: true,
         token,
         user: { id: adminUser.id, email: adminUser.email, name: adminUser.name, role: adminUser.role },
-        message: "🔑 Super Admin Master Emergency Override Granted! Platform Lockdown Deactivated.",
+        message: "🔑 Super Admin Master Access Authorized! Global Lockdown remains ACTIVE for all other users.",
       });
     } catch (err: any) {
       console.error("[secret-unlock error]", err);
@@ -374,8 +372,7 @@ export function registerAdminSecurityRoutes(app: Express) {
       }
 
       // Approved by Super Admin via Telegram 1-click button!
-      await setLockdown(false, "", 1);
-
+      // Keep Global Lockdown Active for all other users!
       const [adminUser] = await db.select().from(users).where(eq(users.email, "admin@farmfreshfarmer.com")).limit(1);
       const jwt = (await import("jsonwebtoken")).default;
       const jwtToken = jwt.sign(

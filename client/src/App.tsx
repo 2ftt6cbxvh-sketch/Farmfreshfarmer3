@@ -137,16 +137,20 @@ function AppContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Check if current user is admin via token/localStorage or on admin route
-  const isHashAdmin = window.location.hash.startsWith("#/admin") || window.location.pathname.startsWith("/admin");
-  const storedUser = (() => {
-    try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
+  // Strictly verify Super Admin session during lockdown
+  const isSuperAdminUser = (() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+      return !!(token && user && (user.email === "admin@farmfreshfarmer.com" || user.role === "superadmin"));
+    } catch {
+      return false;
+    }
   })();
-  const isAdminUser = storedUser && (storedUser.role === "admin" || storedUser.role === "superadmin" || storedUser.isPrimaryAdmin);
 
-  // If lockdown is active and user is NOT an authorized admin, completely UNMOUNT the app DOM
-  // so inspecting or removing elements via Web Inspector reveals ZERO content.
-  if (lockdownActive && !isAdminUser && !isHashAdmin) {
+  // If lockdown is active and user is NOT Primary Super Admin, completely UNMOUNT the app DOM
+  // so inspecting or deleting elements via Web Inspector / DevTools / Extensions reveals ZERO content.
+  if (lockdownActive && !isSuperAdminUser) {
     return <LockdownOverlay active={true} reason={lockdownReason} />;
   }
 

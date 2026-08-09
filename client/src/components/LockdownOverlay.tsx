@@ -239,7 +239,7 @@ function SecretPassageTrigger() {
             style={{ width: `${holdProgress}%` }}
           />
         )}
-        <span className="relative z-10">v6.1.0</span>
+        <span className="relative z-10">v6.2.0</span>
       </button>
 
       {modalOpen && <SecretPassageModal onClose={() => setModalOpen(false)} />}
@@ -274,6 +274,7 @@ function SecretPassageModal({ onClose }: { onClose: () => void }) {
       if (data.token) {
         localStorage.setItem("admin_token", data.token);
         localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user || { email: "admin@farmfreshfarmer.com", role: "superadmin" }));
         document.cookie = `token=${data.token}; path=/; max-age=604800`;
         window.location.href = "/admin";
       }
@@ -314,6 +315,7 @@ function SecretPassageModal({ onClose }: { onClose: () => void }) {
           clearInterval(interval);
           localStorage.setItem("admin_token", data.token);
           localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user || { email: "admin@farmfreshfarmer.com", role: "superadmin" }));
           document.cookie = `token=${data.token}; path=/; max-age=604800`;
           setTimeout(() => {
             window.location.href = "/admin";
