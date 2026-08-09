@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin } from "lucide-react";
-import { useCart } from "@/lib/store";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock } from "lucide-react";
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
+import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 
 /* ─── Types ───────────────────────────────────────────────────── */
@@ -16,6 +17,7 @@ interface ChatMessage {
   action?: string;
   actionData?: any;
   needsHuman?: boolean;
+  showSignInBox?: boolean;
   products?: Array<{
     id: number;
     name: string;
@@ -94,6 +96,7 @@ function getSessionToken(): string {
 
 export function ChatbotLaxshmi() {
   const { add, items } = useCart();
+  const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -108,6 +111,23 @@ export function ChatbotLaxshmi() {
   const recognitionRef = useRef<any>(null);
   const sessionToken = getSessionToken();
   const strings = UI_STRINGS[language];
+
+  const handleAddToCart = useCallback((product: any) => {
+    if (!user) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `auth_warn_${Date.now()}`,
+          role: "model",
+          content: "🔒 Sign in required! Please sign in below to add items to your cart and complete your order.",
+          showSignInBox: true,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+    add(product, 1);
+  }, [user, add]);
 
   const { data: publicSettings } = useQuery<Record<string, string>>({
     queryKey: ["/api/settings/public"],
@@ -408,7 +428,7 @@ export function ChatbotLaxshmi() {
                   {msg.products && msg.products.length > 0 && (
                     <div className="mt-2 space-y-2">
                       {msg.products.map((p) => {
-                        const inCartQty = items.find((i) => i.product.id === p.id)?.quantity || 0;
+                        const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.quantity || 0;
                         return (
                           <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-purple-300">
                             {p.image ? (
@@ -438,7 +458,7 @@ export function ChatbotLaxshmi() {
                             </div>
                             <Button
                               size="sm"
-                              onClick={() => add(p as any, 1)}
+                              onClick={() => handleAddToCart(p)}
                               className={`h-7 px-2 text-[11px] font-bold gap-1 transition ${
                                 inCartQty > 0
                                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -452,6 +472,55 @@ export function ChatbotLaxshmi() {
                         );
                       })}
                     </div>
+                  )}
+
+                  {/* Inline Sign-In Box */}
+                  {msg.showSignInBox && (
+                    <GoogleOAuthProvider clientId="983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com">
+                      <div className="mt-2.5 p-3 bg-card border border-purple-300 dark:border-purple-800 rounded-2xl shadow-lg space-y-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1 text-xs font-bold text-foreground">
+                          <Lock size={13} className="text-emerald-500" /> Sign In Required
+                        </div>
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <GoogleLogin
+                            onSuccess={async (credentialResponse) => {
+                              if (!credentialResponse.credential) return;
+                              try {
+                                const res = await fetch("/api/auth/google", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ idToken: credentialResponse.credential, platform: "web" }),
+                                });
+                                const data = await res.json();
+                                if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+                                setUser(data.user || data);
+                                setMessages((prev) => [
+                                  ...prev,
+                                  { id: `auth_ok_${Date.now()}`, role: "model", content: "✨ Signed in successfully! You can now add items to your cart.", timestamp: new Date() },
+                                ]);
+                              } catch (e) {
+                                window.location.href = "/login";
+                              }
+                            }}
+                            onError={() => { window.location.href = "/login"; }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { window.location.href = "/login"; }}
+                            className="w-full text-xs font-bold gap-1 h-8"
+                          >
+                            ✉️ Sign In with Email / OTP
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-tight pt-2 border-t border-card-border/80">
+                          By signing in you agree to all our{" "}
+                          <a href="/terms" target="_blank" className="text-emerald-500 font-bold underline hover:text-emerald-400">
+                            Legal Terms &amp; Conditions, and all other policies. To read click here.
+                          </a>
+                        </p>
+                      </div>
+                    </GoogleOAuthProvider>
                   )}
                   {/* Action buttons */}
                   {msg.action === "GO_TO_CHECKOUT" && (
