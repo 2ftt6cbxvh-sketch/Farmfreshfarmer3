@@ -403,15 +403,48 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       }
     }
 
-    // 2. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
+    // 2. Health & Nutrition inquiries in fallback
+    if (lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') || lower.includes('nutrition') || lower.includes('good for')) {
+      try {
+        const activeProducts = await storage.products.list();
+        const rawWords = message.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
+        
+        const matched = activeProducts.filter((p: any) => {
+          const pName = p.name.toLowerCase();
+          const pWords = pName.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
+          return rawWords.some(rw => pWords.some(pw => matchesWord(rw, pw)));
+        });
+
+        if (matched.length > 0) {
+          const item = matched[0];
+          return {
+            reply: `🥗 Yes! ${item.name} is 100% naturally grown and extremely healthy! Rich in essential vitamins, minerals, and antioxidants. Sourced direct from local Andhra farms with zero chemical preservatives.`,
+            needsHuman: false,
+          };
+        }
+      } catch {}
+
+      return {
+        reply: `🥗 All our produce at FarmFreshFarmer is 100% naturally grown, vine-ripened, and chemical-free! Fresh fruits, vegetables, millets, and ghee sweets provide essential vitamins, minerals, antioxidants, and fiber for a healthy lifestyle.`,
+        needsHuman: false,
+      };
+    }
+
+    // 3. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
     try {
       const activeProducts = await storage.products.list();
       if (activeProducts && activeProducts.length > 0) {
-        const matching = matchProductsFuzzy(message, activeProducts);
+        const rawWords = message.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
+        const matching = activeProducts.filter((p: any) => {
+          const pName = p.name.toLowerCase();
+          const pWords = pName.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
+          return rawWords.some(rw => pWords.some(pw => matchesWord(rw, pw)));
+        });
+
         if (matching.length > 0) {
           const productList = matching.slice(0, 3).map((p: any) => `• ${p.name}: ₹${p.price} per ${p.unit || 'unit'}`).join('\n');
           return {
-            reply: `Here are the current prices for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes!`,
+            reply: `Here are the current details for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes across Vijayawada!`,
             needsHuman: false,
           };
         }
