@@ -246,7 +246,7 @@ export default function AccountScreen() {
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v4.5.0 · {BRAND.email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v4.6.0 · {BRAND.email}</Text>
     </ScrollView>
   );
 }
