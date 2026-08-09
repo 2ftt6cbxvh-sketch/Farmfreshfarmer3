@@ -984,6 +984,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       allow_cod: all.allow_cod !== "false",
       store_name: all.store_name || "FarmFreshFarmer",
       store_city: all.store_city || "Vijayawada",
+      shipping_policy_custom_notes: all.shipping_policy_custom_notes || "",
     });
   }));
 

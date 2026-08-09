@@ -302,7 +302,7 @@ export function RefundPage() {
 /* 4. Shipping & Delivery Policy                                      */
 /* ------------------------------------------------------------------ */
 export function ShippingPage() {
-  const { data: publicSettings } = useQuery<{ return_window_hours?: string }>({
+  const { data: publicSettings } = useQuery<{ return_window_hours?: string; shipping_policy_custom_notes?: string }>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
       const res = await fetch("/api/settings/public");
@@ -311,6 +311,7 @@ export function ShippingPage() {
   });
 
   const returnHours = publicSettings?.return_window_hours || "4";
+  const customNotes = publicSettings?.shipping_policy_custom_notes;
 
   return (
     <PolicyShell title="Shipping & Delivery Policy">
@@ -385,6 +386,15 @@ export function ShippingPage() {
       <p>
         Please ensure someone is available at the delivery address to receive fresh produce. We recommend checking your items immediately upon arrival. Damaged or missing items must be reported <strong>within {returnHours} hours of delivery</strong> (see our Refund & Cancellation Policy).
       </p>
+
+      {customNotes && (
+        <>
+          <H2>7. Special Delivery Notes & Operational Updates</H2>
+          <p className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-200 text-xs font-semibold leading-relaxed">
+            {customNotes}
+          </p>
+        </>
+      )}
     </PolicyShell>
   );
 }

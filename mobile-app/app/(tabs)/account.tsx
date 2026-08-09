@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput, ActivityIndicator, LayoutAnimation, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { COLORS, BRAND } from '../../constants/config';
 import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
@@ -301,7 +302,7 @@ export default function AccountScreen() {
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.7.0 · {BRAND.email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.9.4 · {BRAND.email}</Text>
 
       {/* Interactive Legal Policy Modal */}
       {activeModal && (
@@ -322,6 +323,27 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
   const cardBg = isDark ? '#0f172a' : '#f1f5f9';
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.3)' : '#cbd5e1';
 
+  const { data: publicSettings } = useQuery<{
+    contact_phone?: string;
+    contact_email?: string;
+    contact_address?: string;
+    operating_hours?: string;
+    return_window_hours?: string;
+    shipping_policy_custom_notes?: string;
+    store_name?: string;
+  }>({
+    queryKey: ['public-settings'],
+    queryFn: () => api.get('/api/settings/public').then(r => r.data),
+  });
+
+  const phone = publicSettings?.contact_phone || BRAND.phone;
+  const email = publicSettings?.contact_email || BRAND.email;
+  const address = publicSettings?.contact_address || 'Vijayawada, Andhra Pradesh, India';
+  const hours = publicSettings?.operating_hours || 'Monday to Sunday: 6:00 AM – 10:00 PM IST';
+  const returnHours = publicSettings?.return_window_hours || '4';
+  const customNotes = publicSettings?.shipping_policy_custom_notes;
+  const storeName = publicSettings?.store_name || BRAND.name;
+
   const titles: Record<string, string> = {
     shipping: '🚚 Shipping & Delivery Policy',
     terms: '📋 Terms & Conditions',
@@ -337,7 +359,7 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: borderCol }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }}>{titles[type]}</Text>
-            <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>Last updated: 07 July 2026 · FarmFreshFarmer</Text>
+            <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>Last updated: 07 July 2026 · {storeName}</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: cardBg, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>✕</Text>
@@ -349,14 +371,14 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
           {type === 'shipping' && (
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                FarmFreshFarmer operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight.
+                {storeName} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight.
               </Text>
 
               <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>1. Service Areas & Locations</Text>
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • <Text style={{ fontWeight: '700' }}>Local Instant Express Cities</Text>: 30-to-60 minute doorstep delivery across <Text style={{ fontWeight: '700', color: '#10b981' }}>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</Text>.\n\n
-                  • <Text style={{ fontWeight: '700' }}>Pan-India Domestic Express Courier</Text>: Servicing 19,000+ PIN codes across all states in India for homemade pickles, sweets, spices, ghee, and namkeens via BlueDart / DTDC / Delhivery (2–4 business days).\n\n
+                  • <Text style={{ fontWeight: '700' }}>Local Instant Express Cities</Text>: 30-to-60 minute doorstep delivery across <Text style={{ fontWeight: '700', color: '#10b981' }}>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</Text>.{"\n\n"}
+                  • <Text style={{ fontWeight: '700' }}>Pan-India Domestic Express Courier</Text>: Servicing 19,000+ PIN codes across all states in India for homemade pickles, sweets, spices, ghee, and namkeens via BlueDart / DTDC / Delhivery (2–4 business days).{"\n\n"}
                   • <Text style={{ fontWeight: '700' }}>International Air Express</Text>: Worldwide shipping to USA, UK, Canada, UAE, Australia, Europe & worldwide via DHL / FedEx Express (4–7 business days).
                 </Text>
               </View>
@@ -364,7 +386,7 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
               <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>2. Deliverable Radius & Local Hubs</Text>
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  Fresh produce is dispatched directly from neighborhood dark store hubs operating on dynamic deliverable radiuses of <Text style={{ fontWeight: '700' }}>8 km to 25 km</Text>.\n\n
+                  Fresh produce is dispatched directly from neighborhood dark store hubs operating on dynamic deliverable radiuses of <Text style={{ fontWeight: '700' }}>8 km to 25 km</Text>.{"\n\n"}
                   Real-time GPS location and 6-digit PIN code mapping auto-assigns your order to the nearest warehouse hub.
                 </Text>
               </View>
@@ -372,9 +394,9 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
               <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>3. Estimated Delivery Timelines (ETAs)</Text>
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • Local Express: <Text style={{ fontWeight: '700' }}>30 to 60 Minutes</Text>\n
-                  • Pan-India Courier: <Text style={{ fontWeight: '700' }}>2 to 4 Business Days</Text>\n
-                  • International Air Cargo: <Text style={{ fontWeight: '700' }}>4 to 7 Business Days</Text>\n
+                  • Local Express: <Text style={{ fontWeight: '700' }}>30 to 60 Minutes</Text>{"\n"}
+                  • Pan-India Courier: <Text style={{ fontWeight: '700' }}>2 to 4 Business Days</Text>{"\n"}
+                  • International Air Cargo: <Text style={{ fontWeight: '700' }}>4 to 7 Business Days</Text>{"\n"}
                   • Weekly Subscriptions: Scheduled morning slots (7:00 AM – 10:00 AM)
                 </Text>
               </View>
@@ -382,19 +404,26 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
               <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
                 <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>4. Delivery Fee Structure</Text>
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • Local Base Delivery Fee: ₹30 – ₹50 per order (Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).\n
-                  • <Text style={{ fontWeight: '700', color: '#10b981' }}>FREE Delivery Threshold</Text>: FREE delivery on local orders above ₹499.\n
-                  • Domestic Shipping Fee: Weight-tiered flat rate (Up to 1kg: ₹60 flat, 1kg–3kg: ₹90 flat, 3kg–5kg: ₹120 flat). FREE shipping on bulk orders above ₹1,499.\n
+                  • Local Base Delivery Fee: ₹30 – ₹50 per order (Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).{"\n"}
+                  • <Text style={{ fontWeight: '700', color: '#10b981' }}>FREE Delivery Threshold</Text>: FREE delivery on local orders above ₹499.{"\n"}
+                  • Domestic Shipping Fee: Weight-tiered flat rate (Up to 1kg: ₹60 flat, 1kg–3kg: ₹90 flat, 3kg–5kg: ₹120 flat). FREE shipping on bulk orders above ₹1,499.{"\n"}
                   • International Shipping Fee: Real-time air cargo rate calculated at checkout based on weight and country.
                 </Text>
               </View>
+
+              {!!customNotes && (
+                <View style={{ backgroundColor: '#fffbeb', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#fef3c7' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#b45309', marginBottom: 4 }}>5. Special Operational Notes</Text>
+                  <Text style={{ fontSize: 13, color: '#92400e', lineHeight: 20 }}>{customNotes}</Text>
+                </View>
+              )}
             </View>
           )}
 
           {type === 'terms' && (
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                Welcome to FarmFreshFarmer. By placing an order or using our mobile application, you agree to these Terms & Conditions.
+                Welcome to {storeName}. By placing an order or using our mobile application, you agree to these Terms & Conditions.
               </Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Products & Fresh Produce</Text>
               <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
@@ -410,11 +439,11 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
           {type === 'privacy' && (
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                FarmFreshFarmer respects your privacy and is committed to protecting your personal information.
+                {storeName} respects your privacy and is committed to protecting your personal information.
               </Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Data Collection & Security</Text>
               <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                We collect your name, mobile phone number, delivery address, and order history strictly to fulfill orders and provide support. We never sell your personal data.
+                We collect your delivery address, phone number, and order details strictly to fulfill your orders and provide live ETA updates. Your data is encrypted and never sold to third parties.
               </Text>
             </View>
           )}
@@ -422,11 +451,11 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
           {type === 'refund' && (
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                Because fresh produce and homemade food items are perishable, returns are restricted to damaged or incorrect items reported within 4 hours of delivery.
+                Because fresh produce and homemade food items are perishable, returns are restricted to damaged or incorrect items reported within {returnHours} hours of delivery.
               </Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Reporting Issue Window</Text>
               <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                Damaged or wrong items must be reported with clear photo proof within 4 hours of delivery to admin@farmfreshfarmer.com or +91 79897 93669. Approved refunds are credited to the original payment method in 2–5 business days.
+                Damaged or wrong items must be reported with clear photo proof within {returnHours} hours of delivery to {email} or {phone}. Approved refunds are credited to the original payment method in 2–5 business days.
               </Text>
             </View>
           )}
@@ -435,16 +464,16 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
             <View style={{ gap: 16, paddingBottom: 40 }}>
               <View style={{ backgroundColor: cardBg, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: borderCol, gap: 10 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>📍 Main Operational Hub</Text>
-                <Text style={{ fontSize: 14, color: textColor }}>FarmFreshFarmer Headquarters{"\n"}Vijayawada, Andhra Pradesh, India</Text>
+                <Text style={{ fontSize: 14, color: textColor }}>{storeName} Headquarters{"\n"}{address}</Text>
 
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>📱 Phone & WhatsApp Support</Text>
-                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>+91 79897 93669</Text>
+                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>{phone}</Text>
 
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>✉️ Email Customer Service</Text>
-                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>admin@farmfreshfarmer.com</Text>
+                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>{email}</Text>
 
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>⏱️ Customer Care Operating Hours</Text>
-                <Text style={{ fontSize: 13, color: mutedColor }}>Monday to Sunday: 6:00 AM – 10:00 PM IST</Text>
+                <Text style={{ fontSize: 13, color: mutedColor }}>{hours}</Text>
               </View>
             </View>
           )}
