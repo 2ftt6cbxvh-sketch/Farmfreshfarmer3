@@ -604,6 +604,20 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
     await sendTelegramAlert(alertText);
   }
 
+function detectETAIntent(message: string): boolean {
+  const lower = message.toLowerCase();
+  const etaKeywords = [
+    'eta', 'delivery time', 'how fast', 'how long', 'how soon', 'how quickly',
+    'when will i get', 'when can i get', 'when will i receive', 'when can i receive',
+    'delivery speed', 'how many minutes', 'how many hours', 'when will it arrive',
+    'when will it reach', 'time to deliver', 'time for delivery', 'how quick',
+    'will i get it today', 'same day delivery', 'instant delivery', 'delivery eta',
+    'when can i expect', 'how long does delivery', 'delivery duration', 'reach my location',
+    'reach me', 'arrive at my', 'deliver to me', 'delivery to my', 'time of delivery'
+  ];
+  return etaKeywords.some(kw => lower.includes(kw));
+}
+
 // === CART HELPER FUNCTIONS ===
 function detectCartIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
   const lower = message.toLowerCase().trim();
@@ -846,6 +860,16 @@ function resolveCartQty(
         }
       }
       // === END CART ADD INTENT ===
+
+      // === ETA/DELIVERY TIME INTENT DETECTION ===
+      if (detectETAIntent(message)) {
+        return res.json({
+          reply: `Great question! To give you an accurate delivery ETA, I need to know your location. Please share your location and I'll tell you the exact delivery time for your area! 📍`,
+          needsHuman: false,
+          requiresLocation: true,
+        });
+      }
+      // === END ETA INTENT ===
 
       // Read API key from DB settings or process.env or fallback to DEFAULT_GEMINI_KEY
       const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42S2hmTkxfa2hOeFdadWRMMmtyWU5iajhtRU1wbmRGN3JLWHl4LTV3TTQ4UQ==', 'base64').toString('ascii');
@@ -1195,6 +1219,21 @@ function resolveCartQty(
       return res.json({ queries });
     } catch (err: any) {
       return res.status(500).json({ message: 'Failed to fetch missed queries' });
+    }
+  });
+
+  // GET /api/chatbot/eta?pincode=XXXXX
+  app.get('/api/chatbot/eta', async (req: Request, res: Response) => {
+    try {
+      const pincode = String(req.query.pincode || '').trim();
+      if (!pincode || !/^\d{6}$/.test(pincode)) {
+        return res.status(400).json({ error: 'Invalid pincode' });
+      }
+      const result = await resolveByPincode(pincode);
+      return res.json(result);
+    } catch (err) {
+      console.error('[chatbot/eta]', err);
+      return res.status(500).json({ error: 'Could not resolve pincode' });
     }
   });
 }

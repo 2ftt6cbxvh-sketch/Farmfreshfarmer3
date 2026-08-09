@@ -17,6 +17,7 @@ interface ChatMessage {
   action?: string;
   actionData?: any;
   needsHuman?: boolean;
+  requiresLocation?: boolean;
   showSignInBox?: boolean;
   products?: Array<{
     id: number;
@@ -203,6 +204,7 @@ export function ChatbotLaxshmi() {
         action: data.action,
         actionData: data.actionData,
         needsHuman: data.needsHuman,
+        requiresLocation: data.requiresLocation,
         products: data.products,
       };
       setMessages((prev) => [...prev, reply]);
@@ -333,6 +335,87 @@ export function ChatbotLaxshmi() {
       ]);
     }
   }, [user]);
+
+  const handleDetectLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'model' as const,
+        content: 'Sorry, your browser does not support location detection. Please enter your PIN code instead.',
+        timestamp: new Date(),
+      }]);
+      return;
+    }
+    
+    // Show loading message
+    const loadingId = Date.now().toString();
+    setMessages(prev => [...prev, {
+      id: loadingId,
+      role: 'model' as const,
+      content: '📍 Detecting your location...',
+      timestamp: new Date(),
+    }]);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          // Reverse geocode to get pincode using BigDataCloud free API
+          const geoRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          );
+          const geoData = await geoRes.json();
+          const pincode = geoData?.postcode || '';
+          const locality = geoData?.locality || geoData?.city || 'your area';
+          
+          if (!pincode || !/^\d{6}$/.test(pincode)) {
+            setMessages(prev => prev.map(m => m.id === loadingId ? {
+              ...m,
+              content: `I detected you are near ${locality}, but couldn't get a valid PIN code. Could you please share your 6-digit PIN code so I can check delivery availability?`,
+            } : m));
+            return;
+          }
+          
+          // Call our ETA endpoint
+          const etaRes = await fetch(`/api/chatbot/eta?pincode=${pincode}`);
+          const etaData = await etaRes.json();
+          
+          let etaMessage = '';
+          if (etaData.serviceable) {
+            const area = etaData.locationArea ? ` (${etaData.locationArea})` : '';
+            const feeStr = etaData.fee === 0 ? 'FREE' : `Rs.${etaData.fee}`;
+            etaMessage = `Great news for PIN ${pincode}${area}! 🚀\n\n` +
+              `📦 Estimated Delivery: ${etaData.etaMinutes} minutes\n` +
+              `💰 Delivery Fee: ${feeStr}\n` +
+              `(Free delivery on orders above Rs.499!)\n\n` +
+              `We deliver fresh organic produce daily between 6:00 AM and 10:00 PM.`;
+          } else {
+            etaMessage = `Sorry! PIN code ${pincode} (${locality}) is currently outside our 30-90 minute instant delivery zone. However, we offer Pan-India shipping for non-perishable items like pickles, sweets, millets, and spices! Would you like to explore those options?`;
+          }
+          
+          setMessages(prev => prev.map(m => m.id === loadingId ? {
+            ...m,
+            content: etaMessage,
+            requiresLocation: false,
+          } : m));
+          
+        } catch (err) {
+          setMessages(prev => prev.map(m => m.id === loadingId ? {
+            ...m,
+            content: 'Could not determine your location. Please enter your 6-digit PIN code to check delivery availability.',
+          } : m));
+        }
+      },
+      (error) => {
+        setMessages(prev => prev.map(m => m.id === loadingId ? {
+          ...m,
+          content: 'Location access was denied. Please enter your 6-digit PIN code to check delivery availability!',
+        } : m));
+      },
+      { timeout: 10000, enableHighAccuracy: false }
+    );
+  }, []);
 
   /* Send message */
   const handleSend = useCallback(async () => {
@@ -671,6 +754,16 @@ export function ChatbotLaxshmi() {
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
                       className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
                       <ExternalLink size={12} /> {strings.viewProduct}
+                    </button>
+                  )}
+                  {msg.requiresLocation && (
+                    <button
+                      onClick={handleDetectLocation}
+                      className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+                      style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}
+                    >
+                      <MapPin size={15} />
+                      Detect My Location
                     </button>
                   )}
                   {/* Listen button */}
