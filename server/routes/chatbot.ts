@@ -640,6 +640,9 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         });
       }
 
+      // Read ALL settings from DB first
+      const allSettings = await storage.settings.all();
+
       // Read API key from DB settings or process.env or fallback to DEFAULT_GEMINI_KEY
       const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42S2hmTkxfa2hOeFdadWRMMmtyWU5iajhtRU1wbmRGN3JLWHl4LTV3TTQ4UQ==', 'base64').toString('ascii');
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || DEFAULT_GEMINI_KEY;
@@ -652,7 +655,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       try {
         const [activeProducts, categoriesList] = await Promise.all([
           storage.products.list(),
-          storage.categories.list(),
+          Promise.resolve(storage.categories ? await (storage.categories as any).list().catch(() => []) : []),
         ]);
 
         if (activeProducts && activeProducts.length > 0) {
