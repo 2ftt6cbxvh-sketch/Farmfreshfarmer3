@@ -348,8 +348,9 @@ Rules:
       const allSettings = await storage.settings.all();
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || '';
 
-      // Build live catalog context
+      // Build live catalog context & product matching
       let catalogContext = '';
+      let matchedProducts: any[] = [];
       try {
         const activeProducts = await storage.products.list();
         if (activeProducts && activeProducts.length > 0) {
@@ -357,8 +358,30 @@ Rules:
             .slice(0, 35)
             .map((p: any) => `${p.name} (₹${p.price}/${p.unit || 'unit'})`)
             .join(', ');
+
+          const lowerMsg = message.toLowerCase();
+          matchedProducts = activeProducts.filter((p: any) => {
+            const pName = p.name.toLowerCase();
+            const cat = (p.categorySlug || '').toLowerCase();
+            const tokens = pName.split(/\s+/).filter((t: string) => t.length > 2);
+            return lowerMsg.includes(pName) ||
+                   tokens.some((t: string) => lowerMsg.includes(t)) ||
+                   (cat && lowerMsg.includes(cat));
+          }).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: String(p.price),
+            discountPercent: String(p.discountPercent || 0),
+            unit: p.unit || 'unit',
+            image: p.image,
+            stock: p.stock,
+            allowInternationalShipping: p.allowInternationalShipping,
+            categorySlug: p.categorySlug,
+          })).slice(0, 4);
         }
-      } catch {}
+      } catch (catErr) {
+        console.warn('[chatbot] Could not fetch live catalog:', catErr);
+      }
 
       let reply: string | null = null;
       let needsHuman = false;
@@ -368,9 +391,17 @@ Rules:
       }
 
       if (!reply) {
-        const fallback = await getSmartReply(message, lang);
-        reply = fallback.reply;
-        needsHuman = fallback.needsHuman;
+        if (matchedProducts.length > 0) {
+          reply = lang === 'te' 
+            ? `మీరు వెతుకుతున్న తాజా సేంద్రీయ ఉత్పత్తులు ఇక్కడ ఉన్నాయి:`
+            : lang === 'hi'
+            ? `आपकी खोज से मेल खाते ताजे उत्पाद यहाँ हैं:`
+            : `Here are the fresh organic products matching your request:`;
+        } else {
+          const fallback = await getSmartReply(message, lang);
+          reply = fallback.reply;
+          needsHuman = fallback.needsHuman;
+        }
       }
 
       // If reply indicates needs human escalation:
@@ -385,7 +416,13 @@ Rules:
         });
       }
 
-      return res.json({ reply, needsHuman, status: session.status, sessionToken: token });
+      return res.json({
+        reply,
+        needsHuman,
+        status: session.status,
+        sessionToken: token,
+        products: matchedProducts.length > 0 ? matchedProducts : undefined,
+      });
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);
       return res.status(500).json({ reply: '🙏 Namaste! I am experiencing a brief connection issue. Please try again or contact support at +91 79897 93669.', needsHuman: true });

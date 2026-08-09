@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin } from "lucide-react";
+import { useCart } from "@/lib/store";
+import { Button } from "@/components/ui/button";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 type Language = "en" | "hi" | "te";
@@ -14,6 +16,14 @@ interface ChatMessage {
   action?: string;
   actionData?: any;
   needsHuman?: boolean;
+  products?: Array<{
+    id: number;
+    name: string;
+    price: string;
+    unit: string;
+    image: string;
+    allowInternationalShipping: boolean;
+  }>;
 }
 
 const LANG_LABELS: Record<Language, string> = { en: "English", hi: "हिंदी", te: "తెలుగు" };
@@ -83,6 +93,7 @@ function getSessionToken(): string {
 }
 
 export function ChatbotLaxshmi() {
+  const { add, items } = useCart();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -158,6 +169,7 @@ export function ChatbotLaxshmi() {
         action: data.action,
         actionData: data.actionData,
         needsHuman: data.needsHuman,
+        products: data.products,
       };
       setMessages((prev) => [...prev, reply]);
     },
@@ -386,6 +398,55 @@ export function ChatbotLaxshmi() {
                   >
                     {msg.content}
                   </div>
+                  {/* Interactive Product Cards */}
+                  {msg.products && msg.products.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {msg.products.map((p) => {
+                        const inCartQty = items.find((i) => i.product.id === p.id)?.quantity || 0;
+                        return (
+                          <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-purple-300">
+                            {p.image ? (
+                              <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xs flex-shrink-0">
+                                🌿
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{p.name}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">₹{p.price}</span>
+                                <span className="text-[10px] text-gray-400">/ {p.unit}</span>
+                              </div>
+                              <div className="mt-0.5">
+                                {!p.allowInternationalShipping ? (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[9px] font-bold rounded-md">
+                                    📍 Local Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold rounded-md">
+                                    ⚡ Express Delivery
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => add(p as any, 1)}
+                              className={`h-7 px-2 text-[11px] font-bold gap-1 transition ${
+                                inCartQty > 0
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  : "bg-purple-600 hover:bg-purple-700 text-white"
+                              }`}
+                            >
+                              <ShoppingCart size={11} />
+                              {inCartQty > 0 ? `✓ ${inCartQty}` : "+ Add"}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {/* Action buttons */}
                   {msg.action === "GO_TO_CHECKOUT" && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
