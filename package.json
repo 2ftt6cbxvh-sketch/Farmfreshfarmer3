@@ -13,7 +13,7 @@
     "check": "tsc",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx script/migrate.ts",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit push --force",
     "db:seed": "tsx script/seed.ts",
     "seed": "tsx script/seed.ts",
     "db:views": "tsx script/apply-views.ts",
