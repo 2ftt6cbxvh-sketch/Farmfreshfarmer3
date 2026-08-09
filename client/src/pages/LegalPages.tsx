@@ -2,6 +2,10 @@ import { Layout } from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 
 const LAST_UPDATED = "07 July 2026";
+const BUSINESS = "FarmFreshFarmer";
+const CITY = "Vijayawada";
+const EMAIL = "admin@farmfreshfarmer.com";
+const PHONE = "+91 79897 93669";
 
 /** Shared page shell so all four policies look consistent. */
 function PolicyShell({ title, children }: { title: string; children: React.ReactNode }) {
