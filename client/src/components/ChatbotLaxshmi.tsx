@@ -384,7 +384,13 @@ export function ChatbotLaxshmi() {
           let etaMessage = '';
           if (etaData.serviceable) {
             const area = etaData.locationArea ? ` (${etaData.locationArea})` : '';
-            const feeStr = etaData.fee === 0 ? 'FREE' : `Rs.${etaData.fee}`;
+            const rawFeeData = etaData.fee;
+            const feeNumData = typeof rawFeeData === 'number' ? rawFeeData
+              : typeof rawFeeData === 'string' ? parseFloat(rawFeeData) || 0
+              : typeof rawFeeData === 'object' && rawFeeData !== null
+                ? Number((rawFeeData as any).amount ?? (rawFeeData as any).value ?? 0)
+                : 0;
+            const feeStr = feeNumData === 0 ? 'FREE' : `Rs.${feeNumData}`;
             etaMessage = `Great news for PIN ${pincode}${area}! 🚀\n\n` +
               `📦 Estimated Delivery: ${etaData.etaMinutes} minutes\n` +
               `💰 Delivery Fee: ${feeStr}\n` +

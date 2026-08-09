@@ -453,7 +453,13 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         const res = await resolveByPincode(pincode);
         if (res.serviceable) {
           const area = res.locationArea ? ` (${res.locationArea})` : '';
-          const feeStr = res.fee === 0 ? 'FREE' : `₹${res.fee}`;
+          const rawFeeRes = res.fee;
+          const feeNumRes = typeof rawFeeRes === 'number' ? rawFeeRes
+            : typeof rawFeeRes === 'string' ? parseFloat(rawFeeRes) || 0
+            : typeof rawFeeRes === 'object' && rawFeeRes !== null
+              ? Number((rawFeeRes as any).amount ?? (rawFeeRes as any).value ?? (rawFeeRes as any).fee ?? 0)
+              : 0;
+          const feeStr = feeNumRes === 0 ? 'FREE' : `₹${feeNumRes}`;
           return {
             reply: `Yes! Instant farm delivery is available to PIN code ${pincode}${area}. Estimated delivery time is ${res.etaMinutes} minutes. Delivery fee: ${feeStr} (Free delivery on orders above ₹499).`,
             needsHuman: false,
@@ -884,7 +890,13 @@ function resolveCartQty(
           let etaReply = '';
           if (etaResult.serviceable) {
             const area = etaResult.locationArea ? ` (${etaResult.locationArea})` : '';
-            const feeStr = etaResult.fee === 0 ? 'FREE' : `Rs.${etaResult.fee}`;
+            const rawFee = etaResult.fee;
+            const feeNum = typeof rawFee === 'number' ? rawFee
+              : typeof rawFee === 'string' ? parseFloat(rawFee) || 0
+              : typeof rawFee === 'object' && rawFee !== null
+                ? Number((rawFee as any).amount ?? (rawFee as any).value ?? (rawFee as any).fee ?? 0)
+                : 0;
+            const feeStr = feeNum === 0 ? 'FREE' : `Rs.${feeNum}`;
             etaReply = `Great news for PIN code ${pincode}${area}! We deliver to your area! 🚀\n\n` +
               `Estimated Delivery Time: ${etaResult.etaMinutes} minutes\n` +
               `Delivery Fee: ${feeStr}\n` +

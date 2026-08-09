@@ -269,7 +269,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
   const travelTimeMinutes = distanceKm > 0 ? Math.ceil((distanceKm / speedKmph) * 60) : 0;
 
   const etaMinutes = Math.max(30, packingTimeMinutes + travelTimeMinutes);
-  const fee = await calculateFee(distanceKm, orderValue);
+  const { fee, freeDeliveryAbove } = await calculateFee(distanceKm, orderValue);
 
   await logResolution({ userId, pincode, serviceable: true, resolvedWarehouseId: warehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
 
@@ -277,6 +277,7 @@ export async function resolveByPincode(pincode: string, userId?: number, orderVa
     serviceable: true,
     fee,
     etaMinutes,
+    freeDeliveryAbove,
     packingTimeMinutes,
     travelTimeMinutes,
     distanceKm,
