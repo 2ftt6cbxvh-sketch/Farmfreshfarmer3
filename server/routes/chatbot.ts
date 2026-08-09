@@ -879,12 +879,14 @@ function resolveCartQty(
       let fullProductsContext = '';
       let categoriesContext = '';
       let matchedProducts: any[] = [];
+      let globalActiveProducts: any[] = [];
 
       try {
         const [activeProducts, categoriesList] = await Promise.all([
           storage.products.list(),
           Promise.resolve(storage.categories ? await (storage.categories as any).list().catch(() => []) : []),
         ]);
+        globalActiveProducts = activeProducts;
 
         if (activeProducts && activeProducts.length > 0) {
           fullProductsContext = activeProducts
@@ -980,12 +982,6 @@ function resolveCartQty(
         });
       }
 
-      const showProductCards = isProductInquiry(message) && matchedProducts.length > 0 && matchedProducts.some((p: any) => {
-        const productWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 4);
-        const msgLower = message.toLowerCase();
-        return productWords.some((w: string) => msgLower.includes(w));
-      });
-
       // Strip markdown bold/italic asterisks from Gemini response (e.g. **bold** -> bold, *italic* -> italic)
       if (reply && typeof reply === 'string') {
         reply = reply
@@ -993,12 +989,39 @@ function resolveCartQty(
           .replace(/\*([^*]+)\*/g, '$1');      // *italic* -> italic
       }
 
+      // Also scan Gemini's response for product name mentions
+      let responseProducts: any[] = [];
+      if (reply && globalActiveProducts && globalActiveProducts.length > 0) {
+        const replyLower = reply.toLowerCase();
+        responseProducts = globalActiveProducts.filter((p: any) => {
+          const productWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 4);
+          return productWords.some((w: string) => replyLower.includes(w));
+        }).map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: String(p.price),
+            discountPercent: String(p.discountPercent || 0),
+            unit: p.unit || 'unit',
+            image: p.image,
+            stock: p.stock,
+            allowInternationalShipping: p.allowInternationalShipping,
+            categorySlug: p.categorySlug,
+        })).slice(0, 4);
+      }
+
+      // Show product cards if products were mentioned in user message OR in AI response
+      const finalProducts = matchedProducts.length > 0 ? matchedProducts : responseProducts;
+      const showProductCards = finalProducts.length > 0 && (
+        isProductInquiry(message) || 
+        responseProducts.length > 0  // also show when AI mentions products
+      );
+
       return res.json({
         reply,
         needsHuman,
         status: session.status,
         sessionToken: token,
-        products: showProductCards ? matchedProducts : undefined,
+        products: showProductCards ? finalProducts : undefined,
       });
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);
