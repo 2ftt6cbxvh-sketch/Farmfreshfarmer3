@@ -1127,25 +1127,32 @@ export default function AdminSettings() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [totpCode, setTotpCode] = useState("");
 
   const change = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/admin/change-password", { currentPassword: current, newPassword: next });
+      const res = await apiRequest("POST", "/api/admin/update-password", {
+        currentPassword: current,
+        newPassword: next,
+        totpCode,
+      });
+      return res.json();
     },
-    onSuccess: () => {
-      setCurrent(""); setNext(""); setConfirm("");
-      toast({ title: "Password changed", description: "Use your new password next time you log in." });
+    onSuccess: (data) => {
+      setCurrent(""); setNext(""); setConfirm(""); setTotpCode("");
+      toast({ title: "🔑 Super Admin Password Changed!", description: data.message || "Use your new password next time you log in." });
     },
     onError: (e: any) => {
-      const msg = String(e?.message || "");
-      toast({ title: "Could not change password", description: msg.includes("401") ? "Current password is incorrect." : "Please try again.", variant: "destructive" });
+      toast({ title: "Security Validation Failed", description: e?.message || "Please check your current password & 6-digit TOTP code.", variant: "destructive" });
     },
   });
 
   function submitPassword(e: React.FormEvent) {
     e.preventDefault();
-    if (next.length < 4) return toast({ title: "Password too short", description: "Use at least 4 characters.", variant: "destructive" });
+    if (!current) return toast({ title: "Current password required", variant: "destructive" });
+    if (next.length < 6) return toast({ title: "Password too short", description: "Use at least 6 characters.", variant: "destructive" });
     if (next !== confirm) return toast({ title: "Passwords do not match", variant: "destructive" });
+    if (totpCode.length < 6) return toast({ title: "2FA TOTP code required", description: "Enter 6-digit code from your Authenticator App.", variant: "destructive" });
     change.mutate();
   }
 
@@ -1283,27 +1290,47 @@ export default function AdminSettings() {
         <SearchRecommendationsManager />
 
         {/* Password change */}
-        <div className="rounded-xl border border-card-border bg-card p-6">
+        <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl">
           <div className="flex items-center gap-2 mb-1">
-            <KeyRound size={18} className="text-primary" />
-            <h2 className="font-semibold">Change admin password</h2>
+            <KeyRound size={18} className="text-emerald-400" />
+            <h2 className="font-serif font-bold text-lg text-foreground">Change Super Admin Password</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">Logged in as {user?.email}</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Logged in as <strong>{user?.email}</strong>. Requires validating Current Password AND live 6-Digit Authenticator TOTP 2FA code.
+          </p>
           <form onSubmit={submitPassword} className="space-y-4">
             <div>
-              <Label htmlFor="cur">Current password</Label>
-              <Input id="cur" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required data-testid="input-current-password" />
+              <Label htmlFor="cur" className="text-xs font-bold">Current (Old) Password *</Label>
+              <Input id="cur" type="password" placeholder="Enter current password" value={current} onChange={(e) => setCurrent(e.target.value)} required data-testid="input-current-password" className="mt-1" />
             </div>
             <div>
-              <Label htmlFor="new">New password</Label>
-              <Input id="new" type="password" value={next} onChange={(e) => setNext(e.target.value)} required data-testid="input-new-password" />
+              <Label htmlFor="new" className="text-xs font-bold">New Password (min 6 chars) *</Label>
+              <Input id="new" type="password" placeholder="Enter new password" value={next} onChange={(e) => setNext(e.target.value)} required data-testid="input-new-password" className="mt-1" />
             </div>
             <div>
-              <Label htmlFor="conf">Confirm new password</Label>
-              <Input id="conf" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required data-testid="input-confirm-password" />
+              <Label htmlFor="conf" className="text-xs font-bold">Confirm New Password *</Label>
+              <Input id="conf" type="password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required data-testid="input-confirm-password" className="mt-1" />
             </div>
-            <Button type="submit" disabled={change.isPending} data-testid="button-change-password">
-              {change.isPending ? "Updating…" : "Update password"}
+            <div>
+              <Label htmlFor="totp" className="text-xs font-bold text-emerald-400">🔑 6-Digit Authenticator TOTP 2FA Code *</Label>
+              <Input
+                id="totp"
+                type="text"
+                placeholder="123456"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                required
+                className="mt-1 text-center font-mono text-lg font-extrabold tracking-widest border-emerald-500/50"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={change.isPending || !current || next.length < 6 || next !== confirm || totpCode.length < 6}
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 font-extrabold text-white rounded-xl shadow-lg"
+              data-testid="button-change-password"
+            >
+              {change.isPending ? "Validating Password & TOTP..." : "Verify Current Password + TOTP & Update Password 🔑"}
             </Button>
           </form>
         </div>
