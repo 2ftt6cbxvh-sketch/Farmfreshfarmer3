@@ -193,6 +193,36 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
     return null;
   }
 
+function stemWord(w: string): string {
+  let clean = (w || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  if (clean.length <= 3) return clean;
+  if (clean.endsWith('ies')) return clean.slice(0, -3) + 'y';
+  if (clean.endsWith('es')) return clean.slice(0, -2);
+  if (clean.endsWith('s')) return clean.slice(0, -1);
+  return clean;
+}
+
+function matchesWord(w1: string, w2: string): boolean {
+  const s1 = stemWord(w1);
+  const s2 = stemWord(w2);
+  if (s1.length < 3 || s2.length < 3) return false;
+  return s1 === s2 || s1.includes(s2) || s2.includes(s1);
+}
+
+function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
+  const userWords = userMessage.toLowerCase().split(/\s+/).map(stemWord).filter(w => w.length >= 3);
+  if (userWords.length === 0) return [];
+
+  return activeProducts.filter((p: any) => {
+    const pName = p.name.toLowerCase();
+    const cat = (p.categorySlug || '').toLowerCase();
+    const desc = (p.description || '').toLowerCase();
+    const pWords = (pName + ' ' + cat + ' ' + desc).split(/\s+/).map(stemWord).filter(w => w.length >= 3);
+    
+    return userWords.some(uw => pWords.some(pw => matchesWord(uw, pw)));
+  });
+}
+
   // Dynamic & Smart Fallback Reply Generator
   async function getSmartReply(message: string, lang: string): Promise<{ reply: string; needsHuman: boolean }> {
     const lower = message.toLowerCase();
@@ -221,16 +251,11 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
       }
     }
 
-    // 2. Product / Price lookup (e.g. "how much is tomato", "price of lady finger", "spinach rate", "mango price")
+    // 2. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
     try {
       const activeProducts = await storage.products.list();
       if (activeProducts && activeProducts.length > 0) {
-        const matching = activeProducts.filter((p: any) => {
-          const pName = p.name.toLowerCase();
-          const tokens = pName.split(/\s+/).filter((t: string) => t.length > 2);
-          return tokens.some((t: string) => lower.includes(t)) || lower.includes(pName);
-        });
-
+        const matching = matchProductsFuzzy(message, activeProducts);
         if (matching.length > 0) {
           const productList = matching.slice(0, 3).map((p: any) => `• ${p.name}: ₹${p.price} per ${p.unit || 'unit'}`).join('\n');
           return {
@@ -386,15 +411,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
             )
             .join('\n');
 
-          const lowerMsg = message.toLowerCase();
-          matchedProducts = activeProducts.filter((p: any) => {
-            const pName = p.name.toLowerCase();
-            const cat = (p.categorySlug || '').toLowerCase();
-            const tokens = pName.split(/\s+/).filter((t: string) => t.length > 2);
-            return lowerMsg.includes(pName) ||
-                   tokens.some((t: string) => lowerMsg.includes(t)) ||
-                   (cat && lowerMsg.includes(cat));
-          }).map((p: any) => ({
+          matchedProducts = matchProductsFuzzy(message, activeProducts).map((p: any) => ({
             id: p.id,
             name: p.name,
             price: String(p.price),
