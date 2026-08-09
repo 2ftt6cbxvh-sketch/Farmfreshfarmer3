@@ -54,9 +54,32 @@ export async function sendTelegramAlert(message: string): Promise<boolean> {
   }
 }
 
-/** Process incoming Telegram webhook updates for /lockdown commands */
+/** Process incoming Telegram webhook updates for /lockdown commands and inline button callbacks */
 export async function processTelegramWebhook(update: any): Promise<{ handled: boolean; reply?: string }> {
   const { chatId: expectedChatId } = await getTelegramCredentials();
+
+  // Handle Inline Keyboard Button Taps
+  if (update?.callback_query) {
+    const cb = update.callback_query;
+    const cbChatId = String(cb.message?.chat?.id);
+    if (cbChatId === expectedChatId) {
+      const data = String(cb.data || "");
+      if (data.startsWith("approve_")) {
+        const token = data.replace("approve_", "");
+        approveTelegramUnlockToken(token);
+        await setLockdown(false, "", 1);
+        const reply = `✅ <b>SUPER ADMIN EMERGENCY UNLOCK APPROVED!</b>\nToken: <code>${token}</code>\nPlatform Lockdown deactivated & session authorized.`;
+        await sendTelegramAlert(reply);
+        return { handled: true, reply };
+      } else if (data.startsWith("reject_")) {
+        const token = data.replace("reject_", "");
+        const reply = `🚫 <b>SUPER ADMIN EMERGENCY UNLOCK REJECTED!</b>\nToken: <code>${token}</code>\nSession request was rejected by Super Admin.`;
+        await sendTelegramAlert(reply);
+        return { handled: true, reply };
+      }
+    }
+  }
+
   const message = update?.message;
   if (!message || !message.text) return { handled: false };
 
@@ -155,10 +178,25 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
     return { handled: true, reply };
   }
 
+  if (lowerText.startsWith("/approve") || lowerText.startsWith("/unlock ")) {
+    const token = text.replace("/approve", "").replace("/unlock", "").trim();
+    if (!token) return { handled: true, reply: "⚠️ Usage: <code>/approve 123456</code> or tap the inline button." };
+    const success = approveTelegramUnlockToken(token);
+    if (success) {
+      await setLockdown(false, "", 1);
+      const reply = `✅ <b>SUPER ADMIN OVERRIDE APPROVED!</b>\nToken: <code>${token}</code>\nPlatform Lockdown deactivated & session authorized.`;
+      await sendTelegramAlert(reply);
+      return { handled: true, reply };
+    } else {
+      return { handled: true, reply: `⚠️ Token <code>${token}</code> not found or expired.` };
+    }
+  }
+
   if (lowerText === "/help" || lowerText === "/start") {
     const reply = `🤖 <b>FARMFRESH SECURITY BOT COMMANDS</b>\n\n` +
       `🔴 <code>/lock on [reason]</code> - Remote emergency lockdown\n` +
       `🟢 <code>/lock off</code> - Deactivate platform lockdown\n` +
+      `🔑 <code>/approve &lt;token&gt;</code> - Approve Super Admin emergency unlock\n` +
       `ℹ️ <code>/status</code> or <code>/lock</code> - Check live system status\n` +
       `🚫 <code>/subadmin block &lt;email&gt;</code> - Instantly block a sub-admin\n` +
       `✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user/sub-admin\n` +
@@ -169,4 +207,64 @@ export async function processTelegramWebhook(update: any): Promise<{ handled: bo
   }
 
   return { handled: false };
+}
+
+/** Secret Unlock Token Manager for Concept 1 + Concept 4 */
+const telegramUnlockTokens: Record<string, { status: "pending" | "approved" | "rejected"; createdAt: number; deviceInfo?: string }> = {};
+
+export function createTelegramUnlockToken(deviceInfo: string): string {
+  const token = Math.floor(100000 + Math.random() * 900000).toString();
+  telegramUnlockTokens[token] = { status: "pending", createdAt: Date.now(), deviceInfo };
+  return token;
+}
+
+export function checkTelegramUnlockToken(token: string): boolean {
+  const data = telegramUnlockTokens[token];
+  if (!data) return false;
+  if (Date.now() - data.createdAt > 5 * 60 * 1000) {
+    delete telegramUnlockTokens[token];
+    return false;
+  }
+  if (data.status === "approved") {
+    delete telegramUnlockTokens[token];
+    return true;
+  }
+  return false;
+}
+
+export function approveTelegramUnlockToken(token: string): boolean {
+  if (telegramUnlockTokens[token]) {
+    telegramUnlockTokens[token].status = "approved";
+    return true;
+  }
+  return false;
+}
+
+export async function sendTelegramUnlockRequest(token: string, deviceInfo: string): Promise<boolean> {
+  const { botToken, chatId } = await getTelegramCredentials();
+  if (!botToken || !chatId) return false;
+  try {
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: `🔐 <b>SUPER ADMIN SECRET PASSAGE UNLOCK REQUEST</b>\n\nSession Token: <code>${token}</code>\nDevice Info: ${deviceInfo}\nTimestamp: ${new Date().toLocaleString()}\n\nClick button below or reply <code>/approve ${token}</code> to grant instant Super Admin unlock!`,
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Authorize Super Admin Unlock", callback_data: `approve_${token}` },
+              { text: "🚫 Reject Request", callback_data: `reject_${token}` }
+            ]
+          ]
+        }
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("[telegram unlock request error]", err);
+    return false;
+  }
 }
