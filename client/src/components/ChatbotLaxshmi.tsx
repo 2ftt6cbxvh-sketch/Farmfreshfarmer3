@@ -301,19 +301,24 @@ export function ChatbotLaxshmi() {
           <div className="relative">
             {/* Animated pulse ring */}
             <div className="absolute inset-0 rounded-2xl"
-              style={{ animation: 'laxPulseRing 2s ease-out infinite', background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)', borderRadius: '16px' }} />
+              style={{ animation: 'laxPulseRing 2.2s ease-out infinite', background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)', borderRadius: '20px' }} />
             
             <button id="chatbot-open-btn" onClick={() => setIsOpen(true)}
-              className="relative w-16 h-16 flex flex-col items-center justify-center rounded-2xl hover:scale-110 active:scale-95 transition-all duration-200"
+              className="relative px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-105 active:scale-95 transition-all duration-300 shadow-2xl cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
                 animation: 'laxGlow 3s ease-in-out infinite',
-                boxShadow: '0 8px 32px rgba(212,20,90,0.4)',
-                borderRadius: '16px',
+                boxShadow: '0 12px 36px rgba(212,20,90,0.45), 0 0 0 2px rgba(255,255,255,0.2)',
+                borderRadius: '20px',
               }}
               aria-label="Open Laxshmi AI assistant">
-              <span style={{ fontSize: '28px', lineHeight: 1 }}>🪔</span>
-              <span style={{ fontSize: '9px', fontWeight: 800, color: 'white', letterSpacing: '0.05em', marginTop: '2px' }}>LAXSHMI</span>
+              <span className="text-2xl leading-none drop-shadow-md animate-pulse">🪔</span>
+              <div className="flex flex-col text-left">
+                <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white font-sans drop-shadow flex items-center gap-1">
+                  Laxshmi <Sparkles size={10} className="text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
+                </span>
+                <span className="text-[9px] font-bold text-white/80 tracking-wider font-sans">AI Assistant</span>
+              </div>
             </button>
           </div>
         </div>
@@ -545,7 +550,7 @@ export function ChatbotLaxshmi() {
         }
         @keyframes laxFloatIcon {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-8px) rotate(1.5deg); }
+          50% { transform: translateY(-12px) rotate(2deg); }
         }
       `}</style>
     </>
