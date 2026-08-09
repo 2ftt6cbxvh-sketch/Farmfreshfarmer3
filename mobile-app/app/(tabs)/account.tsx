@@ -252,7 +252,7 @@ export default function AccountScreen() {
         <Text style={styles.logoutBtnText}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.6.0 · {BRAND.email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{BRAND.name} v6.7.0 · {BRAND.email}</Text>
 
       {/* Interactive Legal Policy Modal */}
       {activeModal && (
@@ -335,7 +335,7 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
                   • Local Base Delivery Fee: ₹30 – ₹50 per order (Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).\n
                   • <Text style={{ fontWeight: '700', color: '#10b981' }}>FREE Delivery Threshold</Text>: FREE delivery on local orders above ₹499.\n
-                  • Domestic Shipping Fee: ₹60 – ₹120 flat courier fee.\n
+                  • Domestic Shipping Fee: Weight-tiered flat rate (Up to 1kg: ₹60 flat, 1kg–3kg: ₹90 flat, 3kg–5kg: ₹120 flat). FREE shipping on bulk orders above ₹1,499.\n
                   • International Shipping Fee: Real-time air cargo rate calculated at checkout based on weight and country.
                 </Text>
               </View>

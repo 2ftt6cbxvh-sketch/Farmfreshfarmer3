@@ -322,7 +322,7 @@ export function ShippingPage() {
           <strong>FREE Local Delivery Threshold</strong>: Enjoy <strong>FREE Delivery on all local orders above ₹499</strong> (or ₹999 depending on active store promotional settings).
         </li>
         <li>
-          <strong>Pan-India Express Shipping Fee</strong>: Standard flat rate of ₹60 – ₹120 based on parcel weight. FREE shipping available on bulk orders above ₹1,499.
+          <strong>Pan-India Express Shipping Fee</strong>: Tiered flat rate based on parcel weight (Up to 1 kg: ₹60 flat, 1 kg–3 kg: ₹90 flat, 3 kg–5 kg: ₹120 flat). Enjoy <strong>100% FREE shipping on orders above ₹1,499</strong>.
         </li>
         <li>
           <strong>International Freight Shipping Fee</strong>: Real-time air cargo rate calculated at checkout based on destination country and total shipment weight.
