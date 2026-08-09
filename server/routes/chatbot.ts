@@ -224,8 +224,10 @@ function isProductInquiry(message: string): boolean {
     'eta', 'delivery', 'pincode', 'location', 'where', 'when', 'time', 'hours',
     'contact', 'phone', 'email', 'address', 'grievance', 'refund', 'return',
     'cancel', 'status', 'order', 'tracking', 'track', 'help', 'hi', 'hello',
-    'namaste', 'healthy', 'benefit', 'benefits', 'side effect', 'nutrition',
-    'how to', 'why', 'who should', 'avoid', 'recipe', 'cook', 'legal', 'policy'
+    'namaste', 'healthy', 'health', 'benefit', 'benefits', 'side effect', 'nutrition',
+    'diabetic', 'diabetes', 'sugar', 'blood pressure', 'bp', 'eat', 'can someone',
+    'can i', 'is it safe', 'good for', 'bad for', 'harmful', 'who should', 'avoid',
+    'how to', 'why', 'recipe', 'cook', 'legal', 'policy'
   ];
 
   if (nonProductKeywords.some(kw => lower.includes(kw))) {
@@ -409,8 +411,19 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       }
     }
 
-    // 2. Health & Nutrition inquiries in fallback
-    if (lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') || lower.includes('nutrition') || lower.includes('good for')) {
+    // 2. Health, Diabetes & Medical Nutrition inquiries in fallback
+    if (
+      lower.includes('diabet') || lower.includes('sugar') || lower.includes('blood pressure') ||
+      lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') ||
+      lower.includes('nutrition') || lower.includes('good for') || lower.includes('eat') ||
+      lower.includes('can someone') || lower.includes('is it safe') || lower.includes('avoid')
+    ) {
+      if (lower.includes('tomato')) {
+        return {
+          reply: `🍅 Yes! Fresh organic tomatoes have a low glycemic index (GI of 15) and low glycemic load, making them safe and highly beneficial for people with diabetes. They are rich in lycopene (a powerful antioxidant for heart health), Vitamin C, and potassium.`,
+          needsHuman: false,
+        };
+      }
       try {
         const activeProducts = await storage.products.list();
         const rawWords = message.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
@@ -424,14 +437,14 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         if (matched.length > 0) {
           const item = matched[0];
           return {
-            reply: `🥗 Yes! ${item.name} is 100% naturally grown and extremely healthy! Rich in essential vitamins, minerals, and antioxidants. Sourced direct from local Andhra farms with zero chemical preservatives.`,
+            reply: `🥗 Yes! ${item.name} is 100% naturally grown and rich in essential vitamins, minerals, and dietary fiber. Sourced direct from local Andhra organic farms with zero chemical preservatives.`,
             needsHuman: false,
           };
         }
       } catch {}
 
       return {
-        reply: `🥗 All our produce at FarmFreshFarmer is 100% naturally grown, vine-ripened, and chemical-free! Fresh fruits, vegetables, millets, and ghee sweets provide essential vitamins, minerals, antioxidants, and fiber for a healthy lifestyle.`,
+        reply: `🥗 All our produce at FarmFreshFarmer is 100% naturally grown, vine-ripened, and chemical-free! Fresh fruits, vegetables, and millets have a natural low glycemic index and provide essential vitamins, minerals, and antioxidants.`,
         needsHuman: false,
       };
     }
