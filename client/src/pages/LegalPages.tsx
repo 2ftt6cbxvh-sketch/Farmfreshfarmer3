@@ -212,6 +212,18 @@ export function PrivacyPage() {
 /* 3. Refund, Return & Cancellation Policy                            */
 /* ------------------------------------------------------------------ */
 export function RefundPage() {
+  const { data: publicSettings } = useQuery<{ return_window_hours?: string; contact_email?: string; contact_phone?: string }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const returnHours = publicSettings?.return_window_hours || "4";
+  const contactEmail = publicSettings?.contact_email || EMAIL;
+  const contactPhone = publicSettings?.contact_phone || PHONE;
+
   return (
     <PolicyShell title="Refund, Return & Cancellation Policy">
       <p>
@@ -243,8 +255,8 @@ export function RefundPage() {
         </li>
       </ul>
       <p>
-        To claim, you must report the issue <strong>within 4 hours of delivery</strong> with clear
-        photos of the product and your order number, sent to {EMAIL} or {PHONE}. Claims without
+        To claim, you must report the issue <strong>within {returnHours} hours of delivery</strong> with clear
+        photos of the product and your order number, sent to {contactEmail} or {contactPhone}. Claims without
         photographic proof, or reported after this window, cannot be accepted.
       </p>
 
@@ -290,65 +302,74 @@ export function RefundPage() {
 /* 4. Shipping & Delivery Policy                                      */
 /* ------------------------------------------------------------------ */
 export function ShippingPage() {
+  const { data: publicSettings } = useQuery<{ return_window_hours?: string }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const returnHours = publicSettings?.return_window_hours || "4";
+
   return (
     <PolicyShell title="Shipping & Delivery Policy">
       <p>
         {BUSINESS} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight. This policy details our delivery locations, PIN code coverage, ETAs, deliverable radiuses, and delivery fee structures.
       </p>
 
-      <H2>1. Deliverable Locations & Service Areas</H2>
+      <H2>1. Delivery Coverage & Service Areas</H2>
       <ul className="list-disc pl-6 space-y-2">
         <li>
-          <strong>Hyper-Local Express Instant Delivery Cities</strong>: We provide instant 30-to-60 minute doorstep delivery across <strong>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</strong>.
+          <strong>Instant Local Express (30–60 Mins)</strong>: Operates across <strong>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</strong>. Delivered directly from nearby farm fulfillment hubs within an 8km to 25km deliverable radius.
         </li>
         <li>
-          <strong>Out-of-Station / Pan-India Express Delivery</strong>: We ship homemade pickles, traditional sweets, spices, ghee, and namkeens to <strong>19,000+ PIN codes across all states and Union Territories in India</strong> via trusted express courier partners (BlueDart, DTDC, Delhivery).
+          <strong>Pan-India Domestic Express Courier (2–4 Days)</strong>: Servicing 19,000+ PIN codes across all Indian states and Union Territories for homemade pickles, podis, sweets, namkeens, and cold-pressed oils via BlueDart, DTDC & Delhivery Express.
         </li>
         <li>
-          <strong>International Worldwide Shipping</strong>: We export authentic homemade Andhra pickles, pure ghee sweets, and farm-fresh spices directly to <strong>USA, UK, Canada, UAE, Australia, Singapore, Europe, and worldwide</strong> via DHL / FedEx Express.
+          <strong>International Air Cargo (4–7 Days)</strong>: Worldwide express delivery to USA, UK, Canada, UAE, Australia, and Europe via DHL Express & FedEx.
         </li>
       </ul>
 
-      <H2>2. Deliverable Radius & Local Warehouse Hubs</H2>
-      <p>
-        Fresh produce (fruits, vegetables, leafy greens) is dispatched directly from our neighborhood dark store warehouse hubs. Each hub operates on a dynamic deliverable radius ranging from <strong>8 km to 25 km</strong> to guarantee maximum freshness.
-      </p>
-      <p>
-        When you enter your 6-digit postal PIN code or enable GPS location detection, our intelligent routing system automatically maps your address to the nearest dispatch warehouse hub.
-      </p>
-
-      <H2>3. Estimated Delivery Timelines (ETAs)</H2>
+      <H2>2. Estimated Time of Arrival (ETA)</H2>
       <ul className="list-disc pl-6 space-y-2">
         <li>
-          <strong>Hyper-Local Instant Delivery</strong>: Delivered in <strong>30 minutes to 60 minutes</strong> (calculated as ~20–30 minutes packing time + live road travel time).
+          <strong>Local Instant Orders</strong>: 30 to 60 minutes from order placement.
         </li>
         <li>
           <strong>Out-of-Station Domestic Shipping</strong>: Dispatched within 24 hours; delivered in <strong>2 to 4 business days</strong>.
         </li>
         <li>
-          <strong>International Air Express Shipping</strong>: Dispatched within 24–48 hours; delivered in <strong>4 to 7 business days</strong>.
-        </li>
-        <li>
-          <strong>Weekly Subscriptions</strong>: Delivered during morning slots (7:00 AM – 10:00 AM) on your selected subscription days (e.g., Saturday and/or Sunday).
+          <strong>International Orders</strong>: Dispatched within 24–48 hours; delivered in <strong>4 to 7 business days</strong> depending on customs clearance.
         </li>
       </ul>
 
-      <H2>4. Delivery Fee Structure & Free Delivery Thresholds</H2>
-      <p>
-        Our transparent delivery fee model ensures fair pricing based on order value and distance:
-      </p>
+      <H2>3. Shipping Charges & Free Delivery Thresholds</H2>
       <ul className="list-disc pl-6 space-y-2">
         <li>
-          <strong>Hyper-Local Base Delivery Fee</strong>: ₹30 – ₹50 per order (city-dependent: Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).
+          <strong>Local Instant Delivery</strong>: Standard delivery fee of ₹40 applies. <strong>FREE delivery on orders above ₹499</strong>.
         </li>
         <li>
-          <strong>FREE Local Delivery Threshold</strong>: Enjoy <strong>FREE Delivery on all local orders above ₹499</strong> (or ₹999 depending on active store promotional settings).
+          <strong>Domestic Courier Shipping Rates</strong>:
+          <ul className="list-disc pl-6 mt-1 space-y-1 text-xs">
+            <li>Up to 1 kg parcel: ₹60 flat rate.</li>
+            <li>1 kg to 3 kg parcel: ₹90 flat rate.</li>
+            <li>3 kg to 5 kg parcel: ₹120 flat rate.</li>
+            <li><strong>FREE shipping on bulk domestic orders above ₹1,499</strong>.</li>
+          </ul>
         </li>
         <li>
-          <strong>Pan-India Express Shipping Fee</strong>: Tiered flat rate based on parcel weight (Up to 1 kg: ₹60 flat, 1 kg–3 kg: ₹90 flat, 3 kg–5 kg: ₹120 flat). Enjoy <strong>100% FREE shipping on orders above ₹1,499</strong>.
+          <strong>International Air Cargo</strong>: Live calculated at checkout based on destination country and parcel weight tier.
+        </li>
+      </ul>
+
+      <H2>4. Delivery Process & Temperature Protection</H2>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          All local fresh produce, milk, and perishable items are packed in eco-friendly thermal insulated bags with ice packs to maintain 100% farm freshness during transit.
         </li>
         <li>
-          <strong>International Freight Shipping Fee</strong>: Real-time air cargo rate calculated at checkout based on destination country and total shipment weight.
+          Domestic courier orders for pickles, sweets, and namkeens are sealed in triple-layer leakproof vacuum packaging.
         </li>
       </ul>
 
@@ -362,7 +383,7 @@ export function ShippingPage() {
 
       <H2>6. Order Receipt & Perishable Freshness Guarantee</H2>
       <p>
-        Please ensure someone is available at the delivery address to receive fresh produce. We recommend checking your items immediately upon arrival. Damaged or missing items must be reported <strong>within 4 hours of delivery</strong> (see our Refund & Cancellation Policy).
+        Please ensure someone is available at the delivery address to receive fresh produce. We recommend checking your items immediately upon arrival. Damaged or missing items must be reported <strong>within {returnHours} hours of delivery</strong> (see our Refund & Cancellation Policy).
       </p>
     </PolicyShell>
   );
