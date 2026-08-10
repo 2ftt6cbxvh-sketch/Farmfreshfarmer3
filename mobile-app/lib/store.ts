@@ -31,6 +31,9 @@ export const useAuth = create<AuthStore>((set) => ({
     } catch {
       res = await api.post('/api/login', { email: identifier, password });
     }
+    if (res.data?.require2fa) {
+      return res.data;
+    }
     if (res.data?.accessToken) {
       await tokenStorage.saveAccessToken(res.data.accessToken);
     }

@@ -42,6 +42,14 @@ export default function LoginScreen() {
   const [totpCode, setTotpCode] = useState('');
   const [pendingAdminUser, setPendingAdminUser] = useState<any>(null);
 
+  // Telegram 2FA Challenge Modal State for Sub-Admins
+  const [showTelegram2faModal, setShowTelegram2faModal] = useState(false);
+  const [telegramOtpCode, setTelegramOtpCode] = useState('');
+  const [telegramTempToken, setTelegramTempToken] = useState('');
+  const [maskedTelegram, setMaskedTelegram] = useState('');
+  const [telegramStaffName, setTelegramStaffName] = useState('');
+  const [isResendingTelegramOtp, setIsResendingTelegramOtp] = useState(false);
+
   const [authMethods, setAuthMethods] = useState<{ emailEnabled: boolean; googleEnabled: boolean }>({ emailEnabled: true, googleEnabled: true });
 
   useEffect(() => {
@@ -72,8 +80,20 @@ export default function LoginScreen() {
     if (!email || !password) { Alert.alert('Error', 'Please enter email and password'); return; }
     setIsLoading(true);
     try {
-      const user = await login(email.trim().toLowerCase(), password);
-      
+      const res: any = await login(email.trim().toLowerCase(), password);
+
+      // Check if 2FA Telegram OTP challenge required for Sub-Admin
+      if (res?.require2fa) {
+        setTelegramTempToken(res.tempToken);
+        setMaskedTelegram(res.maskedTelegram || 'your Telegram');
+        setTelegramStaffName(res.staffName || 'Staff Member');
+        setShowTelegram2faModal(true);
+        setIsLoading(false);
+        Alert.alert('🔐 2FA Telegram Verification', `A 6-digit OTP code was sent to your Telegram (${res.maskedTelegram}).`);
+        return;
+      }
+
+      const user = res;
       // Check if user is Admin / Staff needing TOTP
       if (user.role === 'admin' || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com') {
         setPendingAdminUser(user);
@@ -94,10 +114,24 @@ export default function LoginScreen() {
     if (!staffEmail || !staffPassword) { Alert.alert('Error', 'Please enter staff email and password'); return; }
     setIsLoading(true);
     try {
-      const user = await login(staffEmail.trim().toLowerCase(), staffPassword);
+      const res: any = await login(staffEmail.trim().toLowerCase(), staffPassword);
+
+      // Check if 2FA Telegram OTP challenge required for Sub-Admin
+      if (res?.require2fa) {
+        setShowStaffModal(false);
+        setTelegramTempToken(res.tempToken);
+        setMaskedTelegram(res.maskedTelegram || 'your Telegram');
+        setTelegramStaffName(res.staffName || 'Staff Member');
+        setShowTelegram2faModal(true);
+        setIsLoading(false);
+        Alert.alert('🔐 2FA Telegram Verification', `A 6-digit OTP code was sent to your Telegram (${res.maskedTelegram}).`);
+        return;
+      }
+
+      const user = res;
       setShowStaffModal(false);
 
-      // Require TOTP for Admin account
+      // Require TOTP for Primary Admin account
       if (user.role === 'admin' || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || user.isPrimaryAdmin) {
         setPendingAdminUser(user);
         setShowTotpModal(true);
@@ -116,6 +150,48 @@ export default function LoginScreen() {
       Alert.alert('Staff Login Failed', err.response?.data?.message || 'Invalid staff credentials');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyTelegram2faChallenge = async () => {
+    if (!telegramOtpCode || telegramOtpCode.trim().length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter the 6-digit verification code from Telegram.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await api.post('/api/login/verify-otp', {
+        tempToken: telegramTempToken,
+        otp: telegramOtpCode.trim(),
+      });
+      if (res.data?.accessToken) {
+        await tokenStorage.saveAccessToken(res.data.accessToken);
+      }
+      if (res.data?.refreshToken) {
+        await tokenStorage.saveRefreshToken(res.data.refreshToken);
+      }
+      if (res.data?.user) {
+        setUser(res.data.user);
+      }
+      setShowTelegram2faModal(false);
+      Alert.alert('✨ 2FA Verified!', `Welcome back, ${res.data?.user?.name || telegramStaffName}!`);
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      Alert.alert('2FA Verification Failed', err.response?.data?.message || 'Invalid or expired OTP code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendTelegramOtp = async () => {
+    setIsResendingTelegramOtp(true);
+    try {
+      const res = await api.post('/api/login/resend-otp', { tempToken: telegramTempToken });
+      Alert.alert('✨ OTP Resent', res.data?.message || 'New 6-digit code dispatched to Telegram.');
+    } catch (err: any) {
+      Alert.alert('Resend Failed', err.response?.data?.message || 'Could not resend OTP.');
+    } finally {
+      setIsResendingTelegramOtp(false);
     }
   };
 
@@ -502,6 +578,59 @@ export default function LoginScreen() {
                 {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Partner Sign-In 🚚</Text>}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── 📱 SUB-ADMIN TELEGRAM 2FA OTP MODAL ────────────────────────────── */}
+      <Modal visible={showTelegram2faModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, isDark ? styles.modalCardDark : styles.modalCardLight]}>
+            <Text style={{ fontSize: 32, marginBottom: 4 }}>🔐</Text>
+            <Text style={[styles.modalTitle, isDark ? styles.textWhite : styles.textDark]}>Telegram 2FA Verification</Text>
+            <Text style={[styles.modalSub, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+              Enter the 6-digit one-time code sent to your authenticated Telegram ({maskedTelegram}).
+            </Text>
+
+            <TextInput
+              style={[styles.totpInput, isDark ? styles.totpInputDark : styles.totpInputLight]}
+              placeholder="••••••"
+              placeholderTextColor={isDark ? '#374151' : '#cbd5e1'}
+              value={telegramOtpCode}
+              onChangeText={(t) => setTelegramOtpCode(t.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowTelegram2faModal(false);
+                  setTelegramOtpCode('');
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, (isLoading || telegramOtpCode.length !== 6) && styles.buttonDisabled]}
+                onPress={handleVerifyTelegram2faChallenge}
+                disabled={isLoading || telegramOtpCode.length !== 6}
+              >
+                {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitBtnText}>Verify OTP 🔐</Text>}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={{ marginTop: 14, padding: 8, alignItems: 'center' }}
+              onPress={handleResendTelegramOtp}
+              disabled={isResendingTelegramOtp}
+            >
+              <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: '700' }}>
+                {isResendingTelegramOtp ? 'Resending…' : '🔄 Resend Code to Telegram'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
