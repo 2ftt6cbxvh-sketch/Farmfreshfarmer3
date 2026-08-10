@@ -326,7 +326,18 @@ export default function MySubscriptions() {
                             return (
                               <div key={it.id} className="flex items-center justify-between text-sm">
                                 <span className="flex items-center gap-1.5">
-                                  {prod?.image && <img src={prod.image} alt="" className="w-6 h-6 rounded object-cover" />}
+                                  {prod?.image ? (
+                                    <img
+                                      src={prod.image}
+                                      alt={prod.name || ''}
+                                      className="w-10 h-10 rounded-xl object-cover flex-shrink-0 border border-card-border"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                                      <Leaf size={16} className="text-emerald-400" />
+                                    </div>
+                                  )}
                                   <span>{it.qty} × {productName(it.productId)}</span>
                                 </span>
                                 {prod && <span className="text-muted-foreground">{formatINR(Number(prod.price) * it.qty)}</span>}
@@ -441,15 +452,27 @@ export default function MySubscriptions() {
                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </button>
 
-                      {/* Always show compact list */}
+                      {/* Always show compact list with images */}
                       {!isExpanded && (
-                        <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                        <div className="flex flex-wrap gap-2">
                           {p.items.map((it, idx) => (
-                            <li key={idx} className="text-xs text-muted-foreground">
-                              {it.qty} × {it.productName || `Product #${it.productId}`}
-                            </li>
+                            <div key={idx} className="flex items-center gap-1.5 bg-secondary/40 rounded-lg px-2 py-1">
+                              {it.productImage ? (
+                                <img
+                                  src={it.productImage}
+                                  alt={it.productName || ''}
+                                  className="w-6 h-6 rounded object-cover flex-shrink-0"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                  <Leaf size={10} className="text-emerald-400" />
+                                </div>
+                              )}
+                              <span className="text-xs font-medium">{it.qty} × {it.productName || `Product #${it.productId}`}</span>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       )}
 
                       {/* Expanded: show individual prices and savings */}
@@ -460,7 +483,18 @@ export default function MySubscriptions() {
                             return (
                               <div key={idx} className="flex items-center justify-between text-sm bg-secondary/30 rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2">
-                                  {it.productImage && <img src={it.productImage} alt="" className="w-8 h-8 rounded-lg object-cover" />}
+                                  {it.productImage ? (
+                                    <img
+                                      src={it.productImage}
+                                      alt={it.productName || ''}
+                                      className="w-10 h-10 rounded-xl object-cover flex-shrink-0 border border-card-border"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                                      <Leaf size={16} className="text-emerald-400" />
+                                    </div>
+                                  )}
                                   <div>
                                     <p className="font-medium text-xs">{it.productName || `Product #${it.productId}`}</p>
                                     <p className="text-xs text-muted-foreground">{it.qty} × {formatINR(it.productPrice ?? 0)} / {it.productUnit || 'unit'}</p>

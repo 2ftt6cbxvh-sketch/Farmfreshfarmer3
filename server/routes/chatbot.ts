@@ -944,6 +944,7 @@ function resolveCartQty(
 
       // === CART VIEW INTENT ===
       if (detectCartViewIntent(message)) {
+        console.log('[chatbot] Cart view intent detected, userId:', userId);
         if (!userId) {
           return res.json({
             reply: `To see your cart details, you need to be logged in! Please sign in using Google One-Tap or Email OTP at the top right corner. Once logged in, just ask me "what's in my cart" and I'll give you a full breakdown! 🛒`,
@@ -955,6 +956,7 @@ function resolveCartQty(
         try {
           // Fetch user cart
           const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          console.log('[chatbot] userCart:', userCart?.id ?? 'none');
           
           if (!userCart) {
             return res.json({
@@ -963,8 +965,8 @@ function resolveCartQty(
             });
           }
 
-          // Fetch cart items with product details
           const items = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
+          console.log('[chatbot] cart items count:', items.length);
           
           if (!items || items.length === 0) {
             return res.json({
@@ -973,21 +975,18 @@ function resolveCartQty(
             });
           }
 
-          // Fetch product details for all cart items
           const productIds = items.map(i => i.productId);
           const allProductsList = productIds.length > 0
             ? await db.select().from(products).where(inArray(products.id, productIds))
             : [];
           const productMap = new Map(allProductsList.map((p: any) => [p.id, p]));
 
-          // GST rates by category (India)
           function getGSTRate(categorySlug: string): number {
             const slug = (categorySlug || '').toLowerCase();
             if (/pickle|avakaya|achar/.test(slug)) return 5;
             if (/sweet|laddu|halwa|mithai/.test(slug)) return 5;
             if (/namkeen|snack/.test(slug)) return 12;
-            if (/fruit|vegetable|millet|pulse|grain|rice|spice|herb/.test(slug)) return 0;
-            return 0; // Default: fresh produce = 0%
+            return 0;
           }
 
           let subtotalBeforeGST = 0;
@@ -1010,7 +1009,6 @@ function resolveCartQty(
             subtotalBeforeGST += lineTotal;
             totalGST += gstAmount;
 
-            // Track by GST slab
             const slabKey = `${gstRate}%`;
             if (!gstSlab[slabKey]) gstSlab[slabKey] = { amount: 0, rate: gstRate };
             gstSlab[slabKey].amount += gstAmount;
@@ -1020,13 +1018,20 @@ function resolveCartQty(
             lineItems.push(`${i + 1}. ${product.name} — ${item.qty} × ₹${discountedPrice.toFixed(0)}${discountNote} = ₹${lineTotal.toFixed(0)}${gstNote}`);
           }
 
+          if (lineItems.length === 0) {
+            return res.json({
+              reply: `Your cart is currently empty! 🛒 Browse our fresh organic products and add your favorites.`,
+              needsHuman: false,
+            });
+          }
+
           const grandTotal = subtotalBeforeGST + totalGST;
-          const freeDeliveryThreshold = parseFloat((allSettings as any)?.free_delivery_threshold || '499');
-          const deliveryFeeBase = parseFloat((allSettings as any)?.instant_delivery_fee || '40');
+          const settingsObj = (allSettings as any) || {};
+          const freeDeliveryThreshold = parseFloat(settingsObj?.free_delivery_threshold || settingsObj?.freeDeliveryAbove || '499');
+          const deliveryFeeBase = parseFloat(settingsObj?.instant_delivery_fee || settingsObj?.deliveryFee || '40');
           const deliveryFee = grandTotal >= freeDeliveryThreshold ? 0 : deliveryFeeBase;
           const finalTotal = grandTotal + deliveryFee;
 
-          // Build GST breakdown string
           const gstBreakdown = Object.entries(gstSlab)
             .map(([slab, info]) => info.amount > 0 ? `  • GST @${slab}: ₹${info.amount.toFixed(2)}` : `  • GST @${slab}: Nil`)
             .join('\n');
@@ -1050,9 +1055,9 @@ function resolveCartQty(
             needsHuman: false,
           });
         } catch (cartViewErr: any) {
-          console.error('[chatbot] Cart view error:', cartViewErr?.message || cartViewErr);
+          console.error('[chatbot] Cart view error full:', cartViewErr?.message, cartViewErr?.stack?.split('\n')[0]);
           return res.json({
-            reply: `Sorry, I had trouble reading your cart right now. Please try visiting your cart directly using the cart icon at the top right. If the issue persists, raise a ticket and our team will help! 🛒`,
+            reply: `Sorry, I had trouble reading your cart right now (${cartViewErr?.message || 'DB error'}). Please try visiting your cart directly using the cart icon at the top right. If the issue persists, raise a ticket! 🛒`,
             needsHuman: false,
           });
         }
