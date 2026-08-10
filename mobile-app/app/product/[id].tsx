@@ -256,7 +256,11 @@ export default function ProductDetailScreen() {
             <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.cartIconBtn, cartCount > 0 && styles.cartIconBtnActive]}
+            style={[
+              styles.cartIconBtn,
+              isDark ? styles.cartIconBtnDark : styles.cartIconBtnLight,
+              cartCount > 0 && styles.cartIconBtnActive,
+            ]}
             onPress={() => router.push('/(tabs)/basket')}
           >
             <Text style={{ fontSize: 16 }}>🛒</Text>
@@ -474,15 +478,17 @@ const styles = StyleSheet.create({
   },
   navCircleBtnDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.3)' },
   cartIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#059669',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
     position: 'relative',
   },
-  cartIconBtnActive: { backgroundColor: '#10b981' },
+  cartIconBtnDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.3)' },
+  cartIconBtnLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  cartIconBtnActive: { backgroundColor: '#10b981', borderColor: '#059669' },
   cartBadge: {
     position: 'absolute',
     top: -4,

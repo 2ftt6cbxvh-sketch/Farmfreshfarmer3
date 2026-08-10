@@ -465,7 +465,11 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.cartIconBtn, cartCount > 0 && styles.cartIconBtnActive]}
+              style={[
+                styles.cartIconBtn,
+                isDark ? styles.cartIconBtnDark : styles.cartIconBtnLight,
+                cartCount > 0 && styles.cartIconBtnActive,
+              ]}
               onPress={() => router.push('/(tabs)/basket')}
             >
               <Text style={{ fontSize: 18 }}>🛒</Text>
@@ -498,8 +502,8 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 14, color: isDark ? '#94a3b8' : '#64748b' }}>✕</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.searchIconBtn}>
-            <Text style={{ fontSize: 16, color: '#fff' }}>🔍</Text>
+          <TouchableOpacity style={[styles.searchIconBtn, isDark ? styles.searchIconBtnDark : styles.searchIconBtnLight]}>
+            <Text style={{ fontSize: 15, color: '#ffffff' }}>🔍</Text>
           </TouchableOpacity>
         </View>
 
@@ -815,7 +819,11 @@ export default function HomeScreen() {
                   <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.cartIconBtn, cartCount > 0 && styles.cartIconBtnActive]}
+                  style={[
+                    styles.cartIconBtn,
+                    isDark ? styles.cartIconBtnDark : styles.cartIconBtnLight,
+                    cartCount > 0 && styles.cartIconBtnActive,
+                  ]}
                   onPress={() => {
                     setCategoriesDrawerOpen(false);
                     router.push('/(tabs)/basket');
@@ -1005,15 +1013,17 @@ const styles = StyleSheet.create({
   navCircleBtnDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' },
   navCircleBtnLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
   cartIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#059669',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
     position: 'relative',
   },
-  cartIconBtnActive: { backgroundColor: '#10b981' },
+  cartIconBtnDark: { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' },
+  cartIconBtnLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  cartIconBtnActive: { backgroundColor: '#10b981', borderColor: '#059669' },
   cartBadge: {
     position: 'absolute',
     top: -4,
@@ -1039,16 +1049,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   searchBarWrapperDark: { backgroundColor: '#041f17', borderColor: 'rgba(52, 211, 153, 0.35)' },
-  searchBarWrapperLight: { backgroundColor: '#f8fafc', borderColor: '#cbd5e1' },
+  searchBarWrapperLight: { backgroundColor: '#ffffff', borderColor: '#cbd5e1' },
   searchBarInput: { flex: 1, fontSize: 13, paddingVertical: 6 },
   searchIconBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#10b981',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  searchIconBtnDark: { backgroundColor: '#10b981' },
+  searchIconBtnLight: { backgroundColor: '#10b981' },
 
   recommendationsScroll: { marginTop: 8 },
   recChip: {
