@@ -405,11 +405,11 @@ export function AdminApprovals() {
                       </div>
 
                       {isDeletion ? (
-                        <div className="flex items-center gap-2 pt-3 border-t border-card-border">
+                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-3 border-t border-card-border">
                           <Button
                             size="sm"
                             variant="destructive"
-                            className="flex-1 font-extrabold text-xs shadow-md gap-1"
+                            className="flex-1 font-bold text-xs shadow-sm h-9 gap-1.5 justify-center"
                             onClick={() => {
                               if (confirm(`Approve permanent deletion of "${item.name}"? This action cannot be undone.`)) {
                                 mutation.mutate({ type: "product", id: item.id, action: "approve_deletion", note });
@@ -422,11 +422,11 @@ export function AdminApprovals() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 text-emerald-600 border-emerald-500/30 hover:bg-emerald-50 text-xs font-bold gap-1"
+                            className="flex-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 text-xs font-bold h-9 gap-1.5 justify-center shadow-sm"
                             onClick={() => mutation.mutate({ type: "product", id: item.id, action: "reject_deletion", note })}
                             disabled={mutation.isPending}
                           >
-                            <ShieldCheck size={14} /> Reject Deletion (Restore Live)
+                            <ShieldCheck size={14} /> Reject & Restore Live 🛡️
                           </Button>
                         </div>
                       ) : (
@@ -461,6 +461,7 @@ export function AdminApprovals() {
           <TabsContent value="categories" className="space-y-4 pt-4">
             {loadingCategories ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-48 rounded-xl" />
                 <Skeleton className="h-48 rounded-xl" />
                 <Skeleton className="h-48 rounded-xl" />
               </div>
@@ -504,11 +505,11 @@ export function AdminApprovals() {
                       </div>
 
                       {isDeletion ? (
-                        <div className="flex items-center gap-2 pt-2 border-t border-card-border">
+                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-card-border">
                           <Button
                             size="sm"
                             variant="destructive"
-                            className="flex-1 font-bold text-xs gap-1"
+                            className="flex-1 font-bold text-xs shadow-sm h-9 gap-1.5 justify-center"
                             onClick={() => {
                               if (confirm(`Approve permanent deletion of category "${item.name}"?`)) {
                                 mutation.mutate({ type: "category", id: item.id, action: "approve_deletion", note });
@@ -521,11 +522,11 @@ export function AdminApprovals() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 text-emerald-600 border-emerald-500/30 text-xs font-bold gap-1"
+                            className="flex-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 text-xs font-bold h-9 gap-1.5 justify-center shadow-sm"
                             onClick={() => mutation.mutate({ type: "category", id: item.id, action: "reject_deletion", note })}
                             disabled={mutation.isPending}
                           >
-                            <ShieldCheck size={14} /> Reject Deletion (Restore Live)
+                            <ShieldCheck size={14} /> Reject & Restore Live 🛡️
                           </Button>
                         </div>
                       ) : (
