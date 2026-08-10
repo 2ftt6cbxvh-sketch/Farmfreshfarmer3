@@ -396,6 +396,13 @@ export const subscriptionStore = {
       .where(and(sql`${subscriptionBillingCycles.deliveryDate} >= ${fromISO}`, sql`${subscriptionBillingCycles.deliveryDate} <= ${toISO}`))
       .orderBy(subscriptionBillingCycles.deliveryDate);
   },
+  async remove(id: number) {
+    await db.delete(subscriptionItems).where(eq(subscriptionItems.subscriptionId, id));
+    await db.delete(subscriptionBillingCycles).where(eq(subscriptionBillingCycles.subscriptionId, id));
+    await db.delete(subscriptionStatusLogs).where(eq(subscriptionStatusLogs.subscriptionId, id));
+    await db.delete(subscriptionChangeLogs).where(eq(subscriptionChangeLogs.subscriptionId, id));
+    await db.delete(userSubscriptions).where(eq(userSubscriptions.id, id));
+  },
 };
 
 /* ======================= DISCOUNT RULES ============================ */

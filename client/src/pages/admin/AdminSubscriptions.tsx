@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Eye, Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Eye, Plus, Pencil, Trash2, RefreshCw, Pause, Play, XCircle, ShieldAlert } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
@@ -66,6 +66,31 @@ export default function AdminSubscriptions() {
     queryKey: ["/api/admin/subscriptions", detailId],
     queryFn: () => apiGet<SubDetail>(`/api/admin/subscriptions/${detailId}`),
     enabled: detailId != null,
+  });
+
+  const updateSubStatus = useMutation({
+    mutationFn: async ({ id, status, note }: { id: number; status: string; note?: string }) => {
+      await apiRequest("PATCH", `/api/admin/subscriptions/${id}`, { status, note });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/mine"] });
+      toast({ title: "Subscription status updated" });
+    },
+    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+  });
+
+  const deleteSub = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/admin/subscriptions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/mine"] });
+      setDetailId(null);
+      toast({ title: "Subscription removed & badge deleted from user UI" });
+    },
+    onError: () => toast({ title: "Failed to delete subscription", variant: "destructive" }),
   });
 
   const generate = useMutation({
@@ -185,14 +210,71 @@ export default function AdminSubscriptions() {
                 </thead>
                 <tbody>
                   {subs.map((s) => (
-                    <tr key={s.id} className="border-t border-card-border" data-testid={`row-subscription-${s.id}`}>
+                    <tr key={s.id} className="border-t border-card-border hover:bg-secondary/20 transition-colors" data-testid={`row-subscription-${s.id}`}>
                       <td className="p-3 font-semibold">#{s.id}</td>
-                      <td className="p-3">{s.customer ? `${s.customer.name} (${s.customer.email})` : "—"}</td>
-                      <td className="p-3">{formatINR(Number(s.weeklyPrice))}</td>
-                      <td className="p-3 text-muted-foreground capitalize">{s.deliveryDays}</td>
-                      <td className="p-3"><Badge variant={s.status === "active" ? "default" : "outline"}>{s.status}</Badge></td>
                       <td className="p-3">
-                        <Button variant="ghost" size="icon" onClick={() => setDetailId(s.id)} data-testid={`button-view-sub-${s.id}`}><Eye size={15} /></Button>
+                        <div className="font-medium text-foreground">{s.customer ? s.customer.name : `Customer #${s.userId}`}</div>
+                        <div className="text-xs text-muted-foreground">{s.customer?.email || ""}</div>
+                      </td>
+                      <td className="p-3 font-bold text-primary">{formatINR(Number(s.weeklyPrice))}</td>
+                      <td className="p-3 text-muted-foreground capitalize">{s.deliveryDays}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                          s.status === "active" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                          s.status === "paused" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+                          s.status === "cancelled" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                          "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+                        }`}>
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => setDetailId(s.id)} title="View Details" data-testid={`button-view-sub-${s.id}`}>
+                            <Eye size={15} />
+                          </Button>
+                          {s.status === "active" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                              onClick={() => {
+                                if (confirm(`Pause subscription #${s.id}?`)) {
+                                  updateSubStatus.mutate({ id: s.id, status: "paused", note: "Paused by Super Admin" });
+                                }
+                              }}
+                              title="Pause Subscription"
+                            >
+                              <Pause size={14} />
+                            </Button>
+                          ) : s.status === "paused" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                              onClick={() => {
+                                updateSubStatus.mutate({ id: s.id, status: "active", note: "Reactivated by Super Admin" });
+                              }}
+                              title="Activate Subscription"
+                            >
+                              <Play size={14} />
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            onClick={() => {
+                              if (confirm(`Remove subscription #${s.id} completely? This will immediately remove the subscription badge from the user's UI.`)) {
+                                deleteSub.mutate(s.id);
+                              }
+                            }}
+                            title="Remove / Delete Subscription Badge"
+                            data-testid={`button-delete-sub-${s.id}`}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -262,10 +344,66 @@ export default function AdminSubscriptions() {
           <DialogHeader><DialogTitle>Subscription #{detailId}</DialogTitle></DialogHeader>
           {detailLoading || !detail ? <Skeleton className="h-64 rounded-lg" /> : (
             <div className="space-y-5">
-              <div className="text-sm">
-                <p className="text-muted-foreground">Customer</p>
-                <p className="font-medium">{detail.subscription.customer ? `${detail.subscription.customer.name} (${detail.subscription.customer.email})` : "—"}</p>
-                <Badge variant={detail.subscription.status === "active" ? "default" : "outline"} className="mt-1">{detail.subscription.status}</Badge>
+              <div className="flex flex-wrap items-start justify-between gap-3 p-3 bg-secondary/30 rounded-2xl border border-card-border">
+                <div className="text-sm">
+                  <p className="text-xs text-muted-foreground font-semibold">Customer Details</p>
+                  <p className="font-bold text-foreground text-base">{detail.subscription.customer ? `${detail.subscription.customer.name}` : `Customer #${detail.subscription.userId}`}</p>
+                  <p className="text-xs text-muted-foreground">{detail.subscription.customer?.email}</p>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mt-1.5 ${
+                    detail.subscription.status === "active" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                    detail.subscription.status === "paused" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+                    detail.subscription.status === "cancelled" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                    "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+                  }`}>
+                    {detail.subscription.status}
+                  </span>
+                </div>
+
+                {/* Super Admin Quick Actions */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {detail.subscription.status !== "active" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 text-xs h-8"
+                      onClick={() => updateSubStatus.mutate({ id: detail.subscription.id, status: "active", note: "Activated by Super Admin" })}
+                    >
+                      <Play size={12} className="mr-1" /> Activate
+                    </Button>
+                  )}
+                  {detail.subscription.status === "active" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 text-xs h-8"
+                      onClick={() => updateSubStatus.mutate({ id: detail.subscription.id, status: "paused", note: "Paused by Super Admin" })}
+                    >
+                      <Pause size={12} className="mr-1" /> Pause
+                    </Button>
+                  )}
+                  {detail.subscription.status !== "cancelled" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs h-8"
+                      onClick={() => updateSubStatus.mutate({ id: detail.subscription.id, status: "cancelled", note: "Cancelled by Super Admin" })}
+                    >
+                      <XCircle size={12} className="mr-1" /> Cancel
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="text-xs bg-red-600 hover:bg-red-700 font-bold h-8"
+                    onClick={() => {
+                      if (confirm(`Remove subscription #${detail.subscription.id} completely? This will immediately remove the subscription badge from the user's UI.`)) {
+                        deleteSub.mutate(detail.subscription.id);
+                      }
+                    }}
+                  >
+                    <Trash2 size={12} className="mr-1" /> Delete Badge
+                  </Button>
+                </div>
               </div>
               <div>
                 <h3 className="font-semibold text-sm mb-2">Items</h3>

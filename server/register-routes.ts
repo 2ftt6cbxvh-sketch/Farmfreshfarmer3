@@ -924,6 +924,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   }));
 
+  // Admin / Super Admin: update subscription status directly
+  app.patch("/api/admin/subscriptions/:id", requireAdmin, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const sub = await storage.subscriptions.get(id);
+    if (!sub) return res.status(404).json({ message: "Not found" });
+    const { status, note } = req.body;
+    if (status) {
+      await storage.subscriptions.setStatus(id, status, "admin", note || "Updated by Super Admin");
+    }
+    const updated = await storage.subscriptions.update(id, req.body);
+    res.json(updated);
+  }));
+
+  // Admin / Super Admin: permanently remove a subscription (removes subscription & badge from user UI)
+  app.delete("/api/admin/subscriptions/:id", requireAdmin, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const sub = await storage.subscriptions.get(id);
+    if (!sub) return res.status(404).json({ message: "Not found" });
+    await storage.subscriptions.remove(id);
+    res.json({ ok: true, message: "Subscription removed successfully" });
+  }));
+
   // Admin: generate upcoming Sat/Sun billing cycles (idempotent).
   app.post("/api/admin/subscriptions/generate-cycles", requireAdmin, h(async (req, res) => {
     const weeks = Number(req.body.weeks) || 2;
