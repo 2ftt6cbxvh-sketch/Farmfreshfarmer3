@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -165,12 +165,15 @@ export function AdminApprovals() {
       const endpoint = type === "product" ? `/api/admin/approvals/products/${id}` : `/api/admin/approvals/categories/${id}`;
       await apiRequest("PATCH", endpoint, { action, note, editFields });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Approval status updated & live on store! 🎉" });
+      toast({
+        title: variables.action === "approved" ? "Approved & Published Live! 🚀" : "Status Updated",
+        description: variables.action === "approved" ? "Item changes published to live storefront." : "Approval decision recorded.",
+      });
       setActionModal(null);
       setProductEditModal(null);
       setNote("");
@@ -179,6 +182,29 @@ export function AdminApprovals() {
       toast({
         title: "Action failed",
         description: err?.message || "Could not update approval status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revertMutation = useMutation({
+    mutationFn: async ({ type, id, note }: { type: "product" | "category"; id: number; note?: string }) => {
+      await apiRequest("POST", "/api/admin/approvals/revert", { type, id, note });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Approval Reverted ↩️",
+        description: "Item removed from storefront and returned to moderation queue.",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Revert Failed",
+        description: err?.message || "Could not revert approval status",
         variant: "destructive",
       });
     },
@@ -237,6 +263,13 @@ export function AdminApprovals() {
         </Badge>
       );
     }
+    if (status === "reverted") {
+      return (
+        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 flex items-center gap-1 font-medium">
+          <RotateCcw className="w-3 h-3" /> Reverted ↩️
+        </Badge>
+      );
+    }
     return (
       <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 flex items-center gap-1 font-medium">
         <XCircle className="w-3 h-3" /> Rejected
@@ -253,7 +286,7 @@ export function AdminApprovals() {
               <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Review, edit images, adjust prices/stock, and approve products submitted by sub-admins. Changes update live instantly.
+              Review, edit images, adjust prices/stock, and approve products submitted by sub-admins. Use Approval Log to revert approvals anytime.
             </p>
           </div>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1">
@@ -438,9 +471,10 @@ export function AdminApprovals() {
                     <tr>
                       <th className="p-3 font-semibold">Entity</th>
                       <th className="p-3 font-semibold">Type</th>
-                      <th className="p-3 font-semibold">Action</th>
-                      <th className="p-3 font-semibold">Date</th>
+                      <th className="p-3 font-semibold">Action Status</th>
+                      <th className="p-3 font-semibold">Date & Time</th>
                       <th className="p-3 font-semibold">Note</th>
+                      <th className="p-3 font-semibold text-right">Revert Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -448,11 +482,34 @@ export function AdminApprovals() {
                       <tr key={row.id} className="border-t border-card-border">
                         <td className="p-3 font-bold text-foreground">{row.entityName || `#${row.entityId}`}</td>
                         <td className="p-3 capitalize text-muted-foreground">{row.entityType}</td>
-                        <td className="p-3">{renderStatusBadge(row.action)}</td>
-                        <td className="p-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(row.createdAt).toLocaleString("en-IN")}
+                        <td className="p-3">{renderStatusBadge(row.action || row.toStatus || "approved")}</td>
+                        <td className="p-3 text-muted-foreground whitespace-nowrap text-xs">
+                          {new Date(row.createdAt).toLocaleString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </td>
-                        <td className="p-3 text-muted-foreground max-w-xs truncate">{row.note || "—"}</td>
+                        <td className="p-3 text-muted-foreground max-w-xs truncate text-xs">{row.note || "Approved & Live Storefront"}</td>
+                        <td className="p-3 text-right">
+                          {row.action !== "reverted" && row.toStatus !== "pending" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-amber-600 border-amber-500/30 hover:bg-amber-500/10 text-xs font-bold gap-1"
+                              onClick={() => {
+                                if (confirm(`Revert approval for "${row.entityName}"? It will be removed from storefront and returned to moderation.`)) {
+                                  revertMutation.mutate({ type: row.entityType as any, id: row.entityId });
+                                }
+                              }}
+                              disabled={revertMutation.isPending}
+                            >
+                              <RotateCcw size={12} /> Revert Approval ↩️
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
