@@ -745,7 +745,7 @@ const LEGAL_CONTACT_KEYS = [
 ];
 
 const CHATBOT_KEYS = [
-  { key: "chatbot_enabled", label: "Enable Laxshmi AI Chatbot", type: "bool" as const },
+  { key: "chatbot_enabled", label: "Enable Lakshmi AI Chatbot", type: "bool" as const },
   { key: "gemini_api_key", label: "Google Gemini API Key (Free tier at ai.google.dev)", type: "text" as const },
   { key: "chatbot_welcome_message", label: "Chatbot Welcome Message", type: "text" as const },
   { key: "telegram_bot_token", label: "Telegram Bot Token (from @BotFather)", type: "text" as const },
@@ -757,7 +757,7 @@ const CREATOR_KEYS = [
   { key: "creator_portfolio", label: "Portfolio / Website URL", type: "text" as const },
   { key: "creator_email", label: "Contact Email", type: "text" as const },
   { key: "creator_phone", label: "Contact Phone / WhatsApp", type: "text" as const },
-  { key: "creator_bio", label: "Resume Summary & Bio (for Laxshmi AI context)", type: "text" as const },
+  { key: "creator_bio", label: "Resume Summary & Bio (for Lakshmi AI context)", type: "text" as const },
 ];
 
 const ALL_KNOWN_KEYS = [
@@ -1198,7 +1198,7 @@ function AuthMethodsCustomizer() {
 }
 
 const DEFAULT_GANESH_RESUME = `• Name: Buddaraju Ganesh Sai Varma (Ganesh Varma)
-• Role: Creator & Inventor of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
+• Role: Creator & Inventor of Lakshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
 • Portfolio: https://www.ganeshvarma.in/
 • Contact: Email: gp61080@gmail.com | Phone: +91 8555021322 | Location: Vijayawada, India
 
@@ -1224,7 +1224,7 @@ TECHNICAL SKILLS:
 MAJOR PROJECTS:
 1. FarmFreshFarmer.com (2026 – Present): Full-Stack Agri-Delivery E-Commerce Platform
    - Built and deployed production farm-to-door platform with customer storefront, weekend subscription service, and admin panel, backed by PostgreSQL and Drizzle ORM.
-   - Implemented secure PhonePe payment integration, dynamic coupon/referral systems, per-city delivery fee calculation, Power BI reporting, and Laxshmi AI assistant.
+   - Implemented secure PhonePe payment integration, dynamic coupon/referral systems, per-city delivery fee calculation, Power BI reporting, and Lakshmi AI assistant.
 2. 3D Game of Life (June 2026 – Present): High-Performance Cellular Automaton
    - Designed 3D simulation engine in C# supporting 60x60x60 (216,000 cells).
    - Optimized execution time by ~7x; GPU instancing via Unity URP achieved 294 FPS on Apple Silicon M4 Max; automated Matplotlib data pipeline.
@@ -1267,7 +1267,7 @@ function CreatorProfileCustomizer({
 
   const loadDefaultResume = () => {
     setField("creator_name", "Buddaraju Ganesh Sai Varma (Ganesh Varma)");
-    setField("creator_title", "Creator & Inventor of Laxshmi AI | Full-Stack & Data Engineer");
+    setField("creator_title", "Creator & Inventor of Lakshmi AI | Full-Stack & Data Engineer");
     setField("creator_portfolio", "https://www.ganeshvarma.in/");
     setField("creator_email", "gp61080@gmail.com");
     setField("creator_phone", "+91 8555021322");
@@ -1297,7 +1297,7 @@ function CreatorProfileCustomizer({
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {form["creator_title"] || "Creator & Inventor of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com"}
+                {form["creator_title"] || "Creator & Inventor of Lakshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com"}
               </p>
               <div className="flex items-center gap-3 mt-1.5 text-xs text-emerald-400">
                 <a href={form["creator_portfolio"] || "https://www.ganeshvarma.in/"} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1 font-semibold">
@@ -1355,7 +1355,7 @@ function CreatorProfileCustomizer({
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
               <Briefcase size={15} /> Flagship Inventions
             </div>
-            <p className="text-xs font-semibold text-foreground">FarmFreshFarmer.com & Laxshmi AI</p>
+            <p className="text-xs font-semibold text-foreground">FarmFreshFarmer.com & Lakshmi AI</p>
             <p className="text-[11px] text-muted-foreground">3D Game of Life Engine (Unity / URP)</p>
             <p className="text-[11px] text-muted-foreground">294 FPS M4 Max GPU Instancing</p>
           </div>
@@ -1370,7 +1370,7 @@ function CreatorProfileCustomizer({
               <User size={16} /> Editable Creator Identity Details
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              These details are fed directly into Laxshmi AI's live context so she can accurately answer customer questions about her creator.
+              These details are fed directly into Lakshmi AI's live context so she can accurately answer customer questions about her creator.
             </p>
           </div>
         </div>
@@ -1391,7 +1391,7 @@ function CreatorProfileCustomizer({
             <Input
               value={form["creator_title"] ?? ""}
               onChange={(e) => setField("creator_title", e.target.value)}
-              placeholder="Creator & Inventor of Laxshmi AI | Full-Stack & Data Engineer"
+              placeholder="Creator & Inventor of Lakshmi AI | Full-Stack & Data Engineer"
               className="mt-1"
             />
           </div>
@@ -1823,7 +1823,7 @@ export default function AdminSettings() {
           <div className="space-y-6">
             <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                🤖 Laxshmi AI Chatbot & Telegram Integration
+                🤖 Lakshmi AI Chatbot & Telegram Integration
               </div>
               <p className="text-xs text-muted-foreground">
                 Configure your Gemini API key for the AI chatbot, welcome messages, and Telegram notifications for customer support alerts.

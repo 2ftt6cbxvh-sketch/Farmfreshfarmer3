@@ -261,7 +261,7 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     }
 
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
-    const systemPrompt = `You are Laxshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
+    const systemPrompt = `You are Lakshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
 
 ==================== LIVE DATABASE & SYSTEM CONTEXT ====================
 1. PRODUCT CATALOG & PRICING:
@@ -281,7 +281,7 @@ ${contactContext}
 
 6. CREATOR & INVENTOR INFORMATION:
 ${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Ganesh Varma)
-• Role: Creator & Architect of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
+• Role: Creator & Architect of Lakshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
 • Portfolio & Website: https://www.ganeshvarma.in/
 • Contact Email: gp61080@gmail.com | Phone: +91 8555021322 | Location: Vijayawada, Andhra Pradesh, India
 • Academic Credentials:
@@ -291,7 +291,7 @@ ${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Gane
 • Certifications: TensorFlow Developer Certificate | Salesforce Certified AI Associate | AWS Certified Cloud Practitioner.
 • Technical Skills: Python (PyTorch, Pandas, NumPy), Java, C, C#, SQL, PostgreSQL, Drizzle ORM, Power BI, TypeScript, React, Node.js, Express, Unity 3D, AWS, Docker, CI/CD.
 • Major Projects:
-  1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe integration, real-time logistics engine, and Laxshmi AI assistant.
+  1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe integration, real-time logistics engine, and Lakshmi AI assistant.
   2. 3D Game of Life: High-performance 3D cellular automaton engine in Unity/C# & GPU Instancing (DrawMeshInstanced) achieving 294 FPS on Apple Silicon M4 Max with Python Matplotlib pipelines.
 • Experience: Web Design & Marketing Intern at Arete IT.`}
 
@@ -302,7 +302,7 @@ ${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Gane
 
 CREATOR & INVENTOR INQUIRIES:
 - You were invented, architected, and built by Buddaraju Ganesh Sai Varma (Ganesh Varma).
-- When a customer asks about who created you, who invented Laxshmi, who built FarmFreshFarmer, or asks about Ganesh Varma / his resume / background / education / portfolio:
+- When a customer asks about who created you, who invented Lakshmi, who built FarmFreshFarmer, or asks about Ganesh Varma / his resume / background / education / portfolio:
   * Respond proudly, warmly, and with deep respect and accurate detail about your creator Buddaraju Ganesh Sai Varma (Ganesh Varma).
   * Share his education (PG in Advanced Data Science & AI from University of Liverpool, UK, and B.Tech from KL University), his certifications, his skills in Data Science, Full-Stack & Machine Learning, and his portfolio: https://www.ganeshvarma.in/
   * Speak with enthusiasm about his projects like FarmFreshFarmer and 3D Game of Life.
@@ -559,7 +559,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         return: "We accept returns for damaged or wrong items within 4 hours of delivery. Please reach out to customer support at admin@farmfreshfarmer.com.",
         contact: "You can reach customer support at +91 79897 93669 or email admin@farmfreshfarmer.com. Operating hours: 6:00 AM - 10:00 PM IST.",
         grievance: "For formal escalations, contact our Grievance Redressal Officer at admin@farmfreshfarmer.com or visit /grievance on our website.",
-        hello: "🙏 Namaste! I'm Laxshmi, your FarmFreshFarmer assistant. How can I help you today?",
+        hello: "🙏 Namaste! I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?",
         hi: "🙏 Namaste! Welcome to FarmFreshFarmer. What fresh farm produce can I help you find today?",
         default: "I'm happy to assist you! You can ask me about product prices, delivery ETAs, pickles, sweets, or order tracking. You can also tap 'Connect to Human Support' below to speak directly with our team.",
       },
@@ -1130,7 +1130,7 @@ function resolveCartQty(
 • Shipping Policy: Free delivery on orders above minimum threshold. Delivered fresh daily between 6:00 AM and 10:00 PM.
 • Payment Methods Accepted: PhonePe, Google Pay, UPI, Netbanking, Debit/Credit Cards, and Cash on Delivery (COD).
 • Grievance Policy: Formal complaints acknowledged within 24-48 hours and resolved within 7 business days by the Grievance Redressal Officer.
-• Customer Support Tickets: Customers can raise a support ticket directly in the Laxshmi AI chatbot by clicking the 'Raise a Ticket' button. Ticket details are submitted to the admin team and customers can track live ticket status from their account dashboard at /account.
+• Customer Support Tickets: Customers can raise a support ticket directly in the Lakshmi AI chatbot by clicking the 'Raise a Ticket' button. Ticket details are submitted to the admin team and customers can track live ticket status from their account dashboard at /account.
       `.trim();
 
       // Contact info context
@@ -1152,9 +1152,9 @@ function resolveCartQty(
       const customCreatorBio = (allSettings as any)?.creator_bio || '';
 
       const creatorContext = `
-• CREATOR & INVENTOR OF LAXSHMI AI & FARMFRESHFARMER:
+• CREATOR & INVENTOR OF LAKSHMI AI & FARMFRESHFARMER:
   - Full Name: ${creatorName}
-  - Professional Title: ${(allSettings as any)?.creator_title || 'Creator & Architect of Laxshmi AI | Founder & Full-Stack/Data Engineer of FarmFreshFarmer.com'}
+  - Professional Title: ${(allSettings as any)?.creator_title || 'Creator & Architect of Lakshmi AI | Founder & Full-Stack/Data Engineer of FarmFreshFarmer.com'}
   - Portfolio & Website: ${creatorPortfolio}
   - Contact Email: ${creatorEmail}
   - Contact Phone / WhatsApp: ${creatorPhone}
@@ -1173,7 +1173,7 @@ function resolveCartQty(
     * Software & Web: TypeScript, React, Node.js, Express, RESTful APIs, MVC Architecture, Unity 3D, C#.
     * Cloud & DevOps: AWS Elastic Beanstalk, Render, Docker, CI/CD pipelines.
   - Major Projects & Inventions:
-    1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe payment processing, real-time logistics & delivery fee calculation, weekend subscription lifecycles, and Laxshmi AI assistant.
+    1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe payment processing, real-time logistics & delivery fee calculation, weekend subscription lifecycles, and Lakshmi AI assistant.
     2. 3D Game of Life: High-performance 3D cellular automaton simulation engine in Unity/C# with GPU Instancing (DrawMeshInstanced) running at 294 FPS on Apple Silicon M4 Max, with automated Python Matplotlib population analytics.
   - Experience:
     * Web Design and Marketing Intern at Arete IT (July 2024 – Dec 2024).
@@ -1279,7 +1279,7 @@ function resolveCartQty(
 
       const testReply = await callGeminiAPI(
         keyToTest,
-        'Hello Laxshmi! Confirm that your Gemini AI connection is working.',
+        'Hello Lakshmi! Confirm that your Gemini AI connection is working.',
         'Farm Tomatoes - ₹40/kg',
         'Vegetables, Fruits, Sweets, Pickles',
         'Google One-Tap & Email OTP Sign In',

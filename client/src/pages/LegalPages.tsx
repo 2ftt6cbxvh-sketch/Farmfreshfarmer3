@@ -215,7 +215,7 @@ export function PrivacyPage() {
         We process orders, manage subscriptions/referrals, provide customer support, prevent fraud, and comply with legal requirements.
       </p>
 
-      <H2>3. Laxshmi AI Chatbot Data</H2>
+      <H2>3. Lakshmi AI Chatbot Data</H2>
       <p>
         Anonymized chatbot interaction data is used to improve service quality. Queries escalated to human support are shared only with customer representatives. No personally identifiable information is stored in chatbot sessions beyond a temporary session token.
       </p>
@@ -413,7 +413,7 @@ export function GrievancePage() {
       <H2>1. How to Raise a Complaint</H2>
       <ol className="list-decimal pl-6 space-y-2">
         <li>
-          Contact our customer support team via WhatsApp/Call at {phone} or email {email}. You may also use our Laxshmi AI chatbot available on the website and app.
+          Contact our customer support team via WhatsApp/Call at {phone} or email {email}. You may also use our Lakshmi AI chatbot available on the website and app.
         </li>
         <li>
           If your complaint is not resolved within {ackHours} hours, please escalate it to our Grievance Officer directly using the contact details below.

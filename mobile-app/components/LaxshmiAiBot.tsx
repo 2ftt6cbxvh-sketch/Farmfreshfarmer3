@@ -61,13 +61,13 @@ const UI_STRINGS: Record<Language, {
   addToCart: string;
 }> = {
   en: {
-    headerTitle: 'Laxshmi AI',
+    headerTitle: 'Lakshmi AI',
     headerSubtitle: 'Smart Assistant',
     bubbleGreeting: '🙏 Namaste! How can I help?',
     connectHuman: '📞 Connect to Human Support',
     raiseTicket: '🎫 Raise Support Ticket',
     placeholder: 'Type a message...',
-    thinking: 'Laxshmi is thinking...',
+    thinking: 'Lakshmi is thinking...',
     wakeWordActive: '🎤 Voice Wake Active',
     wakeWordDisabled: '🎤 Voice Wake Off',
     addToCart: '+ Add',
@@ -99,7 +99,7 @@ const UI_STRINGS: Record<Language, {
 };
 
 const WELCOME_MESSAGES: Record<Language, string> = {
-  en: "🙏 Namaste! I'm Laxshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Fresh vegetables, fruits & pickles\n• Product prices & store availability\n• Delivery timings & ETA\n• Order tracking & subscriptions",
+  en: "🙏 Namaste! I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Fresh vegetables, fruits & pickles\n• Product prices & store availability\n• Delivery timings & ETA\n• Order tracking & subscriptions",
   hi: "🙏 नमस्ते! मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?\n\nमैं इन चीज़ों में मदद कर सकती हूँ:\n• ताज़ी सब्जियाँ, फल और अचार\n• उत्पाद की कीमतें और उपलब्धता\n• डिलीवरी समय और ट्रैकिंग",
   te: "🙏 నమస్తే! నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?\n\nనేను ఇవి చేయగలను:\n• తాజా కూరగాయలు, పండ్లు & ఊరగాయలు\n• ఉత్పత్తి ధరలు & లభ్యత\n• డెలివరీ సమయాలు & ఆర్డర్ ట్రాకింగ్",
 };
@@ -112,7 +112,7 @@ function getSessionToken(): string {
   return sessionTokenCache;
 }
 
-export function LaxshmiAiBot({ customGreeting }: { customGreeting?: string } = {}) {
+export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {}) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { user } = useAuth();
@@ -596,9 +596,9 @@ export function LaxshmiAiBot({ customGreeting }: { customGreeting?: string } = {
                   ]}
                 />
 
-                {/* Single line content: Diya + LAXSHMI AI + Sparkles + Online Badge */}
+                {/* Single line content: Diya + LAKSHMI AI + Sparkles + Online Badge */}
                 <Text style={styles.diyaIconFloating}>🪔</Text>
-                <Text style={styles.pillTitleText} numberOfLines={1}>LAXSHMI AI</Text>
+                <Text style={styles.pillTitleText} numberOfLines={1}>LAKSHMI AI</Text>
                 <Ionicons name="sparkles" size={10} color="#FDE68A" />
                 <View style={styles.onlineBadge} />
               </LinearGradient>
@@ -1344,3 +1344,5 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+
+export const LaxshmiAiBot = LakshmiAiBot;

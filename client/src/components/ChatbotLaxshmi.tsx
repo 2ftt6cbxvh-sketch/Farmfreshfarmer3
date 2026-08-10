@@ -75,7 +75,7 @@ const UI_STRINGS = {
 };
 
 const WELCOME_MESSAGES: Record<Language, string> = {
-  en: "🙏 Namaste! I'm Laxshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart",
+  en: "🙏 Namaste! I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart",
   hi: "🙏 नमस्ते! मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?\n\nमैं इन चीज़ों में मदद कर सकती हूँ:\n• उत्पाद की कीमतें और उपलब्धता\n• डिलीवरी समय\n• ऑर्डर ट्रैकिंग\n• रिटर्न और रिफंड नीति",
   te: "🙏 నమస్తే! నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?\n\nనేను ఇవి చేయగలను:\n• ఉత్పత్తి ధరలు & అందుబాటు\n• డెలివరీ సమయాలు\n• ఆర్డర్ ట్రాకింగ్\n• రిటర్న్ & రీఫండ్ పాలసీ",
 };
@@ -87,7 +87,7 @@ const HUMAN_CONNECT_MESSAGES: Record<Language, string> = {
 };
 
 function getSessionToken(): string {
-  const key = "laxshmi_session";
+  const key = "lakshmi_session";
   let token = sessionStorage.getItem(key);
   if (!token) {
     token = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -96,7 +96,7 @@ function getSessionToken(): string {
   return token;
 }
 
-export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } = {}) {
+export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } = {}) {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { add, items, subtotal } = useCart();
@@ -284,7 +284,7 @@ export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } =
     mutationFn: async (query: string) => {
       const history = messages
         .slice(-6)
-        .map((m) => `${m.role === "user" ? "Customer" : "Laxshmi"}: ${m.content}`)
+        .map((m) => `${m.role === "user" ? "Customer" : "Lakshmi"}: ${m.content}`)
         .join("\n");
       const r = await fetch("/api/chatbot/missed", {
         method: "POST",
@@ -716,7 +716,7 @@ export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } =
                 background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
                 animation: 'laxGlow 3.5s ease-in-out infinite',
               }}
-              aria-label="Open Laxshmi AI assistant"
+              aria-label="Open Lakshmi AI assistant"
             >
               {/* Shimmer sweep overlay */}
               <div
@@ -732,7 +732,7 @@ export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } =
 
               {/* Single line text */}
               <span className="text-[11px] font-black uppercase tracking-wider text-white font-sans whitespace-nowrap drop-shadow flex items-center gap-1 relative z-10">
-                LAXSHMI AI
+                LAKSHMI AI
                 <Sparkles
                   size={10}
                   className="text-yellow-300 shrink-0"
@@ -763,7 +763,7 @@ export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } =
               <span style={{ fontSize: '20px' }}>🪔</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-sm leading-none">Laxshmi</p>
+              <p className="text-white font-bold text-sm leading-none">Lakshmi AI</p>
               <p className="text-white/80 text-[10px] mt-0.5">{strings.headerSubtitle}</p>
             </div>
             {/* Language selector */}
@@ -1098,3 +1098,5 @@ export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } =
     </>
   );
 }
+
+export const ChatbotLaxshmi = ChatbotLakshmi;

@@ -130,7 +130,7 @@ export default function Account() {
           ) : myTickets.length === 0 ? (
             <div className="rounded-2xl border border-card-border bg-card p-6 text-center space-y-2 shadow-sm">
               <Ticket size={32} className="mx-auto text-muted-foreground/40" />
-              <p className="text-xs font-bold text-foreground">No support tickets yet. Need help? Ask Laxshmi AI to raise a ticket!</p>
+              <p className="text-xs font-bold text-foreground">No support tickets yet. Need help? Ask Lakshmi AI to raise a ticket!</p>
             </div>
           ) : (
             <div className="space-y-3">

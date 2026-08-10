@@ -89,7 +89,7 @@ export default function AdminTickets() {
               <Ticket className="text-purple-600" /> Support Tickets Management
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              View and resolve customer support tickets submitted via Laxshmi AI &amp; website
+              View and resolve customer support tickets submitted via Lakshmi AI &amp; website
             </p>
           </div>
 

@@ -392,7 +392,7 @@ export function AdminLiveChatView({
                       ]}
                     >
                       <Text style={styles.msgSenderName}>
-                        {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Laxshmi Bot')}
+                        {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Lakshmi Bot')}
                       </Text>
                       <Text style={styles.msgText}>{m.message}</Text>
                       <Text style={styles.msgTime}>
