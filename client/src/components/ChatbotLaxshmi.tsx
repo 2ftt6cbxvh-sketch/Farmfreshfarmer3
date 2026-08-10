@@ -96,7 +96,7 @@ function getSessionToken(): string {
   return token;
 }
 
-export function ChatbotLaxshmi() {
+export function ChatbotLaxshmi({ customGreeting }: { customGreeting?: string } = {}) {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { add, items, subtotal } = useCart();
@@ -626,12 +626,12 @@ export function ChatbotLaxshmi() {
               style={{ animation: isFadingBubble ? 'none' : 'laxBounce 3.5s cubic-bezier(0.45,0.05,0.55,0.95) infinite' }}
             >
               <div
-                className="bg-white/96 dark:bg-zinc-800/96 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/8 dark:border-white/10 max-w-[200px] flex items-center justify-between gap-2"
+                className="bg-white/96 dark:bg-zinc-800/96 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/8 dark:border-white/10 max-w-[210px] flex items-center justify-between gap-2"
                 style={{
                   boxShadow: '0 12px 32px -6px rgba(212,20,90,0.18), 0 4px 12px -2px rgba(0,0,0,0.1)',
                 }}
               >
-                <span>{strings.bubbleGreeting}</span>
+                <span>{customGreeting || strings.bubbleGreeting}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -660,9 +660,9 @@ export function ChatbotLaxshmi() {
             <div
               className="absolute pointer-events-none"
               style={{
-                width: 8, height: 8, borderRadius: '50%',
+                width: 7, height: 7, borderRadius: '50%',
                 background: 'rgba(255,107,53,0.8)',
-                top: -10, left: 8,
+                top: -8, left: 6,
                 filter: 'blur(2px)',
                 animation: 'laxAmbientDot1 4.2s ease-in-out infinite',
               }}
@@ -672,7 +672,7 @@ export function ChatbotLaxshmi() {
               style={{
                 width: 6, height: 6, borderRadius: '50%',
                 background: 'rgba(212,20,90,0.8)',
-                top: -6, right: 12,
+                top: -5, right: 10,
                 filter: 'blur(1.5px)',
                 animation: 'laxAmbientDot2 5.1s ease-in-out infinite 0.8s',
               }}
@@ -682,7 +682,7 @@ export function ChatbotLaxshmi() {
               style={{
                 width: 5, height: 5, borderRadius: '50%',
                 background: 'rgba(123,47,247,0.9)',
-                bottom: -8, left: 20,
+                bottom: -6, left: 16,
                 filter: 'blur(1.5px)',
                 animation: 'laxAmbientDot3 3.8s ease-in-out infinite 1.4s',
               }}
@@ -690,62 +690,58 @@ export function ChatbotLaxshmi() {
 
             {/* Outer slow pulse ring */}
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 rounded-full pointer-events-none"
               style={{
                 animation: 'laxPulseRing2 3.4s cubic-bezier(0,0.5,0.5,1) infinite 1.1s',
                 background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
-                borderRadius: '20px',
                 opacity: 0,
               }}
             />
             {/* Inner fast pulse ring */}
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 rounded-full pointer-events-none"
               style={{
                 animation: 'laxPulseRing 2.2s cubic-bezier(0,0.5,0.5,1) infinite',
                 background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
-                borderRadius: '20px',
                 opacity: 0,
               }}
             />
 
-            {/* The pill button */}
+            {/* The pill button - single line compact layout */}
             <button
               id="chatbot-open-btn"
               onClick={() => setIsOpen(true)}
-              className="relative overflow-hidden px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-[1.05] active:scale-95 transition-transform duration-300 cursor-pointer"
+              className="relative overflow-hidden px-3.5 py-2 flex items-center gap-1.5 rounded-full hover:scale-[1.05] active:scale-95 transition-transform duration-300 cursor-pointer shadow-lg"
               style={{
                 background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
                 animation: 'laxGlow 3.5s ease-in-out infinite',
-                borderRadius: '20px',
               }}
               aria-label="Open Laxshmi AI assistant"
             >
               {/* Shimmer sweep overlay */}
               <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 pointer-events-none rounded-full"
                 style={{
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.28) 50%, transparent 100%)',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
                   animation: 'laxShimmer 4s ease-in-out infinite 1.5s',
-                  borderRadius: '20px',
                 }}
               />
 
               {/* Diya icon */}
-              <span className="text-2xl leading-none drop-shadow-md relative z-10">🪔</span>
+              <span className="text-lg leading-none drop-shadow relative z-10">🪔</span>
 
-              {/* Text labels */}
-              <div className="flex flex-col text-left relative z-10">
-                <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white font-sans drop-shadow flex items-center gap-1">
-                  Laxshmi
-                  <Sparkles
-                    size={10}
-                    className="text-yellow-300"
-                    style={{ animation: 'laxSparklePin 3s ease-in-out infinite' }}
-                  />
-                </span>
-                <span className="text-[9px] font-bold text-white/80 tracking-wider font-sans">AI Assistant</span>
-              </div>
+              {/* Single line text */}
+              <span className="text-[11px] font-black uppercase tracking-wider text-white font-sans whitespace-nowrap drop-shadow flex items-center gap-1 relative z-10">
+                LAXSHMI AI
+                <Sparkles
+                  size={10}
+                  className="text-yellow-300 shrink-0"
+                  style={{ animation: 'laxSparklePin 3s ease-in-out infinite' }}
+                />
+              </span>
+
+              {/* Online badge dot */}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 border border-white/60 shrink-0 relative z-10" />
             </button>
           </div>
         </div>

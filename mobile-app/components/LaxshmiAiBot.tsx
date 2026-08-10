@@ -112,7 +112,7 @@ function getSessionToken(): string {
   return sessionTokenCache;
 }
 
-export function LaxshmiAiBot() {
+export function LaxshmiAiBot({ customGreeting }: { customGreeting?: string } = {}) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { user } = useAuth();
@@ -533,71 +533,66 @@ export function LaxshmiAiBot() {
               ]}
             >
               <Text style={styles.diyaText}>🪔</Text>
-              <Text style={styles.bubbleText}>{ui.bubbleGreeting}</Text>
+              <Text style={styles.bubbleText}>{customGreeting || ui.bubbleGreeting}</Text>
               <TouchableOpacity onPress={dismissBubbleSmoothly} style={styles.bubbleClose}>
                 <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             </Animated.View>
           )}
 
-          {/* Double pulse rings */}
-          <Animated.View
-            style={[
-              styles.outerPulseRing,
-              { transform: [{ scale: outerRingAnim }], opacity: outerRingAnim.interpolate({ inputRange: [1, 3.2], outputRange: [0.5, 0] }) },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.innerPulseRing,
-              { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 2.4], outputRange: [0.7, 0] }) },
-            ]}
-          />
+          {/* Double pulse rings - aligned in pillBox */}
+          <View style={styles.pillBox}>
+            <Animated.View
+              style={[
+                styles.outerPulseRing,
+                { transform: [{ scale: outerRingAnim }], opacity: outerRingAnim.interpolate({ inputRange: [1, 3.2], outputRange: [0.5, 0] }) },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.innerPulseRing,
+                { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 2.4], outputRange: [0.7, 0] }) },
+              ]}
+            />
 
-          {/* The pill button */}
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => {
-              setIsOpen(true);
-              dismissBubbleSmoothly();
-            }}
-            style={styles.pillWrapper}
-          >
-            <LinearGradient
-              colors={['#FF6B35', '#D4145A', '#7B2FF7']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.floatingPill}
+            {/* The pill button - single line compact layout */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => {
+                setIsOpen(true);
+                dismissBubbleSmoothly();
+              }}
+              style={styles.pillWrapper}
             >
-              {/* Shimmer sweep */}
-              <Animated.View
-                style={[
-                  styles.shimmerOverlay,
-                  {
-                    transform: [{
-                      translateX: shimmerAnim.interpolate({
-                        inputRange: [-1, 2],
-                        outputRange: [-140, 280],
-                      }),
-                    }],
-                  },
-                ]}
-              />
+              <LinearGradient
+                colors={['#FF6B35', '#D4145A', '#7B2FF7']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.floatingPill}
+              >
+                {/* Shimmer sweep */}
+                <Animated.View
+                  style={[
+                    styles.shimmerOverlay,
+                    {
+                      transform: [{
+                        translateX: shimmerAnim.interpolate({
+                          inputRange: [-1, 2],
+                          outputRange: [-100, 200],
+                        }),
+                      }],
+                    },
+                  ]}
+                />
 
-              {/* Diya + text */}
-              <Text style={styles.diyaIconFloating}>🪔</Text>
-              <View style={styles.pillTextBlock}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Text style={styles.pillTitle}>LAXSHMI</Text>
-                  <Ionicons name="sparkles" size={9} color="#FDE68A" />
-                </View>
-                <Text style={styles.pillSubtitle}>AI Assistant</Text>
-              </View>
-
-              {/* Online dot */}
-              <View style={styles.onlineBadge} />
-            </LinearGradient>
-          </TouchableOpacity>
+                {/* Single line content: Diya + LAXSHMI AI + Sparkles + Online Badge */}
+                <Text style={styles.diyaIconFloating}>🪔</Text>
+                <Text style={styles.pillTitleText} numberOfLines={1}>LAXSHMI AI</Text>
+                <Ionicons name="sparkles" size={10} color="#FDE68A" />
+                <View style={styles.onlineBadge} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       )}
 
@@ -876,24 +871,29 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     padding: 2,
   },
+  pillBox: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   outerPulseRing: {
     position: 'absolute',
+    top: 0,
     bottom: 0,
+    left: 0,
     right: 0,
-    width: 120,
-    height: 48,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderColor: 'rgba(123, 47, 247, 0.5)',
     backgroundColor: 'transparent',
   },
   innerPulseRing: {
     position: 'absolute',
+    top: 0,
     bottom: 0,
+    left: 0,
     right: 0,
-    width: 120,
-    height: 48,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: 'rgba(212, 20, 90, 0.6)',
     backgroundColor: 'transparent',
@@ -902,58 +902,47 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#D4145A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 12,
   },
   floatingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 20,
-    gap: 8,
+    gap: 5,
     overflow: 'hidden',
-    minWidth: 130,
   },
   shimmerOverlay: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 60,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    width: 45,
+    backgroundColor: 'rgba(255,255,255,0.28)',
     transform: [{ skewX: '-18deg' }],
   },
   diyaIconFloating: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 16,
+    lineHeight: 18,
   },
-  pillTextBlock: {
-    flexDirection: 'column',
-    flex: 1,
-  },
-  pillTitle: {
-    color: '#fff',
+  pillTitleText: {
+    color: '#ffffff',
     fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 1.6,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  pillSubtitle: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-  },
   onlineBadge: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: '#4ade80',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
-    marginLeft: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+    marginLeft: 1,
   },
   // Keep sparkleBadge for backward compatibility (no longer used in pill)
   sparkleBadge: {
