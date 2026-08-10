@@ -511,7 +511,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  scroll: { flexGrow: 1, justifyContent: 'flex-start', paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 },
   backButton: { alignSelf: 'flex-start', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 24, borderWidth: 1, marginBottom: 20 },
   backButtonDark: { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.2)' },
   backButtonLight: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },

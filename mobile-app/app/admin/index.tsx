@@ -169,7 +169,11 @@ export default function AdminDashboardScreen() {
   const { data: rawProducts, isLoading: productsLoading } = useQuery({ queryKey: ['admin-products'], queryFn: () => api.get('/api/products').then(r => r.data), enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard' });
   const { data: rawCategories } = useQuery({ queryKey: ['admin-cats'], queryFn: () => api.get('/api/categories').then(r => r.data), enabled: activeTab === 'categories' || activeTab === 'products' });
   const { data: rawPincodes } = useQuery({ queryKey: ['admin-pincodes'], queryFn: () => api.get('/api/admin/delivery').then(r => r.data), enabled: activeTab === 'delivery' });
-  const { data: rawUsers } = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/api/admin/users').then(r => r.data), enabled: activeTab === 'customers' });
+  const { data: rawUsers, isLoading: customersLoading } = useQuery({ 
+    queryKey: ['admin-customers'], 
+    queryFn: () => api.get('/api/admin/customers').then(r => r.data).catch(() => api.get('/api/admin/users').then(r => r.data)), 
+    enabled: activeTab === 'customers' 
+  });
   const { data: rawReviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
   const { data: rawWarehouses, isLoading: warehousesLoading } = useQuery({ queryKey: ['admin-warehouses'], queryFn: () => api.get('/api/admin/warehouses').then(r => r.data), enabled: activeTab === 'warehouses' });
   const { data: rawStaffData, isLoading: staffLoading } = useQuery({ queryKey: ['admin-staff'], queryFn: () => api.get('/api/admin/staff').then(r => r.data), enabled: activeTab === 'staff' });
@@ -784,12 +788,30 @@ export default function AdminDashboardScreen() {
 
         {activeTab === 'customers' && (
           <View style={styles.tabContent}>
-            {users.map((u: any) => (
-              <View key={u.id} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                <Text style={[styles.cardTitle, { color: textColor, fontSize: 16 }]}>{u.name || u.username}</Text>
-                <Text style={{ color: mutedColor }}>Email: {u.email} • Role: {u.role}</Text>
-              </View>
-            ))}
+            <Text style={[styles.cardTitle, { color: textColor, marginBottom: 8 }]}>Registered Customers & Roster ({users.length})</Text>
+            {customersLoading ? (
+              <ActivityIndicator size="small" color="#10b981" style={{ marginVertical: 20 }} />
+            ) : users.length === 0 ? (
+              <Text style={{ color: mutedColor, textAlign: 'center', marginVertical: 20 }}>No customers found in database.</Text>
+            ) : (
+              users.map((u: any) => (
+                <View key={u.id || u.email} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={[styles.cardTitle, { color: textColor, fontSize: 15 }]}>{u.name || u.username || 'Customer'}</Text>
+                    <View style={{ backgroundColor: u.status === 'blocked' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ color: u.status === 'blocked' ? '#ef4444' : '#34d399', fontSize: 11, fontWeight: 'bold' }}>
+                        {u.status === 'blocked' ? '🔴 Blocked' : '🟢 Active'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: mutedColor, fontSize: 12, marginTop: 4 }}>📱 {u.phone || 'No Phone'} • ✉️ {u.email}</Text>
+                  <Text style={{ color: textColor, fontSize: 12, marginTop: 2 }}>📦 Total Orders: {u.totalOrders ?? 0} • 💰 Total Spent: ₹{u.totalSpent ?? 0}</Text>
+                  {u.referralCode && (
+                    <Text style={{ color: '#fbbf24', fontSize: 11, marginTop: 2 }}>🎁 Referral Code: {u.referralCode} ({u.successfulReferrals ?? 0} Referrals)</Text>
+                  )}
+                </View>
+              ))
+            )}
           </View>
         )}
 

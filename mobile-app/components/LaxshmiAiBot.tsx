@@ -15,6 +15,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePathname, router } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { api, resolveImgUrl } from '../lib/api';
 import { useCartStore } from '../lib/cart';
@@ -110,9 +112,23 @@ function getSessionToken(): string {
 }
 
 export function LaxshmiAiBot() {
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const { user } = useAuth();
   const addItemToCart = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
+
+  // Hide Laxshmi AI on Admin screens and Auth screens
+  if (
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/(auth)') ||
+    pathname?.includes('/auth') ||
+    pathname?.includes('/login') ||
+    pathname?.includes('/register') ||
+    pathname?.includes('/forgot-password')
+  ) {
+    return null;
+  }
 
   const [isOpen, setIsOpen] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
@@ -431,8 +447,8 @@ export function LaxshmiAiBot() {
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={() => setIsOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.chatCard}>
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <View style={styles.chatHeader}>
+            {/* ── Header with Safe Area Notch Clearance ─────────────────── */}
+            <View style={[styles.chatHeader, { paddingTop: Math.max(insets.top + 8, 48) }]}>
               <View style={styles.headerTitleRow}>
                 <View style={styles.headerAvatarBox}>
                   <Text style={styles.headerDiyaIcon}>🪔</Text>
@@ -445,6 +461,17 @@ export function LaxshmiAiBot() {
               </View>
 
               <View style={styles.headerActions}>
+                {/* View Tickets Button */}
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={() => {
+                    setIsOpen(false);
+                    router.push('/(tabs)/account');
+                  }}
+                >
+                  <Ionicons name="receipt" size={18} color="#10b981" />
+                </TouchableOpacity>
+
                 {/* Language Switcher */}
                 <TouchableOpacity
                   style={styles.langBtn}

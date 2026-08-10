@@ -19,6 +19,41 @@ export default function AccountScreen() {
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'refund' | 'shipping' | 'contact' | null>(null);
 
+  // Support Tickets State & Query
+  const [showTicketsModal, setShowTicketsModal] = useState(false);
+  const [newTicketConcern, setNewTicketConcern] = useState('');
+  const [raisingTicket, setRaisingTicket] = useState(false);
+
+  const { data: ticketsData, refetch: refetchTickets, isLoading: ticketsLoading } = useQuery<{ tickets: any[] }>({
+    queryKey: ['my-support-tickets', user?.email],
+    queryFn: () => api.get(`/api/support-tickets/my?email=${encodeURIComponent(user?.email || '')}`).then(r => r.data),
+    enabled: !!user && showTicketsModal,
+  });
+  const myTickets = ticketsData?.tickets || [];
+
+  const handleRaiseTicket = async () => {
+    if (!newTicketConcern.trim()) {
+      Alert.alert('Support Ticket', 'Please describe your concern before submitting.');
+      return;
+    }
+    setRaisingTicket(true);
+    try {
+      const res = await api.post('/api/support-tickets', {
+        customerName: user?.name || 'Customer',
+        customerPhone: user?.phone || '',
+        customerEmail: user?.email || '',
+        concern: newTicketConcern.trim(),
+      });
+      setNewTicketConcern('');
+      refetchTickets();
+      Alert.alert('🎫 Ticket Submitted', res.data?.message || 'Support Ticket created successfully! Your Grievance Officer will address your concern shortly.');
+    } catch (err: any) {
+      Alert.alert('Ticket Error', err?.response?.data?.message || 'Could not submit support ticket.');
+    } finally {
+      setRaisingTicket(false);
+    }
+  };
+
   const { data: publicSettings } = useQuery<{
     contact_phone?: string;
     contact_email?: string;
@@ -243,6 +278,11 @@ export default function AccountScreen() {
           <Text style={[styles.menuItemText, { color: textColor }]}>My Orders</Text>
           <Text style={styles.chevron}>→</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setShowTicketsModal(true)}>
+          <Text style={{ fontSize: 20 }}>🎫</Text>
+          <Text style={[styles.menuItemText, { color: textColor }]}>My Support Tickets</Text>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/referrals')}>
           <Text style={{ fontSize: 20 }}>🎁</Text>
           <Text style={[styles.menuItemText, { color: textColor }]}>Refer & Earn Rewards</Text>
@@ -318,6 +358,71 @@ export default function AccountScreen() {
       </TouchableOpacity>
 
       <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v7.0.0 · {email}</Text>
+
+      {/* Support Tickets Modal */}
+      <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: isDark ? '#0b1320' : '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 28, padding: 20, maxHeight: '85%', borderWidth: 1, borderColor: borderCol }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingTop: Math.max(insets.top, 10) }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }}>🎫 My Support Tickets</Text>
+              <TouchableOpacity onPress={() => setShowTicketsModal(false)} style={{ padding: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 12 }}>
+                <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingBottom: 20 }}>
+              {/* Form to Raise Ticket */}
+              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: borderCol }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#10b981', marginBottom: 6 }}>+ Raise New Support Ticket</Text>
+                <TextInput
+                  style={{ backgroundColor: inputBg, color: textColor, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: borderCol, fontSize: 12, height: 70, marginBottom: 10 }}
+                  placeholder="Describe your issue or grievance..."
+                  placeholderTextColor={mutedColor}
+                  multiline
+                  value={newTicketConcern}
+                  onChangeText={setNewTicketConcern}
+                />
+                <TouchableOpacity style={{ backgroundColor: '#10b981', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }} onPress={handleRaiseTicket} disabled={raisingTicket}>
+                  {raisingTicket ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Submit Ticket to Grievance Team</Text>}
+                </TouchableOpacity>
+              </View>
+
+              {/* Tickets List */}
+              <Text style={{ fontSize: 13, fontWeight: '800', color: mutedColor, marginTop: 10 }}>Your Ticket History ({myTickets.length})</Text>
+              {ticketsLoading ? (
+                <ActivityIndicator size="small" color="#10b981" style={{ marginVertical: 16 }} />
+              ) : myTickets.length === 0 ? (
+                <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center', marginVertical: 16 }}>No support tickets raised yet.</Text>
+              ) : (
+                myTickets.map((t: any) => {
+                  const statusColor = t.status === 'resolved' ? '#34d399' : t.status === 'in_progress' ? '#fbbf24' : '#60a5fa';
+                  const statusBg = t.status === 'resolved' ? 'rgba(52, 211, 153, 0.15)' : t.status === 'in_progress' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(96, 165, 250, 0.15)';
+                  return (
+                    <View key={t.id || t.ticketId} style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol, gap: 4 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: textColor }}>{t.ticketId || `TCK-${t.id}`}</Text>
+                        <View style={{ backgroundColor: statusBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                          <Text style={{ color: statusColor, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }}>
+                            {t.status === 'resolved' ? '🟢 Resolved' : t.status === 'in_progress' ? '🟡 In Progress' : '🔵 Open'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ color: textColor, fontSize: 12, marginTop: 4 }}>{t.concern}</Text>
+                      {t.adminNotes && (
+                        <View style={{ backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#ecfdf5', padding: 8, borderRadius: 8, marginTop: 4 }}>
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: 'bold' }}>Resolution Note:</Text>
+                          <Text style={{ color: textColor, fontSize: 11 }}>{t.adminNotes}</Text>
+                        </View>
+                      )}
+                      <Text style={{ color: mutedColor, fontSize: 10, marginTop: 2 }}>Raised: {new Date(t.createdAt).toLocaleDateString()}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Interactive Legal Policy Modal */}
       {activeModal && (
