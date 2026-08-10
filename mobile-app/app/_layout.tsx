@@ -7,6 +7,7 @@ import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
+import { LaxshmiAiBot } from '../components/LaxshmiAiBot';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ function AppContent() {
         <Stack.Screen name="product/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
       </Stack>
+      <LaxshmiAiBot />
     </>
   );
 }
