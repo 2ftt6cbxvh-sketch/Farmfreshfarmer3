@@ -5,6 +5,9 @@ export interface User {
   role: 'customer' | 'admin' | string;
   phone?: string;
   isPrimaryAdmin?: boolean;
+  isSubAdmin?: boolean;
+  permissions?: string[];
+  customTitle?: string;
 }
 
 export interface Product {

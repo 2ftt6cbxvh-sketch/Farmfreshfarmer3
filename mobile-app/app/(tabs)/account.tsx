@@ -219,7 +219,12 @@ export default function AccountScreen() {
     );
   }
 
-  const isAdmin = user.role === 'admin' || user.role === 'manager_admin' || user.isPrimaryAdmin;
+  const isAdmin = 
+    Boolean(user.isPrimaryAdmin) || 
+    Boolean(user.isSubAdmin) || 
+    Boolean(user.role && user.role !== 'customer') ||
+    (user.role ? ['admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin', 'customer_rep', 'local_grievance_officer', 'zonal_grievance_officer', 'chief_grievance_officer', 'delivery_partner', 'staff'].includes(user.role) : false) ||
+    Boolean(Array.isArray(user.permissions) && user.permissions.length > 0);
   const phoneMissing = !user.phone;
 
   return (
