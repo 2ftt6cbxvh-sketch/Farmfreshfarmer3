@@ -30,10 +30,10 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
 
   const { data: ticketData, isLoading: ticketsLoading } = useQuery<{ tickets: SupportTicket[] }>({
-    queryKey: ["/api/support-tickets/my", user?.email],
+    queryKey: ["/api/support-tickets/my", user?.email, user?.id],
     queryFn: async () => {
       if (!user?.email) return { tickets: [] };
-      const res = await fetch(`/api/support-tickets/my?email=${encodeURIComponent(user.email)}`);
+      const res = await fetch(`/api/support-tickets/my?email=${encodeURIComponent(user.email)}&userId=${user?.id || ''}`);
       return res.json();
     },
     enabled: !!user,
@@ -121,7 +121,7 @@ export default function Account() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-extrabold text-foreground flex items-center gap-2">
-              <Ticket className="text-purple-600" /> My Support Tickets ({myTickets.length})
+              <Ticket className="text-purple-600" /> 🎫 My Support Tickets ({myTickets.length})
             </h2>
           </div>
 
@@ -130,10 +130,7 @@ export default function Account() {
           ) : myTickets.length === 0 ? (
             <div className="rounded-2xl border border-card-border bg-card p-6 text-center space-y-2 shadow-sm">
               <Ticket size={32} className="mx-auto text-muted-foreground/40" />
-              <p className="text-xs font-bold text-foreground">No Support Tickets Raised</p>
-              <p className="text-[11px] text-muted-foreground">
-                Need help with an order or product? You can easily raise a ticket anytime through Laxshmi Chatbot!
-              </p>
+              <p className="text-xs font-bold text-foreground">No support tickets yet. Need help? Ask Laxshmi AI to raise a ticket!</p>
             </div>
           ) : (
             <div className="space-y-3">

@@ -490,9 +490,16 @@ export function ChatbotLaxshmi() {
               {
                 id: `t_done_${Date.now()}`,
                 role: "model",
-                content: `✅ Support Ticket registered successfully!\n\nTicket ID: ${data?.ticket?.ticketId || 'TICK-NEW'}\nStatus: Open\n\nOur team and grievance officers have been notified via Telegram. You can view your live ticket status in your Account profile anytime!`,
+                content: `✅ Your support ticket has been raised successfully!\n\n📋 Your Ticket ID: ${data?.ticket?.ticketId || 'TICK-NEW'}\n\n⚠️ Please save this Ticket ID — you will need it to track your complaint status.\n\n📍 You can view your ticket status anytime by visiting your Account page (click the account icon at the top right).\n\nOur support team has been notified and will respond within 48 hours. Thank you for reaching out! 🙏`,
                 timestamp: new Date(),
               },
+              {
+                id: (Date.now() + 1).toString(),
+                role: 'model' as const,
+                content: 'Click below to view your ticket status:',
+                timestamp: new Date(),
+                action: 'view_tickets',
+              }
             ]);
           }, 300);
         } catch (e) {
@@ -609,6 +616,13 @@ export function ChatbotLaxshmi() {
                 </div>
               )}
             </div>
+            <a
+              href="/account"
+              title="View My Tickets"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all"
+            >
+              <Ticket size={14} />
+            </a>
             <button id="chatbot-close-btn" onClick={() => { setIsOpen(false); stopSpeaking(); }}
               className="text-white/80 hover:text-white transition ml-1" aria-label="Close chatbot">
               <X size={18} />
@@ -761,6 +775,16 @@ export function ChatbotLaxshmi() {
                       className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
                       <ExternalLink size={12} /> {strings.viewProduct}
                     </button>
+                  )}
+                  {msg.action === 'view_tickets' && (
+                    <a
+                      href="/account"
+                      className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 w-fit"
+                      style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}
+                    >
+                      <Ticket size={14} />
+                      View My Tickets
+                    </a>
                   )}
                   {msg.requiresLocation && (
                     <button
