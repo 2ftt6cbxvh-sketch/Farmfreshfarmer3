@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const APP_VERSION = 'v7.9.1';
+export const APP_VERSION = 'v8.0.0';
 
 export function AppVersionPill() {
   const insets = useSafeAreaInsets();

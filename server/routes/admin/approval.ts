@@ -71,10 +71,8 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
       .where(or(eq(products.approvalStatus, "pending"), eq(products.approvalStatus, "under_review")))
       .orderBy(desc(products.createdAt));
     const result = await Promise.all(rows.map(async (p) => ({
-      id: p.id, name: p.name, image: p.image, price: p.price,
-      categorySlug: p.categorySlug, approvalStatus: p.approvalStatus,
-      submittedBy: p.submittedBy, approvalNote: p.approvalNote,
-      createdAt: p.createdAt, submitterName: await resolveSubmitterName(p.submittedBy),
+      ...p,
+      submitterName: await resolveSubmitterName(p.submittedBy),
     })));
     return res.json(result);
   }));
@@ -84,9 +82,7 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
       .where(or(eq(categories.approvalStatus, "pending"), eq(categories.approvalStatus, "under_review")))
       .orderBy(desc(categories.createdAt));
     const result = await Promise.all(rows.map(async (c) => ({
-      id: c.id, name: c.name, slug: c.slug,
-      approvalStatus: c.approvalStatus, submittedBy: c.submittedBy,
-      approvalNote: c.approvalNote, createdAt: c.createdAt,
+      ...c,
       submitterName: await resolveSubmitterName(c.submittedBy),
     })));
     return res.json(result);
@@ -98,17 +94,38 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
     const idRaw = req.params.id;
     const id = parseInt(Array.isArray(idRaw) ? idRaw[0] : idRaw, 10);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid product id" });
-    const { action, note } = req.body as { action?: ApprovalAction; note?: string };
+    const { action, note, editFields } = req.body as { action?: ApprovalAction; note?: string; editFields?: any };
     const VALID: ApprovalAction[] = ["approved", "rejected", "under_review"];
     if (!action || !VALID.includes(action)) return res.status(400).json({ message: `'action' must be one of: ${VALID.join(", ")}` });
     const [existing] = await db.select().from(products).where(eq(products.id, id));
     if (!existing) return res.status(404).json({ message: "Product not found" });
-    const patch: Record<string, any> = { approvalStatus: action, approvalNote: note ?? null, updatedAt: new Date() };
+
+    const patch: Record<string, any> = {
+      approvalStatus: action,
+      approvalNote: note ?? null,
+      updatedAt: new Date(),
+    };
+    if (editFields && typeof editFields === "object") {
+      if (editFields.name != null) patch.name = String(editFields.name).trim();
+      if (editFields.description != null) patch.description = String(editFields.description).trim();
+      if (editFields.categorySlug != null) patch.categorySlug = String(editFields.categorySlug).trim();
+      if (editFields.price != null) patch.price = String(editFields.price);
+      if (editFields.discountPercent != null) patch.discountPercent = String(editFields.discountPercent);
+      if (editFields.unit != null) patch.unit = String(editFields.unit).trim();
+      if (editFields.image != null) patch.image = String(editFields.image).trim();
+      if (editFields.stock != null) patch.stock = Number(editFields.stock) || 0;
+      if (editFields.dietTag != null) patch.dietTag = editFields.dietTag;
+      if (editFields.featured != null) patch.featured = Boolean(editFields.featured);
+      if (editFields.featuredInHero != null) patch.featuredInHero = Boolean(editFields.featuredInHero);
+      if (editFields.allowInternationalShipping != null) patch.allowInternationalShipping = Boolean(editFields.allowInternationalShipping);
+    }
+
     if (action === "approved") patch.active = true;
     if (action === "rejected") patch.active = false;
+
     const [updated] = await db.update(products).set(patch).where(eq(products.id, id)).returning();
     await db.insert(productApprovalHistory).values({
-      entityType: "product", entityId: id, entityName: existing.name ?? "",
+      entityType: "product", entityId: id, entityName: updated.name ?? existing.name ?? "",
       action, fromStatus: existing.approvalStatus ?? null, toStatus: action,
       adminUserId: req.session.userId ?? null, submittedByUserId: existing.submittedBy ?? null, note: note ?? null,
     });

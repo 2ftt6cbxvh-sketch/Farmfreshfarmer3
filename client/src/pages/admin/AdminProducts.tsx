@@ -1,16 +1,18 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Search, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
 import type { Product, Category } from "@/lib/types";
+import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -42,6 +44,7 @@ const EMPTY: Form = {
 };
 
 export default function AdminProducts() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Form>(EMPTY);
@@ -49,9 +52,15 @@ export default function AdminProducts() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  const isPrimaryAdmin =
+    user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    user?.isPrimaryAdmin === true ||
+    (user?.role === "admin" && (user?.id === 1 || user?.id === 0));
+
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products", "all"],
-    queryFn: () => apiGet<Product[]>("/api/products"),
+    queryFn: () => apiGet<Product[]>("/api/products?includeInactive=1"),
+    refetchInterval: 5000,
   });
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
 
@@ -79,18 +88,29 @@ export default function AdminProducts() {
         featuredInHero: form.featuredInHero,
         allowInternationalShipping: form.allowInternationalShipping,
       };
+      let res: any;
       if (form.id) {
-        await apiRequest("PATCH", `/api/products/${form.id}`, payload);
+        res = await apiRequest("PATCH", `/api/products/${form.id}`, payload);
       } else {
-        await apiRequest("POST", "/api/products", payload);
+        res = await apiRequest("POST", "/api/products", payload);
       }
+      return res?.json ? await res.json() : res;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
       setOpen(false);
       setForm(EMPTY);
-      toast({ title: form.id ? "Product updated 🎉" : "Product added 🎉" });
+
+      if (isPrimaryAdmin) {
+        toast({ title: form.id ? "Product updated & live 🚀" : "Product published live 🚀" });
+      } else {
+        toast({
+          title: "Sent for Approval 📤",
+          description: data?.message || "Product change submitted to Master Admin for review.",
+        });
+      }
     },
     onError: (err: any) => {
       toast({ title: err?.message || "Could not save product", variant: "destructive" });
@@ -135,7 +155,6 @@ export default function AdminProducts() {
       throw new Error("Upload server error");
     } catch (err) {
       console.warn("Server upload failed, converting image client-side:", err);
-      // Instant client-side FileReader Base64 fallback if server upload encounters network issues
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
@@ -177,8 +196,19 @@ export default function AdminProducts() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search products…" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="input-filter" />
         </div>
-        <Button onClick={openAdd} data-testid="button-add-product"><Plus size={16} className="mr-1" /> Add product</Button>
+        <Button onClick={openAdd} data-testid="button-add-product">
+          <Plus size={16} className="mr-1" /> Add product
+        </Button>
       </div>
+
+      {!isPrimaryAdmin && (
+        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-2">
+          <Clock size={16} className="text-amber-500 shrink-0" />
+          <span>
+            <strong>Sub-Admin Moderation Notice:</strong> All product additions, edits, prices, stock changes, and images require Master Admin approval. Clicking <strong>Submit for Approval</strong> will queue your changes for review.
+          </span>
+        </div>
+      )}
 
       {isLoading ? (
         <Skeleton className="h-64 rounded-xl" />
@@ -192,35 +222,54 @@ export default function AdminProducts() {
                 <th className="p-3 font-semibold">Price</th>
                 <th className="p-3 font-semibold">Disc.</th>
                 <th className="p-3 font-semibold">Stock</th>
+                <th className="p-3 font-semibold">Approval Status</th>
                 <th className="p-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} className="border-t border-card-border" data-testid={`row-product-${p.id}`}>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-9 w-9 rounded bg-secondary overflow-hidden shrink-0">
-                        {p.image ? <img src={imgUrl(p.image)} alt="" className="h-full w-full object-cover" /> : null}
+              {filtered.map((p) => {
+                const status = (p as any).approvalStatus || "approved";
+                return (
+                  <tr key={p.id} className="border-t border-card-border" data-testid={`row-product-${p.id}`}>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="h-9 w-9 rounded bg-secondary overflow-hidden shrink-0">
+                          {p.image ? <img src={imgUrl(p.image)} alt="" className="h-full w-full object-cover" /> : null}
+                        </div>
+                        <span className="font-medium">{p.name}</span>
+                        {p.featured ? <span className="text-[10px] bg-accent/30 rounded px-1">Featured</span> : null}
                       </div>
-                      <span className="font-medium">{p.name}</span>
-                      {p.featured ? <span className="text-[10px] bg-accent/30 rounded px-1">Featured</span> : null}
-                    </div>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{p.categorySlug}</td>
-                  <td className="p-3">{formatINR(Number(p.price))}</td>
-                  <td className="p-3">{Number(p.discountPercent) ? `${Number(p.discountPercent)}%` : "—"}</td>
-                  <td className="p-3">{p.stock}</td>
-                  <td className="p-3">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} data-testid={`button-edit-${p.id}`}><Pencil size={15} /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) del.mutate(p.id); }} data-testid={`button-delete-${p.id}`}><Trash2 size={15} /></Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-3 text-muted-foreground">{p.categorySlug}</td>
+                    <td className="p-3">{formatINR(Number(p.price))}</td>
+                    <td className="p-3">{Number(p.discountPercent) ? `${Number(p.discountPercent)}%` : "—"}</td>
+                    <td className="p-3">{p.stock}</td>
+                    <td className="p-3">
+                      {status === "approved" ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-extrabold gap-1">
+                          <CheckCircle2 size={12} /> Live Storefront
+                        </Badge>
+                      ) : status === "pending" || status === "under_review" ? (
+                        <Badge variant="outline" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[11px] font-extrabold animate-pulse gap-1">
+                          <Clock size={12} /> Sent for Approval ⏳
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="text-[11px] font-extrabold gap-1">
+                          <AlertCircle size={12} /> Rejected
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)} data-testid={`button-edit-${p.id}`}><Pencil size={15} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) del.mutate(p.id); }} data-testid={`button-delete-${p.id}`}><Trash2 size={15} /></Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No products. Click "Add product" to create one.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No products. Click "Add product" to create one.</td></tr>
               )}
             </tbody>
           </table>
@@ -316,8 +365,15 @@ export default function AdminProducts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending || !form.name || !form.categorySlug || !form.price} data-testid="button-save-product">
-              {save.isPending ? "Saving…" : "Save"}
+            <Button
+              onClick={() => save.mutate()}
+              disabled={save.isPending || !form.name || !form.categorySlug || !form.price}
+              className={isPrimaryAdmin ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold" : "bg-amber-600 hover:bg-amber-700 text-white font-bold"}
+              data-testid="button-save-product"
+            >
+              {save.isPending
+                ? (isPrimaryAdmin ? "Publishing…" : "Submitting…")
+                : (isPrimaryAdmin ? "Save & Publish Live 🚀" : "Submit for Approval 📤")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -434,12 +434,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.categories.list());
   }));
 
+async function isPrimaryAdminUser(req: Request): Promise<boolean> {
+  const uid = req.session?.userId;
+  if (!uid) return false;
+  const [u] = await db.select().from(users).where(eq(users.id, uid));
+  if (!u) return false;
+  return Boolean(u.isPrimaryAdmin) || u.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (u.role === "admin" && (u.id === 1 || u.id === 0));
+}
+
   /* ============================ PRODUCTS =========================== */
   app.get("/api/products", h(async (req, res) => {
     const category = req.query.category ? String(req.query.category) : undefined;
     const q = req.query.q ? String(req.query.q) : undefined;
     const featured = req.query.featured === "1";
-    res.json(await storage.products.list({ category, q, featured }));
+    const includeInactive = req.query.includeInactive === "1" || req.query.all === "1" || Boolean(req.session?.userId) || Boolean(req.headers.authorization);
+    res.json(await storage.products.list({ category, q, featured, includeInactive }));
   }));
 
   app.get("/api/products/:id", h(async (req, res) => {
@@ -456,7 +465,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const field = issue?.path.join(".") || "field";
       return res.status(400).json({ message: `Invalid product data: '${field}' ${issue?.message || "is invalid"}` });
     }
-    res.json(await storage.products.create(parsed.data));
+    const isPrimary = await isPrimaryAdminUser(req);
+    const productData: any = {
+      ...parsed.data,
+      submittedBy: req.session?.userId ?? null,
+      approvalStatus: isPrimary ? "approved" : "pending",
+      active: isPrimary ? true : false,
+    };
+    const created = await storage.products.create(productData);
+
+    if (!isPrimary) {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product",
+        entityId: created.id,
+        entityName: created.name ?? "",
+        action: "submitted",
+        fromStatus: null,
+        toStatus: "pending",
+        adminUserId: null,
+        submittedByUserId: req.session?.userId ?? null,
+        note: "Product created by sub-admin, queued for Master Admin approval.",
+      });
+      return res.json({
+        ...created,
+        isPendingApproval: true,
+        message: "Submitted for Master Admin Approval! 📤 It will go live once approved.",
+      });
+    }
+
+    res.json(created);
   }));
 
   app.patch("/api/products/:id", requireAdmin, h(async (req, res) => {
@@ -467,8 +504,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const field = issue?.path.join(".") || "field";
       return res.status(400).json({ message: `Invalid product data: '${field}' ${issue?.message || "is invalid"}` });
     }
-    const updated = await storage.products.update(Number(req.params.id), parsed.data);
+    const isPrimary = await isPrimaryAdminUser(req);
+    const updateData: any = { ...parsed.data };
+
+    if (!isPrimary) {
+      updateData.approvalStatus = "pending";
+      updateData.active = false; // Hide from public storefront until Master Admin approves!
+      updateData.submittedBy = req.session?.userId ?? null;
+      updateData.approvalNote = "Pending Master Admin re-approval for sub-admin edits.";
+    }
+
+    const updated = await storage.products.update(Number(req.params.id), updateData);
     if (!updated) return res.status(404).json({ message: "Not found" });
+
+    if (!isPrimary) {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product",
+        entityId: updated.id,
+        entityName: updated.name ?? "",
+        action: "submitted_edit",
+        fromStatus: "approved",
+        toStatus: "pending",
+        adminUserId: null,
+        submittedByUserId: req.session?.userId ?? null,
+        note: "Product edits submitted by sub-admin, queued for Master Admin approval.",
+      });
+      return res.json({
+        ...updated,
+        isPendingApproval: true,
+        message: "Product modifications submitted for Master Admin Approval! 📤",
+      });
+    }
+
     res.json(updated);
   }));
 

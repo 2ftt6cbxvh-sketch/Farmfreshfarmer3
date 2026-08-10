@@ -118,7 +118,10 @@ export const categoryStore = {
 export const productStore = {
   async list(opts?: { category?: string; q?: string; featured?: boolean; includeInactive?: boolean }) {
     const conds = [];
-    if (!opts?.includeInactive) conds.push(eq(products.active, true));
+    if (!opts?.includeInactive) {
+      conds.push(eq(products.active, true));
+      conds.push(eq(products.approvalStatus, "approved"));
+    }
     if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
     if (opts?.featured) conds.push(eq(products.featured, true));
     if (opts?.q) conds.push(ilike(products.name, `%${opts.q}%`));
