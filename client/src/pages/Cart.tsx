@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -299,10 +299,41 @@ export default function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
 
+  const { data: allPlans = [] } = useQuery<any[]>({
+    queryKey: ["/api/plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/plans");
+      return res.json();
+    },
+  });
+
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
+
+  // Calculate subscription plan bundle discount / savings across cart items
+  const planSavingsInfo = items.map((cartItem) => {
+    const matchingPlan = (allPlans || []).find((p: any) =>
+      p.name?.toLowerCase() === cartItem.name?.toLowerCase() ||
+      cartItem.name?.toLowerCase().includes(p.name?.toLowerCase()) ||
+      p.productId === cartItem.productId
+    );
+    if (!matchingPlan) return null;
+    const storeVal = matchingPlan.items?.reduce((sum: number, it: any) => sum + (Number(it.productPrice) || 0) * it.qty, 0) || 0;
+    const planP = Number(matchingPlan.price) || 0;
+    const savings = Math.max(0, storeVal - planP);
+    return {
+      planName: matchingPlan.name,
+      storeValue: storeVal * cartItem.qty,
+      planPrice: planP * cartItem.qty,
+      savings: savings * cartItem.qty,
+    };
+  }).filter(Boolean);
+
+  const totalBundleSavings = planSavingsInfo.reduce((sum, s) => sum + (s?.savings || 0), 0);
+  const totalStoreValue = planSavingsInfo.reduce((sum, s) => sum + (s?.storeValue || 0), 0);
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
+  const totalOrderSavings = displayDiscount + totalBundleSavings;
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
   const isFreeDelivery = subtotal >= freeDeliveryThreshold;
 
@@ -632,18 +663,47 @@ export default function Cart() {
                   </dd>
                 </div>
 
+                {/* Bundle Savings & Discounts in Order Summary */}
+                {totalBundleSavings > 0 && (
+                  <div className="flex justify-between items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-0.5" data-testid="text-plan-bundle-savings">
+                    <dt className="truncate flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-500 shrink-0" />
+                      Plan Bundle Savings (vs Store MRP)
+                    </dt>
+                    <dd className="font-mono font-black shrink-0">−{formatINR(totalBundleSavings)}</dd>
+                  </div>
+                )}
+
                 {quote ? (
                   quote.breakdown.map((line, idx) => (
-                    <div key={idx} className="flex justify-between items-center gap-2 text-primary" data-testid={`breakdown-line-${idx}`}>
-                      <dt className="truncate">{line.label}</dt><dd className="font-mono shrink-0">−{formatINR(Number(line.amount))}</dd>
+                    <div key={idx} className="flex justify-between items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-0.5" data-testid={`breakdown-line-${idx}`}>
+                      <dt className="truncate flex items-center gap-1.5">
+                        <Tag size={13} className="text-emerald-500 shrink-0" />
+                        {line.label}
+                      </dt>
+                      <dd className="font-mono font-black shrink-0">−{formatINR(Number(line.amount))}</dd>
                     </div>
                   ))
                 ) : (
                   coupon && (
-                    <div className="flex justify-between items-center gap-2 text-primary">
-                      <dt className="truncate">Coupon ({coupon.code})</dt><dd data-testid="text-discount" className="font-mono shrink-0">−{formatINR(displayDiscount)}</dd>
+                    <div className="flex justify-between items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-0.5">
+                      <dt className="truncate flex items-center gap-1.5">
+                        <Tag size={13} className="text-emerald-500 shrink-0" />
+                        Coupon ({coupon.code})
+                      </dt>
+                      <dd data-testid="text-discount" className="font-mono font-black shrink-0">−{formatINR(displayDiscount)}</dd>
                     </div>
                   )
+                )}
+
+                {/* Total Savings Highlight Banner */}
+                {totalOrderSavings > 0 && (
+                  <div className="bg-gradient-to-r from-emerald-500/15 via-emerald-500/20 to-teal-500/15 border border-emerald-500/30 rounded-xl p-2.5 my-1.5 text-center shadow-xs">
+                    <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5">
+                      <Sparkles size={14} className="text-emerald-500 animate-bounce" />
+                      Total Discount &amp; Savings: {formatINR(totalOrderSavings)}
+                    </p>
+                  </div>
                 )}
 
                 {isInternationalDelivery ? (

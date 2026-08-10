@@ -775,13 +775,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         stock: 9999,
         active: plan.active ?? true,
         featured: false,
+        gstPercent: "0",
       }).returning();
       prod = inserted;
     } else {
-      if (Number(prod.price) !== Number(plan.price) || prod.active !== plan.active) {
+      if (Number(prod.price) !== Number(plan.price) || prod.active !== plan.active || prod.gstPercent !== "0") {
         const [updated] = await db.update(products).set({
           price: String(plan.price),
           active: plan.active ?? true,
+          gstPercent: "0",
         }).where(eq(products.id, prod.id)).returning();
         prod = updated;
       }
