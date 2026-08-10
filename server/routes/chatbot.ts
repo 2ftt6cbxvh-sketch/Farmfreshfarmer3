@@ -867,7 +867,7 @@ function resolveCartQty(
             userId = (req.session as any).userId;
           } else {
             const authHeader = req.headers.authorization;
-            const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+            const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || sessionToken);
             if (token) {
               try {
                 const jwt = (await import("jsonwebtoken")).default;
