@@ -95,6 +95,8 @@ export const SETTINGS_SEED: { key: string; value: string }[] = [
   { key: "subscription_delivery_days", value: "both" }, // saturday | sunday | both
   { key: "store_name", value: "FarmFreshFarmer" },
   { key: "store_city", value: "Visakhapatnam" },
+  { key: "store_state", value: "Andhra Pradesh" },
+  { key: "governing_court_city", value: "Visakhapatnam" },
 ];
 
 export const SAMPLE_COUPON = { code: "FRESH10", discountPercent: 10, minOrder: 0 };

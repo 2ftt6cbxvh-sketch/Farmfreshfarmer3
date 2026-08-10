@@ -723,7 +723,10 @@ const DELIVERY_KEYS = [
   { key: "flat_delivery_free_above", label: "Standard delivery free above (₹, 0 = never)", type: "amount" as const },
 ];
 const STORE_KEYS = [
-  { key: "store_name", label: "Store name", type: "text" as const },
+  { key: "store_name", label: "Store Name / Brand Title", type: "text" as const },
+  { key: "store_city", label: "Primary Operating City (e.g. Visakhapatnam / Vijayawada)", type: "text" as const },
+  { key: "store_state", label: "Operating State Jurisdiction (e.g. Andhra Pradesh)", type: "text" as const },
+  { key: "governing_court_city", label: "Governing Law Court Jurisdiction City (e.g. Visakhapatnam)", type: "text" as const },
 ];
 const PAYMENT_KEYS = [
   { key: "cod_enabled", label: "Allow Cash on Delivery at checkout", type: "bool" as const },
@@ -1681,9 +1684,23 @@ export default function AdminSettings() {
           </div>
         )}
 
-        {/* ── TAB 2: 📜 LEGAL, CONTACT & SUPPORT ───────────────────────── */}
+        {/* ── TAB 2: 📜 LEGAL, STORE IDENTITY & CONTACT ───────────────────────── */}
         {activeCategory === "legal" && (
           <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                <Store size={16} /> 🏢 Platform Identity, City & Jurisdiction Settings
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure your store name, primary operating city, operating state, and governing court jurisdiction city. These settings map dynamically across all Legal Policy pages, Grievance pages, and Mobile App screens!
+              </p>
+              <div className="divide-y divide-card-border">
+                {STORE_KEYS.map((f) => (
+                  <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
                 <MapPin size={16} /> Customer Support & Operational Hub Contact Info

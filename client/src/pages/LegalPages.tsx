@@ -40,6 +40,8 @@ interface PublicSettings {
   operating_hours?: string;
   store_name?: string;
   store_city?: string;
+  store_state?: string;
+  governing_court_city?: string;
   grievance_officer_name?: string;
   grievance_officer_email?: string;
   grievance_officer_phone?: string;
@@ -64,7 +66,9 @@ function PolicyShell({ title, children }: { title: string; children: React.React
   const business = publicSettings?.store_name || "FarmFreshFarmer";
   const phone = publicSettings?.contact_phone || "+91 79897 93669";
   const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
-  const address = publicSettings?.contact_address || "Vijayawada, Andhra Pradesh";
+  const city = publicSettings?.store_city || "Visakhapatnam";
+  const state = publicSettings?.store_state || "Andhra Pradesh";
+  const address = publicSettings?.contact_address || `${city}, ${state}`;
   const hours = publicSettings?.operating_hours || "6:00 AM – 10:00 PM IST";
 
   return (
@@ -107,7 +111,9 @@ export function TermsPage() {
   });
 
   const business = publicSettings?.store_name || "FarmFreshFarmer";
-  const city = publicSettings?.store_city || "Vijayawada";
+  const city = publicSettings?.store_city || "Visakhapatnam";
+  const state = publicSettings?.store_state || "Andhra Pradesh";
+  const governingCourtCity = publicSettings?.governing_court_city || city;
 
   return (
     <PolicyShell title="Terms & Conditions">
@@ -117,7 +123,7 @@ export function TermsPage() {
 
       <H2>1. About Us</H2>
       <p>
-        {business} is a farm-fresh instant-delivery platform in {city}, Andhra Pradesh. We sell fresh fruits, vegetables, homemade sweets, namkeen, spices, and related items.
+        {business} is a farm-fresh instant-delivery platform in {city}, {state}. We sell fresh fruits, vegetables, homemade sweets, namkeen, spices, and related items.
       </p>
 
       <H2>2. Eligibility & Accounts</H2>
@@ -177,7 +183,7 @@ export function TermsPage() {
 
       <H2>13. Governing Law & Grievance Redressal</H2>
       <p>
-        Governed by Indian law. Disputes subject to courts in {city}, Andhra Pradesh. For grievances see our Grievance Redressal page.
+        Governed by Indian law. Disputes subject to courts in {governingCourtCity}, {state}. For grievances see our Grievance Redressal page.
       </p>
 
       <H2>14. Changes to Terms</H2>
