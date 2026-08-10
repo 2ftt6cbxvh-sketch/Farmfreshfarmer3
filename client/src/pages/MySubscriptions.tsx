@@ -152,48 +152,33 @@ export default function MySubscriptions() {
     return { storeValue, savings, savingsPct };
   }
 
-  const subscribe = useMutation({
-    mutationFn: async () => {
-      if (!subscribePlan) throw new Error("No plan selected");
-      const payload = {
-        planId: subscribePlan.id,
-        deliveryDays,
-        address: address.trim(),
-        phone: phone.trim(),
-      };
-      const res = await apiRequest("POST", "/api/subscriptions", payload);
-      return res.json();
-    },
-    onSuccess: () => {
-      invalidateMine();
-      setSubscribeOpen(false);
+  function handleConfirmAddToCart() {
+    if (!subscribePlan) return;
 
-      // Add subscription bundle as 1 single item to cart with the plan price
-      if (subscribePlan) {
-        const planProduct = subscribePlan.product || {
-          id: subscribePlan.productId || subscribePlan.id,
-          name: subscribePlan.name,
-          unit: "1 Weekly Box",
-          price: String(subscribePlan.price),
-          image: subscribePlan.image || "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60",
-          discountPercent: "0",
-          stock: 9999,
-          allowInternationalShipping: false,
-          categorySlug: "vegetables",
-        };
-        addToCart(planProduct as any, 1);
-        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      }
+    const dayLabel = deliveryDays === "both" ? "Sat & Sun" : deliveryDays === "saturday" ? "Saturday" : "Sunday";
+    const planProduct = subscribePlan.product || {
+      id: subscribePlan.productId || subscribePlan.id,
+      name: subscribePlan.name,
+      unit: `1 Weekly Box (${dayLabel})`,
+      price: String(subscribePlan.price),
+      image: subscribePlan.image || "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60",
+      discountPercent: "0",
+      stock: 9999,
+      allowInternationalShipping: false,
+      categorySlug: "vegetables",
+    };
 
-      toast({
-        title: "Subscribed! 🎉",
-        description: "Your weekly subscription box has been added to cart. Complete checkout to confirm your delivery schedule!",
-      });
+    addToCart(planProduct as any, 1);
+    queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
 
-      navigate("/cart");
-    },
-    onError: () => toast({ title: "Could not subscribe", description: "Please try again.", variant: "destructive" }),
-  });
+    setSubscribeOpen(false);
+    toast({
+      title: "Added to Cart! 🛒",
+      description: `Your ${subscribePlan.name} has been added to cart. Complete checkout to activate your subscription!`,
+    });
+
+    navigate("/cart");
+  }
 
   function useLifecycleAction(action: "pause" | "resume" | "skip" | "cancel" | "reactivate", label: string) {
     return useMutation({
@@ -598,13 +583,12 @@ export default function MySubscriptions() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSubscribeOpen(false)}>Cancel</Button>
             <Button
-              onClick={() => subscribe.mutate()}
-              disabled={subscribe.isPending || !address.trim() || !phone.trim()}
+              onClick={handleConfirmAddToCart}
               className="flex-1"
               style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}
               data-testid="button-confirm-subscribe"
             >
-              {subscribe.isPending ? "Setting up…" : "✓ Confirm & Add to Cart"}
+              ✓ Confirm & Add to Cart
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -29,6 +29,7 @@ import { eq } from "drizzle-orm";
 import { ensureSeeded } from "./seed-runner";
 import {
   insertProductSchema, insertCouponSchema, insertReviewSchema, users,
+  products, orders, subscriptionPlans, userSubscriptions, subscriptionPlanItems,
 } from "@shared/schema";
 import { z } from "zod";
 import { computePrice, parseDeliveryRules, type CartLine } from "./engine/pricing";
@@ -649,6 +650,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       paymentMethod,
       city: req.body.city ?? null,
     });
+
+    // If order contains a subscription plan item, activate user subscription
+    if (userId) {
+      try {
+        const activePlans = await storage.plans.list();
+        for (const item of items) {
+          const matchingPlan = activePlans.find((pl: any) =>
+            pl.name.toLowerCase() === (item.name || '').toLowerCase() ||
+            (item.name || '').toLowerCase().includes(pl.name.toLowerCase())
+          );
+          if (matchingPlan) {
+            const planItems = await storage.plans.items(matchingPlan.id);
+            let deliveryDays = matchingPlan.deliveryDays || "both";
+            const unitLower = (item.unit || '').toLowerCase();
+            if (unitLower.includes('saturday') && !unitLower.includes('both')) deliveryDays = 'saturday';
+            else if (unitLower.includes('sunday') && !unitLower.includes('both')) deliveryDays = 'sunday';
+
+            const sub = await storage.subscriptions.create({
+              userId,
+              planId: matchingPlan.id,
+              status: "active",
+              deliveryDays,
+              phone: String(req.body.phone || ""),
+              deliveryAddress: String(req.body.address || ""),
+              weeklyPrice: Number(matchingPlan.price),
+            });
+            if (planItems.length) {
+              await storage.subscriptions.setItems(sub.id, planItems.map(pi => ({ productId: pi.productId, qty: pi.qty })));
+            }
+            await db.update(orders).set({ orderType: "subscription", subscriptionId: sub.id, deliveryDay: deliveryDays }).where(eq(orders.id, order.id));
+            break;
+          }
+        }
+      } catch (subErr) {
+        console.error('[orders] Failed to activate subscription from order:', subErr);
+      }
+    }
 
     // For PhonePe, initiate payment and return the redirect URL.
     if (paymentMethod === "PHONEPE") {
