@@ -99,7 +99,7 @@ function getSessionToken(): string {
 export function ChatbotLaxshmi() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const { add, items } = useCart();
+  const { add, items, subtotal } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -201,12 +201,42 @@ export function ChatbotLaxshmi() {
         /what.*in.*my.*cart|show.*my.*cart|cart.*detail/i.test(lower);
       
       if (isCartView) {
-        // Call dedicated cart view endpoint with auth token
-        const authTok = (user as any)?.sessionToken || (user as any)?.token || (user as any)?.accessToken || '';
-        const cartRes = await fetch('/api/chatbot/cart-view', {
-          headers: authTok ? { 'Authorization': `Bearer ${authTok}` } : {},
-        });
-        return cartRes.json();
+        // 1. If user has active items in cart context, format and return immediately!
+        if (items && items.length > 0) {
+          const lines = items.map((it, idx) => `${idx + 1}. ${it.name} (${it.unit}) — ${it.qty} × ₹${Number(it.price).toFixed(0)} = ₹${(it.qty * Number(it.price)).toFixed(0)}`);
+          const sub = subtotal || items.reduce((s, i) => s + i.qty * Number(i.price), 0);
+          const del = sub >= 499 ? 0 : 30;
+          return {
+            reply: `🛒 Here is what is in your cart (${items.length} item${items.length > 1 ? 's' : ''}):\n\n` +
+              lines.join('\n') +
+              `\n\n💰 Subtotal: ₹${sub.toFixed(0)}\n` +
+              `🚚 Delivery: ${del === 0 ? 'FREE' : '₹' + del}\n` +
+              `✅ Grand Total: ₹${(sub + del).toFixed(0)}`,
+            needsHuman: false,
+          };
+        }
+
+        // 2. Otherwise query backend cart-view with user token & id
+        const token = localStorage.getItem("accessToken") || localStorage.getItem("token") || "";
+        const queryParams = new URLSearchParams();
+        if (user?.id) queryParams.set("userId", String(user.id));
+        if (token) queryParams.set("token", token);
+
+        try {
+          const cartRes = await fetch(`/api/chatbot/cart-view?${queryParams.toString()}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            credentials: "include",
+          });
+          const data = await cartRes.json();
+          if (data && data.reply && !data.requiresLogin) {
+            return data;
+          }
+        } catch (e) {}
+
+        return {
+          reply: `Your cart is currently empty! 🛒 Browse our fresh organic products and add your favorites.`,
+          needsHuman: false,
+        };
       }
 
       const r = await fetch("/api/chatbot/message", {

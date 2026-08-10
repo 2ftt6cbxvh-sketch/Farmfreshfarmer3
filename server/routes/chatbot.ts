@@ -55,9 +55,14 @@ export function registerChatbotRoutes(app: Express, storage: any) {
     try {
       // Resolve userId
       let userId: number | null = null;
-      if ((req.session as any)?.userId) {
+      if (req.query.userId) {
+        const parsed = parseInt(req.query.userId as string, 10);
+        if (!isNaN(parsed) && parsed > 0) userId = parsed;
+      }
+      if (!userId && (req.session as any)?.userId) {
         userId = (req.session as any).userId;
-      } else {
+      }
+      if (!userId) {
         const authHeader = req.headers.authorization;
         const token = authHeader?.startsWith('Bearer ') 
           ? authHeader.substring(7) 
