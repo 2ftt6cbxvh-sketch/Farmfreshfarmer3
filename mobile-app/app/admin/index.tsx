@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS } from '../../constants/config';
 
@@ -43,6 +44,7 @@ const ALL_MENU_PERMISSIONS = [
 ];
 
 export default function AdminDashboardScreen() {
+  const { user } = useAuth();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
@@ -52,6 +54,23 @@ export default function AdminDashboardScreen() {
   const textColor = isDark ? '#f8fafc' : COLORS.text;
   const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
+
+  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com');
+  const userPerms = Array.isArray(user?.permissions) ? user.permissions : [];
+
+  const tabPermissionMap: Record<string, string> = {
+    dashboard: '/admin',
+    warehouses: '/admin/warehouses',
+    products: '/admin/products',
+    categories: '/admin/categories',
+    inventory: '/admin/inventory',
+    orders: '/admin/orders',
+    delivery: '/admin/delivery',
+    staff: '/admin/staff',
+    customers: '/admin/customers',
+    reviews: '/admin/reviews',
+    settings: '/admin/settings',
+  };
 
   const tabs = [
     { id: 'dashboard', label: '📊 Dashboard' },
@@ -67,7 +86,21 @@ export default function AdminDashboardScreen() {
     { id: 'settings', label: '⚙️ Settings' }
   ];
 
-  const [activeTab, setActiveTab] = useState(tabs[0].id);
+  // Filter tabs for Sub-Admins based on Super Admin approved permissions
+  const visibleTabs = isSuperAdmin
+    ? tabs
+    : tabs.filter((t) => {
+        const requiredPerm = tabPermissionMap[t.id];
+        return userPerms.includes(requiredPerm) || (userPerms.includes('/admin') && t.id === 'dashboard');
+      });
+
+  const [activeTab, setActiveTab] = useState(visibleTabs[0]?.id || 'dashboard');
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabs, activeTab]);
 
   // Forms State
   const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', categoryId: '', image: '', unit: '1 Kg', discountPercent: '0' });
@@ -307,19 +340,31 @@ export default function AdminDashboardScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: textColor }]}>Super Admin Control</Text>
+        <Text style={[styles.navTitle, { color: textColor }]}>
+          {isSuperAdmin ? 'Super Admin Control' : `${user?.customTitle || 'Sub-Admin'} Portal`}
+        </Text>
         <View style={{ width: 60 }} />
       </View>
 
       <View style={styles.tabsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TouchableOpacity key={tab.id} style={[styles.tab, activeTab === tab.id && styles.tabActive]} onPress={() => setActiveTab(tab.id)}>
               <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
+
+      {visibleTabs.length === 0 && (
+        <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 32, marginBottom: 8 }}>🔒</Text>
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: textColor, textAlign: 'center' }}>No Approved Menu Access</Text>
+          <Text style={{ fontSize: 13, color: mutedColor, textAlign: 'center', marginTop: 4 }}>
+            Super Admin has not assigned any active section permissions to your Sub-Admin account yet.
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.content}>
         {/* ── 📊 DASHBOARD OVERVIEW ────────────────────────────────────────────── */}
