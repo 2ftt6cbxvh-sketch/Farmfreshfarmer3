@@ -68,9 +68,11 @@ export default function AdminDashboardScreen() {
         return null;
       }
     },
-    staleTime: 0, // always fresh
+    staleTime: 0,
+    gcTime: 0,
     refetchOnMount: true,
-    refetchInterval: 15000,  // auto-refetch every 15s
+    refetchInterval: 10000,  // every 10 seconds
+    refetchIntervalInBackground: true,
   });
 
   // Merge: live server data takes precedence over cached zustand store user

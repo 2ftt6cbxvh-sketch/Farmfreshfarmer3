@@ -72,8 +72,10 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       } catch {}
       return null;
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     staleTime: 0,
+    gcTime: 0,
     enabled: true,
   });
 
@@ -89,6 +91,13 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       }
     } catch(e) {}
   }
+
+  // Whenever fresh permissions arrive from server, update localStorage to prevent stale data
+  useEffect(() => {
+    if (liveUser && (liveUser as any)?.id) {
+      localStorage.setItem("adminUser", JSON.stringify(liveUser));
+    }
+  }, [liveUser]);
 
   const isPrimaryAdmin =
     adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
