@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles, Upload } from "lucide-react";
+import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles, Upload, User, FileText, Award, GraduationCap, Briefcase, Globe, Mail, Phone, RefreshCw, CheckCircle2 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiGet, apiRequest, queryClient, imgUrl } from "@/lib/queryClient";
 import { useAuth } from "@/lib/store";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -750,8 +751,17 @@ const CHATBOT_KEYS = [
   { key: "telegram_bot_token", label: "Telegram Bot Token (from @BotFather)", type: "text" as const },
 ];
 
+const CREATOR_KEYS = [
+  { key: "creator_name", label: "Creator & Inventor Full Name", type: "text" as const },
+  { key: "creator_title", label: "Professional Title / Headline", type: "text" as const },
+  { key: "creator_portfolio", label: "Portfolio / Website URL", type: "text" as const },
+  { key: "creator_email", label: "Contact Email", type: "text" as const },
+  { key: "creator_phone", label: "Contact Phone / WhatsApp", type: "text" as const },
+  { key: "creator_bio", label: "Resume Summary & Bio (for Laxshmi AI context)", type: "text" as const },
+];
+
 const ALL_KNOWN_KEYS = [
-  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS, ...CHATBOT_KEYS,
+  ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS, ...CHATBOT_KEYS, ...CREATOR_KEYS,
 ].map((k) => k.key).concat("delivery_rules", "telegram_chat_ids");
 
 function FieldRow({
@@ -1187,10 +1197,303 @@ function AuthMethodsCustomizer() {
   );
 }
 
+const DEFAULT_GANESH_RESUME = `• Name: Buddaraju Ganesh Sai Varma (Ganesh Varma)
+• Role: Creator & Inventor of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
+• Portfolio: https://www.ganeshvarma.in/
+• Contact: Email: gp61080@gmail.com | Phone: +91 8555021322 | Location: Vijayawada, India
+
+SUMMARY:
+Data Analyst / Data Engineer & Full-Stack AI Engineer with a B.Tech in Computer Science and an PG in Advanced Data Science & AI from the University of Liverpool. Experienced in building live production platforms (FarmFreshFarmer.com with PhonePe, live DB, automated logistics & chatbot) to high-performance 3D simulations (3D Game of Life in Unity/C# & Python analytics).
+
+EDUCATION:
+- 2025 – 2026: PG, University of Liverpool, UK (Advanced Data Science & AI)
+- 2021 – 2025: B.Tech, KL University, INDIA (Computer Science, GPA: 8.87 / 10)
+- 2019 – 2021: Class 12, Narayana Junior College (91%)
+
+CERTIFICATIONS:
+- TensorFlow Developer Certificate
+- Salesforce Certified AI Associate
+- AWS Certified Cloud Practitioner
+
+TECHNICAL SKILLS:
+- Programming & Core CS: Python, Java, C, C#, SQL, Data Structures & Algorithms, OOP, PostgreSQL, Drizzle ORM, Power BI
+- Data Science & ML: Python (Pandas, NumPy, PyTorch), Supervised & Unsupervised Learning, Computer Vision, Neural Networks, Medical Image Processing
+- Software & Web: TypeScript, React, Node.js, Express, RESTful APIs, MVC Architecture, Unity 3D, HTML5, CSS3, Git, GitHub
+- Cloud & Tools: AWS Elastic Beanstalk, Render, Docker, CI/CD pipelines
+
+MAJOR PROJECTS:
+1. FarmFreshFarmer.com (2026 – Present): Full-Stack Agri-Delivery E-Commerce Platform
+   - Built and deployed production farm-to-door platform with customer storefront, weekend subscription service, and admin panel, backed by PostgreSQL and Drizzle ORM.
+   - Implemented secure PhonePe payment integration, dynamic coupon/referral systems, per-city delivery fee calculation, Power BI reporting, and Laxshmi AI assistant.
+2. 3D Game of Life (June 2026 – Present): High-Performance Cellular Automaton
+   - Designed 3D simulation engine in C# supporting 60x60x60 (216,000 cells).
+   - Optimized execution time by ~7x; GPU instancing via Unity URP achieved 294 FPS on Apple Silicon M4 Max; automated Matplotlib data pipeline.
+
+EXPERIENCE:
+- Web Design and Marketing Intern at Arete IT (July 2024 – Dec 2024)`;
+
+function CreatorProfileCustomizer({
+  form,
+  setField,
+  saveMutation,
+}: {
+  form: SettingsMap;
+  setField: (key: string, value: string) => void;
+  saveMutation: any;
+}) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setField("creator_bio", content);
+        toast({
+          title: "📄 Resume File Loaded!",
+          description: `Loaded ${file.name} (${(file.size / 1024).toFixed(1)} KB). Click 'Save Creator Profile' to save.`,
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast({ title: "Error reading file", description: "Please upload a valid text or markdown file.", variant: "destructive" });
+    };
+    reader.readAsText(file);
+  };
+
+  const loadDefaultResume = () => {
+    setField("creator_name", "Buddaraju Ganesh Sai Varma (Ganesh Varma)");
+    setField("creator_title", "Creator & Inventor of Laxshmi AI | Full-Stack & Data Engineer");
+    setField("creator_portfolio", "https://www.ganeshvarma.in/");
+    setField("creator_email", "gp61080@gmail.com");
+    setField("creator_phone", "+91 8555021322");
+    setField("creator_bio", DEFAULT_GANESH_RESUME);
+    toast({
+      title: "✨ Resume Populated!",
+      description: "Ganesh Varma's verified resume & credentials have been populated into the fields. Click 'Save Creator Profile' to commit.",
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Hero Badge Card */}
+      <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card to-zinc-900/60 p-6 shadow-2xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-green-600 flex items-center justify-center text-white shadow-xl ring-4 ring-emerald-500/20">
+              <User size={28} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-serif text-xl font-bold text-foreground">
+                  {form["creator_name"] || "Buddaraju Ganesh Sai Varma"}
+                </h2>
+                <span className="inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
+                  <CheckCircle2 size={11} /> Verified Creator
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {form["creator_title"] || "Creator & Inventor of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com"}
+              </p>
+              <div className="flex items-center gap-3 mt-1.5 text-xs text-emerald-400">
+                <a href={form["creator_portfolio"] || "https://www.ganeshvarma.in/"} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1 font-semibold">
+                  <Globe size={12} /> {form["creator_portfolio"] || "https://www.ganeshvarma.in/"}
+                </a>
+                <span>•</span>
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <MapPin size={12} /> Vijayawada, India
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadDefaultResume}
+              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold gap-1.5"
+            >
+              <Sparkles size={13} className="text-yellow-400" /> Auto-Fill Resume
+            </Button>
+            <Button
+              type="button"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs gap-1.5 shadow-lg"
+            >
+              <Save size={13} /> {saveMutation.isPending ? "Saving..." : "Save Profile"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Highlight Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+          <div className="p-3.5 rounded-xl bg-secondary/40 border border-card-border space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+              <GraduationCap size={15} /> Academic Credentials
+            </div>
+            <p className="text-xs font-semibold text-foreground">PG Advanced Data Science & AI</p>
+            <p className="text-[11px] text-muted-foreground">University of Liverpool, UK (2025–26)</p>
+            <p className="text-[11px] text-muted-foreground">B.Tech CSE, KL University (8.87 GPA)</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-secondary/40 border border-card-border space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+              <Award size={15} /> Professional Certifications
+            </div>
+            <p className="text-xs font-semibold text-foreground">TensorFlow Developer</p>
+            <p className="text-[11px] text-muted-foreground">Salesforce Certified AI Associate</p>
+            <p className="text-[11px] text-muted-foreground">AWS Certified Cloud Practitioner</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-secondary/40 border border-card-border space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+              <Briefcase size={15} /> Flagship Inventions
+            </div>
+            <p className="text-xs font-semibold text-foreground">FarmFreshFarmer.com & Laxshmi AI</p>
+            <p className="text-[11px] text-muted-foreground">3D Game of Life Engine (Unity / URP)</p>
+            <p className="text-[11px] text-muted-foreground">294 FPS M4 Max GPU Instancing</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Editable Fields Section */}
+      <div className="rounded-xl border border-card-border bg-card p-6 space-y-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+              <User size={16} /> Editable Creator Identity Details
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              These details are fed directly into Laxshmi AI's live context so she can accurately answer customer questions about her creator.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs font-bold text-foreground">Full Name *</Label>
+            <Input
+              value={form["creator_name"] ?? ""}
+              onChange={(e) => setField("creator_name", e.target.value)}
+              placeholder="Buddaraju Ganesh Sai Varma (Ganesh Varma)"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-foreground">Professional Title / Headline *</Label>
+            <Input
+              value={form["creator_title"] ?? ""}
+              onChange={(e) => setField("creator_title", e.target.value)}
+              placeholder="Creator & Inventor of Laxshmi AI | Full-Stack & Data Engineer"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-foreground">Portfolio Website URL *</Label>
+            <div className="relative mt-1">
+              <Globe size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={form["creator_portfolio"] ?? ""}
+                onChange={(e) => setField("creator_portfolio", e.target.value)}
+                placeholder="https://www.ganeshvarma.in/"
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-foreground">Contact Email *</Label>
+            <div className="relative mt-1">
+              <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={form["creator_email"] ?? ""}
+                onChange={(e) => setField("creator_email", e.target.value)}
+                placeholder="gp61080@gmail.com"
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <Label className="text-xs font-bold text-foreground">Contact Phone / WhatsApp *</Label>
+            <div className="relative mt-1">
+              <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={form["creator_phone"] ?? ""}
+                onChange={(e) => setField("creator_phone", e.target.value)}
+                placeholder="+91 8555021322"
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Resume Text Area & Upload */}
+        <div className="pt-4 border-t border-card-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <FileText size={14} className="text-emerald-400" /> Full Resume & Bio Context for Laxshmi AI
+              </Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Paste your resume, skills, or updated project details here. Laxshmi AI will search and recite this when asked!
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".txt,.md,.json,.pdf"
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="border-card-border text-xs font-semibold gap-1.5"
+              >
+                <Upload size={13} /> Upload Resume (.txt/.md)
+              </Button>
+            </div>
+          </div>
+
+          <Textarea
+            value={form["creator_bio"] ?? ""}
+            onChange={(e) => setField("creator_bio", e.target.value)}
+            placeholder="Paste your full resume, bio, education, or skill summary here..."
+            className="min-h-[220px] font-mono text-xs leading-relaxed border-card-border focus:border-emerald-500/50"
+          />
+        </div>
+
+        <div className="pt-2 flex justify-end">
+          <Button
+            type="button"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs gap-1.5 shadow-lg px-6 py-2.5"
+          >
+            <Save size={14} /> {saveMutation.isPending ? "Saving Creator Profile..." : "Save Creator Profile & Update Laxshmi AI"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security" | "chatbot">("delivery");
+  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security" | "chatbot" | "creator">("delivery");
 
   // ---------- Business settings ----------
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -1339,6 +1642,14 @@ export default function AdminSettings() {
             }`}
           >
             🤖 Chatbot & Alerts
+          </button>
+          <button
+            onClick={() => setActiveCategory("creator")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeCategory === "creator" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <User size={16} /> 👨‍💻 Creator & Resume
           </button>
         </div>
 
@@ -1547,6 +1858,15 @@ export default function AdminSettings() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── TAB 7: 👨‍💻 CREATOR & INVENTOR PROFILE ────────────────────────── */}
+        {activeCategory === "creator" && (
+          <CreatorProfileCustomizer
+            form={form}
+            setField={setField}
+            saveMutation={saveSettings}
+          />
         )}
 
         {unknownKeys.length > 0 && (

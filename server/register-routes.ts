@@ -999,6 +999,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Chatbot
       chatbot_enabled: all.chatbot_enabled !== "false",
       chatbot_welcome_message: all.chatbot_welcome_message || "",
+      // Creator & Inventor Profile
+      creator_name: all.creator_name || "Buddaraju Ganesh Sai Varma (Ganesh Varma)",
+      creator_title: all.creator_title || "Creator & Architect of Laxshmi AI | Full-Stack & Data Engineer",
+      creator_portfolio: all.creator_portfolio || "https://www.ganeshvarma.in/",
+      creator_email: all.creator_email || "gp61080@gmail.com",
     });
   }));
 

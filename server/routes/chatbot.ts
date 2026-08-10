@@ -101,7 +101,8 @@ export function registerChatbotRoutes(app: Express, storage: any) {
     fullProductsContext: string,
     legalContext: string,
     contactContext: string,
-    language: string
+    language: string,
+    creatorContext?: string
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) return null;
@@ -119,9 +120,22 @@ ${legalContext}
 3. CUSTOMER SUPPORT & CONTACT INFORMATION:
 ${contactContext}
 
+4. CREATOR & INVENTOR INFORMATION:
+${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Ganesh Varma)
+• Portfolio: https://www.ganeshvarma.in/
+• Credentials: PG in Advanced Data Science & AI (University of Liverpool, UK), B.Tech in Computer Science (KL University, GPA 8.87/10).
+• Certifications: TensorFlow Developer Certificate, Salesforce Certified AI Associate, AWS Certified Cloud Practitioner.
+• Role: Creator & Architect of Laxshmi AI and Founder / Full-Stack Engineer of FarmFreshFarmer.`}
+
 ==================== YOUR ROLE & INSTRUCTIONS ====================
-- You have complete access to the store's product database, legal policies, and customer support details.
+- You have complete access to the store's product database, legal policies, customer support details, and your creator's background.
 - Respond accurately and warmly in ${langName}.
+
+CREATOR & INVENTOR INQUIRIES:
+- You were invented, architected, and built by Buddaraju Ganesh Sai Varma (Ganesh Varma).
+- When a customer asks about who created you, who invented Laxshmi, who built FarmFreshFarmer, or asks about Ganesh Varma / his resume / background / education / portfolio:
+  * Respond proudly, warmly, and with high detail and respect about your creator Buddaraju Ganesh Sai Varma (Ganesh Varma).
+  * Share his education (PG in Advanced Data Science & AI from University of Liverpool, UK, and B.Tech from KL University), his certifications, his skills in Data Science, Full-Stack & Machine Learning, and his portfolio: https://www.ganeshvarma.in/
 
 HEALTH, NUTRITION & WELLNESS GUIDANCE:
 - When a customer asks about any product, fruit, vegetable, pickle, sweet, or millet:
@@ -272,7 +286,8 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     legalContext: string,
     contactContext: string,
     language: string,
-    history?: Array<{ role: string; content: string }>
+    history?: Array<{ role: string; content: string }>,
+    creatorContext?: string
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) {
@@ -299,10 +314,33 @@ ${legalContext}
 5. CUSTOMER SUPPORT & CONTACT INFORMATION:
 ${contactContext}
 
+6. CREATOR & INVENTOR INFORMATION:
+${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Ganesh Varma)
+• Role: Creator & Architect of Laxshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
+• Portfolio & Website: https://www.ganeshvarma.in/
+• Contact Email: gp61080@gmail.com | Phone: +91 8555021322 | Location: Vijayawada, Andhra Pradesh, India
+• Academic Credentials:
+  - PG in Advanced Data Science & Artificial Intelligence from University of Liverpool, UK (2025–2026).
+  - B.Tech in Computer Science from KL University, India (2021–2025, GPA 8.87 / 10).
+  - Class 12, Narayana Junior College (91%).
+• Certifications: TensorFlow Developer Certificate | Salesforce Certified AI Associate | AWS Certified Cloud Practitioner.
+• Technical Skills: Python (PyTorch, Pandas, NumPy), Java, C, C#, SQL, PostgreSQL, Drizzle ORM, Power BI, TypeScript, React, Node.js, Express, Unity 3D, AWS, Docker, CI/CD.
+• Major Projects:
+  1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe integration, real-time logistics engine, and Laxshmi AI assistant.
+  2. 3D Game of Life: High-performance 3D cellular automaton engine in Unity/C# & GPU Instancing (DrawMeshInstanced) achieving 294 FPS on Apple Silicon M4 Max with Python Matplotlib pipelines.
+• Experience: Web Design & Marketing Intern at Arete IT.`}
+
 ==================== YOUR ROLE & INSTRUCTIONS ====================
 - Respond accurately, dynamically, naturally, and warmly in ${langName}.
 - NEVER use hardcoded or generic template responses. Always generate a personalized, intelligent answer using your full AI capabilities and live database context.
 - Maintain conversation context (e.g. if the customer previously asked about tomatoes and now asks "are they healthy?", understand that "they" refers to tomatoes!).
+
+CREATOR & INVENTOR INQUIRIES:
+- You were invented, architected, and built by Buddaraju Ganesh Sai Varma (Ganesh Varma).
+- When a customer asks about who created you, who invented Laxshmi, who built FarmFreshFarmer, or asks about Ganesh Varma / his resume / background / education / portfolio:
+  * Respond proudly, warmly, and with deep respect and accurate detail about your creator Buddaraju Ganesh Sai Varma (Ganesh Varma).
+  * Share his education (PG in Advanced Data Science & AI from University of Liverpool, UK, and B.Tech from KL University), his certifications, his skills in Data Science, Full-Stack & Machine Learning, and his portfolio: https://www.ganeshvarma.in/
+  * Speak with enthusiasm about his projects like FarmFreshFarmer and 3D Game of Life.
 
 HEALTH, NUTRITION & WELLNESS GUIDANCE:
 - When asked about health, nutrition, or medical suitability of any food item (e.g., for diabetes, blood pressure, heart health, pregnancy, children):
@@ -1005,6 +1043,42 @@ function resolveCartQty(
 • Grievance Officer Phone: ${(allSettings as any)?.grievance_officer_phone || '+91 79897 93669'}
       `.trim();
 
+      // Creator & Inventor context (Buddaraju Ganesh Sai Varma)
+      const creatorName = (allSettings as any)?.creator_name || 'Buddaraju Ganesh Sai Varma (Ganesh Varma)';
+      const creatorPortfolio = (allSettings as any)?.creator_portfolio || 'https://www.ganeshvarma.in/';
+      const creatorEmail = (allSettings as any)?.creator_email || 'gp61080@gmail.com';
+      const creatorPhone = (allSettings as any)?.creator_phone || '+91 8555021322';
+      const customCreatorBio = (allSettings as any)?.creator_bio || '';
+
+      const creatorContext = `
+• CREATOR & INVENTOR OF LAXSHMI AI & FARMFRESHFARMER:
+  - Full Name: ${creatorName}
+  - Professional Title: ${(allSettings as any)?.creator_title || 'Creator & Architect of Laxshmi AI | Founder & Full-Stack/Data Engineer of FarmFreshFarmer.com'}
+  - Portfolio & Website: ${creatorPortfolio}
+  - Contact Email: ${creatorEmail}
+  - Contact Phone / WhatsApp: ${creatorPhone}
+  - Location: Vijayawada, Andhra Pradesh, India
+  - Education & Academic Credentials:
+    * PG in Advanced Data Science & Artificial Intelligence from University of Liverpool, UK (2025–2026).
+    * B.Tech in Computer Science from KL University, India (2021–2025, GPA 8.87 / 10).
+    * Class 12 from Narayana Junior College (91%).
+  - Professional Certifications:
+    * TensorFlow Developer Certificate
+    * Salesforce Certified AI Associate
+    * AWS Certified Cloud Practitioner
+  - Core Technical Skills:
+    * Programming: Python (Pandas, NumPy, PyTorch), Java, C, C#, SQL, Data Structures & Algorithms, OOP, PostgreSQL, Drizzle ORM, Power BI.
+    * Data Science & ML: Supervised & Unsupervised Learning, Computer Vision, Neural Networks, Medical Image Processing.
+    * Software & Web: TypeScript, React, Node.js, Express, RESTful APIs, MVC Architecture, Unity 3D, C#.
+    * Cloud & DevOps: AWS Elastic Beanstalk, Render, Docker, CI/CD pipelines.
+  - Major Projects & Inventions:
+    1. FarmFreshFarmer.com: Production farm-to-door organic delivery platform with live PostgreSQL, PhonePe payment processing, real-time logistics & delivery fee calculation, weekend subscription lifecycles, and Laxshmi AI assistant.
+    2. 3D Game of Life: High-performance 3D cellular automaton simulation engine in Unity/C# with GPU Instancing (DrawMeshInstanced) running at 294 FPS on Apple Silicon M4 Max, with automated Python Matplotlib population analytics.
+  - Experience:
+    * Web Design and Marketing Intern at Arete IT (July 2024 – Dec 2024).
+  ${customCreatorBio ? `\n- Additional Creator Notes / Resume Summary:\n${customCreatorBio}` : ''}
+      `.trim();
+
       let reply: string | null = null;
       let needsHuman = false;
 
@@ -1018,7 +1092,8 @@ function resolveCartQty(
           legalContext,
           contactContext,
           lang,
-          history
+          history,
+          creatorContext
         );
       }
 
