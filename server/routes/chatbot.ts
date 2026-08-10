@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
-import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems } from '@shared/schema';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products } from '@shared/schema';
 import { sendTelegramAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -213,6 +213,29 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
 
     return null;
   }
+
+// Detect if user is asking to VIEW their cart
+function detectCartViewIntent(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  const patterns = [
+    /what[' ]?s? in my cart/i,
+    /show my cart/i,
+    /my cart/i,
+    /cart (total|summary|details|items|breakdown|price|cost)/i,
+    /what (have|did) i (added?|put|placed)/i,
+    /how much (is|are) (my|the) cart/i,
+    /cart (gst|tax)/i,
+    /checkout total/i,
+    /what i (have|'ve) (added?|ordered?)/i,
+    /view (my )?cart/i,
+    /price breakdown/i,
+    /gst breakdown/i,
+    /total (payable|amount|bill)/i,
+    /cart bill/i,
+    /my (order|purchase) total/i,
+  ];
+  return patterns.some(p => p.test(lower));
+}
 
 const STOP_WORDS = new Set([
   'the', 'and', 'for', 'is', 'are', 'you', 'how', 'much', 'what', 'who', 'they',
@@ -918,6 +941,118 @@ function resolveCartQty(
         }
       }
       // === END CART ADD INTENT ===
+
+      // === CART VIEW INTENT ===
+      if (detectCartViewIntent(message)) {
+        if (!userId) {
+          return res.json({
+            reply: `To see your cart details, you need to be logged in! Please sign in using Google One-Tap or Email OTP at the top right corner. Once logged in, just ask me "what's in my cart" and I'll give you a full breakdown! 🛒`,
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+
+        try {
+          // Fetch user cart
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          
+          if (!userCart) {
+            return res.json({
+              reply: `Your cart is currently empty! 🛒 Browse our fresh organic products and add your favorites. I can help you find anything — just ask!`,
+              needsHuman: false,
+            });
+          }
+
+          // Fetch cart items with product details
+          const items = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
+          
+          if (!items || items.length === 0) {
+            return res.json({
+              reply: `Your cart is currently empty! 🛒 Browse our fresh organic products and add your favorites. I can help you find anything — just ask!`,
+              needsHuman: false,
+            });
+          }
+
+          // Fetch product details for all cart items
+          const productIds = items.map(i => i.productId);
+          const allProductsList = await storage.products.list();
+          const productMap = new Map(allProductsList.map((p: any) => [p.id, p]));
+
+          // GST rates by category (India)
+          function getGSTRate(categorySlug: string): number {
+            const slug = (categorySlug || '').toLowerCase();
+            if (/pickle|avakaya|achar/.test(slug)) return 5;
+            if (/sweet|laddu|halwa|mithai/.test(slug)) return 5;
+            if (/namkeen|snack/.test(slug)) return 12;
+            if (/fruit|vegetable|millet|pulse|grain|rice|spice|herb/.test(slug)) return 0;
+            return 0; // Default: fresh produce = 0%
+          }
+
+          let subtotalBeforeGST = 0;
+          let totalGST = 0;
+          const gstSlab: Record<string, { amount: number; rate: number }> = {};
+          const lineItems: string[] = [];
+
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const product = productMap.get(item.productId);
+            if (!product) continue;
+
+            const unitPrice = parseFloat(String(product.price)) || 0;
+            const discountPct = parseFloat(String(product.discountPercent || 0));
+            const discountedPrice = unitPrice * (1 - discountPct / 100);
+            const lineTotal = discountedPrice * item.qty;
+            const gstRate = getGSTRate(product.categorySlug || '');
+            const gstAmount = lineTotal * gstRate / 100;
+
+            subtotalBeforeGST += lineTotal;
+            totalGST += gstAmount;
+
+            // Track by GST slab
+            const slabKey = `${gstRate}%`;
+            if (!gstSlab[slabKey]) gstSlab[slabKey] = { amount: 0, rate: gstRate };
+            gstSlab[slabKey].amount += gstAmount;
+
+            const discountNote = discountPct > 0 ? ` (${discountPct}% off, was ₹${unitPrice})` : '';
+            const gstNote = gstRate > 0 ? ` | GST @${gstRate}%: ₹${gstAmount.toFixed(2)}` : ' | GST: Nil (Fresh Produce)';
+            lineItems.push(`${i + 1}. ${product.name} — ${item.qty} × ₹${discountedPrice.toFixed(0)}${discountNote} = ₹${lineTotal.toFixed(0)}${gstNote}`);
+          }
+
+          const grandTotal = subtotalBeforeGST + totalGST;
+          const freeDeliveryThreshold = parseFloat((allSettings as any)?.free_delivery_threshold || '499');
+          const deliveryFeeBase = parseFloat((allSettings as any)?.instant_delivery_fee || '40');
+          const deliveryFee = grandTotal >= freeDeliveryThreshold ? 0 : deliveryFeeBase;
+          const finalTotal = grandTotal + deliveryFee;
+
+          // Build GST breakdown string
+          const gstBreakdown = Object.entries(gstSlab)
+            .map(([slab, info]) => info.amount > 0 ? `  • GST @${slab}: ₹${info.amount.toFixed(2)}` : `  • GST @${slab}: Nil`)
+            .join('\n');
+
+          const cartReply = `Here is your current cart summary:\n\n` +
+            `🛒 CART ITEMS (${items.length} item${items.length > 1 ? 's' : ''}):\n` +
+            lineItems.join('\n') + '\n\n' +
+            `─────────────────────────────\n` +
+            `💰 PRICING BREAKDOWN:\n` +
+            `  Subtotal (excl. GST): ₹${subtotalBeforeGST.toFixed(2)}\n\n` +
+            `📊 GST BREAKDOWN (India):\n` +
+            gstBreakdown + '\n' +
+            `  Total GST: ₹${totalGST.toFixed(2)}\n\n` +
+            `🚚 Delivery Fee: ${deliveryFee === 0 ? 'FREE (order above ₹' + freeDeliveryThreshold + ')' : '₹' + deliveryFee}\n\n` +
+            `─────────────────────────────\n` +
+            `✅ GRAND TOTAL (incl. GST + Delivery): ₹${finalTotal.toFixed(2)}\n\n` +
+            (grandTotal < freeDeliveryThreshold ? `💡 Add ₹${(freeDeliveryThreshold - grandTotal).toFixed(0)} more to get FREE delivery!` : `🎉 You qualify for FREE delivery!`);
+
+          return res.json({
+            reply: cartReply,
+            needsHuman: false,
+          });
+        } catch (cartViewErr) {
+          console.error('[chatbot] Cart view error:', cartViewErr);
+          // Fall through to Gemini
+        }
+      }
+      // === END CART VIEW INTENT ===
 
       // === PINCODE DIRECT ETA LOOKUP ===
       const pincodeMatch = message.trim().match(/\b([1-9][0-9]{5})\b/);
