@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, router } from 'expo-router';
 import * as Speech from 'expo-speech';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api, resolveImgUrl } from '../lib/api';
 import { useCartStore } from '../lib/cart';
 import { useAuth } from '../lib/store';
@@ -177,6 +178,10 @@ export function LaxshmiAiBot() {
 
   const scrollViewRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(-1)).current;
+  const glow1Anim = useRef(new Animated.Value(0)).current;
+  const outerRingAnim = useRef(new Animated.Value(1)).current;
   const recognitionRef = useRef<any>(null);
 
   // Initialize Welcome Message
@@ -208,6 +213,61 @@ export function LaxshmiAiBot() {
       ])
     ).start();
   }, [pulseAnim]);
+
+  // Float animation — organic up-down movement
+  useEffect(() => {
+    const floatSequence = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: -10, duration: 2000, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: -5, duration: 1500, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: -11, duration: 1800, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 2200, useNativeDriver: true }),
+      ])
+    );
+    floatSequence.start();
+    return () => floatSequence.stop();
+  }, []);
+
+  // Shimmer sweep animation
+  useEffect(() => {
+    const shimmerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1500),
+        Animated.timing(shimmerAnim, { toValue: 2, duration: 1200, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: -1, duration: 0, useNativeDriver: true }),
+        Animated.delay(3000),
+      ])
+    );
+    shimmerLoop.start();
+    return () => shimmerLoop.stop();
+  }, []);
+
+  // Glow breathing for pill border
+  useEffect(() => {
+    const glowLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow1Anim, { toValue: 1, duration: 1800, useNativeDriver: false }),
+        Animated.timing(glow1Anim, { toValue: 0, duration: 1800, useNativeDriver: false }),
+      ])
+    );
+    glowLoop.start();
+    return () => glowLoop.stop();
+  }, []);
+
+  // Outer ring — slower pulse (useNativeDriver: true for scale)
+  useEffect(() => {
+    const outerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1100),
+        Animated.parallel([
+          Animated.timing(outerRingAnim, { toValue: 3.2, duration: 2000, useNativeDriver: true }),
+        ]),
+        Animated.timing(outerRingAnim, { toValue: 1, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    outerLoop.start();
+    return () => outerLoop.stop();
+  }, []);
 
   // Female Voice Text-To-Speech (TTS) via Expo Speech
   const speakResponse = useCallback(async (text: string, lang: Language) => {
@@ -450,9 +510,15 @@ export function LaxshmiAiBot() {
 
   return (
     <>
-      {/* ── 1. Floating Action Launcher Button (Positioned safely above bottom tab bar) ── */}
+      {/* ── 1. Floating Action Launcher Button ── */}
       {!isOpen && (
-        <View style={styles.floatingContainer}>
+        <Animated.View
+          style={[
+            styles.floatingContainer,
+            { transform: [{ translateY: floatAnim }] },
+          ]}
+        >
+          {/* Speech bubble preview */}
           {bubbleRendered && (
             <Animated.View
               style={[
@@ -469,27 +535,70 @@ export function LaxshmiAiBot() {
               <Text style={styles.diyaText}>🪔</Text>
               <Text style={styles.bubbleText}>{ui.bubbleGreeting}</Text>
               <TouchableOpacity onPress={dismissBubbleSmoothly} style={styles.bubbleClose}>
-                <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             </Animated.View>
           )}
 
+          {/* Double pulse rings */}
+          <Animated.View
+            style={[
+              styles.outerPulseRing,
+              { transform: [{ scale: outerRingAnim }], opacity: outerRingAnim.interpolate({ inputRange: [1, 3.2], outputRange: [0.5, 0] }) },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.innerPulseRing,
+              { transform: [{ scale: pulseAnim }], opacity: pulseAnim.interpolate({ inputRange: [1, 2.4], outputRange: [0.7, 0] }) },
+            ]}
+          />
+
+          {/* The pill button */}
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => {
               setIsOpen(true);
               dismissBubbleSmoothly();
             }}
-            style={styles.floatingBtn}
+            style={styles.pillWrapper}
           >
-            <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]} />
-            <Text style={styles.diyaIconFloating}>🪔</Text>
-            <View style={styles.onlineBadge} />
-            <View style={styles.sparkleBadge}>
-              <Ionicons name="sparkles" size={10} color="#ffffff" />
-            </View>
+            <LinearGradient
+              colors={['#FF6B35', '#D4145A', '#7B2FF7']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.floatingPill}
+            >
+              {/* Shimmer sweep */}
+              <Animated.View
+                style={[
+                  styles.shimmerOverlay,
+                  {
+                    transform: [{
+                      translateX: shimmerAnim.interpolate({
+                        inputRange: [-1, 2],
+                        outputRange: [-140, 280],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+
+              {/* Diya + text */}
+              <Text style={styles.diyaIconFloating}>🪔</Text>
+              <View style={styles.pillTextBlock}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Text style={styles.pillTitle}>LAXSHMI</Text>
+                  <Ionicons name="sparkles" size={9} color="#FDE68A" />
+                </View>
+                <Text style={styles.pillSubtitle}>AI Assistant</Text>
+              </View>
+
+              {/* Online dot */}
+              <View style={styles.onlineBadge} />
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       {/* ── 2. Full-Screen Laxshmi AI Modal ───────────────────────────────── */}
@@ -736,83 +845,129 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   bubblePreview: {
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#10b981',
-    marginBottom: 8,
-    maxWidth: 240,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 20, 90, 0.45)',
+    marginBottom: 10,
+    maxWidth: 220,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  diyaText: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  bubbleText: {
-    color: '#34d399',
-    fontSize: 12,
-    fontWeight: '800',
-    flexShrink: 1,
-  },
-  bubbleClose: {
-    marginLeft: 6,
-    padding: 2,
-  },
-  floatingBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#10b981',
-    shadowColor: '#10b981',
+    gap: 6,
+    shadowColor: '#D4145A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
     elevation: 10,
   },
-  glowRing: {
+  diyaText: {
+    fontSize: 15,
+  },
+  bubbleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    flexShrink: 1,
+    opacity: 0.92,
+  },
+  bubbleClose: {
+    marginLeft: 4,
+    padding: 2,
+  },
+  outerPulseRing: {
     position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    bottom: 0,
+    right: 0,
+    width: 120,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(123, 47, 247, 0.5)',
+    backgroundColor: 'transparent',
+  },
+  innerPulseRing: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 120,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 2,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderColor: 'rgba(212, 20, 90, 0.6)',
+    backgroundColor: 'transparent',
+  },
+  pillWrapper: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#D4145A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 14,
+  },
+  floatingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    gap: 8,
+    overflow: 'hidden',
+    minWidth: 130,
+  },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 60,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    transform: [{ skewX: '-18deg' }],
   },
   diyaIconFloating: {
-    fontSize: 24,
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  pillTextBlock: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+  pillTitle: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+  pillSubtitle: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.8,
   },
   onlineBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
-    backgroundColor: '#10b981',
-    borderWidth: 2,
-    borderColor: '#0f172a',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4ade80',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+    marginLeft: 2,
   },
+  // Keep sparkleBadge for backward compatibility (no longer used in pill)
   sparkleBadge: {
-    position: 'absolute',
-    bottom: -2,
-    left: -2,
-    backgroundColor: '#059669',
-    width: 17,
-    height: 17,
-    borderRadius: 8.5,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 0,
+    height: 0,
+  },
+  // floatingBtn kept for backward compat
+  floatingBtn: {
+    width: 0,
+    height: 0,
+  },
+  glowRing: {
+    width: 0,
+    height: 0,
   },
   modalOverlay: {
     flex: 1,

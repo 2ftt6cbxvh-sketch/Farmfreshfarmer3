@@ -612,20 +612,24 @@ export function ChatbotLaxshmi() {
     <>
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto"
-          style={{ animation: 'laxFloatIcon 3.2s ease-in-out infinite' }}>
+        <div
+          className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto"
+          style={{ animation: 'laxFloat 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite' }}
+        >
           {/* Animated Speech bubble */}
           {showFloatingBubble && (
             <div
               className={`relative cursor-pointer transition-all duration-700 ${
-                isFadingBubble ? 'opacity-0 translate-y-2 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
+                isFadingBubble ? 'opacity-0 translate-y-3 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
               }`}
               onClick={() => setIsOpen(true)}
-              style={{ animation: isFadingBubble ? 'none' : 'laxBounce 3s ease-in-out infinite' }}
+              style={{ animation: isFadingBubble ? 'none' : 'laxBounce 3.5s cubic-bezier(0.45,0.05,0.55,0.95) infinite' }}
             >
               <div
-                className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md rounded-2xl rounded-br-none px-3.5 py-2 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/5 dark:border-white/10 max-w-[195px] flex items-center justify-between gap-1.5"
-                style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06)' }}
+                className="bg-white/96 dark:bg-zinc-800/96 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/8 dark:border-white/10 max-w-[200px] flex items-center justify-between gap-2"
+                style={{
+                  boxShadow: '0 12px 32px -6px rgba(212,20,90,0.18), 0 4px 12px -2px rgba(0,0,0,0.1)',
+                }}
               >
                 <span>{strings.bubbleGreeting}</span>
                 <button
@@ -634,38 +638,111 @@ export function ChatbotLaxshmi() {
                     setIsFadingBubble(true);
                     setTimeout(() => setShowFloatingBubble(false), 700);
                   }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-0.5"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-0.5 shrink-0"
                 >
                   <X size={12} />
                 </button>
               </div>
-              {/* tail */}
               <div
-                className="absolute -bottom-2 right-4 w-0 h-0"
-                style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.95)' }}
+                className="absolute -bottom-2 right-5 w-0 h-0"
+                style={{
+                  borderLeft: '8px solid transparent',
+                  borderRight: '8px solid transparent',
+                  borderTop: '8px solid rgba(255,255,255,0.96)',
+                }}
               />
             </div>
           )}
-          
-          {/* Main button with pulse ring */}
+
+          {/* Main pill button */}
           <div className="relative">
-            {/* Animated pulse ring */}
-            <div className="absolute inset-0 rounded-2xl"
-              style={{ animation: 'laxPulseRing 2.2s ease-out infinite', background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)', borderRadius: '20px' }} />
-            
-            <button id="chatbot-open-btn" onClick={() => setIsOpen(true)}
-              className="relative px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-[1.03] active:scale-95 transition-all duration-300 cursor-pointer"
+            {/* Outer ambient glow dots */}
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'rgba(255,107,53,0.8)',
+                top: -10, left: 8,
+                filter: 'blur(2px)',
+                animation: 'laxAmbientDot1 4.2s ease-in-out infinite',
+              }}
+            />
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: 'rgba(212,20,90,0.8)',
+                top: -6, right: 12,
+                filter: 'blur(1.5px)',
+                animation: 'laxAmbientDot2 5.1s ease-in-out infinite 0.8s',
+              }}
+            />
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'rgba(123,47,247,0.9)',
+                bottom: -8, left: 20,
+                filter: 'blur(1.5px)',
+                animation: 'laxAmbientDot3 3.8s ease-in-out infinite 1.4s',
+              }}
+            />
+
+            {/* Outer slow pulse ring */}
+            <div
+              className="absolute inset-0"
+              style={{
+                animation: 'laxPulseRing2 3.4s cubic-bezier(0,0.5,0.5,1) infinite 1.1s',
+                background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
+                borderRadius: '20px',
+                opacity: 0,
+              }}
+            />
+            {/* Inner fast pulse ring */}
+            <div
+              className="absolute inset-0"
+              style={{
+                animation: 'laxPulseRing 2.2s cubic-bezier(0,0.5,0.5,1) infinite',
+                background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
+                borderRadius: '20px',
+                opacity: 0,
+              }}
+            />
+
+            {/* The pill button */}
+            <button
+              id="chatbot-open-btn"
+              onClick={() => setIsOpen(true)}
+              className="relative overflow-hidden px-4 py-3 flex items-center gap-2.5 rounded-2xl hover:scale-[1.05] active:scale-95 transition-transform duration-300 cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
-                animation: 'laxGlow 3s ease-in-out infinite',
-                boxShadow: '0 10px 30px -4px rgba(212, 20, 90, 0.35), 0 6px 16px -2px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
+                animation: 'laxGlow 3.5s ease-in-out infinite',
                 borderRadius: '20px',
               }}
-              aria-label="Open Laxshmi AI assistant">
-              <span className="text-2xl leading-none drop-shadow-md animate-pulse">🪔</span>
-              <div className="flex flex-col text-left">
+              aria-label="Open Laxshmi AI assistant"
+            >
+              {/* Shimmer sweep overlay */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.28) 50%, transparent 100%)',
+                  animation: 'laxShimmer 4s ease-in-out infinite 1.5s',
+                  borderRadius: '20px',
+                }}
+              />
+
+              {/* Diya icon */}
+              <span className="text-2xl leading-none drop-shadow-md relative z-10">🪔</span>
+
+              {/* Text labels */}
+              <div className="flex flex-col text-left relative z-10">
                 <span className="text-[11px] font-black uppercase tracking-[0.14em] text-white font-sans drop-shadow flex items-center gap-1">
-                  Laxshmi <Sparkles size={10} className="text-yellow-300 animate-spin" style={{ animationDuration: '4s' }} />
+                  Laxshmi
+                  <Sparkles
+                    size={10}
+                    className="text-yellow-300"
+                    style={{ animation: 'laxSparklePin 3s ease-in-out infinite' }}
+                  />
                 </span>
                 <span className="text-[9px] font-bold text-white/80 tracking-wider font-sans">AI Assistant</span>
               </div>
@@ -966,24 +1043,60 @@ export function ChatbotLaxshmi() {
 
       <style>{`
         @keyframes laxGlow {
-          0%, 100% { box-shadow: 0 0 20px rgba(212,20,90,0.4), 0 0 40px rgba(123,47,247,0.2); }
-          50% { box-shadow: 0 0 30px rgba(255,107,53,0.6), 0 0 60px rgba(212,20,90,0.4); }
+          0%, 100% {
+            box-shadow: 0 0 22px rgba(212,20,90,0.45), 0 0 45px rgba(123,47,247,0.25), 0 8px 32px rgba(212,20,90,0.3), inset 0 1px 1px rgba(255,255,255,0.25);
+          }
+          50% {
+            box-shadow: 0 0 40px rgba(255,107,53,0.75), 0 0 80px rgba(212,20,90,0.55), 0 14px 48px rgba(123,47,247,0.45), inset 0 1px 1px rgba(255,255,255,0.35);
+          }
         }
         @keyframes laxPulseRing {
-          0% { transform: scale(1); opacity: 0.6; }
-          100% { transform: scale(1.8); opacity: 0; }
+          0% { transform: scale(1); opacity: 0.7; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        @keyframes laxPulseRing2 {
+          0% { transform: scale(1); opacity: 0.4; }
+          100% { transform: scale(3.2); opacity: 0; }
+        }
+        @keyframes laxFloat {
+          0%   { transform: translateY(0px) rotate(0deg); }
+          20%  { transform: translateY(-10px) rotate(0.8deg); }
+          50%  { transform: translateY(-6px) rotate(-0.5deg); }
+          80%  { transform: translateY(-11px) rotate(0.6deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes laxShimmer {
+          0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+          15%  { opacity: 0.9; }
+          85%  { opacity: 0.9; }
+          100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+        }
+        @keyframes laxBounce {
+          0%, 100% { transform: translateY(0px); }
+          40% { transform: translateY(-7px); }
+          70% { transform: translateY(-3px); }
+        }
+        @keyframes laxSparklePin {
+          0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+          50% { transform: scale(1.4) rotate(180deg); opacity: 0.7; }
+        }
+        @keyframes laxAmbientDot1 {
+          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.6; }
+          33% { transform: translate(-8px, -12px) scale(1.3); opacity: 1; }
+          66% { transform: translate(5px, -8px) scale(0.8); opacity: 0.4; }
+        }
+        @keyframes laxAmbientDot2 {
+          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.5; }
+          40% { transform: translate(10px, -14px) scale(1.4); opacity: 0.9; }
+          70% { transform: translate(-4px, -6px) scale(0.7); opacity: 0.3; }
+        }
+        @keyframes laxAmbientDot3 {
+          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.4; }
+          50% { transform: translate(6px, 10px) scale(1.2); opacity: 0.8; }
         }
         @keyframes laxSlideUp {
           from { transform: translateY(20px) scale(0.95); opacity: 0; }
           to { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        @keyframes laxBounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes laxFloatIcon {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-12px) rotate(2deg); }
         }
       `}</style>
     </>
