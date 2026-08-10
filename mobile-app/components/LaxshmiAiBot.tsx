@@ -118,17 +118,7 @@ export function LaxshmiAiBot() {
   const addItemToCart = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
 
-  // Hide Laxshmi AI on Admin screens and Auth screens
-  if (
-    pathname?.startsWith('/admin') ||
-    pathname?.startsWith('/(auth)') ||
-    pathname?.includes('/auth') ||
-    pathname?.includes('/login') ||
-    pathname?.includes('/register') ||
-    pathname?.includes('/forgot-password')
-  ) {
-    return null;
-  }
+
 
   const [isOpen, setIsOpen] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
@@ -446,6 +436,17 @@ export function LaxshmiAiBot() {
   };
 
   const ui = UI_STRINGS[language];
+
+  // Hide Laxshmi AI on Admin screens and Auth screens (Checked after all hooks to comply with React Rules of Hooks)
+  const shouldHide =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/(auth)') ||
+    pathname?.includes('/auth') ||
+    pathname?.includes('/login') ||
+    pathname?.includes('/register') ||
+    pathname?.includes('/forgot-password');
+
+  if (shouldHide) return null;
 
   return (
     <>
