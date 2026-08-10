@@ -748,10 +748,9 @@ const LEGAL_CONTACT_KEYS = [
 ];
 
 const CHATBOT_KEYS = [
-  { key: "chatbot_enabled", label: "Enable Lakshmi AI Chatbot", type: "bool" as const },
+  { key: "chatbot_enabled", label: "Enable Lakshmi AI Chatbot (Customer Facing)", type: "bool" as const },
   { key: "gemini_api_key", label: "Google Gemini API Key (Free tier at ai.google.dev)", type: "text" as const },
-  { key: "chatbot_welcome_message", label: "Chatbot Welcome Message", type: "text" as const },
-  { key: "telegram_bot_token", label: "Telegram Bot Token (from @BotFather)", type: "text" as const },
+  { key: "chatbot_welcome_message", label: "Chatbot Welcome Message (Greetings)", type: "text" as const },
 ];
 
 const CREATOR_KEYS = [
@@ -765,7 +764,7 @@ const CREATOR_KEYS = [
 
 const ALL_KNOWN_KEYS = [
   ...DISCOUNT_KEYS, ...REFERRAL_KEYS, ...DELIVERY_KEYS, ...STORE_KEYS, ...PAYMENT_KEYS, ...LEGAL_CONTACT_KEYS, ...CHATBOT_KEYS, ...CREATOR_KEYS,
-].map((k) => k.key).concat("delivery_rules", "telegram_chat_ids");
+].map((k) => k.key).concat("delivery_rules");
 
 function FieldRow({
   field,
@@ -886,54 +885,359 @@ function FieldRow({
   );
 }
 
-function TelegramChatIdsEditor({
-  value,
-  onChange,
-}: {
-  value: string | undefined;
-  onChange: (key: string, val: string) => void;
-}) {
-  // value is JSON array stored as string e.g. "[\"-100123\",\"-100456\"]"
-  let ids: string[] = [];
-  try { ids = JSON.parse(value || "[]"); } catch { ids = []; }
-  if (!Array.isArray(ids)) ids = [];
+function TelegramBotsCustomizer() {
+  const { toast } = useToast();
+  const [secBotToken, setSecBotToken] = useState("");
+  const [secChatIdList, setSecChatIdList] = useState<string[]>([""]);
 
-  const commit = (newIds: string[]) => onChange("telegram_chat_ids", JSON.stringify(newIds));
+  const [grievBotToken, setGrievBotToken] = useState("");
+  const [grievChatIdList, setGrievChatIdList] = useState<string[]>([""]);
+
+  const [telegramLoaded, setTelegramLoaded] = useState(false);
+
+  const { data: telegramData, refetch } = useQuery({
+    queryKey: ["/api/admin/security/telegram"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/security/telegram");
+      const data = await res.json();
+      if (!telegramLoaded) {
+        // Security Bot
+        if (data.security?.botToken && !data.security.botToken.includes("...")) {
+          setSecBotToken(data.security.botToken);
+        } else if (data.botToken && !data.botToken.includes("...")) {
+          setSecBotToken(data.botToken);
+        }
+        const rawSecIds = data.security?.chatIds || data.security?.chatId || data.chatId || "";
+        const secList = rawSecIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        setSecChatIdList(secList.length > 0 ? secList : [""]);
+
+        // Grievance Bot
+        if (data.grievance?.botToken && !data.grievance.botToken.includes("...")) {
+          setGrievBotToken(data.grievance.botToken);
+        }
+        const rawIds = data.grievance?.chatIds || "";
+        const list = rawIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        setGrievChatIdList(list.length > 0 ? list : [""]);
+
+        setTelegramLoaded(true);
+      }
+      return data;
+    },
+  });
+
+  const saveSecMutation = useMutation({
+    mutationFn: async (payload: { botToken: string; chatIds: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "🛡️ Super Admin Security Credentials Saved!" });
+      refetch();
+    },
+    onError: (err: any) => toast({ title: "Save Error", description: err.message, variant: "destructive" }),
+  });
+
+  const setupSecWebhookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security/setup-webhook");
+      return res.json();
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "✨ Security Webhook Registered!", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Webhook Registration Error", description: err.message, variant: "destructive" }),
+  });
+
+  const testSecAlertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security/test-alert");
+      return res.json();
+    },
+    onSuccess: (res) => toast({ title: "🔔 Security Alert Sent!", description: res.message }),
+    onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
+  });
+
+  const broadcastUpdateMutation = useMutation({
+    mutationFn: async (payload: { version: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/broadcast-update", payload);
+      return res.json();
+    },
+    onSuccess: (res) => toast({ title: "🚀 Update Broadcasted!", description: res.message }),
+    onError: (err: any) => toast({ title: "Broadcast Failed", description: err.message, variant: "destructive" }),
+  });
+
+  const saveGrievMutation = useMutation({
+    mutationFn: async (payload: { botToken: string; chatIds: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "🎫 Support & Grievance Credentials Saved!" });
+      refetch();
+    },
+    onError: (err: any) => toast({ title: "Save Error", description: err.message, variant: "destructive" }),
+  });
+
+  const setupGrievWebhookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance/setup-webhook");
+      return res.json();
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "✨ Support Webhook Registered!", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Webhook Registration Error", description: err.message, variant: "destructive" }),
+  });
+
+  const testGrievAlertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance/test-alert");
+      return res.json();
+    },
+    onSuccess: (res) => toast({ title: "🔔 Support Test Alert Sent!", description: res.message }),
+    onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
+  });
 
   return (
-    <div className="space-y-2">
-      <Label>Telegram Alert Chat IDs</Label>
-      <p className="text-xs text-muted-foreground">Add the Chat IDs of Telegram groups/channels to receive customer support alerts. Get IDs by adding your bot to a group, then visiting: api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</p>
-      {ids.length === 0 && <p className="text-sm text-muted-foreground italic">No Chat IDs added yet.</p>}
-      {ids.map((chatId, idx) => (
-        <div key={idx} className="flex gap-2 items-center">
-          <Input
-            value={chatId}
-            placeholder="e.g. -100123456789"
-            onChange={(e) => {
-              const updated = [...ids];
-              updated[idx] = e.target.value;
-              commit(updated);
-            }}
-            data-testid={`input-telegram-chat-id-${idx}`}
-          />
-          <Button
-            type="button" variant="ghost" size="icon"
-            onClick={() => commit(ids.filter((_, i) => i !== idx))}
-            data-testid={`btn-remove-chat-id-${idx}`}
-          >
-            <Trash2 size={16} className="text-destructive" />
-          </Button>
+    <div className="space-y-6">
+      {/* 1. Super Admin Security Bot Controller */}
+      <div className="rounded-2xl border border-red-500/30 bg-card shadow-xl overflow-hidden">
+        <div className="bg-gradient-to-r from-red-950/40 via-card to-card border-b border-red-500/20 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-base font-serif font-bold text-foreground">
+              <span>🛡️</span> Super Admin Security Bot (Governance • Security • Approvals)
+            </h3>
+            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${telegramData?.security?.configured ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-muted text-muted-foreground border-card-border"}`}>
+              {telegramData?.security?.configured ? "🟢 Security Bot Connected" : "⚠️ Token & Chat IDs Required"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Broadcasts high-priority alerts (logins, failed auth, secret passage, product &amp; category approvals) to Super Admins &amp; Sub-Super-Admins.
+          </p>
         </div>
-      ))}
-      <Button
-        type="button" variant="outline" size="sm"
-        onClick={() => commit([...ids, ""])}
-        className="gap-2"
-        data-testid="btn-add-chat-id"
-      >
-        <Plus size={14} /> Add Chat ID
-      </Button>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-bold text-red-400">Security Bot Token (from @BotFather)</Label>
+              <Input
+                type="password"
+                placeholder={telegramData?.security?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 7123456789:AAFx..."}
+                value={secBotToken}
+                onChange={(e) => setSecBotToken(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-red-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Create a private bot on Telegram @BotFather by sending <code>/newbot</code></p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-red-400">
+                  Super Admin &amp; Sub-Super-Admin Chat IDs ({secChatIdList.filter((s) => s.trim()).length} Authorized)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSecChatIdList((p) => [...p, ""])}
+                  className="border-red-500/40 text-red-400 hover:bg-red-500/10 text-[11px] h-7 px-2.5 rounded-lg font-bold gap-1 cursor-pointer"
+                >
+                  <Plus size={13} /> Add Admin Chat ID
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {secChatIdList.map((chatIdVal, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        placeholder={`Admin Chat ID #${idx + 1} (e.g. 1927711332)`}
+                        value={chatIdVal}
+                        onChange={(e) => {
+                          const next = [...secChatIdList];
+                          next[idx] = e.target.value;
+                          setSecChatIdList(next);
+                        }}
+                        className="font-mono text-xs rounded-xl border-red-500/30 pl-3 pr-8"
+                      />
+                    </div>
+                    {secChatIdList.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSecChatIdList((p) => (p.filter((_, i) => i !== idx).length > 0 ? p.filter((_, i) => i !== idx) : [""]))}
+                        className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg shrink-0 cursor-pointer"
+                        title="Remove Admin Chat ID"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              onClick={() => {
+                const cleanJoined = secChatIdList.map((s) => s.trim()).filter(Boolean).join(", ");
+                saveSecMutation.mutate({ botToken: secBotToken, chatIds: cleanJoined });
+              }}
+              disabled={saveSecMutation.isPending}
+              className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
+            >
+              {saveSecMutation.isPending ? "Saving..." : "💾 Save Security Credentials"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setupSecWebhookMutation.mutate()}
+              disabled={setupSecWebhookMutation.isPending || !telegramData?.security?.configured}
+              className="border-red-500/40 text-red-400 hover:bg-red-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {setupSecWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Webhook"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => testSecAlertMutation.mutate()}
+              disabled={testSecAlertMutation.isPending || !telegramData?.security?.configured}
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {testSecAlertMutation.isPending ? "Sending..." : "🔔 Send Test Alert"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => broadcastUpdateMutation.mutate({ version: "v8.1.1" })}
+              disabled={broadcastUpdateMutation.isPending || !telegramData?.security?.configured}
+              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {broadcastUpdateMutation.isPending ? "Broadcasting..." : "🚀 Broadcast Update Alert"}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Grievance & Customer Support Bot Controller */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-card shadow-xl overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-950/40 via-card to-card border-b border-emerald-500/20 p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-base font-serif font-bold text-foreground">
+              <span>🎫</span> Grievance &amp; Customer Support Bot (Multi-Admin • Support Team)
+            </h3>
+            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${telegramData?.grievance?.configured ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground border-card-border"}`}>
+              {telegramData?.grievance?.configured ? "🟢 Support Bot Connected" : "⚠️ Token & Chat IDs Required"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Receives customer tickets and Live Chat escalation requests. <em>Security and control commands are disabled on this bot.</em>
+          </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-bold text-emerald-500">Support Bot Token (from @BotFather)</Label>
+              <Input
+                type="password"
+                placeholder={telegramData?.grievance?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 8123456789:BBFx..."}
+                value={grievBotToken}
+                onChange={(e) => setGrievBotToken(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Create a distinct support bot on Telegram @BotFather by sending <code>/newbot</code></p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-emerald-500">
+                  Grievance / Staff Chat IDs ({grievChatIdList.filter((s) => s.trim()).length} Configured)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGrievChatIdList((p) => [...p, ""])}
+                  className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[11px] h-7 px-2.5 rounded-lg font-bold gap-1 cursor-pointer"
+                >
+                  <Plus size={13} /> Add Staff Chat ID
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {grievChatIdList.map((chatIdVal, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        placeholder={`Staff Chat ID #${idx + 1} (e.g. 1927711332 or -100...)`}
+                        value={chatIdVal}
+                        onChange={(e) => {
+                          const next = [...grievChatIdList];
+                          next[idx] = e.target.value;
+                          setGrievChatIdList(next);
+                        }}
+                        className="font-mono text-xs rounded-xl border-emerald-500/30 pl-3 pr-8"
+                      />
+                    </div>
+                    {grievChatIdList.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setGrievChatIdList((p) => (p.filter((_, i) => i !== idx).length > 0 ? p.filter((_, i) => i !== idx) : [""]))}
+                        className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg shrink-0 cursor-pointer"
+                        title="Remove Chat ID"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              onClick={() => {
+                const cleanJoined = grievChatIdList.map((s) => s.trim()).filter(Boolean).join(", ");
+                saveGrievMutation.mutate({ botToken: grievBotToken, chatIds: cleanJoined });
+              }}
+              disabled={saveGrievMutation.isPending}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
+            >
+              {saveGrievMutation.isPending ? "Saving..." : "💾 Save Grievance Credentials"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setupGrievWebhookMutation.mutate()}
+              disabled={setupGrievWebhookMutation.isPending || !telegramData?.grievance?.configured}
+              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {setupGrievWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Webhook"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => testGrievAlertMutation.mutate()}
+              disabled={testGrievAlertMutation.isPending || !telegramData?.grievance?.configured}
+              className="border-teal-500/40 text-teal-400 hover:bg-teal-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {testGrievAlertMutation.isPending ? "Sending..." : "🔔 Send Test Alert"}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1496,7 +1800,7 @@ function CreatorProfileCustomizer({
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "security" | "chatbot" | "creator">("delivery");
+  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "telegram" | "chatbot" | "email" | "security" | "creator">("delivery");
 
   // ---------- Business settings ----------
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -1540,7 +1844,44 @@ export default function AdminSettings() {
     },
   });
 
-  const unknownKeys = Object.keys(form).filter((k) => !ALL_KNOWN_KEYS.includes(k));
+  const EXCLUDED_UNKNOWN_KEYS = new Set([
+    // Telegram keys (managed in dedicated Telegram section)
+    "telegram_security_bot_token",
+    "telegram_security_chat_id",
+    "telegram_security_chat_ids",
+    "telegram_chat_id",
+    "telegram_chat_ids",
+    "telegram_bot_token",
+    "telegram_grievance_bot_token",
+    "telegram_grievance_chat_id",
+    "telegram_grievance_chat_ids",
+    "telegram_support_bot_token",
+    "telegram_support_chat_id",
+    "telegram_support_chat_ids",
+    // SMTP & Email keys (managed in dedicated Email section)
+    "smtp_host",
+    "smtp_port",
+    "smtp_user",
+    "smtp_pass",
+    "smtp_from",
+    "from_email",
+    "smtp_secure",
+    "resend_api_key",
+    // Internal / Custom Subcomponent keys
+    "last_notified_deploy_version",
+    "delivery_rules",
+    "search_recommendations",
+    "hero_showcase",
+    "employee_perks",
+    "creator_name",
+    "creator_title",
+    "creator_portfolio",
+    "creator_email",
+    "creator_phone",
+    "creator_bio",
+  ]);
+
+  const unknownKeys = Object.keys(form).filter((k) => !ALL_KNOWN_KEYS.includes(k) && !EXCLUDED_UNKNOWN_KEYS.has(k));
 
   // ---------- Password change ----------
   const [current, setCurrent] = useState("");
@@ -1582,13 +1923,13 @@ export default function AdminSettings() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-card-border p-5 rounded-2xl shadow-sm">
           <div>
             <h2 className="font-serif text-xl font-bold text-foreground">Super Admin Platform Controls</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Manage delivery fees, legal policy terms, contact details, payment gateways, and security.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage delivery fees, legal policy terms, contact details, payment gateways, Telegram bots, and security.</p>
           </div>
           <Button
             size="sm"
             onClick={() => saveSettings.mutate()}
             disabled={saveSettings.isPending || settingsLoading}
-            className="bg-emerald-600 hover:bg-emerald-500 font-extrabold gap-2 self-start sm:self-auto shadow-md"
+            className="bg-emerald-600 hover:bg-emerald-500 font-extrabold gap-2 self-start sm:self-auto shadow-md cursor-pointer"
             data-testid="button-save-settings"
           >
             <Save size={16} />
@@ -1600,59 +1941,75 @@ export default function AdminSettings() {
         <div className="flex flex-wrap gap-2 border-b border-card-border pb-3">
           <button
             onClick={() => setActiveCategory("delivery")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "delivery" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <Truck size={16} /> 🚚 Delivery & Logistics
+            <Truck size={16} /> 🚚 Delivery &amp; Logistics
           </button>
           <button
             onClick={() => setActiveCategory("legal")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "legal" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <MapPin size={16} /> 📜 Legal & Contact Info
+            <MapPin size={16} /> 📜 Legal &amp; Contact Info
           </button>
           <button
             onClick={() => setActiveCategory("branding")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "branding" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <Sparkles size={16} /> 🎨 Storefront & Branding
+            <Sparkles size={16} /> 🎨 Storefront &amp; Branding
           </button>
           <button
             onClick={() => setActiveCategory("payments")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "payments" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <CreditCard size={16} /> 💳 Payments & Discounts
+            <CreditCard size={16} /> 💳 Payments &amp; Discounts
           </button>
           <button
-            onClick={() => setActiveCategory("security")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              activeCategory === "security" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            onClick={() => setActiveCategory("telegram")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === "telegram" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <KeyRound size={16} /> 🔐 Security & Accounts
+            <span>📱</span> Telegram Bots &amp; Alerts
           </button>
           <button
             onClick={() => setActiveCategory("chatbot")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "chatbot" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            🤖 Chatbot & Alerts
+            <span>🤖</span> Lakshmi AI Chatbot
+          </button>
+          <button
+            onClick={() => setActiveCategory("email")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === "email" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <Mail size={16} /> 📧 SMTP &amp; Email
+          </button>
+          <button
+            onClick={() => setActiveCategory("security")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === "security" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <KeyRound size={16} /> 🔐 Security &amp; Accounts
           </button>
           <button
             onClick={() => setActiveCategory("creator")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeCategory === "creator" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
             }`}
           >
-            <User size={16} /> 👨‍💻 Creator & Resume
+            <User size={16} /> 👨‍💻 Creator &amp; Resume
           </button>
         </div>
 
@@ -1662,7 +2019,7 @@ export default function AdminSettings() {
             <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <section>
                 <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                  <Truck size={16} /> Instant Local & Subscription Delivery Rules
+                  <Truck size={16} /> Instant Local &amp; Subscription Delivery Rules
                 </div>
                 <div className="divide-y divide-card-border">
                   {DELIVERY_KEYS.map((f) => (
@@ -1673,7 +2030,7 @@ export default function AdminSettings() {
 
               <section className="pt-4 border-t border-card-border">
                 <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-primary">
-                  <MapPin size={16} /> Per-City Express Delivery Fees & Free Thresholds
+                  <MapPin size={16} /> Per-City Express Delivery Fees &amp; Free Thresholds
                 </div>
                 <DeliveryRulesEditor
                   value={form["delivery_rules"]}
@@ -1689,7 +2046,7 @@ export default function AdminSettings() {
           <div className="space-y-6">
             <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                <Store size={16} /> 🏢 Platform Identity, City & Jurisdiction Settings
+                <Store size={16} /> 🏢 Platform Identity, City &amp; Jurisdiction Settings
               </div>
               <p className="text-xs text-muted-foreground">
                 Configure your store name, primary operating city, operating state, and governing court jurisdiction city. These settings map dynamically across all Legal Policy pages, Grievance pages, and Mobile App screens!
@@ -1703,10 +2060,10 @@ export default function AdminSettings() {
 
             <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
               <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                <MapPin size={16} /> Customer Support & Operational Hub Contact Info
+                <MapPin size={16} /> Customer Support &amp; Operational Hub Contact Info
               </div>
               <p className="text-xs text-muted-foreground">
-                These settings control the contact details, phone numbers, HQ address, operating hours, and return policy terms displayed across Web & Mobile App.
+                These settings control the contact details, phone numbers, HQ address, operating hours, and return policy terms displayed across Web &amp; Mobile App.
               </p>
               <div className="divide-y divide-card-border">
                 {LEGAL_CONTACT_KEYS.map((f) => (
@@ -1781,11 +2138,60 @@ export default function AdminSettings() {
           </div>
         )}
 
-        {/* ── TAB 5: 🔐 SECURITY & ACCOUNTS ────────────────────────────── */}
+        {/* ── TAB 5: 📱 TELEGRAM BOTS & ALERTS ─────────────────────────── */}
+        {activeCategory === "telegram" && (
+          <div className="space-y-6">
+            <TelegramBotsCustomizer />
+          </div>
+        )}
+
+        {/* ── TAB 6: 🤖 LAKSHMI AI CHATBOT ─────────────────────────────── */}
+        {activeCategory === "chatbot" && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
+                🤖 Lakshmi AI Customer Chatbot Settings
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure your Google Gemini API key for the AI assistant, welcome messages, and knowledge base integration.
+              </p>
+              <div className="divide-y divide-card-border">
+                {CHATBOT_KEYS.map((f) => (
+                  <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
+                ))}
+              </div>
+              <div className="pt-3 flex items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">⚡ Test Gemini API Key in Real Time</p>
+                  <p className="text-[11px] text-muted-foreground">Click to verify if your entered API key can connect to Google Gemini AI servers.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => testGeminiMutation.mutate()}
+                  disabled={testGeminiMutation.isPending}
+                  className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 font-bold text-xs gap-2 shrink-0 py-4 shadow-sm cursor-pointer"
+                >
+                  <Sparkles size={14} className={testGeminiMutation.isPending ? "animate-spin text-yellow-400" : "text-yellow-400"} />
+                  {testGeminiMutation.isPending ? "Testing API Connection..." : "Test Connection ⚡"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 7: 📧 SMTP & EMAIL CONFIGURATION ──────────────────────── */}
+        {activeCategory === "email" && (
+          <div className="space-y-6">
+            <SmtpEmailCustomizer />
+          </div>
+        )}
+
+        {/* ── TAB 8: 🔐 SECURITY & ACCOUNTS ────────────────────────────── */}
         {activeCategory === "security" && (
           <div className="space-y-6">
             <AuthMethodsCustomizer />
-            <SmtpEmailCustomizer />
 
             {/* Password change */}
             <div className="rounded-xl border border-emerald-500/30 bg-card p-6 shadow-xl space-y-4">
@@ -1825,7 +2231,7 @@ export default function AdminSettings() {
                 <Button
                   type="submit"
                   disabled={change.isPending || !current || next.length < 6 || next !== confirm || totpCode.length < 6}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 font-extrabold text-white rounded-xl shadow-lg"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 font-extrabold text-white rounded-xl shadow-lg cursor-pointer"
                   data-testid="button-change-password"
                 >
                   {change.isPending ? "Validating Password & TOTP..." : "Verify Current Password + TOTP & Update Password 🔑"}
@@ -1835,49 +2241,7 @@ export default function AdminSettings() {
           </div>
         )}
 
-        {/* ── TAB 6: 🤖 CHATBOT & ALERTS ────────────────────────────── */}
-        {activeCategory === "chatbot" && (
-          <div className="space-y-6">
-            <div className="rounded-xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-primary">
-                🤖 Lakshmi AI Chatbot & Telegram Integration
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Configure your Gemini API key for the AI chatbot, welcome messages, and Telegram notifications for customer support alerts.
-              </p>
-              <div className="divide-y divide-card-border">
-                {CHATBOT_KEYS.map((f) => (
-                  <FieldRow key={f.key} field={f} value={form[f.key]} onChange={setField} />
-                ))}
-              </div>
-              <div className="pt-3 flex items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl">
-                <div>
-                  <p className="text-xs font-bold text-emerald-400">⚡ Test Gemini API Key in Real Time</p>
-                  <p className="text-[11px] text-muted-foreground">Click to verify if your entered API key can connect to Google Gemini AI servers.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => testGeminiMutation.mutate()}
-                  disabled={testGeminiMutation.isPending}
-                  className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20 font-bold text-xs gap-2 shrink-0 py-4 shadow-sm"
-                >
-                  <Sparkles size={14} className={testGeminiMutation.isPending ? "animate-spin text-yellow-400" : "text-yellow-400"} />
-                  {testGeminiMutation.isPending ? "Testing API Connection..." : "Test Connection ⚡"}
-                </Button>
-              </div>
-              <div className="pt-4 border-t border-card-border">
-                <TelegramChatIdsEditor
-                  value={form["telegram_chat_ids"]}
-                  onChange={setField}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── TAB 7: 👨‍💻 CREATOR & INVENTOR PROFILE ────────────────────────── */}
+        {/* ── TAB 9: 👨‍💻 CREATOR & INVENTOR PROFILE ────────────────────────── */}
         {activeCategory === "creator" && (
           <CreatorProfileCustomizer
             form={form}
@@ -1886,20 +2250,24 @@ export default function AdminSettings() {
           />
         )}
 
+        {/* ── RAW CUSTOM KEYS (IF ANY NON-SYSTEM KEYS REMAIN) ───────────── */}
         {unknownKeys.length > 0 && (
-          <div className="rounded-xl border border-card-border bg-card p-6">
+          <div className="rounded-xl border border-card-border bg-card p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-1 text-sm font-semibold text-primary">
-              Other Custom Settings
+              ⚙️ Additional Custom Platform Settings
             </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Advanced custom attributes stored in the database.
+            </p>
             <div className="divide-y divide-card-border">
               {unknownKeys.map((key) => (
-                <div key={key} className="py-2">
-                  <Label htmlFor={`set-${key}`}>{key}</Label>
+                <div key={key} className="py-2.5">
+                  <Label htmlFor={`set-${key}`} className="text-xs font-mono font-bold">{key}</Label>
                   <Input
                     id={`set-${key}`}
                     value={form[key] ?? ""}
                     onChange={(e) => setField(key, e.target.value)}
-                    className="mt-1"
+                    className="mt-1 font-mono text-xs rounded-xl"
                     data-testid={`input-setting-${key}`}
                   />
                 </div>
