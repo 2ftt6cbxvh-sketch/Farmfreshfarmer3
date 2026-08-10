@@ -477,7 +477,7 @@ export function LaxshmiAiBot() {
                   style={styles.iconBtn}
                   onPress={() => {
                     setIsOpen(false);
-                    router.push('/(tabs)/account');
+                    router.push('/tickets');
                   }}
                 >
                   <Ionicons name="receipt-outline" size={16} color="#10b981" />
@@ -576,7 +576,10 @@ export function LaxshmiAiBot() {
 
                           <TouchableOpacity
                             style={styles.ticketBtn}
-                            onPress={() => setActiveTicketFormMessageId(activeTicketFormMessageId === msg.id ? null : msg.id)}
+                            onPress={() => {
+                              setIsOpen(false);
+                              router.push('/tickets');
+                            }}
                           >
                             <Ionicons name="receipt" size={13} color="#10b981" />
                             <Text style={styles.ticketText}>{ui.raiseTicket}</Text>

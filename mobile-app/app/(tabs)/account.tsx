@@ -278,7 +278,7 @@ export default function AccountScreen() {
           <Text style={[styles.menuItemText, { color: textColor }]}>My Orders</Text>
           <Text style={styles.chevron}>→</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setShowTicketsModal(true)}>
+        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/tickets')}>
           <Text style={{ fontSize: 20 }}>🎫</Text>
           <Text style={[styles.menuItemText, { color: textColor }]}>My Support Tickets</Text>
           <Text style={styles.chevron}>→</Text>
