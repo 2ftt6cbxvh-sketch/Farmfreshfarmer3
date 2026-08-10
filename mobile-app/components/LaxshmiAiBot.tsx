@@ -274,7 +274,14 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
     if (!ttsEnabled) return;
     try {
       Speech.stop();
-      const cleanText = text.replace(/[*_#`•]/g, '').trim();
+
+      // Strip emojis and markdown formatting before speaking
+      const cleanText = text
+        .replace(/([\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{200D}]|[\u{FE0F}])/gu, '')
+        .replace(/[*_#`•-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       if (!cleanText) return;
       const langCode = lang === 'te' ? 'te-IN' : lang === 'hi' ? 'hi-IN' : 'en-IN';
 
@@ -288,12 +295,12 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
 
       Speech.speak(cleanText, {
         language: langCode,
-        pitch: 1.25, // Natural female voice pitch
-        rate: 0.95,
+        pitch: 1.0, // Natural female voice pitch
+        rate: 0.82, // Slower, comfortable, understandable speech rate
         voice: femaleVoice?.identifier,
       });
     } catch (err) {
-      console.warn('[laxshmi tts error]', err);
+      console.warn('[lakshmi tts error]', err);
     }
   }, [ttsEnabled]);
 
@@ -428,7 +435,7 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
             text.includes('लक्ष्मी') ||
             text.includes('లక్ష్మి')
           ) {
-            Speech.speak('Namaste! Laxshmi is listening...', { language: 'en-IN', pitch: 1.25 });
+            Speech.speak('Namaste! Lakshmi is listening...', { language: 'en-IN', pitch: 1.0, rate: 0.85 });
             setIsOpen(true);
             dismissBubbleSmoothly();
             try { wakeListener.stop(); } catch {}

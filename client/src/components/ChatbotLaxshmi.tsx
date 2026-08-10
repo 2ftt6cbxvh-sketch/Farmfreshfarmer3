@@ -336,11 +336,22 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     if (speakingId === id) { setSpeakingId(null); return; }
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[*_`#•]/g, "").substring(0, 500));
+
+    // Strip emojis and markdown formatting before speaking
+    const cleanText = text
+      .replace(/([\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{200D}]|[\u{FE0F}])/gu, "")
+      .replace(/[*_`#•-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .substring(0, 500);
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     const langCode = lang === "te" ? "te-IN" : lang === "hi" ? "hi-IN" : "en-IN";
     utterance.lang = langCode;
-    utterance.rate = 0.95;
-    utterance.pitch = 1.25; // Elevated pitch for natural female tone
+    utterance.rate = 0.82; // Slower, comfortable, clear speech rate
+    utterance.pitch = 1.0; // Natural pitch
 
     const voices = window.speechSynthesis.getVoices();
     const femaleVoice = voices.find((v) =>
