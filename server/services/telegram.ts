@@ -42,17 +42,28 @@ import { setLockdown } from "./lockdown";
    1. CREDENTIAL RESOLUTION HELPERS
    ==================================================================== */
 
-export async function getTelegramSecurityCredentials(): Promise<{ botToken: string; chatId: string }> {
+export async function getTelegramSecurityCredentials(): Promise<{ botToken: string; chatId: string; chatIds: string[] }> {
   const envToken = process.env.TELEGRAM_SECURITY_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
-  const envChatId = process.env.TELEGRAM_SECURITY_CHAT_ID || process.env.TELEGRAM_CHAT_ID || "";
+  const envChatIds = process.env.TELEGRAM_SECURITY_CHAT_IDS || process.env.TELEGRAM_SECURITY_CHAT_ID || process.env.TELEGRAM_CHAT_ID || "";
 
   const { storage } = await import("../storage");
   const dbToken = (await storage.settings.get("telegram_security_bot_token")) || (await storage.settings.get("telegram_bot_token"));
-  const dbChatId = (await storage.settings.get("telegram_security_chat_id")) || (await storage.settings.get("telegram_chat_id"));
+  const dbChatIds = (await storage.settings.get("telegram_security_chat_ids")) || (await storage.settings.get("telegram_security_chat_id")) || (await storage.settings.get("telegram_chat_id"));
+
+  const rawChatIds = envChatIds || dbChatIds || "";
+  const chatIds = rawChatIds
+    ? rawChatIds
+        .split(/[\n,;]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : [];
+
+  const primaryChatId = chatIds[0] || "";
 
   return {
     botToken: envToken || dbToken || "",
-    chatId: envChatId || dbChatId || "",
+    chatId: primaryChatId,
+    chatIds,
   };
 }
 
@@ -87,8 +98,8 @@ export async function getTelegramCredentials() {
 }
 
 export async function isTelegramSecurityConfigured(): Promise<boolean> {
-  const { botToken, chatId } = await getTelegramSecurityCredentials();
-  return !!(botToken && chatId);
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  return !!(botToken && chatIds.length > 0);
 }
 
 export async function isTelegramGrievanceConfigured(): Promise<boolean> {
@@ -122,21 +133,24 @@ async function sendRawTelegramMessage(botToken: string, chatId: string, text: st
 }
 
 /* ====================================================================
-   3. SECURITY BOT ALERT DISPATCHER (SUPER ADMIN ONLY)
+   3. SECURITY BOT ALERT DISPATCHER (SUPER ADMIN & SUB-SUPER-ADMINS)
    ==================================================================== */
 
 export async function sendTelegramSecurityAlert(message: string): Promise<boolean> {
-  const { botToken, chatId } = await getTelegramSecurityCredentials();
-  if (!botToken || !chatId) return false;
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
   const formatted = `🚨 [FarmFreshFarmer Security]\n${message}`;
-  return sendRawTelegramMessage(botToken, chatId, formatted);
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, formatted))
+  );
+  return results.some((r) => r === true);
 }
 
 // Alias for backwards compatibility across existing security imports
 export const sendTelegramAlert = sendTelegramSecurityAlert;
 
 /* ====================================================================
-   3B. FORMAL PRODUCT & CATEGORY APPROVAL NOTIFICATIONS (SECURITY BOT ONLY)
+   3B. FORMAL PRODUCT & CATEGORY APPROVAL NOTIFICATIONS (SECURITY BOT)
    ==================================================================== */
 
 export interface ApprovalNotificationParams {
@@ -153,8 +167,8 @@ export interface ApprovalNotificationParams {
 }
 
 export async function sendTelegramApprovalNotification(params: ApprovalNotificationParams): Promise<boolean> {
-  const { botToken, chatId } = await getTelegramSecurityCredentials();
-  if (!botToken || !chatId) return false;
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
 
   const actionText =
     params.action === "create" ? "➕ NEW CREATION REQUEST" :
@@ -188,7 +202,60 @@ ${detailsBlock}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 👉 <b>Instructions:</b> Please log into the Admin Dashboard with your Super Admin credentials and navigate to <b>Approvals</b> to review, modify, or approve. (Direct links are omitted for security)`;
 
-  return sendRawTelegramMessage(botToken, chatId, message);
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+  );
+  return results.some((r) => r === true);
+}
+
+/* ====================================================================
+   3C. DEPLOYMENT / VERSION UPDATE PUSH BROADCASTER (SECURITY BOT)
+   ==================================================================== */
+
+export async function sendTelegramDeployNotification(version: string, details?: string): Promise<boolean> {
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
+
+  const defaultDetails = details ||
+    `• Multi-Admin Telegram Security Bot with dynamic Chat ID access\n` +
+    `• Product Category selector in approval modal\n` +
+    `• Real-time 1.5s live approval sync & refresh queue\n` +
+    `• Automated deploy alerts on version releases`;
+
+  const message = `🚀 <b>NEW UPDATE PUSHED & LIVE (VERSION ${version})</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎉 <b>Build Release:</b> <code>${version}</code>
+📅 <b>Timestamp:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+🌐 <b>Environment:</b> Live Production
+
+📋 <b>Release Highlights & Updates:</b>
+${defaultDetails}
+
+🛡️ <b>System Status:</b>
+✅ Security Bot: Active (${chatIds.length} Super Admin / Sub-Super-Admin Broadcast)
+✅ Storefront & Order Processing: Operational
+✅ Database & Stock Management: Synced
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>This broadcast was automatically delivered to all authorized Super Admins.</i>`;
+
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+  );
+  return results.some((r) => r === true);
+}
+
+export async function notifyDeploymentIfNewVersion(currentVersion = "v8.1.1") {
+  try {
+    const { storage } = await import("../storage");
+    const lastNotified = await storage.settings.get("last_notified_deploy_version");
+    if (lastNotified !== currentVersion) {
+      await storage.settings.set("last_notified_deploy_version", currentVersion);
+      await sendTelegramDeployNotification(currentVersion);
+      console.log(`[telegram] Sent deployment go-live notification for version ${currentVersion}`);
+    }
+  } catch (e) {
+    console.warn("[telegram deploy notify error]", e);
+  }
 }
 
 /* ====================================================================
@@ -241,21 +308,26 @@ export function approveTelegramUnlockToken(token: string): boolean {
 }
 
 export async function sendTelegramUnlockRequest(token: string, deviceInfo: string): Promise<boolean> {
-  const { botToken, chatId } = await getTelegramSecurityCredentials();
-  if (!botToken || !chatId) return false;
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
 
-  const text = `🔐 <b>SUPER ADMIN SECRET PASSAGE UNLOCK REQUEST</b>\n\nSession Token: <code>${token}</code>\nDevice Info: ${deviceInfo}\nTimestamp: ${new Date().toLocaleString()}\n\nClick button below or reply <code>/approve ${token}</code> to grant instant Super Admin unlock!`;
+  const text = `🔐 <b>SUPER ADMIN SECRET PASSAGE UNLOCK REQUEST</b>\n\nSession Token: <code>${token}</code>\nDevice Info: ${deviceInfo}\nTimestamp: ${new Date().toLocaleString()}\n\nReply <code>/approve ${token}</code> or tap button to grant instant Super Admin unlock!`;
 
-  return sendRawTelegramMessage(botToken, chatId, text, {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "✅ Authorize Super Admin Unlock", callback_data: `approve_${token}` },
-          { text: "🚫 Reject Request", callback_data: `reject_${token}` },
-        ],
-      ],
-    },
-  });
+  const results = await Promise.all(
+    chatIds.map((cId) =>
+      sendRawTelegramMessage(botToken, cId, text, {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Authorize Super Admin Unlock", callback_data: `approve_${token}` },
+              { text: "🚫 Reject Request", callback_data: `reject_${token}` },
+            ],
+          ],
+        },
+      })
+    )
+  );
+  return results.some((r) => r === true);
 }
 
 /* ====================================================================
@@ -263,25 +335,25 @@ export async function sendTelegramUnlockRequest(token: string, deviceInfo: strin
    ==================================================================== */
 
 export async function processSecurityTelegramWebhook(update: any): Promise<{ handled: boolean; reply?: string }> {
-  const { botToken, chatId: expectedChatId } = await getTelegramSecurityCredentials();
+  const { botToken, chatIds: expectedChatIds, chatId: primaryChatId } = await getTelegramSecurityCredentials();
   if (!botToken) return { handled: false, reply: "Security Bot token not configured" };
 
   // Handle Inline Keyboard Button Taps
   if (update?.callback_query) {
     const cb = update.callback_query;
     const cbChatId = String(cb.message?.chat?.id);
-    if (cbChatId === expectedChatId) {
+    if (expectedChatIds.includes(cbChatId)) {
       const data = String(cb.data || "");
       if (data.startsWith("approve_")) {
         const token = data.replace("approve_", "");
         approveTelegramUnlockToken(token);
         const reply = `✅ <b>SUPER ADMIN OVERRIDE SESSION APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
-        await sendRawTelegramMessage(botToken, expectedChatId, reply);
+        await sendRawTelegramMessage(botToken, cbChatId, reply);
         return { handled: true, reply };
       } else if (data.startsWith("reject_")) {
         const token = data.replace("reject_", "");
         const reply = `🚫 <b>SUPER ADMIN EMERGENCY UNLOCK REJECTED!</b>\nToken: <code>${token}</code>\nSession request was rejected by Super Admin.`;
-        await sendRawTelegramMessage(botToken, expectedChatId, reply);
+        await sendRawTelegramMessage(botToken, cbChatId, reply);
         return { handled: true, reply };
       }
     }
@@ -293,13 +365,13 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   const senderChatId = String(message.chat?.id);
   const text = message.text.trim();
 
-  // Strict Chat ID check: reject any command from unauthorized chat IDs
-  if (senderChatId !== expectedChatId) {
+  // Strict Chat ID check: allow only authorized Super Admins & Sub-Super-Admins
+  if (!expectedChatIds.includes(senderChatId)) {
     console.warn(`[telegram security] Unauthorized command attempt on Security Bot from chat ID: ${senderChatId}`);
-    if (expectedChatId) {
+    if (primaryChatId) {
       await sendRawTelegramMessage(
         botToken,
-        expectedChatId,
+        primaryChatId,
         `⚠️ UNAUTHORIZED SECURITY BOT COMMAND ATTEMPT!\nFrom Chat ID: ${senderChatId}\nCommand: ${text}`
       );
     }

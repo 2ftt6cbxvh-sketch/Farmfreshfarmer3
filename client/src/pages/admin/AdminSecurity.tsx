@@ -218,7 +218,7 @@ export default function AdminSecurity() {
 
   // 1. Super Admin Security Bot State
   const [secBotToken, setSecBotToken] = useState("");
-  const [secChatId, setSecChatId] = useState("");
+  const [secChatIdList, setSecChatIdList] = useState<string[]>([""]);
 
   // 2. Grievance & Customer Support Bot State
   const [grievBotToken, setGrievBotToken] = useState("");
@@ -238,7 +238,9 @@ export default function AdminSecurity() {
         } else if (data.botToken && !data.botToken.includes("...")) {
           setSecBotToken(data.botToken);
         }
-        setSecChatId(data.security?.chatId || data.chatId || "");
+        const rawSecIds = data.security?.chatIds || data.security?.chatId || data.chatId || "";
+        const secList = rawSecIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        setSecChatIdList(secList.length > 0 ? secList : [""]);
 
         // Grievance Bot
         if (data.grievance?.botToken && !data.grievance.botToken.includes("...")) {
@@ -253,6 +255,25 @@ export default function AdminSecurity() {
       return data;
     },
   });
+
+  function handleAddSecChatId() {
+    setSecChatIdList((prev) => [...prev, ""]);
+  }
+
+  function handleUpdateSecChatId(index: number, val: string) {
+    setSecChatIdList((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  }
+
+  function handleRemoveSecChatId(index: number) {
+    setSecChatIdList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [""];
+    });
+  }
 
   function handleAddChatId() {
     setGrievChatIdList((prev) => [...prev, ""]);
@@ -275,15 +296,30 @@ export default function AdminSecurity() {
 
   // Mutations for Security Bot
   const saveSecTelegramMutation = useMutation({
-    mutationFn: async (payload: { botToken: string; chatId: string }) => {
+    mutationFn: async (payload: { botToken: string; chatId?: string; chatIds?: string }) => {
       const res = await apiRequest("POST", "/api/admin/security/telegram/security", payload);
       return res.json();
     },
-    onSuccess: (res) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
-      toast({ title: "🛡️ Security Bot Saved", description: res.message });
+      toast({ title: "🛡️ Super Admin Security Credentials Saved!" });
     },
-    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to save Security credentials", variant: "destructive" });
+    },
+  });
+
+  const broadcastUpdateMutation = useMutation({
+    mutationFn: async (payload: { version: string; details?: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/broadcast-update", payload);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "🚀 Update Alert Broadcasted!", description: data?.message || "All Super Admins notified via Telegram." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Broadcast Failed", description: err?.message || "Could not send broadcast", variant: "destructive" });
+    },
   });
 
   const setupSecWebhookMutation = useMutation({
@@ -462,23 +498,61 @@ export default function AdminSecurity() {
               <p className="text-[10px] text-muted-foreground mt-1">Create a private bot on Telegram @BotFather by sending <code>/newbot</code></p>
             </div>
 
-            <div>
-              <Label htmlFor="sec-chat-id" className="text-xs font-bold text-red-400">Super Admin Chat ID (from @userinfobot)</Label>
-              <Input
-                id="sec-chat-id"
-                type="text"
-                placeholder="e.g. 1927711332"
-                value={secChatId}
-                onChange={(e) => setSecChatId(e.target.value)}
-                className="mt-1 font-mono text-xs rounded-xl border-red-500/30"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">Obtain your private Chat ID from Telegram @userinfobot</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-red-400">
+                  Super Admin &amp; Sub-Super-Admin Chat IDs ({secChatIdList.filter((s) => s.trim()).length} Authorized)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSecChatId}
+                  className="border-red-500/40 text-red-400 hover:bg-red-500/10 text-[11px] h-7 px-2.5 rounded-lg font-bold gap-1 cursor-pointer"
+                >
+                  <Plus size={13} /> Add Admin Chat ID
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {secChatIdList.map((chatIdVal, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        placeholder={`Admin Chat ID #${idx + 1} (e.g. 1927711332)`}
+                        value={chatIdVal}
+                        onChange={(e) => handleUpdateSecChatId(idx, e.target.value)}
+                        className="font-mono text-xs rounded-xl border-red-500/30 pl-3 pr-8"
+                      />
+                    </div>
+                    {secChatIdList.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveSecChatId(idx)}
+                        className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg shrink-0 cursor-pointer"
+                        title="Remove Admin Chat ID"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Click <strong>+ Add Admin Chat ID</strong> to authorize additional sub-super-admins to receive security alerts &amp; execute bot commands.
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button
-              onClick={() => saveSecTelegramMutation.mutate({ botToken: secBotToken, chatId: secChatId })}
+              onClick={() => {
+                const cleanJoined = secChatIdList.map((s) => s.trim()).filter(Boolean).join(", ");
+                saveSecTelegramMutation.mutate({ botToken: secBotToken, chatIds: cleanJoined });
+              }}
               disabled={saveSecTelegramMutation.isPending}
               className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
             >
@@ -501,6 +575,15 @@ export default function AdminSecurity() {
               className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
             >
               {testSecAlertMutation.isPending ? "Sending..." : "🔔 Send Test Security Alert"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => broadcastUpdateMutation.mutate({ version: "v8.1.1" })}
+              disabled={broadcastUpdateMutation.isPending || !telegramData?.security?.configured}
+              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {broadcastUpdateMutation.isPending ? "Broadcasting..." : "🚀 Broadcast Update Go-Live"}
             </Button>
           </div>
 

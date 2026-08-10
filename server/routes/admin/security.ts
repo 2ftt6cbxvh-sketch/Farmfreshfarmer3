@@ -193,7 +193,7 @@ export function registerAdminSecurityRoutes(app: Express) {
       // 1. Security Bot
       const sec = await getTelegramSecurityCredentials();
       const secDbToken = await storage.settings.get("telegram_security_bot_token") || await storage.settings.get("telegram_bot_token");
-      const secDbChatId = await storage.settings.get("telegram_security_chat_id") || await storage.settings.get("telegram_chat_id");
+      const secDbChatIds = await storage.settings.get("telegram_security_chat_ids") || await storage.settings.get("telegram_security_chat_id") || await storage.settings.get("telegram_chat_id");
       const secIsValid = !!(sec.botToken && sec.botToken.includes(":") && !sec.botToken.includes("..."));
       const secMasked = secIsValid ? `${sec.botToken.substring(0, 5)}...${sec.botToken.slice(-4)}` : "";
 
@@ -206,9 +206,10 @@ export function registerAdminSecurityRoutes(app: Express) {
 
       return res.json({
         security: {
-          configured: !!(secIsValid && sec.chatId),
+          configured: !!(secIsValid && sec.chatIds.length > 0),
           botToken: secIsValid ? secMasked : "",
-          chatId: secDbChatId || sec.chatId || "",
+          chatId: secDbChatIds || sec.chatIds.join(", ") || "",
+          chatIds: secDbChatIds || sec.chatIds.join(", ") || "",
           envConfigured: !!(process.env.TELEGRAM_SECURITY_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN),
         },
         grievance: {
@@ -218,9 +219,10 @@ export function registerAdminSecurityRoutes(app: Express) {
           envConfigured: !!(process.env.TELEGRAM_GRIEVANCE_BOT_TOKEN || process.env.TELEGRAM_SUPPORT_BOT_TOKEN),
         },
         // Legacy top-level aliases mapped to Security Bot
-        configured: !!(secIsValid && sec.chatId),
+        configured: !!(secIsValid && sec.chatIds.length > 0),
         botToken: secIsValid ? secMasked : "",
-        chatId: secDbChatId || sec.chatId || "",
+        chatId: secDbChatIds || sec.chatIds.join(", ") || "",
+        chatIds: secDbChatIds || sec.chatIds.join(", ") || "",
         envConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       });
     } catch (err: any) {
@@ -231,13 +233,15 @@ export function registerAdminSecurityRoutes(app: Express) {
   /** POST /api/admin/security/telegram/security — Save Security Bot credentials (Super Admin only) */
   app.post("/api/admin/security/telegram/security", requireAdmin as any, async (req: Request, res: Response) => {
     try {
-      const { botToken, chatId } = req.body || {};
+      const { botToken, chatId, chatIds } = req.body || {};
       const { storage } = await import("../../storage");
 
-      if (chatId !== undefined && String(chatId).trim()) {
-        const cleanChatId = String(chatId).trim();
-        await storage.settings.set("telegram_security_chat_id", cleanChatId);
-        await storage.settings.set("telegram_chat_id", cleanChatId);
+      const rawChatIds = chatIds !== undefined ? chatIds : chatId;
+      if (rawChatIds !== undefined && String(rawChatIds).trim()) {
+        const cleanChatIds = String(rawChatIds).trim();
+        await storage.settings.set("telegram_security_chat_ids", cleanChatIds);
+        await storage.settings.set("telegram_security_chat_id", cleanChatIds);
+        await storage.settings.set("telegram_chat_id", cleanChatIds);
       }
 
       if (botToken !== undefined && String(botToken).trim()) {
@@ -257,6 +261,22 @@ export function registerAdminSecurityRoutes(app: Express) {
       return res.json({ message: "🛡️ Super Admin Security Bot credentials saved successfully" });
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Failed to save Security Bot credentials" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/broadcast-update — Broadcast update push alert to all Super Admins */
+  app.post("/api/admin/security/telegram/broadcast-update", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sendTelegramDeployNotification } = await import("../../services/telegram");
+      const { version, details } = req.body || {};
+      const ver = version || "v8.1.1";
+      const sent = await sendTelegramDeployNotification(ver, details);
+      if (sent) {
+        return res.json({ message: `🚀 Update notification for ${ver} broadcasted to all configured Super Admins!` });
+      }
+      return res.status(400).json({ message: "Could not send Telegram broadcast. Check Security Bot credentials." });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to broadcast update notification" });
     }
   });
 

@@ -66,6 +66,12 @@ export const routesReadyPromise = (async () => {
   await runAutoMigrations();
   await registerRoutes(httpServer, app);
 
+  // Send Telegram deploy/update alert to Super Admins on server boot
+  try {
+    const { notifyDeploymentIfNewVersion } = await import("./services/telegram");
+    notifyDeploymentIfNewVersion("v8.1.1").catch(() => {});
+  } catch {}
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
