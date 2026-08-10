@@ -10,18 +10,36 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 const ALL_MENU_OPTIONS = [
-  { href: "/admin", label: "Dashboard", category: "Overview" },
+  // Core
+  { href: "/admin", label: "Dashboard", category: "Core" },
+  { href: "/admin/live-chat", label: "Live Support Chat 💬", category: "Core" },
+  { href: "/admin/tickets", label: "Support Tickets", category: "Core" },
+
+  // Catalog
   { href: "/admin/products", label: "Products", category: "Catalog" },
   { href: "/admin/categories", label: "Categories", category: "Catalog" },
+  { href: "/admin/approvals", label: "Approvals", category: "Catalog" },
   { href: "/admin/inventory", label: "Inventory", category: "Catalog" },
+
+  // Sales
   { href: "/admin/orders", label: "Orders", category: "Sales" },
   { href: "/admin/subscriptions", label: "Subscriptions", category: "Sales" },
   { href: "/admin/payments", label: "Payments", category: "Sales" },
+
+  // Growth
   { href: "/admin/customers", label: "Customers", category: "Growth" },
   { href: "/admin/reviews", label: "Reviews", category: "Growth" },
   { href: "/admin/coupons", label: "Coupons", category: "Growth" },
   { href: "/admin/discounts", label: "Discounts", category: "Growth" },
   { href: "/admin/referrals", label: "Referrals", category: "Growth" },
+
+  // System
+  { href: "/admin/staff", label: "Staff & Sub-Admins", category: "System" },
+  { href: "/admin/users", label: "User Roster", category: "System" },
+  { href: "/admin/delivery-partners", label: "Delivery Partners", category: "System" },
+  { href: "/admin/gst", label: "GST & Tax Config", category: "System" },
+  { href: "/admin/security", label: "Security Logs", category: "System" },
+  { href: "/admin/settings", label: "Settings", category: "System" },
   { href: "/admin/warehouses", label: "Warehouses", category: "System" },
   { href: "/admin/delivery", label: "Delivery & Geo", category: "System" },
 ];
@@ -29,12 +47,12 @@ const ALL_MENU_OPTIONS = [
 const PRESET_ROLES = [
   { value: "custom_subadmin", label: "Custom Sub-Admin (Pick Menus)", defaultPerms: ["/admin", "/admin/orders"] },
   { value: "warehouse_admin", label: "Warehouse Admin", defaultPerms: ["/admin", "/admin/inventory", "/admin/warehouses"] },
-  { value: "manager_admin", label: "Manager Admin", defaultPerms: ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"] },
+  { value: "manager_admin", label: "Manager Admin", defaultPerms: ["/admin", "/admin/products", "/admin/categories", "/admin/approvals", "/admin/orders", "/admin/inventory"] },
   { value: "delivery_partner", label: "Delivery Partner / Rider", defaultPerms: ["/admin", "/admin/orders", "/admin/delivery"] },
-  { value: "customer_rep", label: "Customer Representative", defaultPerms: ["/admin", "/admin/orders", "/admin/customers"] },
-  { value: "local_grievance_officer", label: "Local Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews"] },
-  { value: "zonal_grievance_officer", label: "Zonal Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports"] },
-  { value: "chief_grievance_officer", label: "Chief Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings"] },
+  { value: "customer_rep", label: "Customer Representative", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/live-chat", "/admin/tickets"] },
+  { value: "local_grievance_officer", label: "Local Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
+  { value: "zonal_grievance_officer", label: "Zonal Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
+  { value: "chief_grievance_officer", label: "Chief Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat", "/admin/settings"] },
   { value: "admin", label: "Full Admin", defaultPerms: ALL_MENU_OPTIONS.map((m) => m.href) },
 ];
 
@@ -466,8 +484,8 @@ export default function AdminStaff() {
                 </div>
 
                 {/* Interactive Multi-Select Dropdown Container */}
-                <div className="border border-emerald-500/30 rounded-2xl bg-secondary/30 p-3 max-h-48 overflow-y-auto space-y-3">
-                  {["Overview", "Catalog", "Sales", "Growth", "System"].map((category) => {
+                <div className="border border-emerald-500/30 rounded-2xl bg-secondary/30 p-3 max-h-56 overflow-y-auto space-y-3">
+                  {["Core", "Catalog", "Sales", "Growth", "System"].map((category) => {
                     const catItems = ALL_MENU_OPTIONS.filter((m) => m.category === category);
                     return (
                       <div key={category} className="space-y-1">
