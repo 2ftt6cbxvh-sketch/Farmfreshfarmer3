@@ -7,7 +7,7 @@ import { eq, or, and, desc } from "drizzle-orm";
 import { products, categories, productApprovalHistory, users } from "../../../shared/schema";
 import { db } from "../../db";
 
-type ApprovalAction = "approved" | "rejected" | "under_review";
+type ApprovalAction = "approved" | "rejected" | "under_review" | "approve_deletion" | "reject_deletion";
 
 function h(fn: (req: Request, res: Response) => Promise<any>) {
   return (req: Request, res: Response) => {
@@ -64,11 +64,15 @@ async function resolveSubmitterName(submittedBy: number | null | undefined): Pro
   return u?.name ?? null;
 }
 
-export function registerApprovalRoutes(app: Express, _storage: any): void {
+export function registerApprovalRoutes(app: Express, storage: any): void {
 
   app.get("/api/admin/approvals/products", requireAdmin, h(async (_req, res) => {
     const rows = await db.select().from(products)
-      .where(or(eq(products.approvalStatus, "pending"), eq(products.approvalStatus, "under_review")))
+      .where(or(
+        eq(products.approvalStatus, "pending"),
+        eq(products.approvalStatus, "under_review"),
+        eq(products.approvalStatus, "pending_deletion")
+      ))
       .orderBy(desc(products.createdAt));
     const result = await Promise.all(rows.map(async (p) => ({
       ...p,
@@ -79,7 +83,11 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
 
   app.get("/api/admin/approvals/categories", requireAdmin, h(async (_req, res) => {
     const rows = await db.select().from(categories)
-      .where(or(eq(categories.approvalStatus, "pending"), eq(categories.approvalStatus, "under_review")))
+      .where(or(
+        eq(categories.approvalStatus, "pending"),
+        eq(categories.approvalStatus, "under_review"),
+        eq(categories.approvalStatus, "pending_deletion")
+      ))
       .orderBy(desc(categories.createdAt));
     const result = await Promise.all(rows.map(async (c) => ({
       ...c,
@@ -95,10 +103,41 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
     const id = parseInt(Array.isArray(idRaw) ? idRaw[0] : idRaw, 10);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid product id" });
     const { action, note, editFields } = req.body as { action?: ApprovalAction; note?: string; editFields?: any };
-    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review"];
+    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review", "approve_deletion", "reject_deletion"];
     if (!action || !VALID.includes(action)) return res.status(400).json({ message: `'action' must be one of: ${VALID.join(", ")}` });
     const [existing] = await db.select().from(products).where(eq(products.id, id));
     if (!existing) return res.status(404).json({ message: "Product not found" });
+
+    // Handle Deletion Approval
+    if (action === "approve_deletion") {
+      await storage.products.remove(id);
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "product", entityId: id, entityName: existing.name ?? "",
+          action: "deleted", fromStatus: existing.approvalStatus ?? "pending_deletion", toStatus: "deleted",
+          adminUserId: req.session.userId ?? 1, submittedByUserId: existing.submittedBy ?? null, note: note ?? "Product deletion approved by Super Admin.",
+        });
+      } catch (err) { console.warn("[history log err]", err); }
+      return res.json({ success: true, message: "Product deletion approved & permanently removed 🗑️" });
+    }
+
+    // Handle Deletion Rejection (Restore)
+    if (action === "reject_deletion") {
+      const [updated] = await db.update(products).set({
+        approvalStatus: "approved",
+        active: true,
+        approvalNote: note ?? "Deletion rejected by Super Admin. Restored to live storefront.",
+        updatedAt: new Date(),
+      }).where(eq(products.id, id)).returning();
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "product", entityId: id, entityName: existing.name ?? "",
+          action: "deletion_rejected", fromStatus: "pending_deletion", toStatus: "approved",
+          adminUserId: req.session.userId ?? 1, submittedByUserId: existing.submittedBy ?? null, note: note ?? "Deletion rejected.",
+        });
+      } catch (err) { console.warn("[history log err]", err); }
+      return res.json({ success: true, message: "Product deletion rejected & restored to storefront 🎉", product: updated });
+    }
 
     const patch: Record<string, any> = {
       approvalStatus: action,
@@ -145,10 +184,41 @@ export function registerApprovalRoutes(app: Express, _storage: any): void {
     const id = parseInt(Array.isArray(idRaw) ? idRaw[0] : idRaw, 10);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid category id" });
     const { action, note } = req.body as { action?: ApprovalAction; note?: string };
-    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review"];
+    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review", "approve_deletion", "reject_deletion"];
     if (!action || !VALID.includes(action)) return res.status(400).json({ message: `'action' must be one of: ${VALID.join(", ")}` });
     const [existing] = await db.select().from(categories).where(eq(categories.id, id));
     if (!existing) return res.status(404).json({ message: "Category not found" });
+
+    // Handle Category Deletion Approval
+    if (action === "approve_deletion") {
+      await storage.categories.remove(id);
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "category", entityId: id, entityName: existing.name ?? "",
+          action: "deleted", fromStatus: existing.approvalStatus ?? "pending_deletion", toStatus: "deleted",
+          adminUserId: req.session.userId ?? 1, submittedByUserId: existing.submittedBy ?? null, note: note ?? "Category deletion approved by Super Admin.",
+        });
+      } catch (err) { console.warn("[history log err]", err); }
+      return res.json({ success: true, message: "Category deletion approved & permanently removed 🗑️" });
+    }
+
+    // Handle Category Deletion Rejection (Restore)
+    if (action === "reject_deletion") {
+      const [updated] = await db.update(categories).set({
+        approvalStatus: "approved",
+        active: true,
+        approvalNote: note ?? "Deletion rejected by Super Admin. Restored to live storefront.",
+      }).where(eq(categories.id, id)).returning();
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "category", entityId: id, entityName: existing.name ?? "",
+          action: "deletion_rejected", fromStatus: "pending_deletion", toStatus: "approved",
+          adminUserId: req.session.userId ?? 1, submittedByUserId: existing.submittedBy ?? null, note: note ?? "Deletion rejected.",
+        });
+      } catch (err) { console.warn("[history log err]", err); }
+      return res.json({ success: true, message: "Category deletion rejected & restored to storefront 🎉", category: updated });
+    }
+
     const patch: Record<string, any> = { approvalStatus: action, approvalNote: note ?? null };
     if (action === "approved") patch.active = true;
     if (action === "rejected") patch.active = false;

@@ -96,11 +96,22 @@ export default function AdminCategories() {
   });
 
   const del = useMutation({
-    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/categories/${id}`); },
-    onSuccess: () => {
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/categories/${id}`);
+      return res?.json ? await res.json() : res;
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({ title: "Category deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
+      if (isPrimaryAdmin) {
+        toast({ title: "Category deleted 🗑️" });
+      } else {
+        toast({
+          title: "Deletion Request Sent 📤",
+          description: data?.message || "Category deletion submitted to Super Admin for approval.",
+        });
+      }
     },
     onError: (err: any) => toast({ title: err?.message || "Could not delete category", variant: "destructive" }),
   });
@@ -158,6 +169,10 @@ export default function AdminCategories() {
                       {status === "approved" ? (
                         <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-extrabold gap-1">
                           <CheckCircle2 size={12} /> Live Storefront
+                        </Badge>
+                      ) : status === "pending_deletion" ? (
+                        <Badge variant="destructive" className="bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 text-[11px] font-extrabold animate-pulse gap-1">
+                          <Trash2 size={12} /> Deletion Pending Approval ⏳
                         </Badge>
                       ) : status === "pending" || status === "under_review" ? (
                         <Badge variant="outline" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[11px] font-extrabold animate-pulse gap-1">

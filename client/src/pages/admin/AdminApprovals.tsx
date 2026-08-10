@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw, Trash2, ShieldCheck } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -64,7 +64,7 @@ interface ApprovalHistoryItem {
 
 interface ProductEditModalState {
   item: PendingProduct;
-  action: "approved" | "under_review" | "rejected";
+  action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
 }
 
 export function AdminApprovals() {
@@ -73,7 +73,7 @@ export function AdminApprovals() {
     type: "product" | "category";
     id: number;
     name: string;
-    action: "approved" | "under_review" | "rejected";
+    action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
   } | null>(null);
   const [productEditModal, setProductEditModal] = useState<ProductEditModalState | null>(null);
   const [note, setNote] = useState("");
@@ -158,7 +158,7 @@ export function AdminApprovals() {
     }: {
       type: "product" | "category";
       id: number;
-      action: "approved" | "under_review" | "rejected";
+      action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
       note: string;
       editFields?: any;
     }) => {
@@ -170,10 +170,23 @@ export function AdminApprovals() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({
-        title: variables.action === "approved" ? "Approved & Published Live! 🚀" : "Status Updated",
-        description: variables.action === "approved" ? "Item changes published to live storefront." : "Approval decision recorded.",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
+
+      let title = "Status Updated";
+      let desc = "Approval decision recorded.";
+      if (variables.action === "approved") {
+        title = "Approved & Published Live! 🚀";
+        desc = "Item changes published to live storefront.";
+      } else if (variables.action === "approve_deletion") {
+        title = "Item Permanently Deleted 🗑️";
+        desc = "Sub-admin deletion request was approved and item removed.";
+      } else if (variables.action === "reject_deletion") {
+        title = "Deletion Rejected & Item Restored 🛡️";
+        desc = "Item restored to live storefront.";
+      }
+
+      toast({ title, description: desc });
       setActionModal(null);
       setProductEditModal(null);
       setNote("");
@@ -196,6 +209,8 @@ export function AdminApprovals() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       toast({
         title: "Approval Reverted ↩️",
         description: "Item removed from storefront and returned to moderation queue.",
@@ -210,7 +225,7 @@ export function AdminApprovals() {
     },
   });
 
-  const openProductReviewModal = (item: PendingProduct, action: "approved" | "under_review" | "rejected") => {
+  const openProductReviewModal = (item: PendingProduct, action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion") => {
     setProductEditModal({ item, action });
     setEditName(item.name || "");
     setEditPrice(String(item.price || "0"));
@@ -246,6 +261,13 @@ export function AdminApprovals() {
       return (
         <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30 flex items-center gap-1 font-medium">
           <Clock className="w-3 h-3" /> Pending Approval ⏳
+        </Badge>
+      );
+    }
+    if (status === "pending_deletion" || status === "deletion_requested") {
+      return (
+        <Badge variant="destructive" className="bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30 flex items-center gap-1 font-bold animate-pulse">
+          <Trash2 className="w-3 h-3" /> Deletion Requested 🗑️
         </Badge>
       );
     }
@@ -286,7 +308,7 @@ export function AdminApprovals() {
               <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Review, edit images, adjust prices/stock, and approve products submitted by sub-admins. Use Approval Log to revert approvals anytime.
+              Review edits, prices, images, and sub-admin deletion requests for products and categories.
             </p>
           </div>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1">
@@ -323,78 +345,114 @@ export function AdminApprovals() {
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border border-card-border bg-card p-5 shadow-sm space-y-4 flex flex-col justify-between"
-                    data-testid={`card-product-${item.id}`}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          {item.image ? (
-                            <img
-                              src={imgUrl(item.image)}
-                              alt={item.name}
-                              className="w-14 h-14 rounded-xl object-cover border border-card-border bg-muted shrink-0"
-                            />
-                          ) : (
-                            <div className="w-14 h-14 rounded-xl bg-muted border border-card-border flex items-center justify-center text-muted-foreground shrink-0">
-                              <Package className="w-7 h-7" />
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-bold text-base line-clamp-1 text-foreground">{item.name}</h3>
-                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-500 mt-0.5">
-                              <span>₹{item.price}</span>
-                              <span>•</span>
-                              <span className="text-muted-foreground">{item.unit || "250g"}</span>
-                              <span>•</span>
-                              <span className="text-muted-foreground">Stock: {item.stock ?? 50}</span>
+                {products.map((item) => {
+                  const isDeletion = item.approvalStatus === "pending_deletion";
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-2xl border ${isDeletion ? "border-red-500/50 bg-red-500/5" : "border-card-border bg-card"} p-5 shadow-sm space-y-4 flex flex-col justify-between`}
+                      data-testid={`card-product-${item.id}`}
+                    >
+                      <div className="space-y-3">
+                        {isDeletion && (
+                          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-xs text-red-600 font-extrabold">
+                            <Trash2 size={16} className="shrink-0 text-red-500" />
+                            <span>Sub-Admin requested PERMANENT DELETION for this product!</span>
+                          </div>
+                        )}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            {item.image ? (
+                              <img
+                                src={imgUrl(item.image)}
+                                alt={item.name}
+                                className="w-14 h-14 rounded-xl object-cover border border-card-border bg-muted shrink-0"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-xl bg-muted border border-card-border flex items-center justify-center text-muted-foreground shrink-0">
+                                <Package className="w-7 h-7" />
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-bold text-base line-clamp-1 text-foreground">{item.name}</h3>
+                              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-500 mt-0.5">
+                                <span>₹{item.price}</span>
+                                <span>•</span>
+                                <span className="text-muted-foreground">{item.unit || "250g"}</span>
+                                <span>•</span>
+                                <span className="text-muted-foreground">Stock: {item.stock ?? 50}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1 bg-secondary/40 p-3 rounded-xl border border-card-border/50">
+                          <p>
+                            <span className="font-bold text-foreground">Sub-Admin Submitter:</span>{" "}
+                            <span className="text-emerald-500 font-extrabold">{item.submitterName || (item.submittedBy ? `Staff #${item.submittedBy}` : "Sub-Admin")}</span>
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Submitted:</span>{" "}
+                            {new Date(item.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="text-xs text-muted-foreground space-y-1 bg-secondary/40 p-3 rounded-xl border border-card-border/50">
-                        <p>
-                          <span className="font-bold text-foreground">Sub-Admin Submitter:</span>{" "}
-                          <span className="text-emerald-500 font-extrabold">{item.submitterName || (item.submittedBy ? `Staff #${item.submittedBy}` : "Sub-Admin")}</span>
-                        </p>
-                        <p>
-                          <span className="font-medium text-foreground">Submitted:</span>{" "}
-                          {new Date(item.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
+                      {isDeletion ? (
+                        <div className="flex items-center gap-2 pt-3 border-t border-card-border">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1 font-extrabold text-xs shadow-md gap-1"
+                            onClick={() => {
+                              if (confirm(`Approve permanent deletion of "${item.name}"? This action cannot be undone.`)) {
+                                mutation.mutate({ type: "product", id: item.id, action: "approve_deletion", note });
+                              }
+                            }}
+                            disabled={mutation.isPending}
+                          >
+                            <Trash2 size={14} /> Approve Deletion 🗑️
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-emerald-600 border-emerald-500/30 hover:bg-emerald-50 text-xs font-bold gap-1"
+                            onClick={() => mutation.mutate({ type: "product", id: item.id, action: "reject_deletion", note })}
+                            disabled={mutation.isPending}
+                          >
+                            <ShieldCheck size={14} /> Reject Deletion (Restore Live)
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-3 border-t border-card-border">
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
+                            onClick={() => openProductReviewModal(item, "approved")}
+                            data-testid={`btn-approve-product-${item.id}`}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review, Edit & Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-500/30 hover:bg-red-50 text-xs font-bold"
+                            onClick={() => openProductReviewModal(item, "rejected")}
+                            data-testid={`btn-reject-product-${item.id}`}
+                          >
+                            <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                          </Button>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="flex items-center gap-2 pt-3 border-t border-card-border">
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
-                        onClick={() => openProductReviewModal(item, "approved")}
-                        data-testid={`btn-approve-product-${item.id}`}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review, Edit & Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-500/30 hover:bg-red-50 text-xs font-bold"
-                        onClick={() => openProductReviewModal(item, "rejected")}
-                        data-testid={`btn-reject-product-${item.id}`}
-                      >
-                        <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -413,49 +471,85 @@ export function AdminApprovals() {
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {categories.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border border-card-border bg-card p-5 shadow-sm space-y-4 flex flex-col justify-between"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                          <Tag className="w-5 h-5" />
+                {categories.map((item) => {
+                  const isDeletion = item.approvalStatus === "pending_deletion";
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-2xl border ${isDeletion ? "border-red-500/50 bg-red-500/5" : "border-card-border bg-card"} p-5 shadow-sm space-y-4 flex flex-col justify-between`}
+                    >
+                      <div className="space-y-3">
+                        {isDeletion && (
+                          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-xs text-red-600 font-extrabold">
+                            <Trash2 size={16} className="shrink-0 text-red-500" />
+                            <span>Sub-Admin requested PERMANENT DELETION for this category!</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                            <Tag className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-base text-foreground">{item.name}</h3>
+                            <span className="text-xs text-muted-foreground">slug: {item.slug}</span>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-bold text-base text-foreground">{item.name}</h3>
-                          <span className="text-xs text-muted-foreground">slug: {item.slug}</span>
+
+                        <div className="text-xs text-muted-foreground space-y-1 bg-secondary/40 p-2.5 rounded-xl border border-card-border/50">
+                          <p>
+                            <span className="font-bold text-foreground">Submitted by:</span>{" "}
+                            {item.submitterName || (item.submittedBy ? `User #${item.submittedBy}` : "Sub-Admin")}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="text-xs text-muted-foreground space-y-1 bg-secondary/40 p-2.5 rounded-xl border border-card-border/50">
-                        <p>
-                          <span className="font-bold text-foreground">Submitted by:</span>{" "}
-                          {item.submitterName || (item.submittedBy ? `User #${item.submittedBy}` : "Sub-Admin")}
-                        </p>
-                      </div>
+                      {isDeletion ? (
+                        <div className="flex items-center gap-2 pt-2 border-t border-card-border">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1 font-bold text-xs gap-1"
+                            onClick={() => {
+                              if (confirm(`Approve permanent deletion of category "${item.name}"?`)) {
+                                mutation.mutate({ type: "category", id: item.id, action: "approve_deletion", note });
+                              }
+                            }}
+                            disabled={mutation.isPending}
+                          >
+                            <Trash2 size={14} /> Approve Deletion 🗑️
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-emerald-600 border-emerald-500/30 text-xs font-bold gap-1"
+                            onClick={() => mutation.mutate({ type: "category", id: item.id, action: "reject_deletion", note })}
+                            disabled={mutation.isPending}
+                          >
+                            <ShieldCheck size={14} /> Reject Deletion (Restore Live)
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-2 border-t border-card-border">
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                            onClick={() => { setActionModal({ type: "category", id: item.id, name: item.name, action: "approved" }); setNote(""); }}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approve Category
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-500/30 text-xs font-bold"
+                            onClick={() => { setActionModal({ type: "category", id: item.id, name: item.name, action: "rejected" }); setNote(""); }}
+                          >
+                            <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                          </Button>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="flex items-center gap-2 pt-2 border-t border-card-border">
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                        onClick={() => { setActionModal({ type: "category", id: item.id, name: item.name, action: "approved" }); setNote(""); }}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approve Category
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-500/30 text-xs font-bold"
-                        onClick={() => { setActionModal({ type: "category", id: item.id, name: item.name, action: "rejected" }); setNote(""); }}
-                      >
-                        <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -494,7 +588,7 @@ export function AdminApprovals() {
                         </td>
                         <td className="p-3 text-muted-foreground max-w-xs truncate text-xs">{row.note || "Approved & Live Storefront"}</td>
                         <td className="p-3 text-right">
-                          {row.action !== "reverted" && row.toStatus !== "pending" && (
+                          {row.action !== "reverted" && row.toStatus !== "pending" && row.action !== "deleted" && (
                             <Button
                               size="sm"
                               variant="outline"

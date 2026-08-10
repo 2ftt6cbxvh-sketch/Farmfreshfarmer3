@@ -584,8 +584,43 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   }));
 
   app.delete("/api/products/:id", requireAdmin, h(async (req, res) => {
-    await storage.products.remove(Number(req.params.id));
-    res.json({ ok: true });
+    const isPrimary = await isPrimaryAdminUser(req);
+    const id = Number(req.params.id);
+    const p = await storage.products.get(id);
+    if (!p) return res.status(404).json({ message: "Not found" });
+
+    if (isPrimary) {
+      await storage.products.remove(id);
+      return res.json({ ok: true, message: "Product permanently deleted 🗑️" });
+    }
+
+    const updated = await storage.products.update(id, {
+      approvalStatus: "pending_deletion",
+      active: false, // Immediately hide from live storefront while queued for approval!
+      approvalNote: "Deletion requested by sub-admin, queued for Super Admin review.",
+    });
+
+    try {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product",
+        entityId: id,
+        entityName: p.name ?? "",
+        action: "deletion_requested",
+        fromStatus: p.approvalStatus ?? "approved",
+        toStatus: "pending_deletion",
+        adminUserId: null,
+        submittedByUserId: req.session?.userId ?? null,
+        note: "Product deletion requested by sub-admin.",
+      });
+    } catch (err) {
+      console.warn("[approval history log error]", err);
+    }
+
+    res.json({
+      ...updated,
+      isPendingApproval: true,
+      message: "Deletion request submitted for Super Admin Approval! 📤",
+    });
   }));
 
   /* =========================== IMAGE UPLOAD ======================== */
@@ -1215,8 +1250,43 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json(updated);
   }));
   app.delete("/api/admin/categories/:id", requireAdmin, h(async (req, res) => {
-    await storage.categories.remove(Number(req.params.id));
-    res.json({ ok: true });
+    const isPrimary = await isPrimaryAdminUser(req);
+    const id = Number(req.params.id);
+    const c = await storage.categories.get(id);
+    if (!c) return res.status(404).json({ message: "Not found" });
+
+    if (isPrimary) {
+      await storage.categories.remove(id);
+      return res.json({ ok: true, message: "Category permanently deleted 🗑️" });
+    }
+
+    const updated = await storage.categories.update(id, {
+      approvalStatus: "pending_deletion",
+      active: false, // Immediately hide from live storefront while queued for approval!
+      approvalNote: "Deletion requested by sub-admin, queued for Super Admin review.",
+    });
+
+    try {
+      await db.insert(productApprovalHistory).values({
+        entityType: "category",
+        entityId: id,
+        entityName: c.name ?? "",
+        action: "deletion_requested",
+        fromStatus: c.approvalStatus ?? "approved",
+        toStatus: "pending_deletion",
+        adminUserId: null,
+        submittedByUserId: req.session?.userId ?? null,
+        note: "Category deletion requested by sub-admin.",
+      });
+    } catch (err) {
+      console.warn("[approval history log error]", err);
+    }
+
+    res.json({
+      ...updated,
+      isPendingApproval: true,
+      message: "Category deletion request submitted for Super Admin Approval! 📤",
+    });
   }));
 
   /* ===================== ADMIN: inventory ========================= */
