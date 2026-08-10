@@ -250,13 +250,54 @@ export default function Cart() {
     queryFn: () => apiGet<any[]>("/api/products"),
   });
 
-  // Items in cart that are restricted to local warehouse delivery only
+  const { data: allPlans = [] } = useQuery<any[]>({
+    queryKey: ["/api/plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/plans");
+      return res.json();
+    },
+  });
+
+  // Subscription items in cart (strictly local Visakhapatnam delivery)
+  const subscriptionCartItems = items.filter((cartItem) => {
+    const isPlan = (allPlans || []).some((p: any) =>
+      p.name?.toLowerCase() === cartItem.name?.toLowerCase() ||
+      cartItem.name?.toLowerCase().includes(p.name?.toLowerCase()) ||
+      p.productId === cartItem.productId
+    );
+    const prod = allProducts.find((p) => p.id === cartItem.productId);
+    return isPlan || prod?.categorySlug === "subscriptions" || cartItem.unit?.toLowerCase().includes("weekly box");
+  });
+
+  const hasSubscriptionInCart = subscriptionCartItems.length > 0;
+
+  // Items in cart that are restricted to local warehouse delivery only (including subscriptions)
   const localOnlyConflictItems = items.filter((cartItem) => {
+    const isSub = subscriptionCartItems.some((s) => s.productId === cartItem.productId);
+    if (isSub) return true;
     const p = allProducts.find((prod) => prod.id === cartItem.productId);
     return p && p.allowInternationalShipping === false;
   });
 
+  const handleRemoveSubscriptionItems = () => {
+    subscriptionCartItems.forEach((it) => remove(it.productId));
+    setIsInternationalDelivery(true);
+    toast({
+      title: "Subscription Box Removed",
+      description: "International / Out-of-Station Shipping mode activated.",
+    });
+  };
+
   const handleToggleInternational = (checked: boolean) => {
+    if (checked && hasSubscriptionInCart) {
+      setIsInternationalDelivery(false);
+      toast({
+        title: "Subscriptions Cannot Be Shipped Internationally",
+        description: "Weekly subscription boxes are fresh produce delivered in Visakhapatnam only. Please remove the subscription to enable International / Out-of-Station Shipping.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (checked && localOnlyConflictItems.length > 0) {
       setIsInternationalDelivery(false);
       toast({
@@ -298,14 +339,6 @@ export default function Cart() {
     quoteMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
-
-  const { data: allPlans = [] } = useQuery<any[]>({
-    queryKey: ["/api/plans"],
-    queryFn: async () => {
-      const res = await fetch("/api/plans");
-      return res.json();
-    },
-  });
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 
@@ -434,6 +467,14 @@ export default function Cart() {
   const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;
 
   function handleCheckout() {
+    if ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) {
+      toast({
+        title: "Cannot Deliver Subscriptions Out-of-Station",
+        description: "Weekly subscription boxes are fresh produce delivered in Visakhapatnam only. Please remove the subscription to proceed with international / out-of-station shipping.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!isServiceable) {
       toast({ title: "Delivery unavailable", description: "Your current location is not serviceable right now. Please change location to proceed.", variant: "destructive" });
       return;
@@ -706,6 +747,30 @@ export default function Cart() {
                   </div>
                 )}
 
+                {/* Out-of-station / International Subscription Warning in Order Summary */}
+                {(isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart && (
+                  <div className="p-3.5 rounded-2xl bg-red-500/10 dark:bg-red-950/40 border border-red-500/50 text-red-950 dark:text-red-200 text-xs space-y-2 my-2 shadow-md animate-fade-in" data-testid="warning-subscription-no-international">
+                    <div className="flex items-center gap-1.5 font-black text-red-700 dark:text-red-400 text-xs">
+                      <AlertTriangle size={16} className="shrink-0 animate-bounce" />
+                      <span>Subscription Not Eligible for Out-of-Station Shipping</span>
+                    </div>
+                    <p className="text-[11px] leading-tight text-red-900 dark:text-red-300 font-medium">
+                      Weekly fresh produce boxes are available for local Visakhapatnam delivery only. Please remove the subscription to proceed with international / out-of-station shipping.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleRemoveSubscriptionItems}
+                      className="w-full text-xs font-black bg-red-600 hover:bg-red-700 h-8 rounded-xl cursor-pointer shadow"
+                      data-testid="button-remove-sub-order-summary"
+                    >
+                      <Trash2 size={13} className="mr-1.5 shrink-0" />
+                      <span>Remove Subscription ({subscriptionCartItems.length}) &amp; Proceed</span>
+                    </Button>
+                  </div>
+                )}
+
                 {isInternationalDelivery ? (
                   <div className="p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 space-y-1.5 my-2 shadow-sm font-medium">
                     <div className="flex justify-between items-center font-bold text-xs gap-1">
@@ -779,7 +844,30 @@ export default function Cart() {
                 />
               </div>
 
-              {localOnlyConflictItems.length > 0 && (
+              {/* Specific Subscription conflict warning under toggle */}
+              {hasSubscriptionInCart && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/40 text-amber-950 dark:text-amber-200 text-xs space-y-2 shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400">
+                    <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+                    <span>Subscriptions are Local Fresh Harvest Delivery Only (Visakhapatnam)</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-300 font-medium">
+                    Weekly subscription boxes contain fresh perishable vegetables/fruits harvested locally and cannot be delivered out of station or internationally.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRemoveSubscriptionItems}
+                    className="w-full text-xs font-bold border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-500/20 h-auto py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer whitespace-normal leading-tight"
+                    data-testid="button-remove-sub-delivery-card"
+                  >
+                    <Trash2 size={13} className="shrink-0" />
+                    <span>Remove Subscription Box ({subscriptionCartItems.length}) &amp; Enable Out-of-Station Shipping</span>
+                  </Button>
+                </div>
+              )}
+
+              {localOnlyConflictItems.length > 0 && !hasSubscriptionInCart && (
                 <div className="p-4 rounded-2xl bg-red-500/10 dark:bg-red-950/40 border border-red-500/50 text-red-950 dark:text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
                   <div className="flex items-center gap-2 font-extrabold text-red-700 dark:text-red-400">
                     <AlertTriangle size={18} />
@@ -968,11 +1056,20 @@ export default function Cart() {
               <Button
                 className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
                 onClick={handleCheckout}
-                disabled={!isServiceable || placeOrder.isPending || initiatePayment.isPending}
+                disabled={!isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
                 data-testid="button-place-order"
               >
                 {placeOrder.isPending || initiatePayment.isPending ? (
                   "Placing order…"
+                ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
+                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                    <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">
+                      ⚠️ Remove Subscription to Proceed with International Shipping
+                    </span>
+                    <span className="text-[10px] font-bold text-red-800/90 dark:text-red-300/90">
+                      Subscriptions are local fresh harvest only (Visakhapatnam)
+                    </span>
+                  </div>
                 ) : !isServiceable ? (
                   <div className="flex flex-col items-center justify-center gap-0.5 w-full">
                     <span className="font-black text-amber-950 dark:text-amber-300 flex items-center gap-1.5 text-xs">

@@ -638,6 +638,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
+    const isInternational = Boolean(req.body.isInternational);
+    if (isInternational) {
+      const activePlans = await storage.plans.list();
+      const hasSub = items.some(item =>
+        activePlans.some(pl => pl.name.toLowerCase() === (item.name || '').toLowerCase() || (item.name || '').toLowerCase().includes(pl.name.toLowerCase()))
+      );
+      if (hasSub) {
+        return res.status(400).json({ message: "Subscription boxes cannot be delivered internationally or out of station. Please remove subscription from cart." });
+      }
+    }
+
     const { order, price } = await placeOrder({
       userId,
       customerName: String(req.body.customerName || ""),
