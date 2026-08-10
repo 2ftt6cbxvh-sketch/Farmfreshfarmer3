@@ -52,7 +52,7 @@ import { registerSearchRoutes } from "./routes/search";
 import { registerCartRoutes } from "./routes/cart";
 import { authRateLimit, apiRateLimit } from "./middleware/rate-limit";
 import { lockdownMiddleware } from "./services/lockdown";
-import { processSecurityTelegramWebhook, processGrievanceTelegramWebhook } from "./services/telegram";
+import { processSecurityTelegramWebhook, processGrievanceTelegramWebhook, sendTelegramApprovalNotification } from "./services/telegram";
 import { registerAdminSecurityRoutes } from "./routes/admin/security";
 import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
 import { registerAdminDeliveryRoutes } from "./routes/admin/delivery-admin";
@@ -505,6 +505,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const created = await storage.products.create(productData);
 
     if (!isPrimary) {
+      let submitterUser: any = null;
+      if (req.session?.userId) {
+        try {
+          const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+          submitterUser = u;
+        } catch {}
+      }
+
       try {
         await db.insert(productApprovalHistory).values({
           entityType: "product",
@@ -520,6 +528,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       } catch (err) {
         console.warn("[approval history log warning]", err);
       }
+
+      // Formally notify Super Admin via Telegram Security Bot
+      sendTelegramApprovalNotification({
+        entityType: "product",
+        action: "create",
+        entityName: created.name ?? "",
+        entityId: created.id,
+        submitterName: submitterUser?.name,
+        submitterEmail: submitterUser?.email,
+        price: created.price,
+        stock: created.stock,
+        unit: created.unit,
+        categorySlug: created.categorySlug,
+      }).catch((e) => console.warn("[telegram security approval notify err]", e));
+
       return res.json({
         ...created,
         isPendingApproval: true,
@@ -558,6 +581,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     if (!isPrimary) {
+      let submitterUser: any = null;
+      if (req.session?.userId) {
+        try {
+          const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+          submitterUser = u;
+        } catch {}
+      }
+
       try {
         await db.insert(productApprovalHistory).values({
           entityType: "product",
@@ -573,6 +604,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       } catch (err) {
         console.warn("[approval history log warning]", err);
       }
+
+      // Formally notify Super Admin via Telegram Security Bot
+      sendTelegramApprovalNotification({
+        entityType: "product",
+        action: "edit",
+        entityName: updated.name ?? "",
+        entityId: updated.id,
+        submitterName: submitterUser?.name,
+        submitterEmail: submitterUser?.email,
+        price: updated.price,
+        stock: updated.stock,
+        unit: updated.unit,
+        categorySlug: updated.categorySlug,
+      }).catch((e) => console.warn("[telegram security approval notify err]", e));
+
       return res.json({
         ...updated,
         isPendingApproval: true,
@@ -600,6 +646,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       approvalNote: "Deletion requested by sub-admin, queued for Super Admin review.",
     });
 
+    let submitterUser: any = null;
+    if (req.session?.userId) {
+      try {
+        const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+        submitterUser = u;
+      } catch {}
+    }
+
     try {
       await db.insert(productApprovalHistory).values({
         entityType: "product",
@@ -615,6 +669,20 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     } catch (err) {
       console.warn("[approval history log error]", err);
     }
+
+    // Formally notify Super Admin via Telegram Security Bot
+    sendTelegramApprovalNotification({
+      entityType: "product",
+      action: "delete",
+      entityName: p.name ?? "",
+      entityId: id,
+      submitterName: submitterUser?.name,
+      submitterEmail: submitterUser?.email,
+      price: p.price,
+      stock: p.stock,
+      unit: p.unit,
+      categorySlug: p.categorySlug,
+    }).catch((e) => console.warn("[telegram security approval notify err]", e));
 
     res.json({
       ...updated,
@@ -1179,6 +1247,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const created = await storage.categories.create(categoryData);
 
     if (!isPrimary) {
+      let submitterUser: any = null;
+      if (req.session?.userId) {
+        try {
+          const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+          submitterUser = u;
+        } catch {}
+      }
+
       try {
         await db.insert(productApprovalHistory).values({
           entityType: "category",
@@ -1194,6 +1270,17 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       } catch (err) {
         console.warn("[category approval history log warning]", err);
       }
+
+      // Formally notify Super Admin via Telegram Security Bot
+      sendTelegramApprovalNotification({
+        entityType: "category",
+        action: "create",
+        entityName: created.name ?? "",
+        entityId: created.id,
+        submitterName: submitterUser?.name,
+        submitterEmail: submitterUser?.email,
+      }).catch((e) => console.warn("[telegram security approval notify err]", e));
+
       return res.json({
         ...created,
         isPendingApproval: true,
@@ -1225,6 +1312,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     if (!isPrimary) {
+      let submitterUser: any = null;
+      if (req.session?.userId) {
+        try {
+          const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+          submitterUser = u;
+        } catch {}
+      }
+
       try {
         await db.insert(productApprovalHistory).values({
           entityType: "category",
@@ -1240,6 +1335,17 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       } catch (err) {
         console.warn("[category approval history log warning]", err);
       }
+
+      // Formally notify Super Admin via Telegram Security Bot
+      sendTelegramApprovalNotification({
+        entityType: "category",
+        action: "edit",
+        entityName: updated.name ?? "",
+        entityId: updated.id,
+        submitterName: submitterUser?.name,
+        submitterEmail: submitterUser?.email,
+      }).catch((e) => console.warn("[telegram security approval notify err]", e));
+
       return res.json({
         ...updated,
         isPendingApproval: true,
@@ -1249,6 +1355,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     res.json(updated);
   }));
+
   app.delete("/api/admin/categories/:id", requireAdmin, h(async (req, res) => {
     const isPrimary = await isPrimaryAdminUser(req);
     const id = Number(req.params.id);
@@ -1266,6 +1373,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       approvalNote: "Deletion requested by sub-admin, queued for Super Admin review.",
     });
 
+    let submitterUser: any = null;
+    if (req.session?.userId) {
+      try {
+        const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+        submitterUser = u;
+      } catch {}
+    }
+
     try {
       await db.insert(productApprovalHistory).values({
         entityType: "category",
@@ -1281,6 +1396,16 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     } catch (err) {
       console.warn("[approval history log error]", err);
     }
+
+    // Formally notify Super Admin via Telegram Security Bot
+    sendTelegramApprovalNotification({
+      entityType: "category",
+      action: "delete",
+      entityName: c.name ?? "",
+      entityId: id,
+      submitterName: submitterUser?.name,
+      submitterEmail: submitterUser?.email,
+    }).catch((e) => console.warn("[telegram security approval notify err]", e));
 
     res.json({
       ...updated,

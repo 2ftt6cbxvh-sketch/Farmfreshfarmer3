@@ -4,15 +4,17 @@
  * 
  * 1. 🛡️ SUPER ADMIN SECURITY BOT:
  *    - Strict 1-to-1 connection with Super Admin's private Chat ID.
- *    - Exclusive recipient of security alerts:
+ *    - Exclusive recipient of security alerts & governance:
  *        * Platform lockdown on/off
  *        * Unauthorized /admin login attempts
  *        * Super Admin secret passage / emergency 1-click unlock approvals
  *        * Master session logins & password update alerts
  *        * Failed authentication & brute-force notifications
+ *        * Product & Category approval requests submitted by Sub-Admins
  *    - Exclusive executor of system control commands:
  *        * /lock on [reason], /lock off
  *        * /approve <token>
+ *        * /approvals (view pending catalog moderation items)
  *        * /subadmin block <email>, /subadmin unblock <email>
  *        * /flush sessions
  *        * /status, /users count
@@ -24,7 +26,7 @@
  *    - Exclusive recipient of customer service events:
  *        * New customer support tickets raised (/account or chatbot)
  *        * Live Chat human support escalation requests
- *    - NEVER receives security alerts, password failure notices, or unlock requests.
+ *    - NEVER receives security alerts, password failure notices, or product approvals.
  *    - Security and lockdown commands are STRICTLY BLOCKED in this bot.
  *    - Allowed support commands:
  *        * /tickets - View open support tickets
@@ -132,6 +134,63 @@ export async function sendTelegramSecurityAlert(message: string): Promise<boolea
 
 // Alias for backwards compatibility across existing security imports
 export const sendTelegramAlert = sendTelegramSecurityAlert;
+
+/* ====================================================================
+   3B. FORMAL PRODUCT & CATEGORY APPROVAL NOTIFICATIONS (SECURITY BOT ONLY)
+   ==================================================================== */
+
+export interface ApprovalNotificationParams {
+  entityType: "product" | "category";
+  action: "create" | "edit" | "delete";
+  entityName: string;
+  entityId: number;
+  submitterName?: string | null;
+  submitterEmail?: string | null;
+  price?: string | number | null;
+  unit?: string | null;
+  stock?: number | null;
+  categorySlug?: string | null;
+}
+
+export async function sendTelegramApprovalNotification(params: ApprovalNotificationParams): Promise<boolean> {
+  const { botToken, chatId } = await getTelegramSecurityCredentials();
+  if (!botToken || !chatId) return false;
+
+  const actionText =
+    params.action === "create" ? "➕ NEW CREATION REQUEST" :
+    params.action === "edit" ? "📝 MODIFICATION / EDIT REQUEST" :
+    "🗑️ DELETION REQUEST";
+
+  const entityTitle = params.entityType === "product" ? "Product" : "Category";
+  const submitter = params.submitterName
+    ? `${params.submitterName}${params.submitterEmail ? ` (${params.submitterEmail})` : ""}`
+    : params.submitterEmail || "Sub-Admin";
+
+  let detailsBlock = "";
+  if (params.entityType === "product") {
+    const pPrice = params.price ? `₹${params.price}` : "N/A";
+    const pUnit = params.unit || "Standard";
+    const pStock = params.stock != null ? String(params.stock) : "N/A";
+    const pCat = params.categorySlug || "Uncategorized";
+    detailsBlock = `\n💰 <b>Price:</b> ${pPrice} | <b>Unit:</b> ${pUnit}\n📦 <b>Stock:</b> ${pStock} | <b>Category:</b> ${pCat}\n`;
+  }
+
+  const message = `🔔 <b>APPROVAL REQUIRED (SUPER ADMIN)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 <b>Type:</b> ${entityTitle}
+⚡ <b>Action:</b> ${actionText}
+🏷️ <b>Item:</b> <b>${params.entityName}</b> (ID: #${params.entityId})
+${detailsBlock}
+👤 <b>Submitted By:</b> ${submitter}
+⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+
+🛡️ <b>Storefront Status:</b> ⏳ Moderation Queue (Hidden from customers until approved)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <i>Review, edit images, adjust prices, or approve at:</i>
+<code>/admin/approvals</code>`;
+
+  return sendRawTelegramMessage(botToken, chatId, message);
+}
 
 /* ====================================================================
    4. GRIEVANCE & SUPPORT BOT ALERT DISPATCHER (MULTI-ADMIN / SUPPORT)
@@ -279,6 +338,29 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
+  if (lowerText === "/approvals" || lowerText === "/pending") {
+    const { db } = await import("../db");
+    const { products, categories } = await import("@shared/schema");
+    const { or, eq } = await import("drizzle-orm");
+    const pRows = await db.select().from(products).where(or(eq(products.approvalStatus, "pending"), eq(products.approvalStatus, "under_review"), eq(products.approvalStatus, "pending_deletion")));
+    const cRows = await db.select().from(categories).where(or(eq(categories.approvalStatus, "pending"), eq(categories.approvalStatus, "under_review"), eq(categories.approvalStatus, "pending_deletion")));
+
+    let reply = `📋 <b>PENDING APPROVALS QUEUE</b>\n━━━━━━━━━━━━━━━━━━━━\n📦 Products: ${pRows.length}\n🏷️ Categories: ${cRows.length}\n\n`;
+    if (pRows.length === 0 && cRows.length === 0) {
+      reply += "✅ All clear! No items pending Super Admin approval.";
+    } else {
+      if (pRows.length > 0) {
+        reply += "<b>Products:</b>\n" + pRows.slice(0, 5).map((p) => `• ${p.name} (${p.approvalStatus === "pending_deletion" ? "🗑️ Deletion" : `₹${p.price}`})`).join("\n") + (pRows.length > 5 ? `\n...and ${pRows.length - 5} more` : "") + "\n\n";
+      }
+      if (cRows.length > 0) {
+        reply += "<b>Categories:</b>\n" + cRows.slice(0, 5).map((c) => `• ${c.name} (${c.approvalStatus === "pending_deletion" ? "🗑️ Deletion" : "New/Edit"})`).join("\n") + (cRows.length > 5 ? `\n...and ${cRows.length - 5} more` : "") + "\n\n";
+      }
+      reply += "👉 <i>Manage live on Admin Panel at /admin/approvals</i>";
+    }
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
   if (lowerText.startsWith("/subadmin block") || lowerText.startsWith("/block ")) {
     const target = text.replace("/subadmin block", "").replace("/block", "").trim().toLowerCase();
     if (!target) {
@@ -325,65 +407,47 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
-  if (lowerText === "/flush sessions" || lowerText === "/flush") {
-    const { db } = await import("../db");
-    const { refreshTokens } = await import("@shared/schema");
-    await db.delete(refreshTokens);
-    const reply = `🧹 <b>ALL ACTIVE SESSIONS FLUSHED</b>\nAll user & sub-admin refresh tokens have been revoked. Users must re-authenticate.`;
-    await sendRawTelegramMessage(botToken, senderChatId, reply);
-    return { handled: true, reply };
-  }
-
-  if (lowerText === "/users count" || lowerText === "/users") {
-    const { storage } = await import("../storage");
-    const allUsers = await storage.users.list();
-    const activeCount = allUsers.filter((u) => u.status !== "blocked").length;
-    const blockedCount = allUsers.filter((u) => u.status === "blocked").length;
-    const reply = `👥 <b>FARMFRESH USER METRICS</b>\nTotal Users: ${allUsers.length}\nActive: ${activeCount}\nBlocked: ${blockedCount}`;
-    await sendRawTelegramMessage(botToken, senderChatId, reply);
-    return { handled: true, reply };
-  }
-
-  if (lowerText.startsWith("/approve") || lowerText.startsWith("/unlock ")) {
-    const token = text.replace("/approve", "").replace("/unlock", "").trim();
-    if (!token) {
-      const reply = "⚠️ Usage: <code>/approve 123456</code> or tap the inline button.";
-      await sendRawTelegramMessage(botToken, senderChatId, reply);
-      return { handled: true, reply };
-    }
-    const success = approveTelegramUnlockToken(token);
-    if (success) {
-      const reply = `✅ <b>SUPER ADMIN OVERRIDE SESSION APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
+  if (lowerText.startsWith("/approve ")) {
+    const token = text.replace("/approve", "").trim();
+    if (approveTelegramUnlockToken(token)) {
+      const reply = `✅ <b>SUPER ADMIN EMERGENCY UNLOCK APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     } else {
-      const reply = `⚠️ Token <code>${token}</code> not found or expired.`;
+      const reply = `⚠️ Invalid or expired token: <code>${token}</code>`;
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
   }
 
-  if (lowerText === "/help" || lowerText === "/start") {
-    const reply =
-      `🛡️ <b>FARMFRESH SUPER ADMIN SECURITY BOT</b>\n\n` +
-      `🔴 <code>/lock on [reason]</code> - Remote emergency lockdown\n` +
-      `🟢 <code>/lock off</code> - Deactivate platform lockdown\n` +
-      `🔑 <code>/approve &lt;token&gt;</code> - Approve Super Admin emergency unlock\n` +
-      `ℹ️ <code>/status</code> or <code>/lock</code> - Check live system status\n` +
-      `🚫 <code>/subadmin block &lt;email&gt;</code> - Instantly block a sub-admin\n` +
-      `✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user/sub-admin\n` +
-      `🧹 <code>/flush sessions</code> - Revoke all active session tokens\n` +
-      `👥 <code>/users count</code> - Get total user statistics\n\n` +
-      `<i>Note: Support tickets and live customer queries are routed to the separate Grievance Bot.</i>`;
+  if (lowerText === "/users" || lowerText === "/users count") {
+    const { storage } = await import("../storage");
+    const allUsers = await storage.users.list();
+    const reply = `👥 <b>REGISTERED USERS</b>\nTotal: ${allUsers.length}\nAdmins: ${allUsers.filter((u) => u.role === "admin").length}\nCustomers: ${allUsers.filter((u) => u.role === "customer").length}`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
+  }
+
+  if (lowerText === "/help" || lowerText === "/start") {
+    const help = `🛡️ <b>SUPER ADMIN SECURITY BOT COMMANDS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 <code>/lock on [reason]</code> - Activate platform lockdown
+🔓 <code>/lock off</code> - Deactivate platform lockdown
+ℹ️ <code>/status</code> - Check lockdown & platform status
+📋 <code>/approvals</code> - View pending product & category approvals
+🚫 <code>/subadmin block &lt;email&gt;</code> - Block a user or sub-admin
+✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user or sub-admin
+🔑 <code>/approve &lt;token&gt;</code> - Approve emergency unlock token
+👥 <code>/users</code> - View registered user count
+❓ <code>/help</code> - Show this commands manual
+
+<i>Note: All product & category approval requests from sub-admins are automatically sent to this bot!</i>`;
+    await sendRawTelegramMessage(botToken, senderChatId, help);
+    return { handled: true, reply: help };
   }
 
   return { handled: false };
 }
-
-// Backwards compatibility
-export const processTelegramWebhook = processSecurityTelegramWebhook;
 
 /* ====================================================================
    7. GRIEVANCE & SUPPORT BOT WEBHOOK HANDLER (/api/telegram/grievance/webhook)
@@ -398,147 +462,112 @@ export async function processGrievanceTelegramWebhook(update: any): Promise<{ ha
 
   const senderChatId = String(message.chat?.id);
   const text = message.text.trim();
-  const lowerText = text.toLowerCase();
 
-  // 1. STRICT SECURITY GUARD: BLOCK ALL SECURITY & LOCKDOWN COMMANDS IN GRIEVANCE BOT
-  const isSecurityCommand = [
-    "/lock", "/lockdown", "/lockon", "/lockoff", "/approve", "/unlock",
-    "/subadmin", "/block", "/unblock", "/flush",
-  ].some((prefix) => lowerText.startsWith(prefix));
-
-  if (isSecurityCommand) {
-    const reply =
-      `🚫 <b>SECURITY COMMAND RESTRICTED</b>\n\n` +
-      `Platform lockdown, security authorization, and user blocking controls are strictly restricted to the private <b>Super Admin Security Bot</b>.\n\n` +
-      `Customer representatives and grievance staff cannot execute website control commands from this bot.`;
-    await sendRawTelegramMessage(botToken, senderChatId, reply);
-    return { handled: true, reply };
+  // Verify sender is in authorized chat IDs
+  if (!chatIds.includes(senderChatId)) {
+    console.warn(`[telegram grievance] Command from unauthorized chat ID: ${senderChatId}`);
+    return { handled: false };
   }
 
-  // 2. SUPPORT BOT COMMANDS
-  if (lowerText === "/help" || lowerText === "/start") {
-    const reply =
-      `🎫 <b>FARMFRESH GRIEVANCE & CUSTOMER SUPPORT BOT</b>\n\n` +
-      `Commands for Support Representatives & Grievance Officers:\n` +
-      `📋 <code>/tickets</code> - View recent open customer support tickets\n` +
-      `🔍 <code>/ticket &lt;id&gt;</code> - View details of a specific ticket (e.g. <code>/ticket TICK-1234</code>)\n` +
-      `✅ <code>/resolve &lt;id&gt; [note]</code> - Mark a ticket as resolved\n\n` +
-      `🌐 <b>Staff Dashboards:</b>\n` +
-      `• Live Chat Portal: https://www.farmfreshfarmer.com/admin/live-chat\n` +
-      `• Support Tickets Portal: https://www.farmfreshfarmer.com/admin/tickets`;
+  const lowerText = text.toLowerCase();
+
+  // Strictly reject any security or lockdown commands in Grievance bot
+  if (
+    lowerText.startsWith("/lock") ||
+    lowerText.startsWith("/approve") ||
+    lowerText.startsWith("/subadmin") ||
+    lowerText.startsWith("/block") ||
+    lowerText.startsWith("/unblock")
+  ) {
+    const reply = `🚫 <b>SECURITY RESTRICTION</b>\nThis bot is for Customer Support & Grievances only. Security and administrative control commands are strictly restricted to the Super Admin Security Bot.`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
   }
 
   if (lowerText === "/tickets" || lowerText === "/open") {
-    try {
-      const { db } = await import("../db");
-      const { supportTickets } = await import("@shared/schema");
-      const { or, eq, desc } = await import("drizzle-orm");
-
-      const rows = await db
-        .select()
-        .from(supportTickets)
-        .where(or(eq(supportTickets.status, "open"), eq(supportTickets.status, "under_solving")))
-        .orderBy(desc(supportTickets.createdAt))
-        .limit(10);
-
-      if (rows.length === 0) {
-        const reply = "✅ <b>No open support tickets!</b> All customer inquiries are currently resolved.";
-        await sendRawTelegramMessage(botToken, senderChatId, reply);
-        return { handled: true, reply };
-      }
-
-      let reply = `🎫 <b>OPEN CUSTOMER SUPPORT TICKETS (${rows.length}):</b>\n\n`;
-      rows.forEach((t, i) => {
-        reply += `${i + 1}. <b>${t.ticketId}</b> (${t.status.toUpperCase()})\n` +
-          `   👤 ${t.customerName} (${t.customerPhone || t.customerEmail})\n` +
-          `   📝 "${t.concern.substring(0, 70)}${t.concern.length > 70 ? '...' : ''}"\n\n`;
-      });
-      reply += `👉 Reply <code>/ticket &lt;id&gt;</code> or visit https://www.farmfreshfarmer.com/admin/tickets`;
-      await sendRawTelegramMessage(botToken, senderChatId, reply);
-      return { handled: true, reply };
-    } catch (err: any) {
-      const reply = `⚠️ Error fetching tickets: ${err?.message || "Internal error"}`;
+    const { storage } = await import("../storage");
+    const openTickets = await storage.supportTickets.listOpen();
+    if (openTickets.length === 0) {
+      const reply = `🎫 <b>CUSTOMER SUPPORT TICKETS</b>\n\n✅ No open tickets. All customer issues resolved!`;
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
+    const ticketList = openTickets
+      .slice(0, 10)
+      .map((t) => `• #${t.id} [${t.category}] <b>${t.subject}</b> (${t.priority})\n  From: ${t.userEmail} | Status: ${t.status}`)
+      .join("\n\n");
+    const reply = `🎫 <b>OPEN CUSTOMER TICKETS (${openTickets.length})</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n${ticketList}\n\n<i>Reply /ticket &lt;id&gt; for details or /resolve &lt;id&gt; [note] to close.</i>`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
   }
 
   if (lowerText.startsWith("/ticket ")) {
-    const targetId = text.replace("/ticket", "").trim();
-    try {
-      const { db } = await import("../db");
-      const { supportTickets } = await import("@shared/schema");
-      const { or, eq, ilike } = await import("drizzle-orm");
-
-      const [row] = await db
-        .select()
-        .from(supportTickets)
-        .where(or(eq(supportTickets.ticketId, targetId), ilike(supportTickets.ticketId, `%${targetId}%`)))
-        .limit(1);
-
-      if (!row) {
-        const reply = `⚠️ Ticket <code>${targetId}</code> not found.`;
-        await sendRawTelegramMessage(botToken, senderChatId, reply);
-        return { handled: true, reply };
-      }
-
-      const reply =
-        `🎫 <b>TICKET DETAILS: ${row.ticketId}</b>\n\n` +
-        `<b>Status:</b> ${row.status.toUpperCase()}\n` +
-        `<b>Customer:</b> ${row.customerName}\n` +
-        `<b>Phone:</b> ${row.customerPhone}\n` +
-        `<b>Email:</b> ${row.customerEmail}\n` +
-        `<b>Priority:</b> ${row.priority}\n` +
-        `<b>Created:</b> ${new Date(row.createdAt).toLocaleString()}\n\n` +
-        `<b>Concern:</b>\n"${row.concern}"\n\n` +
-        (row.adminNotes ? `<b>Staff Notes:</b> ${row.adminNotes}\n\n` : "") +
-        `👉 <code>/resolve ${row.ticketId} [note]</code> to mark as resolved.`;
-      await sendRawTelegramMessage(botToken, senderChatId, reply);
-      return { handled: true, reply };
-    } catch (err: any) {
-      const reply = `⚠️ Error fetching ticket: ${err?.message || "Internal error"}`;
+    const id = parseInt(text.replace("/ticket", "").trim(), 10);
+    if (isNaN(id)) {
+      const reply = "⚠️ Usage: <code>/ticket 123</code>";
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
+    const { storage } = await import("../storage");
+    const ticket = await storage.supportTickets.get(id);
+    if (!ticket) {
+      const reply = `⚠️ Ticket #${id} not found.`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+    const reply = `🎫 <b>TICKET #${ticket.id} DETAILS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+<b>Subject:</b> ${ticket.subject}
+<b>Category:</b> ${ticket.category}
+<b>Priority:</b> ${ticket.priority}
+<b>Status:</b> ${ticket.status}
+<b>Customer Email:</b> ${ticket.userEmail}
+<b>Created:</b> ${new Date(ticket.createdAt).toLocaleString()}
+
+<b>Description:</b>
+${ticket.description}
+
+${ticket.adminNotes ? `<b>Staff Notes:</b> ${ticket.adminNotes}` : ""}`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
   }
 
   if (lowerText.startsWith("/resolve ")) {
     const parts = text.replace("/resolve", "").trim().split(/\s+/);
-    const targetId = parts[0];
-    const note = parts.slice(1).join(" ") || "Resolved via Grievance Telegram Bot";
-
-    try {
-      const { db } = await import("../db");
-      const { supportTickets } = await import("@shared/schema");
-      const { or, eq, ilike } = await import("drizzle-orm");
-
-      const [row] = await db
-        .select()
-        .from(supportTickets)
-        .where(or(eq(supportTickets.ticketId, targetId), ilike(supportTickets.ticketId, `%${targetId}%`)))
-        .limit(1);
-
-      if (!row) {
-        const reply = `⚠️ Ticket <code>${targetId}</code> not found.`;
-        await sendRawTelegramMessage(botToken, senderChatId, reply);
-        return { handled: true, reply };
-      }
-
-      await db
-        .update(supportTickets)
-        .set({ status: "solved", adminNotes: note })
-        .where(eq(supportTickets.id, row.id));
-
-      const reply = `✅ <b>TICKET RESOLVED!</b>\nTicket: <code>${row.ticketId}</code>\nCustomer: ${row.customerName}\nNote: ${note}`;
-      await sendRawTelegramMessage(botToken, senderChatId, reply);
-      return { handled: true, reply };
-    } catch (err: any) {
-      const reply = `⚠️ Error resolving ticket: ${err?.message || "Internal error"}`;
+    const id = parseInt(parts[0], 10);
+    const note = parts.slice(1).join(" ") || "Resolved via Telegram Support Bot";
+    if (isNaN(id)) {
+      const reply = "⚠️ Usage: <code>/resolve 123 [resolution note]</code>";
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
+    const { storage } = await import("../storage");
+    const updated = await storage.supportTickets.update(id, {
+      status: "resolved",
+      adminNotes: note,
+      resolvedAt: new Date(),
+    });
+    if (!updated) {
+      const reply = `⚠️ Ticket #${id} not found.`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+    const reply = `✅ <b>TICKET #${id} RESOLVED</b>\nSubject: ${updated.subject}\nCustomer: ${updated.userEmail}\nNote: ${note}`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText === "/help" || lowerText === "/start") {
+    const help = `🎫 <b>FARM FRESH GRIEVANCE & SUPPORT BOT</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 <code>/tickets</code> - View all open customer tickets
+🔍 <code>/ticket &lt;id&gt;</code> - View specific ticket details
+✅ <code>/resolve &lt;id&gt; [note]</code> - Mark ticket resolved
+❓ <code>/help</code> - Show this commands manual
+
+<i>Notifications for new customer support tickets and live chat escalations arrive in this bot automatically.</i>`;
+    await sendRawTelegramMessage(botToken, senderChatId, help);
+    return { handled: true, reply: help };
   }
 
   return { handled: false };
