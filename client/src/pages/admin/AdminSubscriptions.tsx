@@ -215,6 +215,7 @@ export default function AdminSubscriptions() {
                   <tr>
                     <th className="p-3 font-semibold">Name</th>
                     <th className="p-3 font-semibold">Price</th>
+                    <th className="p-3 font-semibold">Box Store Value</th>
                     <th className="p-3 font-semibold">Delivery days</th>
                     <th className="p-3 font-semibold">Items</th>
                     <th className="p-3 font-semibold">Status</th>
@@ -226,6 +227,12 @@ export default function AdminSubscriptions() {
                     <tr key={p.id} className="border-t border-card-border" data-testid={`row-plan-${p.id}`}>
                       <td className="p-3 font-medium">{p.name}</td>
                       <td className="p-3">{formatINR(Number(p.price))}</td>
+                      <td className="p-3">
+                        <span className="text-xs text-muted-foreground line-through">{formatINR(p.items.reduce((sum, it) => {
+                          const prod = products.find((pr: any) => pr.id === it.productId);
+                          return sum + (prod ? Number(prod.price) * it.qty : 0);
+                        }, 0))}</span>
+                      </td>
                       <td className="p-3 text-muted-foreground capitalize">{p.deliveryDays}</td>
                       <td className="p-3 text-muted-foreground">{p.items.length}</td>
                       <td className="p-3">
@@ -348,6 +355,20 @@ export default function AdminSubscriptions() {
               <div>
                 <Label>Weekly price (₹)</Label>
                 <Input type="number" value={planForm.price} onChange={(e) => setPlanForm({ ...planForm, price: e.target.value })} data-testid="input-plan-price" />
+                {(() => {
+                  const storeTotal = planForm.items.reduce((sum, it) => {
+                    const prod = products.find((pr: any) => pr.id === it.productId);
+                    return sum + (prod ? Number(prod.price) * it.qty : 0);
+                  }, 0);
+                  const planPrice = parseFloat(planForm.price) || 0;
+                  const savings = storeTotal - planPrice;
+                  const pct = storeTotal > 0 ? Math.round((savings / storeTotal) * 100) : 0;
+                  return storeTotal > 0 ? (
+                    <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs mt-1">
+                      <p>Store value: <strong>{formatINR(storeTotal)}</strong> · {savings > 0 ? <span className="text-emerald-400">Customers save {formatINR(savings)} ({pct}% off)</span> : <span className="text-amber-400">Plan price ≥ store value — no savings badge will show</span>}</p>
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div>
                 <Label>Delivery days</Label>

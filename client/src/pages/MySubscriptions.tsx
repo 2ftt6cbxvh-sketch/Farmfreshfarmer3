@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { PackageCheck, CalendarDays, Pause, Play, SkipForward, Ban, RotateCcw, Repeat, CreditCard } from "lucide-react";
+import { PackageCheck, CalendarDays, Pause, Play, SkipForward, Ban, RotateCcw, Repeat, CreditCard, ChevronDown, ChevronUp, ShoppingCart, Tag, Leaf } from "lucide-react";
 import { Layout } from "@/components/Layout";
-import { useAuth } from "@/lib/store";
+import { useAuth, useCart } from "@/lib/store";
 import { apiGet, apiRequest, queryClient } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
 import type { Product } from "@/lib/types";
@@ -23,6 +24,11 @@ type DeliveryDayOption = "saturday" | "sunday" | "both";
 interface PlanItem {
   productId: number;
   qty: number;
+  productName?: string;
+  productPrice?: number;
+  productImage?: string;
+  productUnit?: string;
+  productDiscountPercent?: number;
 }
 
 interface Plan {
@@ -32,6 +38,7 @@ interface Plan {
   description: string;
   price: string;
   deliveryDays: string;
+  image?: string;
   active: boolean;
   items: PlanItem[];
 }
@@ -82,15 +89,26 @@ function statusVariant(status: string): "default" | "secondary" | "outline" {
   return "secondary";
 }
 
+function statusColor(status: string): string {
+  if (status === "active") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+  if (status === "paused") return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  if (status === "cancelled" || status === "expired") return "bg-red-500/15 text-red-400 border-red-500/30";
+  return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+}
+
 export default function MySubscriptions() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const { add: addToCart } = useCart();
+  const [, navigate] = useLocation();
 
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [subscribePlan, setSubscribePlan] = useState<Plan | null>(null);
   const [deliveryDays, setDeliveryDays] = useState<DeliveryDayOption>("both");
   const [address, setAddress] = useState(user?.address || "");
   const [phone, setPhone] = useState(user?.phone || "");
+  const [expandedBox, setExpandedBox] = useState<number | null>(null);
+  const [expandedSubBox, setExpandedSubBox] = useState<number | null>(null);
 
   const [changePlanOpen, setChangePlanOpen] = useState<number | null>(null);
   const [changePlanTarget, setChangePlanTarget] = useState<string>("");
@@ -120,6 +138,18 @@ export default function MySubscriptions() {
     queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/mine"] });
   }
 
+  // Calculate store value (sum of items at store price) and savings
+  function calcPlanSavings(plan: Plan) {
+    const storeValue = plan.items.reduce((sum, it) => {
+      const price = it.productPrice ?? 0;
+      return sum + price * it.qty;
+    }, 0);
+    const planPrice = Number(plan.price);
+    const savings = storeValue - planPrice;
+    const savingsPct = storeValue > 0 ? Math.round((savings / storeValue) * 100) : 0;
+    return { storeValue, savings, savingsPct };
+  }
+
   const subscribe = useMutation({
     mutationFn: async () => {
       if (!subscribePlan) throw new Error("No plan selected");
@@ -135,7 +165,21 @@ export default function MySubscriptions() {
     onSuccess: () => {
       invalidateMine();
       setSubscribeOpen(false);
-      toast({ title: "Subscribed!", description: "Your weekly box is set up." });
+
+      // Add all plan items to cart
+      if (subscribePlan?.items) {
+        subscribePlan.items.forEach((item) => {
+          addToCart({ productId: item.productId, qty: item.qty });
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      }
+
+      toast({
+        title: "Subscribed! 🎉",
+        description: "Your box has been added to cart. Complete checkout to receive your first delivery!",
+      });
+
+      navigate("/cart");
     },
     onError: () => toast({ title: "Could not subscribe", description: "Please try again.", variant: "destructive" }),
   });
@@ -203,7 +247,7 @@ export default function MySubscriptions() {
           <PackageCheck className="mx-auto text-muted-foreground" size={44} />
           <h1 className="font-serif text-2xl font-bold mt-4">Please log in</h1>
           <p className="text-muted-foreground mt-2">Log in to manage your weekly box subscriptions.</p>
-          <Link href="/login" className="inline-block mt-6 rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover-elevate" data-testid="link-login">Log in</Link>
+          <Link href="/login" className="inline-block mt-6 rounded-full bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold" data-testid="link-login">Log in</Link>
         </div>
       </Layout>
     );
@@ -214,31 +258,38 @@ export default function MySubscriptions() {
   return (
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-2">My subscriptions</h1>
-        <p className="text-muted-foreground mb-6">Weekly farm-fresh boxes delivered every Saturday & Sunday.</p>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-1">My Subscriptions</h1>
+          <p className="text-muted-foreground">Weekly farm-fresh boxes — every Saturday &amp; Sunday. Subscribe once, receive every week.</p>
+        </div>
 
-        {/* Upcoming deliveries */}
+        {/* Upcoming delivery windows */}
         {upcoming.length > 0 && (
-          <div className="rounded-xl border border-card-border bg-card p-4 mb-8" data-testid="panel-upcoming-deliveries">
-            <h2 className="font-semibold mb-3 flex items-center gap-2"><CalendarDays size={18} className="text-primary" /> Upcoming delivery windows</h2>
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 mb-8" data-testid="panel-upcoming-deliveries">
+            <h2 className="font-semibold mb-3 flex items-center gap-2 text-emerald-400">
+              <CalendarDays size={18} /> Upcoming delivery windows
+            </h2>
             <div className="flex flex-wrap gap-2">
               {upcoming.map((d, idx) => (
-                <Badge key={idx} variant="outline" data-testid={`upcoming-delivery-${idx}`}>
-                  {d.day} · {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                </Badge>
+                <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-300" data-testid={`upcoming-delivery-${idx}`}>
+                  <CalendarDays size={11} />{d.day} · {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* My subscriptions */}
-        <section className="mb-10">
-          <h2 className="font-semibold text-lg mb-3">Active & past subscriptions</h2>
+        {/* Active & past subscriptions */}
+        <section className="mb-12">
+          <h2 className="font-semibold text-lg mb-4">Active &amp; past subscriptions</h2>
           {mineLoading ? (
-            <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>
+            <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>
           ) : !mine || mine.subscriptions.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-8 text-center text-muted-foreground">
-              You don't have any subscriptions yet. Pick a plan below to get started.
+            <div className="rounded-2xl border border-dashed border-card-border bg-card/50 p-10 text-center">
+              <PackageCheck size={40} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">You don&apos;t have any subscriptions yet.</p>
+              <p className="text-sm text-muted-foreground mt-1">Pick a plan below to get started!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -246,84 +297,87 @@ export default function MySubscriptions() {
                 const plan = plans.find((p) => p.id === s.planId);
                 const futureCycles = s.cycles.filter((c) => new Date(c.deliveryDate) >= new Date(Date.now() - 86400000));
                 return (
-                  <div key={s.id} className="rounded-xl border border-card-border bg-card p-4" data-testid={`subscription-${s.id}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold">{plan?.name ?? `Plan #${s.planId}`}</h3>
-                        <p className="text-xs text-muted-foreground capitalize">Delivers: {s.deliveryDays}</p>
+                  <div key={s.id} className="rounded-2xl border border-card-border bg-card overflow-hidden" data-testid={`subscription-${s.id}`}>
+                    <div className="p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-lg">{plan?.name ?? `Plan #${s.planId}`}</h3>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusColor(s.status)}`}>{s.status}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground capitalize">Delivers: {s.deliveryDays}</p>
+                        </div>
+                        <span className="text-2xl font-black text-primary" data-testid={`price-subscription-${s.id}`}>{formatINR(Number(s.weeklyPrice))}<span className="text-sm font-normal text-muted-foreground">/wk</span></span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={statusVariant(s.status)} data-testid={`status-subscription-${s.id}`}>{s.status}</Badge>
-                        <span className="font-bold text-primary" data-testid={`price-subscription-${s.id}`}>{formatINR(Number(s.weeklyPrice))}/wk</span>
-                      </div>
-                    </div>
 
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Box items</p>
-                      <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
-                        {s.items.map((it) => <li key={it.id}>{it.qty} × {productName(it.productId)}</li>)}
-                        {s.items.length === 0 && <li className="text-muted-foreground">No items.</li>}
-                      </ul>
-                    </div>
+                      {/* Box items toggle */}
+                      <button
+                        onClick={() => setExpandedSubBox(expandedSubBox === s.id ? null : s.id)}
+                        className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {expandedSubBox === s.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        {expandedSubBox === s.id ? "Hide box contents" : "View box contents"}
+                      </button>
 
-                    {futureCycles.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">Upcoming cycles</p>
-                        <ul className="text-sm space-y-1" data-testid={`cycles-subscription-${s.id}`}>
-                          {futureCycles.map((c) => {
-                            const payable = c.orderId != null && !["paid", "delivered", "skipped"].includes(c.status);
+                      {expandedSubBox === s.id && (
+                        <div className="mt-3 rounded-xl bg-secondary/40 p-3 space-y-1.5">
+                          {s.items.map((it) => {
+                            const prod = products.find(p => p.id === it.productId);
                             return (
-                            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-card-border pb-1 last:border-b-0">
-                              <span>{c.deliveryDay} · {new Date(c.deliveryDate).toLocaleDateString("en-IN")}</span>
-                              <span className="flex items-center gap-2">
-                                <Badge variant="outline">{c.status}</Badge> {formatINR(Number(c.amount))}
-                                {payable && (
-                                  <Button
-                                    size="sm"
-                                    className="h-7 px-3"
-                                    onClick={() => payCycleMut.mutate(c.orderId!)}
-                                    disabled={payCycleMut.isPending}
-                                    data-testid={`button-pay-cycle-${c.id}`}
-                                  >
-                                    <CreditCard size={13} className="mr-1" /> Pay now
-                                  </Button>
-                                )}
-                              </span>
-                            </li>
+                              <div key={it.id} className="flex items-center justify-between text-sm">
+                                <span className="flex items-center gap-1.5">
+                                  {prod?.image && <img src={prod.image} alt="" className="w-6 h-6 rounded object-cover" />}
+                                  <span>{it.qty} × {productName(it.productId)}</span>
+                                </span>
+                                {prod && <span className="text-muted-foreground">{formatINR(Number(prod.price) * it.qty)}</span>}
+                              </div>
                             );
                           })}
-                        </ul>
-                      </div>
-                    )}
-                    {s.skipNextCycle && <p className="text-xs text-accent-foreground mt-2">Next delivery will be skipped.</p>}
+                          {s.items.length === 0 && <p className="text-xs text-muted-foreground">No items listed.</p>}
+                        </div>
+                      )}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {s.status === "active" && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => pauseMut.mutate(s.id)} disabled={pauseMut.isPending} data-testid={`button-pause-${s.id}`}>
-                            <Pause size={14} className="mr-1" /> Pause
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => skipMut.mutate(s.id)} disabled={skipMut.isPending} data-testid={`button-skip-${s.id}`}>
-                            <SkipForward size={14} className="mr-1" /> Skip next
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => { setChangePlanOpen(s.id); setChangePlanTarget(String(s.planId)); }} data-testid={`button-change-plan-${s.id}`}>
-                            <Repeat size={14} className="mr-1" /> Change plan
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelTarget(s.id)} data-testid={`button-cancel-${s.id}`}>
-                            <Ban size={14} className="mr-1" /> Cancel
-                          </Button>
-                        </>
+                      {/* Upcoming cycles */}
+                      {futureCycles.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2">Upcoming cycles</p>
+                          <ul className="space-y-1.5" data-testid={`cycles-subscription-${s.id}`}>
+                            {futureCycles.map((c) => {
+                              const payable = c.orderId != null && !["paid", "delivered", "skipped"].includes(c.status);
+                              return (
+                                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b border-card-border last:border-0">
+                                  <span className="text-sm">{c.deliveryDay} · {new Date(c.deliveryDate).toLocaleDateString("en-IN")}</span>
+                                  <span className="flex items-center gap-2">
+                                    <Badge variant="outline">{c.status}</Badge>
+                                    <span className="text-sm font-medium">{formatINR(Number(c.amount))}</span>
+                                    {payable && (
+                                      <Button size="sm" className="h-7 px-3" onClick={() => payCycleMut.mutate(c.orderId!)} disabled={payCycleMut.isPending} data-testid={`button-pay-cycle-${c.id}`}>
+                                        <CreditCard size={13} className="mr-1" /> Pay now
+                                      </Button>
+                                    )}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
                       )}
-                      {s.status === "paused" && (
-                        <Button size="sm" variant="outline" onClick={() => resumeMut.mutate(s.id)} disabled={resumeMut.isPending} data-testid={`button-resume-${s.id}`}>
-                          <Play size={14} className="mr-1" /> Resume
-                        </Button>
-                      )}
-                      {s.status === "cancelled" && (
-                        <Button size="sm" variant="outline" onClick={() => reactivateMut.mutate(s.id)} disabled={reactivateMut.isPending} data-testid={`button-reactivate-${s.id}`}>
-                          <RotateCcw size={14} className="mr-1" /> Reactivate
-                        </Button>
-                      )}
+
+                      {s.skipNextCycle && <p className="text-xs text-amber-400 mt-2 font-medium">⚠ Next delivery will be skipped.</p>}
+
+                      {/* Actions */}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {s.status === "active" && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => pauseMut.mutate(s.id)} disabled={pauseMut.isPending} data-testid={`button-pause-${s.id}`}><Pause size={14} className="mr-1" /> Pause</Button>
+                            <Button size="sm" variant="outline" onClick={() => skipMut.mutate(s.id)} disabled={skipMut.isPending} data-testid={`button-skip-${s.id}`}><SkipForward size={14} className="mr-1" /> Skip next</Button>
+                            <Button size="sm" variant="outline" onClick={() => { setChangePlanOpen(s.id); setChangePlanTarget(String(s.planId)); }} data-testid={`button-change-plan-${s.id}`}><Repeat size={14} className="mr-1" /> Change plan</Button>
+                            <Button size="sm" variant="outline" className="text-destructive" onClick={() => setCancelTarget(s.id)} data-testid={`button-cancel-${s.id}`}><Ban size={14} className="mr-1" /> Cancel</Button>
+                          </>
+                        )}
+                        {s.status === "paused" && <Button size="sm" variant="outline" onClick={() => resumeMut.mutate(s.id)} disabled={resumeMut.isPending} data-testid={`button-resume-${s.id}`}><Play size={14} className="mr-1" /> Resume</Button>}
+                        {s.status === "cancelled" && <Button size="sm" variant="outline" onClick={() => reactivateMut.mutate(s.id)} disabled={reactivateMut.isPending} data-testid={`button-reactivate-${s.id}`}><RotateCcw size={14} className="mr-1" /> Reactivate</Button>}
+                      </div>
                     </div>
                   </div>
                 );
@@ -334,27 +388,123 @@ export default function MySubscriptions() {
 
         {/* Available plans */}
         <section>
-          <h2 className="font-semibold text-lg mb-3">Available plans</h2>
+          <div className="mb-6">
+            <h2 className="font-semibold text-xl mb-1">Available plans</h2>
+            <p className="text-sm text-muted-foreground">All boxes are packed fresh on delivery day. Subscribe and save vs. buying individually!</p>
+          </div>
           {plansLoading ? (
-            <div className="grid sm:grid-cols-2 gap-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}</div>
+            <div className="grid sm:grid-cols-2 gap-6">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-80 rounded-2xl" />)}</div>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {plans.filter((p) => p.active).map((p) => (
-                <div key={p.id} className="rounded-xl border border-card-border bg-card p-4 flex flex-col" data-testid={`plan-${p.id}`}>
-                  <h3 className="font-semibold">{p.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1 flex-1">{p.description}</p>
-                  <p className="text-xs text-muted-foreground capitalize mt-2">Delivery: {p.deliveryDays}</p>
-                  <ul className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                    {p.items.map((it, idx) => <li key={idx}>{it.qty} × {productName(it.productId)}</li>)}
-                  </ul>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="font-bold text-primary" data-testid={`plan-price-${p.id}`}>{formatINR(Number(p.price))}/wk</span>
-                    <Button size="sm" onClick={() => openSubscribe(p)} data-testid={`button-subscribe-${p.id}`}>Subscribe</Button>
+            <div className="grid sm:grid-cols-2 gap-6">
+              {plans.filter((p) => p.active).map((p) => {
+                const { storeValue, savings, savingsPct } = calcPlanSavings(p);
+                const isExpanded = expandedBox === p.id;
+                return (
+                  <div key={p.id} className="rounded-2xl border border-card-border bg-card flex flex-col overflow-hidden hover:border-primary/40 transition-colors" data-testid={`plan-${p.id}`}>
+                    {/* Plan header */}
+                    <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 p-5 border-b border-card-border">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Leaf size={16} className="text-emerald-400" />
+                            <h3 className="font-bold text-lg">{p.name}</h3>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{p.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1.5 capitalize">📅 Delivery: {p.deliveryDays}</p>
+                        </div>
+                        {savingsPct > 0 && (
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow">
+                            <Tag size={10} /> SAVE {savingsPct}%
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Price row */}
+                      <div className="flex items-end gap-3 mt-4">
+                        <span className="text-3xl font-black text-primary" data-testid={`plan-price-${p.id}`}>{formatINR(Number(p.price))}<span className="text-sm font-normal text-muted-foreground">/wk</span></span>
+                        {storeValue > 0 && savings > 0 && (
+                          <div className="text-sm">
+                            <span className="line-through text-muted-foreground">{formatINR(storeValue)}</span>
+                            <span className="ml-1.5 text-emerald-400 font-semibold">Save {formatINR(savings)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Box contents */}
+                    <div className="p-4 flex-1">
+                      <button
+                        onClick={() => setExpandedBox(isExpanded ? null : p.id)}
+                        className="w-full flex items-center justify-between text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors mb-3"
+                      >
+                        <span className="flex items-center gap-1.5"><PackageCheck size={15} className="text-emerald-400" /> What's in your box ({p.items.length} items)</span>
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </button>
+
+                      {/* Always show compact list */}
+                      {!isExpanded && (
+                        <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                          {p.items.map((it, idx) => (
+                            <li key={idx} className="text-xs text-muted-foreground">
+                              {it.qty} × {it.productName || `Product #${it.productId}`}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {/* Expanded: show individual prices and savings */}
+                      {isExpanded && (
+                        <div className="space-y-2">
+                          {p.items.map((it, idx) => {
+                            const lineTotal = (it.productPrice ?? 0) * it.qty;
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-sm bg-secondary/30 rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {it.productImage && <img src={it.productImage} alt="" className="w-8 h-8 rounded-lg object-cover" />}
+                                  <div>
+                                    <p className="font-medium text-xs">{it.productName || `Product #${it.productId}`}</p>
+                                    <p className="text-xs text-muted-foreground">{it.qty} × {formatINR(it.productPrice ?? 0)} / {it.productUnit || 'unit'}</p>
+                                  </div>
+                                </div>
+                                <span className="font-bold text-xs">{formatINR(lineTotal)}</span>
+                              </div>
+                            );
+                          })}
+                          {/* Store value total */}
+                          {storeValue > 0 && (
+                            <div className="flex items-center justify-between text-sm border-t border-card-border pt-2 mt-2">
+                              <span className="text-muted-foreground">Store value</span>
+                              <span className="line-through text-muted-foreground">{formatINR(storeValue)}</span>
+                            </div>
+                          )}
+                          {savings > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-emerald-400 font-semibold">You save</span>
+                              <span className="text-emerald-400 font-bold">{formatINR(savings)} ({savingsPct}% off)</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Subscribe button */}
+                    <div className="p-4 border-t border-card-border">
+                      <Button
+                        className="w-full h-11 font-bold text-base rounded-xl"
+                        style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}
+                        onClick={() => openSubscribe(p)}
+                        data-testid={`button-subscribe-${p.id}`}
+                      >
+                        <ShoppingCart size={16} className="mr-2" />
+                        Subscribe &amp; Add to Cart
+                      </Button>
+                      <p className="text-center text-xs text-muted-foreground mt-2">Cancel anytime · No hidden charges</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {plans.filter((p) => p.active).length === 0 && (
-                <p className="text-muted-foreground col-span-2 text-center py-8">No plans available right now.</p>
+                <p className="text-muted-foreground col-span-2 text-center py-12">No plans available right now. Check back soon!</p>
               )}
             </div>
           )}
@@ -363,37 +513,53 @@ export default function MySubscriptions() {
 
       {/* Subscribe dialog */}
       <Dialog open={subscribeOpen} onOpenChange={setSubscribeOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Subscribe to {subscribePlan?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart size={18} className="text-emerald-400" />
+              Subscribe to {subscribePlan?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Plan summary in dialog */}
+          {subscribePlan && (() => { const { storeValue, savings, savingsPct } = calcPlanSavings(subscribePlan); return storeValue > 0 && savings > 0 ? (
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm">
+              <p className="font-semibold text-emerald-400">🎉 You're saving {formatINR(savings)} ({savingsPct}% off store price)</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Plan: {formatINR(Number(subscribePlan.price))}/wk vs store value {formatINR(storeValue)}</p>
+            </div>
+          ) : null; })()}
+
+          <div className="space-y-4">
             <div>
-              <Label className="text-xs">Delivery days</Label>
+              <Label className="text-xs font-semibold">Delivery days</Label>
               <Select value={deliveryDays} onValueChange={(v) => setDeliveryDays(v as DeliveryDayOption)}>
-                <SelectTrigger data-testid="select-subscribe-delivery-days"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1" data-testid="select-subscribe-delivery-days"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="saturday">Saturday</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                  <SelectItem value="both">Both</SelectItem>
+                  <SelectItem value="saturday">Saturday only</SelectItem>
+                  <SelectItem value="sunday">Sunday only</SelectItem>
+                  <SelectItem value="both">Both Saturday &amp; Sunday</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-subscribe-phone" />
+              <Label className="text-xs font-semibold">Phone number</Label>
+              <Input className="mt-1" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" data-testid="input-subscribe-phone" />
             </div>
             <div>
-              <Label className="text-xs">Delivery address</Label>
-              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} data-testid="input-subscribe-address" />
+              <Label className="text-xs font-semibold">Delivery address</Label>
+              <Textarea className="mt-1" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Your full delivery address..." data-testid="input-subscribe-address" />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSubscribeOpen(false)}>Cancel</Button>
             <Button
               onClick={() => subscribe.mutate()}
               disabled={subscribe.isPending || !address.trim() || !phone.trim()}
+              className="flex-1"
+              style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}
               data-testid="button-confirm-subscribe"
             >
-              {subscribe.isPending ? "Subscribing…" : "Confirm subscription"}
+              {subscribe.isPending ? "Setting up…" : "✓ Confirm & Add to Cart"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -411,11 +577,7 @@ export default function MySubscriptions() {
           </Select>
           <DialogFooter>
             <Button variant="outline" onClick={() => setChangePlanOpen(null)}>Cancel</Button>
-            <Button
-              onClick={() => changePlanOpen != null && changePlanMut.mutate({ id: changePlanOpen, planId: Number(changePlanTarget) })}
-              disabled={changePlanMut.isPending || !changePlanTarget}
-              data-testid="button-confirm-change-plan"
-            >
+            <Button onClick={() => changePlanOpen != null && changePlanMut.mutate({ id: changePlanOpen, planId: Number(changePlanTarget) })} disabled={changePlanMut.isPending || !changePlanTarget} data-testid="button-confirm-change-plan">
               {changePlanMut.isPending ? "Saving…" : "Change plan"}
             </Button>
           </DialogFooter>
@@ -427,16 +589,11 @@ export default function MySubscriptions() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
-            <AlertDialogDescription>This will stop future deliveries. You can reactivate later.</AlertDialogDescription>
+            <AlertDialogDescription>This will stop future deliveries. You can reactivate later from this page.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-dialog-dismiss">Keep subscription</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { if (cancelTarget != null) cancelMut.mutate(cancelTarget); setCancelTarget(null); }}
-              data-testid="button-cancel-dialog-confirm"
-            >
-              Cancel subscription
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => { if (cancelTarget != null) cancelMut.mutate(cancelTarget); setCancelTarget(null); }} data-testid="button-cancel-dialog-confirm">Cancel subscription</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

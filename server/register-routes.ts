@@ -727,7 +727,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/plans", h(async (_req, res) => {
     const plans = await storage.plans.list();
     const withItems = await Promise.all(
-      plans.map(async (p) => ({ ...p, items: await storage.plans.items(p.id) })),
+      plans.map(async (p) => {
+        const items = await storage.plans.items(p.id);
+        const itemsWithProducts = await Promise.all(
+          items.map(async (it) => {
+            const product = await storage.products.get(it.productId);
+            return {
+              ...it,
+              productName: product?.name ?? '',
+              productPrice: Number(product?.price ?? 0),
+              productImage: product?.image ?? '',
+              productUnit: product?.unit ?? '',
+              productDiscountPercent: Number(product?.discountPercent ?? 0),
+            };
+          })
+        );
+        return { ...p, items: itemsWithProducts };
+      }),
     );
     res.json(withItems);
   }));
