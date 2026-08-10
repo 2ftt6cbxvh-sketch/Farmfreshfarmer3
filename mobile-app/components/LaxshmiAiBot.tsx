@@ -60,40 +60,40 @@ const UI_STRINGS: Record<Language, {
   addToCart: string;
 }> = {
   en: {
-    headerTitle: 'Laxshmi AI Assistant',
-    headerSubtitle: 'FarmFreshFarmer Smart Shopping & Voice Assistant',
+    headerTitle: 'Laxshmi AI',
+    headerSubtitle: 'Smart Assistant',
     bubbleGreeting: '🙏 Namaste! How can I help?',
     connectHuman: '📞 Connect to Human Support',
     raiseTicket: '🎫 Raise Support Ticket',
-    placeholder: 'Ask Laxshmi anything or say "Hey Laxshmi"...',
+    placeholder: 'Type a message...',
     thinking: 'Laxshmi is thinking...',
-    wakeWordActive: '🎤 "Hey Laxshmi" Voice Wake Active',
-    wakeWordDisabled: '🎤 Voice Wake Disabled',
-    addToCart: '🛒 Add to Cart',
+    wakeWordActive: '🎤 Voice Wake Active',
+    wakeWordDisabled: '🎤 Voice Wake Off',
+    addToCart: '+ Add',
   },
   hi: {
-    headerTitle: 'लक्ष्मी AI सहायक',
-    headerSubtitle: 'FarmFreshFarmer वॉयस और सहायता रोबोट',
+    headerTitle: 'लक्ष्मी AI',
+    headerSubtitle: 'स्मार्ट सहायक',
     bubbleGreeting: '🙏 नमस्ते! मैं कैसे मदद कर सकती हूँ?',
     connectHuman: '📞 मानव सहायता से जुड़ें',
     raiseTicket: '🎫 सहायता टिकट दर्ज करें',
-    placeholder: 'लक्ष्मी से पूछें या कहें "Hey Laxshmi"...',
+    placeholder: 'संदेश लिखें...',
     thinking: 'लक्ष्मी सोच रही हैं...',
-    wakeWordActive: '🎤 "Hey Laxshmi" वॉयस वेक सक्रिय',
+    wakeWordActive: '🎤 वॉयस वेक सक्रिय',
     wakeWordDisabled: '🎤 वॉयस वेक बंद',
-    addToCart: '🛒 कार्ट में जोड़ें',
+    addToCart: '+ जोड़ें',
   },
   te: {
-    headerTitle: 'లక్ష్మి AI సహాయకురాలు',
-    headerSubtitle: 'FarmFreshFarmer వాయిస్ & షాపింగ్ అసిస్టెంట్',
+    headerTitle: 'లక్ష్మి AI',
+    headerSubtitle: 'స్మార్ట్ సహాయకురాలు',
     bubbleGreeting: '🙏 నమస్తే! నేను ఎలా సహాయం చేయగలను?',
     connectHuman: '📞 మానవ సహాయానికి కనెక్ట్ చేయండి',
     raiseTicket: '🎫 సపోర్ట్ టికెట్ నమోదు చేయండి',
-    placeholder: 'లక్ష్మిని అడగండి లేదా "Hey Laxshmi" అనండి...',
+    placeholder: 'సందేశం టైప్ చేయండి...',
     thinking: 'లక్ష్మి ఆలోచిస్తోంది...',
-    wakeWordActive: '🎤 "Hey Laxshmi" వాయిస్ వేక్ యాక్టివ్',
-    wakeWordDisabled: '🎤 వాయిస్ వేక్ నిలిపివేయబడింది',
-    addToCart: '🛒 కార్ట్‌కి జోడించండి',
+    wakeWordActive: '🎤 వాయిస్ వేక్ యాక్టివ్',
+    wakeWordDisabled: '🎤 వాయిస్ వేక్ ఆఫ్',
+    addToCart: '+ కార్ట్',
   },
 };
 
@@ -151,6 +151,16 @@ export function LaxshmiAiBot() {
   const scrollViewRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const recognitionRef = useRef<any>(null);
+
+  // Auto-disappear speech bubble preview after 5 seconds so it doesn't block store products
+  useEffect(() => {
+    if (bubbleVisible) {
+      const timer = setTimeout(() => {
+        setBubbleVisible(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [bubbleVisible]);
 
   // Initialize Welcome Message
   useEffect(() => {
@@ -447,21 +457,22 @@ export function LaxshmiAiBot() {
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={() => setIsOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.chatCard}>
-            {/* ── Header with Safe Area Notch Clearance ─────────────────── */}
-            <View style={[styles.chatHeader, { paddingTop: Math.max(insets.top + 8, 48) }]}>
+            {/* ── Header with Safe Area Notch & Screen Width Auto-Alignment ─ */}
+            <View style={[styles.chatHeader, { paddingTop: Math.max(insets.top + 6, 42) }]}>
               <View style={styles.headerTitleRow}>
                 <View style={styles.headerAvatarBox}>
                   <Text style={styles.headerDiyaIcon}>🪔</Text>
                   <View style={styles.headerOnlineDot} />
                 </View>
-                <View>
-                  <Text style={styles.headerTitle}>{ui.headerTitle}</Text>
-                  <Text style={styles.headerSubtitle}>{ui.headerSubtitle}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.headerTitle} numberOfLines={1}>{ui.headerTitle}</Text>
+                  <Text style={styles.headerSubtitle} numberOfLines={1}>{ui.headerSubtitle}</Text>
                 </View>
               </View>
 
+              {/* Compact & Auto-Aligned Header Control Buttons */}
               <View style={styles.headerActions}>
-                {/* View Tickets Button */}
+                {/* View Support Tickets */}
                 <TouchableOpacity
                   style={styles.iconBtn}
                   onPress={() => {
@@ -469,10 +480,10 @@ export function LaxshmiAiBot() {
                     router.push('/(tabs)/account');
                   }}
                 >
-                  <Ionicons name="receipt" size={18} color="#10b981" />
+                  <Ionicons name="receipt-outline" size={16} color="#10b981" />
                 </TouchableOpacity>
 
-                {/* Language Switcher */}
+                {/* Language Switcher Badge */}
                 <TouchableOpacity
                   style={styles.langBtn}
                   onPress={() => setLanguage((l) => (l === 'en' ? 'hi' : l === 'hi' ? 'te' : 'en'))}
@@ -480,19 +491,19 @@ export function LaxshmiAiBot() {
                   <Text style={styles.langBtnText}>{language.toUpperCase()}</Text>
                 </TouchableOpacity>
 
-                {/* TTS Sound Switch */}
+                {/* Voice Sound TTS */}
                 <TouchableOpacity style={styles.iconBtn} onPress={() => setTtsEnabled(!ttsEnabled)}>
-                  <Ionicons name={ttsEnabled ? 'volume-high' : 'volume-mute'} size={18} color="#10b981" />
+                  <Ionicons name={ttsEnabled ? 'volume-high-outline' : 'volume-mute-outline'} size={16} color="#10b981" />
                 </TouchableOpacity>
 
-                {/* Wake Word Toggle */}
+                {/* Wake Word Mic */}
                 <TouchableOpacity style={styles.iconBtn} onPress={() => setWakeWordEnabled(!wakeWordEnabled)}>
-                  <Ionicons name={wakeWordEnabled ? 'mic' : 'mic-off'} size={18} color={wakeWordEnabled ? '#10b981' : '#64748b'} />
+                  <Ionicons name={wakeWordEnabled ? 'mic' : 'mic-off'} size={16} color={wakeWordEnabled ? '#10b981' : '#64748b'} />
                 </TouchableOpacity>
 
-                {/* Close Button */}
+                {/* Always-Visible Close Button */}
                 <TouchableOpacity style={styles.closeBtn} onPress={() => setIsOpen(false)}>
-                  <Ionicons name="close" size={20} color="#ffffff" />
+                  <Ionicons name="close" size={18} color="#ffffff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -538,28 +549,28 @@ export function LaxshmiAiBot() {
                                   style={styles.productImg}
                                 />
                                 <View style={styles.productInfo}>
-                                  <Text style={styles.productName}>{p.name}</Text>
+                                  <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
                                   <Text style={styles.productPrice}>₹{p.price} / {p.unit}</Text>
-                                  <TouchableOpacity
-                                    style={styles.addCartBtn}
-                                    onPress={() => addItemToCart({ id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.image }, 1)}
-                                  >
-                                    <Text style={styles.addCartText}>
-                                      {inCart ? `✓ ${inCart.qty} in Cart` : ui.addToCart}
-                                    </Text>
-                                  </TouchableOpacity>
                                 </View>
+                                <TouchableOpacity
+                                  style={styles.addCartBtn}
+                                  onPress={() => addItemToCart({ id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.image }, 1)}
+                                >
+                                  <Text style={styles.addCartText}>
+                                    {inCart ? `✓ ${inCart.qty}` : ui.addToCart}
+                                  </Text>
+                                </TouchableOpacity>
                               </View>
                             );
                           })}
                         </View>
                       )}
 
-                      {/* Action Escalation Buttons (Stacked cleanly inside bubble) */}
+                      {/* Action Escalation Buttons */}
                       {!isUser && (
                         <View style={styles.actionColumn}>
                           <TouchableOpacity style={styles.escalateBtn} onPress={handleConnectHuman}>
-                            <Ionicons name="call" size={14} color="#ffffff" />
+                            <Ionicons name="call" size={13} color="#ffffff" />
                             <Text style={styles.escalateText}>{ui.connectHuman}</Text>
                           </TouchableOpacity>
 
@@ -567,7 +578,7 @@ export function LaxshmiAiBot() {
                             style={styles.ticketBtn}
                             onPress={() => setActiveTicketFormMessageId(activeTicketFormMessageId === msg.id ? null : msg.id)}
                           >
-                            <Ionicons name="receipt" size={14} color="#10b981" />
+                            <Ionicons name="receipt" size={13} color="#10b981" />
                             <Text style={styles.ticketText}>{ui.raiseTicket}</Text>
                           </TouchableOpacity>
                         </View>
@@ -601,7 +612,7 @@ export function LaxshmiAiBot() {
                             onChangeText={setTicketEmail}
                           />
                           <TextInput
-                            style={[styles.formInput, { height: 70 }]}
+                            style={[styles.formInput, { height: 60 }]}
                             placeholder="Describe your issue or concern..."
                             placeholderTextColor="#64748b"
                             multiline
@@ -612,7 +623,7 @@ export function LaxshmiAiBot() {
                             {submittingTicket ? (
                               <ActivityIndicator size="small" color="#ffffff" />
                             ) : (
-                              <Text style={styles.submitTicketText}>Submit Ticket to Grievance Officer</Text>
+                              <Text style={styles.submitTicketText}>Submit Support Ticket</Text>
                             )}
                           </TouchableOpacity>
                         </View>
@@ -642,12 +653,12 @@ export function LaxshmiAiBot() {
             </View>
 
             {/* ── Input Box & Controls ───────────────────────────────────── */}
-            <View style={styles.chatFooter}>
+            <View style={[styles.chatFooter, { paddingBottom: Math.max(insets.bottom + 8, 12) }]}>
               <TouchableOpacity
                 style={[styles.micBtn, isListening && styles.micBtnActive]}
                 onPress={startListening}
               >
-                <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={20} color={isListening ? '#ef4444' : '#10b981'} />
+                <Ionicons name={isListening ? 'mic' : 'mic-outline'} size={18} color={isListening ? '#ef4444' : '#10b981'} />
               </TouchableOpacity>
 
               <TextInput
@@ -664,7 +675,7 @@ export function LaxshmiAiBot() {
                 onPress={() => handleSendMessage()}
                 disabled={!inputMessage.trim() || loading}
               >
-                <Ionicons name="send" size={16} color="#ffffff" />
+                <Ionicons name="send" size={15} color="#ffffff" />
               </TouchableOpacity>
             </View>
           </View>
@@ -677,7 +688,7 @@ export function LaxshmiAiBot() {
 const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
-    bottom: 95, // Positioned safely above bottom tab bar
+    bottom: 95,
     right: 16,
     zIndex: 9999,
     alignItems: 'flex-end',
@@ -714,13 +725,13 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   floatingBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: '#10b981',
     shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 6 },
@@ -730,22 +741,22 @@ const styles = StyleSheet.create({
   },
   glowRing: {
     position: 'absolute',
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 2,
     borderColor: 'rgba(16, 185, 129, 0.4)',
   },
   diyaIconFloating: {
-    fontSize: 26,
+    fontSize: 24,
   },
   onlineBadge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
     backgroundColor: '#10b981',
     borderWidth: 2,
     borderColor: '#0f172a',
@@ -755,46 +766,46 @@ const styles = StyleSheet.create({
     bottom: -2,
     left: -2,
     backgroundColor: '#059669',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   chatCard: {
     width: '100%',
-    height: height * 0.88,
-    backgroundColor: '#0f172a',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    height: '100%',
+    backgroundColor: '#090d16',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
   },
   chatHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    backgroundColor: '#111827',
     borderBottomWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerTitleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginRight: 6,
   },
   headerAvatarBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#0f172a',
     borderWidth: 1.5,
     borderColor: '#10b981',
@@ -803,39 +814,39 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerDiyaIcon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   headerOnlineDot: {
     position: 'absolute',
     bottom: -1,
     right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#10b981',
-    borderWidth: 1.5,
-    borderColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#111827',
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   headerSubtitle: {
-    color: '#94a3b8',
-    fontSize: 10,
+    color: '#9ca3af',
+    fontSize: 9,
     fontWeight: '500',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   langBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    borderRadius: 6,
   },
   langBtnText: {
     color: '#34d399',
@@ -843,19 +854,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   iconBtn: {
-    padding: 6,
-    backgroundColor: '#334155',
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1f2937',
+    borderRadius: 6,
   },
   closeBtn: {
-    padding: 6,
-    backgroundColor: '#ef4444',
-    borderRadius: 8,
-    marginLeft: 4,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#dc2626',
+    borderRadius: 6,
+    marginLeft: 2,
   },
   bannerRow: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingVertical: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingVertical: 3,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
@@ -868,85 +885,85 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: 14,
-    gap: 12,
+    padding: 12,
+    gap: 10,
   },
   msgWrapper: {
     flexDirection: 'row',
-    marginVertical: 4,
+    marginVertical: 2,
   },
   userMsgWrapper: {
     justifyContent: 'flex-end',
   },
   botMsgWrapper: {
     justifyContent: 'flex-start',
-    gap: 8,
+    gap: 6,
   },
   botIconWrapper: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#1e293b',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#111827',
     borderWidth: 1,
     borderColor: '#10b981',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
   botDiyaSmall: {
-    fontSize: 13,
+    fontSize: 12,
   },
   msgBubble: {
     maxWidth: '85%',
-    padding: 14,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 14,
   },
   userBubble: {
     backgroundColor: '#10b981',
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 2,
   },
   botBubble: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
+    backgroundColor: '#111827',
+    borderColor: '#1f2937',
     borderWidth: 1,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 2,
   },
   msgText: {
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
   },
   userText: {
     color: '#ffffff',
     fontWeight: '600',
   },
   botText: {
-    color: '#e2e8f0',
-    fontWeight: '500',
+    color: '#e5e7eb',
+    fontWeight: '400',
   },
   productsBox: {
-    marginTop: 10,
-    gap: 8,
+    marginTop: 8,
+    gap: 6,
   },
   productsTitle: {
     color: '#34d399',
     fontSize: 11,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   productCard: {
     flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
+    backgroundColor: '#090d16',
+    borderRadius: 10,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   productImg: {
-    width: 46,
-    height: 46,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 6,
   },
   productInfo: {
     flex: 1,
@@ -960,14 +977,13 @@ const styles = StyleSheet.create({
     color: '#34d399',
     fontSize: 11,
     fontWeight: '800',
-    marginVertical: 2,
+    marginTop: 1,
   },
   addCartBtn: {
     backgroundColor: '#10b981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
-    alignSelf: 'flex-start',
   },
   addCartText: {
     color: '#ffffff',
@@ -976,15 +992,15 @@ const styles = StyleSheet.create({
   },
   actionColumn: {
     flexDirection: 'column',
-    gap: 8,
-    marginTop: 12,
+    gap: 6,
+    marginTop: 10,
     width: '100%',
   },
   escalateBtn: {
     backgroundColor: '#059669',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -997,12 +1013,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   ticketBtn: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderColor: '#10b981',
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1015,93 +1031,93 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   ticketFormCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 10,
+    backgroundColor: '#090d16',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: '#10b981',
-    gap: 8,
+    gap: 6,
   },
   formTitle: {
     color: '#34d399',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   formInput: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#111827',
     color: '#ffffff',
     fontSize: 11,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
   },
   submitTicketBtn: {
     backgroundColor: '#10b981',
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 7,
+    borderRadius: 6,
     alignItems: 'center',
   },
   submitTicketText: {
     color: '#ffffff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   loadingText: {
-    color: '#94a3b8',
+    color: '#9ca3af',
     fontSize: 11,
     fontStyle: 'italic',
   },
   chipsRow: {
-    paddingVertical: 8,
-    backgroundColor: '#1e293b',
+    paddingVertical: 6,
+    backgroundColor: '#111827',
     borderTopWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
   },
   chipsContainer: {
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: 10,
+    gap: 6,
   },
   chipBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    backgroundColor: '#1f2937',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   chipText: {
     color: '#34d399',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   chatFooter: {
-    padding: 12,
-    backgroundColor: '#0f172a',
+    padding: 10,
+    backgroundColor: '#090d16',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     borderTopWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
   },
   micBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#1e293b',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
   },
   micBtnActive: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
@@ -1109,25 +1125,25 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 38,
-    backgroundColor: '#1e293b',
-    borderRadius: 19,
-    paddingHorizontal: 14,
+    height: 36,
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    paddingHorizontal: 12,
     color: '#ffffff',
     fontSize: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#1f2937',
   },
   sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#10b981',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#334155',
+    backgroundColor: '#1f2937',
     opacity: 0.5,
   },
 });
