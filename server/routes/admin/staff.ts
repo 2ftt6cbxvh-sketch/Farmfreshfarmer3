@@ -72,6 +72,7 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
+        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
@@ -91,10 +92,83 @@ export function registerStaffRoutes(app: Express) {
     }
   });
 
+  /** GET /api/admin/staff/2fa-config — Fetch Sub-Admin 2FA Global Config (Primary Admin only) */
+  app.get("/api/admin/staff/2fa-config", requirePrimaryAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { storage } = await import("../../storage");
+      const { getTelegramOtpCredentials } = await import("../../services/telegram");
+      const enabled = (await storage.settings.get("subadmin_2fa_otp_enabled")) === "true";
+      const { botToken } = await getTelegramOtpCredentials();
+      const isValid = !!(botToken && botToken.includes(":") && !botToken.includes("..."));
+      const masked = isValid ? `${botToken.substring(0, 5)}...${botToken.slice(-4)}` : "";
+      return res.json({
+        enabled,
+        botToken: masked,
+        configured: isValid,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to fetch 2FA config" });
+    }
+  });
+
+  /** POST /api/admin/staff/2fa-config — Save Sub-Admin 2FA Global Config (Primary Admin only) */
+  app.post("/api/admin/staff/2fa-config", requirePrimaryAdmin, async (req: Request, res: Response) => {
+    try {
+      const { enabled, botToken } = req.body || {};
+      const { storage } = await import("../../storage");
+
+      if (enabled !== undefined) {
+        await storage.settings.set("subadmin_2fa_otp_enabled", enabled ? "true" : "false");
+      }
+
+      if (botToken !== undefined && String(botToken).trim() && !String(botToken).includes("...")) {
+        const cleanToken = String(botToken).trim();
+        if (!cleanToken.includes(":")) {
+          return res.status(400).json({
+            message: `Invalid Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':'.`,
+          });
+        }
+        await storage.settings.set("telegram_otp_bot_token", cleanToken);
+        await storage.settings.set("telegram_2fa_bot_token", cleanToken);
+      }
+
+      return res.json({ message: "🛡️ Sub-Admin 2FA Security configuration saved successfully!" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to save 2FA config" });
+    }
+  });
+
+  /** POST /api/admin/staff/2fa-test — Test dispatch a 2FA OTP to a specific Telegram Chat ID */
+  app.post("/api/admin/staff/2fa-test", requirePrimaryAdmin, async (req: Request, res: Response) => {
+    try {
+      const { chatId } = req.body || {};
+      const { sendTelegram2faOtp, isTelegramOtpConfigured } = await import("../../services/telegram");
+
+      if (!chatId || !String(chatId).trim()) {
+        return res.status(400).json({ message: "Please provide a valid Telegram Chat ID to test dispatch." });
+      }
+
+      if (!(await isTelegramOtpConfigured())) {
+        return res.status(400).json({ message: "2FA Bot Token is not configured yet. Please enter and save your @BotFather token first." });
+      }
+
+      const testOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const sent = await sendTelegram2faOtp(String(chatId).trim(), testOtp, "Administrator Test");
+
+      if (sent) {
+        return res.json({ message: `✨ Test 2FA OTP (${testOtp}) successfully sent to Telegram Chat ID ${chatId}!` });
+      } else {
+        return res.status(500).json({ message: "Failed to dispatch Telegram message. Verify the bot token and ensure the user has started the bot." });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Error testing 2FA OTP dispatch" });
+    }
+  });
+
   /** POST /api/admin/staff — Create a new sub-admin/staff member (Primary Admin only) */
   app.post("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, password, role, customTitle, permissions } = req.body || {};
+      const { name, email, phone, password, role, customTitle, telegramChatId, permissions } = req.body || {};
 
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required" });
@@ -117,6 +191,7 @@ export function registerStaffRoutes(app: Express) {
         phone: phone ? phone.trim() : null,
         role: role || "custom_subadmin",
         customTitle: customTitle ? customTitle.trim() : null,
+        telegramChatId: telegramChatId ? String(telegramChatId).trim() : null,
         permissions: permString,
         isPrimaryAdmin: false,
         status: "active",
@@ -128,6 +203,7 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
+        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,
@@ -160,13 +236,14 @@ export function registerStaffRoutes(app: Express) {
         return res.status(403).json({ message: "Primary Admin credentials cannot be modified via sub-admin management" });
       }
 
-      const { name, phone, password, role, customTitle, status, permissions } = req.body || {};
+      const { name, phone, password, role, customTitle, telegramChatId, status, permissions } = req.body || {};
       const updates: any = { updatedAt: new Date() };
 
       if (name) updates.name = name.trim();
       if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
       if (role) updates.role = role;
       if (customTitle !== undefined) updates.customTitle = customTitle ? customTitle.trim() : null;
+      if (telegramChatId !== undefined) updates.telegramChatId = telegramChatId ? String(telegramChatId).trim() : null;
       if (status) updates.status = status; // 'active' | 'blocked' | 'inactive'
       if (permissions !== undefined) {
         updates.permissions = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
@@ -183,6 +260,7 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
+        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         status: users.status,

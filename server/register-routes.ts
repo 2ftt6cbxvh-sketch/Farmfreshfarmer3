@@ -368,6 +368,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (user.status && user.status === "blocked") {
       return res.status(403).json({ message: "Account is blocked" });
     }
+
+    // Check if 2FA Telegram OTP is required globally for this Sub-Admin / Staff member
+    const isGlobal2faEnabled = (await storage.settings.get("subadmin_2fa_otp_enabled")) === "true";
+    const isSubAdminStaff = user.role !== "customer" && !user.isPrimaryAdmin && user.email.toLowerCase() !== "admin@farmfreshfarmer.com";
+
+    if (isGlobal2faEnabled && isSubAdminStaff) {
+      const { create2faOtpSession, sendTelegram2faOtp, isTelegramOtpConfigured } = await import("./services/telegram");
+
+      if (!user.telegramChatId || !user.telegramChatId.trim()) {
+        return res.status(403).json({
+          message: "🔒 2FA Telegram Verification Required: Your staff profile has no Telegram Chat ID configured. Please contact the Super Admin to add your Telegram ID.",
+        });
+      }
+
+      if (!(await isTelegramOtpConfigured())) {
+        return res.status(503).json({
+          message: "🔒 2FA Telegram Authentication Bot is not configured on the server. Please notify the Super Admin.",
+        });
+      }
+
+      const { tempToken, otp, maskedTelegram } = await create2faOtpSession(
+        user.id,
+        user.email,
+        user.telegramChatId,
+        user.name
+      );
+
+      const sent = await sendTelegram2faOtp(user.telegramChatId, otp, user.name);
+      if (!sent) {
+        return res.status(500).json({
+          message: "Failed to dispatch Telegram 2FA code. Please ensure you have started the 2FA Telegram bot.",
+        });
+      }
+
+      return res.json({
+        require2fa: true,
+        tempToken,
+        maskedTelegram,
+        staffName: user.name,
+        message: `🔐 6-digit 2FA verification code sent to your Telegram (${maskedTelegram}).`,
+      });
+    }
+
     req.session.userId = user.id;
     req.session.role = user.role;
     const { issueTokenPair } = await import('./services/token');
@@ -375,6 +418,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
     });
     res.json({ user: publicUser(user), ...tokens });
+  }));
+
+  /** POST /api/login/verify-otp — Verify 6-digit Sub-Admin 2FA Telegram OTP */
+  app.post("/api/login/verify-otp", h(async (req, res) => {
+    const { tempToken, otp } = req.body || {};
+    if (!tempToken || !otp) {
+      return res.status(400).json({ message: "Session token and 6-digit OTP code are required" });
+    }
+
+    const { verify2faOtpSession } = await import("./services/telegram");
+    const result = verify2faOtpSession(String(tempToken), String(otp));
+
+    if (!result.success || !result.userId) {
+      return res.status(401).json({ message: result.message || "Invalid OTP code" });
+    }
+
+    const user = await storage.users.get(result.userId);
+    if (!user || user.status === "blocked") {
+      return res.status(403).json({ message: "Account not accessible or blocked" });
+    }
+
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    const { issueTokenPair } = await import('./services/token');
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
+    });
+    return res.json({ user: publicUser(user), ...tokens, message: "✨ 2FA Authentication Verified!" });
+  }));
+
+  /** POST /api/login/resend-otp — Resend 2FA Telegram OTP */
+  app.post("/api/login/resend-otp", h(async (req, res) => {
+    const { tempToken } = req.body || {};
+    if (!tempToken) {
+      return res.status(400).json({ message: "Session token is required" });
+    }
+
+    const { resend2faOtpSession } = await import("./services/telegram");
+    const result = await resend2faOtpSession(String(tempToken));
+
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    return res.json({ message: result.message, maskedTelegram: result.maskedTelegram });
   }));
 
   app.post("/api/logout", (req, res) => {

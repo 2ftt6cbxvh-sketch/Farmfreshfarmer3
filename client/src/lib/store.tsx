@@ -42,6 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const res = await apiRequest("POST", "/api/login", { email, password });
     const data = await res.json();
+    if (data.require2fa) {
+      return data;
+    }
     if (data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
     }

@@ -92,6 +92,13 @@ export async function getTelegramGrievanceCredentials(): Promise<{ botToken: str
   return { botToken, chatIds };
 }
 
+export async function getTelegramOtpCredentials(): Promise<{ botToken: string }> {
+  const envToken = process.env.TELEGRAM_OTP_BOT_TOKEN || process.env.TELEGRAM_2FA_BOT_TOKEN || "";
+  const { storage } = await import("../storage");
+  const dbToken = (await storage.settings.get("telegram_otp_bot_token")) || (await storage.settings.get("telegram_2fa_bot_token")) || "";
+  return { botToken: envToken || dbToken || "" };
+}
+
 // Backwards compatibility helper
 export async function getTelegramCredentials() {
   return getTelegramSecurityCredentials();
@@ -105,6 +112,156 @@ export async function isTelegramSecurityConfigured(): Promise<boolean> {
 export async function isTelegramGrievanceConfigured(): Promise<boolean> {
   const { botToken, chatIds } = await getTelegramGrievanceCredentials();
   return !!(botToken && chatIds.length > 0);
+}
+
+export async function isTelegramOtpConfigured(): Promise<boolean> {
+  const { botToken } = await getTelegramOtpCredentials();
+  return !!botToken;
+}
+
+/* ====================================================================
+   1B. 2FA TELEGRAM OTP IN-MEMORY SESSION STORE
+   ==================================================================== */
+
+interface Pending2faOtpSession {
+  userId: number;
+  email: string;
+  chatId: string;
+  staffName: string;
+  otp: string;
+  expiresAt: number;
+  attempts: number;
+  lastSentAt: number;
+}
+
+const pending2faSessions = new Map<string, Pending2faOtpSession>();
+
+// Periodically clean up expired 2FA sessions every 2 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of pending2faSessions.entries()) {
+    if (session.expiresAt < now) {
+      pending2faSessions.delete(token);
+    }
+  }
+}, 2 * 60 * 1000);
+
+export async function create2faOtpSession(
+  userId: number,
+  email: string,
+  chatId: string,
+  staffName = "Staff Member"
+): Promise<{ tempToken: string; otp: string; maskedTelegram: string }> {
+  const crypto = await import("crypto");
+  const otp = crypto.randomInt(100000, 999999).toString();
+  const tempToken = crypto.randomBytes(32).toString("hex");
+
+  const cleanChatId = chatId.trim();
+  const maskedTelegram = cleanChatId.length > 4 ? `••••${cleanChatId.slice(-4)}` : cleanChatId;
+
+  pending2faSessions.set(tempToken, {
+    userId,
+    email,
+    chatId: cleanChatId,
+    staffName,
+    otp,
+    expiresAt: Date.now() + 3 * 60 * 1000, // 3 Minutes TTL
+    attempts: 0,
+    lastSentAt: Date.now(),
+  });
+
+  return { tempToken, otp, maskedTelegram };
+}
+
+export function verify2faOtpSession(
+  tempToken: string,
+  userOtp: string
+): { success: boolean; userId?: number; email?: string; message?: string } {
+  if (!tempToken || !userOtp) {
+    return { success: false, message: "Missing session token or OTP code" };
+  }
+
+  const session = pending2faSessions.get(tempToken);
+  if (!session) {
+    return { success: false, message: "Session expired or invalid. Please sign in again." };
+  }
+
+  if (session.expiresAt < Date.now()) {
+    pending2faSessions.delete(tempToken);
+    return { success: false, message: "OTP has expired (3-minute time limit). Please request a new code." };
+  }
+
+  if (session.attempts >= 3) {
+    pending2faSessions.delete(tempToken);
+    return { success: false, message: "Too many failed attempts. Security session terminated." };
+  }
+
+  const cleanInput = String(userOtp).trim();
+  if (cleanInput !== session.otp) {
+    session.attempts += 1;
+    const remaining = 3 - session.attempts;
+    return {
+      success: false,
+      message: `Invalid 6-digit OTP code. ${remaining > 0 ? `${remaining} attempt(s) remaining.` : "Session locked."}`,
+    };
+  }
+
+  // Single-use burn: destroy OTP session upon successful verification
+  pending2faSessions.delete(tempToken);
+  return { success: true, userId: session.userId, email: session.email };
+}
+
+export async function resend2faOtpSession(
+  tempToken: string
+): Promise<{ success: boolean; message: string; maskedTelegram?: string }> {
+  const session = pending2faSessions.get(tempToken);
+  if (!session) {
+    return { success: false, message: "Session expired. Please sign in again." };
+  }
+
+  // 30 seconds cooldown between resends
+  if (Date.now() - session.lastSentAt < 30 * 1000) {
+    const waitSec = Math.ceil((30 * 1000 - (Date.now() - session.lastSentAt)) / 1000);
+    return { success: false, message: `Please wait ${waitSec}s before requesting a new OTP.` };
+  }
+
+  const crypto = await import("crypto");
+  const newOtp = crypto.randomInt(100000, 999999).toString();
+  session.otp = newOtp;
+  session.expiresAt = Date.now() + 3 * 60 * 1000;
+  session.lastSentAt = Date.now();
+  session.attempts = 0;
+
+  const sent = await sendTelegram2faOtp(session.chatId, newOtp, session.staffName);
+  if (!sent) {
+    return { success: false, message: "Failed to dispatch Telegram OTP. Verify staff Chat ID." };
+  }
+
+  const maskedTelegram = session.chatId.length > 4 ? `••••${session.chatId.slice(-4)}` : session.chatId;
+  return { success: true, message: `New OTP dispatched to Telegram (${maskedTelegram})!`, maskedTelegram };
+}
+
+export async function sendTelegram2faOtp(
+  chatId: string,
+  otp: string,
+  staffName = "Staff Member"
+): Promise<boolean> {
+  const { botToken } = await getTelegramOtpCredentials();
+  if (!botToken || !chatId) return false;
+
+  const text = `🔐 <b>FarmFreshFarmer Staff 2FA Verification</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+👋 Hello, <b>${staffName}</b>!
+
+🔑 Your one-time login verification code is:
+<pre><b>${otp}</b></pre>
+
+⏳ <b>Validity:</b> 3 Minutes (Single-Use Only)
+⚠️ <i>Do not share this OTP code with anyone, including other administrators.</i>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>FarmFresh Security &amp; Access Governance</i>`;
+
+  return sendRawTelegramMessage(botToken, chatId, text);
 }
 
 /* ====================================================================

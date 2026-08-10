@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, UserPlus, Shield, ShieldAlert, Lock, Trash2, CheckCircle2,
-  XCircle, Edit3, Key, Phone, Mail, Check, ChevronDown, Sparkles
+  XCircle, Edit3, Key, Phone, Mail, Check, ChevronDown, Sparkles,
+  Smartphone, Send, RefreshCw, AlertTriangle
 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -70,14 +72,64 @@ export default function AdminStaff() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("custom_subadmin");
   const [customTitle, setCustomTitle] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["/admin", "/admin/orders"]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // 2FA Global Settings State
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [twoFaBotToken, setTwoFaBotToken] = useState("");
+  const [testChatId, setTestChatId] = useState("");
 
   const { data, isLoading, error } = useQuery<{ staff: any[] }>({
     queryKey: ["/api/admin/staff"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/staff");
       return res.json();
+    },
+  });
+
+  const { data: twoFaConfig, refetch: refetch2fa } = useQuery({
+    queryKey: ["/api/admin/staff/2fa-config"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/staff/2fa-config");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (twoFaConfig) {
+      setTwoFaEnabled(!!twoFaConfig.enabled);
+      if (twoFaConfig.botToken && !twoFaConfig.botToken.includes("...")) {
+        setTwoFaBotToken(twoFaConfig.botToken);
+      }
+    }
+  }, [twoFaConfig]);
+
+  const save2faMutation = useMutation({
+    mutationFn: async (payload: { enabled: boolean; botToken?: string }) => {
+      const res = await apiRequest("POST", "/api/admin/staff/2fa-config", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/staff/2fa-config"] });
+      refetch2fa();
+      toast({ title: "🛡️ 2FA Security Settings Saved!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to save 2FA configuration", variant: "destructive" });
+    },
+  });
+
+  const test2faMutation = useMutation({
+    mutationFn: async (chatId: string) => {
+      const res = await apiRequest("POST", "/api/admin/staff/2fa-test", { chatId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "✨ 2FA OTP Dispatched!", description: data?.message || "Check your Telegram app." });
+    },
+    onError: (err: any) => {
+      toast({ title: "2FA Dispatch Failed", description: err?.message || "Could not send OTP", variant: "destructive" });
     },
   });
 
@@ -91,6 +143,7 @@ export default function AdminStaff() {
     setPassword("");
     setRole("custom_subadmin");
     setCustomTitle("");
+    setTelegramChatId("");
     setSelectedPermissions(["/admin", "/admin/orders"]);
     setModalOpen(true);
   };
@@ -103,6 +156,7 @@ export default function AdminStaff() {
     setPassword(""); // Blank unless updating password
     setRole(staff.role || "custom_subadmin");
     setCustomTitle(staff.customTitle || "");
+    setTelegramChatId(staff.telegramChatId || "");
     setSelectedPermissions(Array.isArray(staff.permissions) ? staff.permissions : []);
     setModalOpen(true);
   };
@@ -185,6 +239,7 @@ export default function AdminStaff() {
           ...(password ? { password } : {}),
           role,
           customTitle: customTitle.trim(),
+          telegramChatId: telegramChatId.trim(),
           permissions: selectedPermissions,
         },
       });
@@ -196,6 +251,7 @@ export default function AdminStaff() {
         password,
         role,
         customTitle: customTitle.trim(),
+        telegramChatId: telegramChatId.trim(),
         permissions: selectedPermissions,
       });
     }
@@ -223,13 +279,121 @@ export default function AdminStaff() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Add, modify credentials, block accounts, and assign granular menu permissions to designated sub-admin roles.
+              Add, modify credentials, block accounts, configure 2FA Telegram OTPs, and assign granular menu permissions to designated sub-admin roles.
             </p>
           </div>
           <Button onClick={openCreateModal} className="gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold shadow-lg shadow-emerald-900/30 hover:scale-105 transition-all">
             <UserPlus size={16} />
             <span>Add Sub-Admin</span>
           </Button>
+        </div>
+
+        {/* 🛡️ Sub-Admin 2FA Security Layer & Dedicated Telegram OTP Authenticator Card */}
+        <div className="p-6 rounded-3xl bg-card border border-emerald-500/30 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Key size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-extrabold text-foreground">Sub-Admin 2FA Telegram Authenticator Layer</h2>
+                  {twoFaConfig?.configured ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                      <CheckCircle2 size={11} /> Bot Connected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                      <AlertTriangle size={11} /> Token Required
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Sends unbreachable, time-limited (3-min) 6-digit OTPs directly to each sub-admin's Telegram account before allowing dashboard login.
+                </p>
+              </div>
+            </div>
+
+            {/* Global Master 2FA Requirement Switch */}
+            <div className="flex items-center gap-3 bg-secondary/50 border border-border p-2 px-3 rounded-2xl">
+              <span className="text-xs font-extrabold text-foreground">Global 2FA Enforcement:</span>
+              <button
+                type="button"
+                onClick={() => setTwoFaEnabled(!twoFaEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  twoFaEnabled ? "bg-emerald-500" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    twoFaEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <span className={`text-[11px] font-black uppercase ${twoFaEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>
+                {twoFaEnabled ? "ENFORCED (ON)" : "DISABLED (OFF)"}
+              </span>
+            </div>
+          </div>
+
+          {/* Dedicated 2FA OTP Bot Credentials & Dispatch Tester */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Dedicated 2FA OTP Bot Token (from @BotFather)</span>
+                <span className="text-[10px] text-muted-foreground">e.g. 7123456789:AAFx...</span>
+              </label>
+              <Input
+                type="password"
+                value={twoFaBotToken}
+                onChange={(e) => setTwoFaBotToken(e.target.value)}
+                placeholder={twoFaConfig?.botToken ? "•••••••••••••••• (Saved. Type to change)" : "Enter dedicated 2FA bot token from @BotFather"}
+                className="rounded-xl text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Create a distinct private Telegram bot on @BotFather (e.g. <code>@FarmFreshAuthenticatorBot</code>) strictly for dispatching login OTPs.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Test 2FA OTP Dispatch</span>
+                <span className="text-[10px] text-muted-foreground">Send real-time verification code</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={testChatId}
+                  onChange={(e) => setTestChatId(e.target.value)}
+                  placeholder="Enter Telegram Chat ID (e.g. 1927711332)"
+                  className="rounded-xl text-xs flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={() => test2faMutation.mutate(testChatId)}
+                  disabled={test2faMutation.isPending || !testChatId.trim()}
+                  className="rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs gap-1.5 shrink-0"
+                >
+                  <Send size={13} />
+                  <span>{test2faMutation.isPending ? "Sending…" : "Send Test OTP"}</span>
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Ensure the recipient has opened the 2FA bot in Telegram and clicked <b>/start</b> before testing.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end pt-2 border-t border-border/50">
+            <Button
+              type="button"
+              onClick={() => save2faMutation.mutate({ enabled: twoFaEnabled, botToken: twoFaBotToken })}
+              disabled={save2faMutation.isPending}
+              className="rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold text-xs shadow-md"
+            >
+              {save2faMutation.isPending ? "Saving Security Settings…" : "💾 Save 2FA Security Settings"}
+            </Button>
+          </div>
         </div>
 
         {/* Staff Members List Table */}
@@ -256,7 +420,8 @@ export default function AdminStaff() {
                 <thead className="bg-secondary/40 text-muted-foreground uppercase text-[10px] font-bold border-b border-border">
                   <tr>
                     <th className="p-4">Staff Member</th>
-                    <th className="p-4">Role</th>
+                    <th className="p-4">Role & Designation</th>
+                    <th className="p-4">Telegram 2FA ID</th>
                     <th className="p-4">Menu Permissions</th>
                     <th className="p-4">Status</th>
                     <th className="p-4 text-right">Actions</th>
@@ -291,9 +456,30 @@ export default function AdminStaff() {
                         </td>
 
                         <td className="p-4">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-primary/15 text-primary border border-primary/30 capitalize">
-                            {s.role ? s.role.replace("_", " ") : "Sub-Admin"}
-                          </span>
+                          <div>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/15 text-primary border border-primary/30 capitalize">
+                              {s.role ? s.role.replace("_", " ") : "Sub-Admin"}
+                            </span>
+                            {s.customTitle && (
+                              <p className="text-[10px] font-bold text-amber-300 mt-1">🏷️ {s.customTitle}</p>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-4">
+                          {isPrimary ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                              🛡️ Super Admin 2FA
+                            </span>
+                          ) : s.telegramChatId ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30 font-mono">
+                              📱 {s.telegramChatId}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                              ⚠️ No 2FA ID
+                            </span>
+                          )}
                         </td>
 
                         <td className="p-4 max-w-xs">
@@ -432,6 +618,26 @@ export default function AdminStaff() {
                     className="w-full mt-1 rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Personal Telegram Chat ID Input for 2FA OTPs */}
+              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 space-y-1.5">
+                <label className="text-xs font-extrabold text-sky-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Smartphone size={13} /> Personal Telegram Chat ID (for 2FA OTPs)
+                  </span>
+                  <span className="text-[10px] text-sky-400/80 font-normal">from @userinfobot</span>
+                </label>
+                <input
+                  type="text"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  placeholder="e.g. 1927711332"
+                  className="w-full rounded-xl border border-sky-500/30 bg-background/80 px-3 py-2 text-xs font-bold text-foreground font-mono focus:ring-2 focus:ring-sky-500 outline-none"
+                />
+                <p className="text-[10px] text-sky-300/80">
+                  When global 2FA is active, this sub-admin will receive their instant 6-digit login verification OTP on this Telegram ID.
+                </p>
               </div>
 
               {/* Role Selection */}

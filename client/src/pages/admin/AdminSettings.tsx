@@ -1862,6 +1862,9 @@ export default function AdminSettings() {
     "telegram_support_bot_token",
     "telegram_support_chat_id",
     "telegram_support_chat_ids",
+    "telegram_otp_bot_token",
+    "telegram_2fa_bot_token",
+    "subadmin_2fa_otp_enabled",
     // SMTP & Email keys (managed in dedicated Email section)
     "smtp_host",
     "smtp_port",

@@ -41,6 +41,7 @@ export const users = pgTable("users", {
   address: text("address"),
   role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin | customer_rep | local_grievance_officer | zonal_grievance_officer | chief_grievance_officer
   customTitle: varchar("custom_title", { length: 128 }),
+  telegramChatId: varchar("telegram_chat_id", { length: 64 }),
   permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
   isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
