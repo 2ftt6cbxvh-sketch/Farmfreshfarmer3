@@ -165,126 +165,7 @@ export function registerChatbotRoutes(app: Express, storage: any) {
       return res.status(500).json({ error: 'Failed to fetch live session' });
     }
   });
-
-  // Call Gemini REST API with fallback models
-  async function callGeminiAPI(
-    apiKey: string,
-    message: string,
-    fullProductsContext: string,
-    legalContext: string,
-    contactContext: string,
-    language: string,
-    creatorContext?: string
-  ): Promise<string | null> {
-    const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
-    if (!cleanKey) return null;
-
-    const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
-    const systemPrompt = `You are Laxshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
-
-==================== LIVE DATABASE CONTEXT ====================
-1. PRODUCT CATALOG & PRICING:
-${fullProductsContext || 'No product catalog available.'}
-
-2. STORE LEGAL POLICIES & TERMS:
-${legalContext}
-
-3. CUSTOMER SUPPORT & CONTACT INFORMATION:
-${contactContext}
-
-4. CREATOR & INVENTOR INFORMATION:
-${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Ganesh Varma)
-• Portfolio: https://www.ganeshvarma.in/
-• Credentials: PG in Advanced Data Science & AI (University of Liverpool, UK), B.Tech in Computer Science (KL University, GPA 8.87/10).
-• Certifications: TensorFlow Developer Certificate, Salesforce Certified AI Associate, AWS Certified Cloud Practitioner.
-• Role: Creator & Architect of Laxshmi AI and Founder / Full-Stack Engineer of FarmFreshFarmer.`}
-
-==================== YOUR ROLE & INSTRUCTIONS ====================
-- You have complete access to the store's product database, legal policies, customer support details, and your creator's background.
-- Respond accurately and warmly in ${langName}.
-
-CREATOR & INVENTOR INQUIRIES:
-- You were invented, architected, and built by Buddaraju Ganesh Sai Varma (Ganesh Varma).
-- When a customer asks about who created you, who invented Laxshmi, who built FarmFreshFarmer, or asks about Ganesh Varma / his resume / background / education / portfolio:
-  * Respond proudly, warmly, and with high detail and respect about your creator Buddaraju Ganesh Sai Varma (Ganesh Varma).
-  * Share his education (PG in Advanced Data Science & AI from University of Liverpool, UK, and B.Tech from KL University), his certifications, his skills in Data Science, Full-Stack & Machine Learning, and his portfolio: https://www.ganeshvarma.in/
-
-HEALTH, NUTRITION & WELLNESS GUIDANCE:
-- When a customer asks about any product, fruit, vegetable, pickle, sweet, or millet:
-  1. NUTRITION & HEALTH BENEFITS: Provide detailed health benefits, vitamins, minerals, antioxidants, and nutritional advantages of eating this fresh farm item.
-  2. WHO SHOULD EAT & ADVANTAGES: Explain who benefits most (e.g., heart health, diabetics, pregnant mothers, growing children, skin/hair, digestive health).
-  3. PRECAUTIONS & WHO SHOULD AVOID/LIMIT: Clearly state any health cautions, precautions, or dietary limits (e.g., high sodium/salt warning for pickles in hypertension patients, high sugar/ghee warning for sweets in diabetics, oxalate cautions for raw spinach in kidney stone patients).
-  4. HEALTH TIPS: Give practical health or culinary advice on how to consume or store it.
-
-STORE & LEGAL QUERIES:
-- Provide exact information from the store legal policies, contact numbers, email addresses, operating hours, delivery ETAs (30-90 mins), return policy (4 hours with photo proof), and grievance redressal officer details.
-
-CRITICAL CART & LOGIN RULES:
-- You CANNOT add items to cart, place orders, or make any purchase. NEVER say "I have added X to your cart" or "I've successfully added" — you have NO cart access.
-- When a customer asks to add to cart ("add bananas", "add 2kg tomatoes", "buy spinach"), say ONLY: "Please use the Add button on the product card below to add this to your cart! If you are not logged in, please sign in first using Google One-Tap or Email OTP at the top right."
-- If asked about order status or payment, instruct the customer to log in at /account to view their dashboard.
-
-Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use clear paragraphs or bullet points where helpful.`;
-
-    // 1. Try Official @google/generative-ai SDK
-    try {
-      const genAI = new GoogleGenerativeAI(cleanKey);
-      const modelNames = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-pro'];
-      for (const mName of modelNames) {
-        try {
-          const model = genAI.getGenerativeModel({ model: mName, systemInstruction: systemPrompt });
-          const result = await model.generateContent(message);
-          const response = await result.response;
-          let text = response.text();
-          if (text) text = text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
-          if (text && text.trim()) {
-            console.log(`[chatbot] Gemini SDK (${mName}) success`);
-            return text.trim();
-          }
-        } catch (mErr: any) {
-          console.warn(`[chatbot] Gemini SDK model ${mName} error:`, mErr?.message || mErr);
-        }
-      }
-    } catch (sdkErr) {
-      console.warn('[chatbot] Gemini SDK exception:', sdkErr);
-    }
-
-    // 2. Try native globalThis.fetch REST API
-    const fetchFn = (globalThis as any).fetch;
-    if (fetchFn) {
-      const restEndpoints = [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${cleanKey}`,
-      ];
-
-      for (const endpoint of restEndpoints) {
-        try {
-          const res = await fetchFn(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nCustomer: ${message}` }] }],
-              generationConfig: { maxOutputTokens: 768, temperature: 0.7 },
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            let replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (replyText) replyText = replyText.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
-            if (replyText && typeof replyText === 'string') {
-              console.log('[chatbot] Gemini REST API success');
-              return replyText.trim();
-            }
-          }
-        } catch (restErr) {
-          console.warn('[chatbot] Gemini REST fetch error:', restErr);
-        }
-      }
-    }
-
-    return null;
-  }
+  // (Cart & session endpoints follow below)
 
 // Detect if user is asking to VIEW their cart
 function detectCartViewIntent(message: string): boolean {
@@ -478,10 +359,10 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
       const modelNames = [
-        'gemma-4-31b-it',
-        'gemma-4-26b-a4b-it',
         'gemini-2.0-flash',
         'gemini-1.5-flash',
+        'gemma-4-31b-it',
+        'gemma-4-26b-a4b-it',
         'gemini-1.5-pro',
         'gemini-pro',
       ];
@@ -521,10 +402,10 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
     const fetchFn = (globalThis as any).fetch;
     if (fetchFn) {
       const restEndpoints = [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${cleanKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key=${cleanKey}`,
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${cleanKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key=${cleanKey}`,
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${cleanKey}`,
       ];
 

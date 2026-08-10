@@ -310,17 +310,27 @@ export function LaxshmiAiBot({ customGreeting }: { customGreeting?: string } = {
       timestamp: new Date(),
     };
 
+    const historyPayload = messages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
     setMessages((prev) => [...prev, userMsg]);
     setInputMessage('');
     setLoading(true);
 
     try {
-      // Call endpoint (handles both /api/chatbot/message and /api/chatbot)
-      const res = await api.post('/api/chatbot/message', {
-        message: query,
-        language,
-        sessionToken: getSessionToken(),
-      });
+      // Call endpoint with 60s timeout & history payload
+      const res = await api.post(
+        '/api/chatbot/message',
+        {
+          message: query,
+          history: historyPayload,
+          language,
+          sessionToken: getSessionToken(),
+        },
+        { timeout: 60000 }
+      );
 
       const botReply = res.data?.reply || '🙏 I am happy to assist you! Please ask about products, prices, or orders.';
       const botMsg: ChatMessage = {
@@ -336,7 +346,8 @@ export function LaxshmiAiBot({ customGreeting }: { customGreeting?: string } = {
 
       setMessages((prev) => [...prev, botMsg]);
       speakResponse(botReply, language);
-    } catch (err) {
+    } catch (err: any) {
+      console.warn('[mobile chatbot] AI response error:', err?.message || err);
       const fallbackMsg: ChatMessage = {
         id: `err_${Date.now()}`,
         role: 'model',
