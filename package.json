@@ -1,6 +1,6 @@
 {
   "name": "farmfreshfarmer-cart-fix",
-  "version": "7.3.0",
+  "version": "7.3.1",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -90,6 +90,7 @@
     "react-hook-form": "^7.55.0",
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
+    "react-router-dom": "^7.18.2",
     "recharts": "^2.15.2",
     "stripe": "^22.4.0",
     "tailwind-merge": "^2.6.0",

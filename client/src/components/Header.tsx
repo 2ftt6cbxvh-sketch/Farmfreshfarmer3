@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { imgUrl } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles, Truck } from "lucide-react";
+import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles, Truck, Ticket } from "lucide-react";
 import { Logo } from "./Logo";
 import { DietDot } from "./DietDot";
 import { useAuth, useCart } from "@/lib/store";
@@ -246,6 +246,9 @@ export function Header() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/account/referrals")} className="rounded-xl font-medium" data-testid="menu-referrals">
                     <Gift size={15} className="mr-2 text-amber-400" /> Referrals
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/account")} className="rounded-xl font-medium" data-testid="menu-tickets">
+                    <Ticket size={15} className="mr-2 text-violet-400" /> My Tickets
                   </DropdownMenuItem>
                   {["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(user.role) && (
                     <DropdownMenuItem onClick={() => navigate("/admin")} className="rounded-xl font-bold text-primary" data-testid="menu-admin">

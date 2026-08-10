@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
@@ -97,6 +98,7 @@ function getSessionToken(): string {
 
 export function ChatbotLaxshmi() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { add, items } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -616,13 +618,13 @@ export function ChatbotLaxshmi() {
                 </div>
               )}
             </div>
-            <a
-              href="/account"
+            <button
+              onClick={() => navigate('/account')}
               title="View My Tickets"
               className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all"
             >
               <Ticket size={14} />
-            </a>
+            </button>
             <button id="chatbot-close-btn" onClick={() => { setIsOpen(false); stopSpeaking(); }}
               className="text-white/80 hover:text-white transition ml-1" aria-label="Close chatbot">
               <X size={18} />
@@ -777,14 +779,14 @@ export function ChatbotLaxshmi() {
                     </button>
                   )}
                   {msg.action === 'view_tickets' && (
-                    <a
-                      href="/account"
+                    <button
+                      onClick={() => navigate('/account')}
                       className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 w-fit"
                       style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}
                     >
                       <Ticket size={14} />
                       View My Tickets
-                    </a>
+                    </button>
                   )}
                   {msg.requiresLocation && (
                     <button
