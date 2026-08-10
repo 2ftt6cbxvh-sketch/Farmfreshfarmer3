@@ -836,8 +836,8 @@ function resolveCartQty(
 }
 // === END CART HELPER FUNCTIONS ===
 
-  // POST /api/chatbot/message
-  app.post('/api/chatbot/message', async (req, res) => {
+  // POST /api/chatbot & POST /api/chatbot/message
+  const handleChatbotRequest = async (req: Request, res: Response) => {
     try {
       const { message, language = 'en', sessionToken, history } = req.body;
 
@@ -1380,7 +1380,10 @@ function resolveCartQty(
       console.error('[chatbot] Error in message handler:', err);
       return res.status(500).json({ reply: '🙏 Namaste! I am experiencing a brief connection issue. Please try again or contact support at +91 79897 93669.', needsHuman: true });
     }
-  });
+  };
+
+  app.post('/api/chatbot/message', handleChatbotRequest);
+  app.post('/api/chatbot', handleChatbotRequest);
 
   // POST /api/admin/gemini/test — Live test Gemini API key connection
   app.post('/api/admin/gemini/test', async (req, res) => {

@@ -318,15 +318,27 @@ export function ChatbotLaxshmi() {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 150);
   }, [isOpen]);
 
-  /* TTS */
+  /* TTS - Female Voice across website */
   const speakText = useCallback((text: string, id: string, lang: Language) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     if (speakingId === id) { setSpeakingId(null); return; }
     const utterance = new SpeechSynthesisUtterance(text.replace(/[*_`#•]/g, "").substring(0, 500));
-    utterance.lang = lang === "te" ? "te-IN" : lang === "hi" ? "hi-IN" : "en-IN";
-    utterance.rate = 0.9;
-    utterance.pitch = 1.05;
+    const langCode = lang === "te" ? "te-IN" : lang === "hi" ? "hi-IN" : "en-IN";
+    utterance.lang = langCode;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.25; // Elevated pitch for natural female tone
+
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find((v) =>
+      (v.name.includes("Female") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Veena") || v.name.includes("Zira") || v.name.includes("Siri") || v.name.includes("Kavya") || v.name.includes("Swara") || v.name.includes("Heera") || v.name.includes("हिन्दी") || v.name.includes("తెలుగు") || v.name.includes("India")) &&
+      !v.name.toLowerCase().includes("male")
+    ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes(langCode.split("-")[0]));
+
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
+
     setSpeakingId(id);
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);

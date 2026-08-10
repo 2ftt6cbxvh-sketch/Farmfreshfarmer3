@@ -43,7 +43,6 @@ interface ChatMessage {
   actionData?: any;
   needsHuman?: boolean;
   products?: ProductItem[];
-  showTicketForm?: boolean;
 }
 
 const UI_STRINGS: Record<Language, {
@@ -167,18 +166,28 @@ export function LaxshmiAiBot() {
     ).start();
   }, [pulseAnim]);
 
-  // Text-To-Speech (TTS) via Expo Speech
-  const speakResponse = useCallback((text: string, lang: Language) => {
+  // Female Voice Text-To-Speech (TTS) via Expo Speech
+  const speakResponse = useCallback(async (text: string, lang: Language) => {
     if (!ttsEnabled) return;
     try {
       Speech.stop();
       const cleanText = text.replace(/[*_#`•]/g, '').trim();
       if (!cleanText) return;
       const langCode = lang === 'te' ? 'te-IN' : lang === 'hi' ? 'hi-IN' : 'en-IN';
+
+      // Find available female voice in Expo Speech
+      const availableVoices = await Speech.getAvailableVoicesAsync().catch(() => []);
+      const femaleVoice = availableVoices.find((v) =>
+        (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Veena') || v.name.includes('Zira') || v.name.includes('Siri') || v.name.includes('Kavya') || v.name.includes('Swara') || v.name.includes('Heera')) &&
+        !v.name.toLowerCase().includes('male') &&
+        (v.language.includes('IN') || v.language.includes(langCode.split('-')[0]))
+      ) || availableVoices.find((v) => v.language.includes('IN'));
+
       Speech.speak(cleanText, {
         language: langCode,
-        pitch: 1.0,
+        pitch: 1.25, // Natural female voice pitch
         rate: 0.95,
+        voice: femaleVoice?.identifier,
       });
     } catch (err) {
       console.warn('[laxshmi tts error]', err);
@@ -203,7 +212,8 @@ export function LaxshmiAiBot() {
     setLoading(true);
 
     try {
-      const res = await api.post('/api/chatbot', {
+      // Call endpoint (handles both /api/chatbot/message and /api/chatbot)
+      const res = await api.post('/api/chatbot/message', {
         message: query,
         language,
         sessionToken: getSessionToken(),
@@ -304,7 +314,7 @@ export function LaxshmiAiBot() {
             text.includes('लक्ष्मी') ||
             text.includes('లక్ష్మి')
           ) {
-            Speech.speak('Namaste! Laxshmi is listening...', { language: 'en-IN' });
+            Speech.speak('Namaste! Laxshmi is listening...', { language: 'en-IN', pitch: 1.25 });
             setIsOpen(true);
             setBubbleVisible(false);
             try { wakeListener.stop(); } catch {}
@@ -386,20 +396,21 @@ export function LaxshmiAiBot() {
 
   return (
     <>
-      {/* ── 1. Floating Action Launcher Button ────────────────────────────── */}
+      {/* ── 1. Floating Action Launcher Button (Positioned safely above bottom tab bar) ── */}
       {!isOpen && (
         <View style={styles.floatingContainer}>
           {bubbleVisible && (
             <View style={styles.bubblePreview}>
+              <Text style={styles.diyaText}>🪔</Text>
               <Text style={styles.bubbleText}>{ui.bubbleGreeting}</Text>
               <TouchableOpacity onPress={() => setBubbleVisible(false)} style={styles.bubbleClose}>
-                <Ionicons name="close-circle" size={14} color="#94a3b8" />
+                <Ionicons name="close-circle" size={16} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           )}
 
           <TouchableOpacity
-            activeOpacity={0.85}
+            activeOpacity={0.88}
             onPress={() => {
               setIsOpen(true);
               setBubbleVisible(false);
@@ -407,10 +418,7 @@ export function LaxshmiAiBot() {
             style={styles.floatingBtn}
           >
             <Animated.View style={[styles.glowRing, { transform: [{ scale: pulseAnim }] }]} />
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80' }}
-              style={styles.avatarImg}
-            />
+            <Text style={styles.diyaIconFloating}>🪔</Text>
             <View style={styles.onlineBadge} />
             <View style={styles.sparkleBadge}>
               <Ionicons name="sparkles" size={10} color="#ffffff" />
@@ -427,10 +435,7 @@ export function LaxshmiAiBot() {
             <View style={styles.chatHeader}>
               <View style={styles.headerTitleRow}>
                 <View style={styles.headerAvatarBox}>
-                  <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80' }}
-                    style={styles.headerAvatar}
-                  />
+                  <Text style={styles.headerDiyaIcon}>🪔</Text>
                   <View style={styles.headerOnlineDot} />
                 </View>
                 <View>
@@ -484,10 +489,9 @@ export function LaxshmiAiBot() {
                 return (
                   <View key={msg.id} style={[styles.msgWrapper, isUser ? styles.userMsgWrapper : styles.botMsgWrapper]}>
                     {!isUser && (
-                      <Image
-                        source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80' }}
-                        style={styles.msgAvatar}
-                      />
+                      <View style={styles.botIconWrapper}>
+                        <Text style={styles.botDiyaSmall}>🪔</Text>
+                      </View>
                     )}
                     <View style={[styles.msgBubble, isUser ? styles.userBubble : styles.botBubble]}>
                       <Text style={[styles.msgText, isUser ? styles.userText : styles.botText]}>
@@ -524,11 +528,11 @@ export function LaxshmiAiBot() {
                         </View>
                       )}
 
-                      {/* Action Escalation Buttons */}
+                      {/* Action Escalation Buttons (Stacked cleanly inside bubble) */}
                       {!isUser && (
-                        <View style={styles.actionRow}>
+                        <View style={styles.actionColumn}>
                           <TouchableOpacity style={styles.escalateBtn} onPress={handleConnectHuman}>
-                            <Ionicons name="call" size={13} color="#ffffff" />
+                            <Ionicons name="call" size={14} color="#ffffff" />
                             <Text style={styles.escalateText}>{ui.connectHuman}</Text>
                           </TouchableOpacity>
 
@@ -536,7 +540,7 @@ export function LaxshmiAiBot() {
                             style={styles.ticketBtn}
                             onPress={() => setActiveTicketFormMessageId(activeTicketFormMessageId === msg.id ? null : msg.id)}
                           >
-                            <Ionicons name="receipt" size={13} color="#10b981" />
+                            <Ionicons name="receipt" size={14} color="#10b981" />
                             <Text style={styles.ticketText}>{ui.raiseTicket}</Text>
                           </TouchableOpacity>
                         </View>
@@ -646,8 +650,8 @@ export function LaxshmiAiBot() {
 const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
-    bottom: 85,
-    right: 18,
+    bottom: 95, // Positioned safely above bottom tab bar
+    right: 16,
     zIndex: 9999,
     alignItems: 'flex-end',
   },
@@ -656,55 +660,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#10b981',
     marginBottom: 8,
-    maxWidth: 220,
+    maxWidth: 240,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
+    shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 8,
+  },
+  diyaText: {
+    fontSize: 16,
+    marginRight: 6,
   },
   bubbleText: {
     color: '#34d399',
-    fontSize: 11,
-    fontWeight: '700',
-    flex: 1,
+    fontSize: 12,
+    fontWeight: '800',
+    flexShrink: 1,
   },
   bubbleClose: {
     marginLeft: 6,
+    padding: 2,
   },
   floatingBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#0f172a',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#10b981',
     shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 10,
     elevation: 10,
   },
   glowRing: {
     position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     borderWidth: 2,
     borderColor: 'rgba(16, 185, 129, 0.4)',
   },
-  avatarImg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  diyaIconFloating: {
+    fontSize: 26,
   },
   onlineBadge: {
     position: 'absolute',
@@ -759,19 +765,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerAvatarBox: {
-    position: 'relative',
-  },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#0f172a',
     borderWidth: 1.5,
     borderColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  headerDiyaIcon: {
+    fontSize: 20,
   },
   headerOnlineDot: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -1,
+    right: -1,
     width: 10,
     height: 10,
     borderRadius: 5,
@@ -831,8 +841,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: 16,
-    gap: 14,
+    padding: 14,
+    gap: 12,
   },
   msgWrapper: {
     flexDirection: 'row',
@@ -845,14 +855,22 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 8,
   },
-  msgAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  botIconWrapper: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 4,
   },
+  botDiyaSmall: {
+    fontSize: 13,
+  },
   msgBubble: {
-    maxWidth: '82%',
+    maxWidth: '85%',
     padding: 14,
     borderRadius: 18,
   },
@@ -929,40 +947,45 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
-  actionRow: {
-    flexDirection: 'row',
+  actionColumn: {
+    flexDirection: 'column',
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
+    width: '100%',
   },
   escalateBtn: {
     backgroundColor: '#059669',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 6,
+    width: '100%',
   },
   escalateText: {
     color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
   },
   ticketBtn: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderColor: '#10b981',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 6,
+    width: '100%',
   },
   ticketText: {
     color: '#34d399',
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
   },
   ticketFormCard: {
     backgroundColor: '#0f172a',
