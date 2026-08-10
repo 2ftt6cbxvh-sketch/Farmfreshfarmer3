@@ -55,21 +55,33 @@ export default function AdminDashboardScreen() {
   const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
 
-  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.role === 'admin' || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com');
-  const userPerms = Array.isArray(user?.permissions) ? user.permissions : [];
+  const { data: meUserData } = useQuery({
+    queryKey: ['me-user-profile-permissions'],
+    queryFn: () => api.get('/api/user').then(r => r.data).catch(() => api.get('/api/auth/me').then(r => r.data)),
+  });
 
-  const tabPermissionMap: Record<string, string> = {
-    dashboard: '/admin',
-    warehouses: '/admin/warehouses',
-    products: '/admin/products',
-    categories: '/admin/categories',
-    inventory: '/admin/inventory',
-    orders: '/admin/orders',
-    delivery: '/admin/delivery',
-    staff: '/admin/staff',
-    customers: '/admin/customers',
-    reviews: '/admin/reviews',
-    settings: '/admin/settings',
+  const currentUser = meUserData || user;
+  const isSuperAdmin = Boolean(currentUser?.isPrimaryAdmin || currentUser?.role === 'admin' || currentUser?.email?.toLowerCase() === 'admin@farmfreshfarmer.com');
+  
+  let userPerms: string[] = [];
+  if (Array.isArray(currentUser?.permissions)) {
+    userPerms = currentUser.permissions;
+  } else if (typeof currentUser?.permissions === 'string') {
+    try { userPerms = JSON.parse(currentUser.permissions); } catch { userPerms = []; }
+  }
+
+  const tabPermissionMap: Record<string, string[]> = {
+    dashboard: ['/admin'],
+    warehouses: ['/admin/warehouses'],
+    products: ['/admin/products'],
+    categories: ['/admin/categories'],
+    inventory: ['/admin/inventory'],
+    orders: ['/admin/orders', '/admin/subscriptions'],
+    delivery: ['/admin/delivery'],
+    staff: ['/admin/staff'],
+    customers: ['/admin/customers'],
+    reviews: ['/admin/reviews'],
+    settings: ['/admin/settings'],
   };
 
   const tabs = [
@@ -90,11 +102,11 @@ export default function AdminDashboardScreen() {
   const visibleTabs = isSuperAdmin
     ? tabs
     : tabs.filter((t) => {
-        const requiredPerm = tabPermissionMap[t.id];
-        return userPerms.includes(requiredPerm) || (userPerms.includes('/admin') && t.id === 'dashboard');
+        const requiredPerms = tabPermissionMap[t.id] || [];
+        return requiredPerms.some(p => userPerms.includes(p));
       });
 
-  const [activeTab, setActiveTab] = useState(visibleTabs[0]?.id || 'dashboard');
+  const [activeTab, setActiveTab] = useState(visibleTabs[0]?.id || '');
 
   useEffect(() => {
     if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
@@ -366,69 +378,72 @@ export default function AdminDashboardScreen() {
         </View>
       )}
 
-      <ScrollView style={styles.content}>
-        {/* ── 📊 DASHBOARD OVERVIEW ────────────────────────────────────────────── */}
-        {activeTab === 'dashboard' && (
-          <View style={styles.tabContent}>
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>Revenue total</Text>
-              <Text style={[styles.stockText, { color: textColor }]}>₹{orders.reduce((acc: number, o: any) => acc + (o.total || 0), 0)}</Text>
-            </View>
+      {visibleTabs.length > 0 && (
+        <ScrollView style={styles.content}>
+          {/* ── 📊 DASHBOARD OVERVIEW ────────────────────────────────────────────── */}
+          {activeTab === 'dashboard' && (
+            <View style={styles.tabContent}>
+              <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <Text style={[styles.cardTitle, { color: textColor }]}>Revenue total</Text>
+                <Text style={[styles.stockText, { color: textColor }]}>₹{orders.reduce((acc: number, o: any) => acc + (o.total || 0), 0)}</Text>
+              </View>
 
-            {/* SUPER ADMIN PASSWORD UPDATE SECURITY CARD */}
-            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.cardTitle, { color: textColor }]}>🔐 Super Admin Password Update</Text>
-              <Text style={{ fontSize: 12, color: mutedColor }}>
-                Requires Current Super Admin Password AND live 6-Digit Authenticator TOTP 2FA code.
-              </Text>
+              {/* SUPER ADMIN PASSWORD UPDATE SECURITY CARD (PRIMARY ADMIN ONLY) */}
+              {isSuperAdmin && (
+                <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  <Text style={[styles.cardTitle, { color: textColor }]}>🔐 Super Admin Password Update</Text>
+                  <Text style={{ fontSize: 12, color: mutedColor }}>
+                    Requires Current Super Admin Password AND live 6-Digit Authenticator TOTP 2FA code.
+                  </Text>
 
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>Current (Old) Password *</Text>
-              <TextInput
-                style={[styles.input, { color: textColor, borderColor: borderCol }]}
-                placeholder="Enter Current Super Admin Password"
-                placeholderTextColor={mutedColor}
-                secureTextEntry
-                value={currentSuperAdminPass}
-                onChangeText={setCurrentSuperAdminPass}
-              />
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>Current (Old) Password *</Text>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor: borderCol }]}
+                    placeholder="Enter Current Super Admin Password"
+                    placeholderTextColor={mutedColor}
+                    secureTextEntry
+                    value={currentSuperAdminPass}
+                    onChangeText={setCurrentSuperAdminPass}
+                  />
 
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>New Password (min 6 chars) *</Text>
-              <TextInput
-                style={[styles.input, { color: textColor, borderColor: borderCol }]}
-                placeholder="Enter New Super Admin Password"
-                placeholderTextColor={mutedColor}
-                secureTextEntry
-                value={newSuperAdminPass}
-                onChangeText={setNewSuperAdminPass}
-              />
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: mutedColor, marginTop: 4 }}>New Password (min 6 chars) *</Text>
+                  <TextInput
+                    style={[styles.input, { color: textColor, borderColor: borderCol }]}
+                    placeholder="Enter New Super Admin Password"
+                    placeholderTextColor={mutedColor}
+                    secureTextEntry
+                    value={newSuperAdminPass}
+                    onChangeText={setNewSuperAdminPass}
+                  />
 
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#10b981', marginTop: 4 }}>🔑 6-Digit Authenticator TOTP 2FA Code *</Text>
-              <TextInput
-                style={[styles.input, { color: '#10b981', borderColor: '#10b981', fontWeight: '900', letterSpacing: 3, textAlign: 'center', fontSize: 18 }]}
-                placeholder="123456"
-                placeholderTextColor={mutedColor}
-                keyboardType="number-pad"
-                maxLength={6}
-                value={totpSuperAdminCode}
-                onChangeText={setTotpSuperAdminCode}
-              />
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#10b981', marginTop: 4 }}>🔑 6-Digit Authenticator TOTP 2FA Code *</Text>
+                  <TextInput
+                    style={[styles.input, { color: '#10b981', borderColor: '#10b981', fontWeight: '900', letterSpacing: 3, textAlign: 'center', fontSize: 18 }]}
+                    placeholder="123456"
+                    placeholderTextColor={mutedColor}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={totpSuperAdminCode}
+                    onChangeText={setTotpSuperAdminCode}
+                  />
 
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => {
-                  if (!currentSuperAdminPass) { Alert.alert('Validation Error', 'Please enter your Current Super Admin Password'); return; }
-                  if (newSuperAdminPass.length < 6) { Alert.alert('Validation Error', 'New password must be at least 6 characters'); return; }
-                  if (totpSuperAdminCode.length < 6) { Alert.alert('Validation Error', 'Please enter your 6-digit Authenticator TOTP code'); return; }
-                  updateSuperAdminPasswordMutation.mutate({
-                    currentPassword: currentSuperAdminPass,
-                    newPassword: newSuperAdminPass,
-                    totpCode: totpSuperAdminCode,
-                  });
-                }}
-              >
-                <Text style={styles.actionBtnText}>Verify TOTP & Update Password 🔑</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => {
+                      if (!currentSuperAdminPass) { Alert.alert('Validation Error', 'Please enter your Current Super Admin Password'); return; }
+                      if (newSuperAdminPass.length < 6) { Alert.alert('Validation Error', 'New password must be at least 6 characters'); return; }
+                      if (totpSuperAdminCode.length < 6) { Alert.alert('Validation Error', 'Please enter your 6-digit Authenticator TOTP code'); return; }
+                      updateSuperAdminPasswordMutation.mutate({
+                        currentPassword: currentSuperAdminPass,
+                        newPassword: newSuperAdminPass,
+                        totpCode: totpSuperAdminCode,
+                      });
+                    }}
+                  >
+                    <Text style={styles.actionBtnText}>Verify TOTP & Update Password 🔑</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>Active orders count</Text>
@@ -1054,6 +1069,7 @@ export default function AdminDashboardScreen() {
           </View>
         )}
       </ScrollView>
+      )}
     </View>
   );
 }
