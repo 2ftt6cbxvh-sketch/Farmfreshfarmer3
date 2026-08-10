@@ -723,11 +723,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /* =========================== SUBSCRIPTIONS ======================= */
+  async function ensurePlanProduct(plan: any): Promise<any> {
+    const planName = plan.name;
+    let [prod] = await db.select().from(products).where(eq(products.name, planName)).limit(1);
+    if (!prod) {
+      const [inserted] = await db.insert(products).values({
+        name: planName,
+        description: plan.description || `Curated weekly subscription box delivered every ${plan.deliveryDays}.`,
+        categorySlug: 'vegetables',
+        price: String(plan.price),
+        unit: '1 Weekly Box',
+        image: plan.image || 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60',
+        stock: 9999,
+        active: plan.active ?? true,
+        featured: false,
+      }).returning();
+      prod = inserted;
+    } else {
+      if (Number(prod.price) !== Number(plan.price) || prod.active !== plan.active) {
+        const [updated] = await db.update(products).set({
+          price: String(plan.price),
+          active: plan.active ?? true,
+        }).where(eq(products.id, prod.id)).returning();
+        prod = updated;
+      }
+    }
+    return prod;
+  }
+
   // Public: list active plans (with items) so customers can subscribe.
   app.get("/api/plans", h(async (_req, res) => {
     const plans = await storage.plans.list();
     const withItems = await Promise.all(
       plans.map(async (p) => {
+        const planProduct = await ensurePlanProduct(p);
         const items = await storage.plans.items(p.id);
         const itemsWithProducts = await Promise.all(
           items.map(async (it) => {
@@ -742,7 +771,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             };
           })
         );
-        return { ...p, items: itemsWithProducts };
+        return { 
+          ...p, 
+          productId: planProduct.id,
+          product: planProduct,
+          items: itemsWithProducts 
+        };
       }),
     );
     res.json(withItems);
@@ -876,6 +910,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       { name, slug, description: description ?? "", price, deliveryDays: deliveryDays ?? "both", active: active ?? true },
       items,
     );
+    await ensurePlanProduct(plan);
     res.json(plan);
   }));
 
@@ -883,11 +918,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const items = Array.isArray(req.body.items) ? req.body.items : undefined;
     const updated = await storage.plans.update(Number(req.params.id), req.body, items);
     if (!updated) return res.status(404).json({ message: "Not found" });
+    await ensurePlanProduct(updated);
     res.json(updated);
   }));
 
   app.delete("/api/admin/plans/:id", requireAdmin, h(async (req, res) => {
+    const plan = await storage.plans.get(Number(req.params.id));
     await storage.plans.remove(Number(req.params.id));
+    if (plan) {
+      await db.update(products).set({ active: false }).where(eq(products.name, plan.name));
+    }
     res.json({ ok: true });
   }));
 

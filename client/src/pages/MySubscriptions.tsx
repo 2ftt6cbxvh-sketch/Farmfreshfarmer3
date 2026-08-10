@@ -40,6 +40,8 @@ interface Plan {
   deliveryDays: string;
   image?: string;
   active: boolean;
+  productId?: number;
+  product?: any;
   items: PlanItem[];
 }
 
@@ -166,29 +168,26 @@ export default function MySubscriptions() {
       invalidateMine();
       setSubscribeOpen(false);
 
-      // Add all plan items to cart — pass full Product object so useCart().add() works correctly
-      if (subscribePlan?.items) {
-        subscribePlan.items.forEach((item) => {
-          // Build a Product-compatible object using data already returned by GET /api/plans
-          const productForCart = {
-            id: item.productId,
-            name: item.productName || `Product #${item.productId}`,
-            unit: item.productUnit || 'unit',
-            price: String(item.productPrice ?? 0),
-            image: item.productImage || '',
-            discountPercent: String(item.productDiscountPercent ?? 0),
-            stock: 999, // subscription products are always available
-            allowInternationalShipping: false,
-            categorySlug: '',
-          } as any;
-          addToCart(productForCart, item.qty);
-        });
+      // Add subscription bundle as 1 single item to cart with the plan price
+      if (subscribePlan) {
+        const planProduct = subscribePlan.product || {
+          id: subscribePlan.productId || subscribePlan.id,
+          name: subscribePlan.name,
+          unit: "1 Weekly Box",
+          price: String(subscribePlan.price),
+          image: subscribePlan.image || "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60",
+          discountPercent: "0",
+          stock: 9999,
+          allowInternationalShipping: false,
+          categorySlug: "vegetables",
+        };
+        addToCart(planProduct as any, 1);
         queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       }
 
       toast({
         title: "Subscribed! 🎉",
-        description: "Your box has been added to cart. Complete checkout to receive your first delivery!",
+        description: "Your weekly subscription box has been added to cart. Complete checkout to confirm your delivery schedule!",
       });
 
       navigate("/cart");
