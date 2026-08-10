@@ -224,37 +224,41 @@ export default function AdminSecurity() {
   const [grievBotToken, setGrievBotToken] = useState("");
   const [grievChatIdList, setGrievChatIdList] = useState<string[]>([""]);
 
-  const [telegramLoaded, setTelegramLoaded] = useState(false);
-
-  const { data: telegramData } = useQuery({
+  const { data: telegramData, refetch: refetchTelegram } = useQuery({
     queryKey: ["/api/admin/security/telegram"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/security/telegram");
-      const data = await res.json();
-      if (!telegramLoaded) {
-        // Security Bot
-        if (data.security?.botToken && !data.security.botToken.includes("...")) {
-          setSecBotToken(data.security.botToken);
-        } else if (data.botToken && !data.botToken.includes("...")) {
-          setSecBotToken(data.botToken);
-        }
-        const rawSecIds = data.security?.chatIds || data.security?.chatId || data.chatId || "";
-        const secList = rawSecIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
-        setSecChatIdList(secList.length > 0 ? secList : [""]);
-
-        // Grievance Bot
-        if (data.grievance?.botToken && !data.grievance.botToken.includes("...")) {
-          setGrievBotToken(data.grievance.botToken);
-        }
-        const rawIds = data.grievance?.chatIds || "";
-        const list = rawIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
-        setGrievChatIdList(list.length > 0 ? list : [""]);
-
-        setTelegramLoaded(true);
-      }
-      return data;
+      return res.json();
     },
   });
+
+  useEffect(() => {
+    if (telegramData) {
+      // 1. Security Bot
+      if (telegramData.security?.botToken && !telegramData.security.botToken.includes("...")) {
+        setSecBotToken(telegramData.security.botToken);
+      }
+      const rawSecIds = telegramData.security?.chatIds || telegramData.security?.chatId || telegramData.chatIds || telegramData.chatId || "";
+      if (rawSecIds) {
+        const secList = String(rawSecIds).split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        if (secList.length > 0) {
+          setSecChatIdList(secList);
+        }
+      }
+
+      // 2. Grievance Bot
+      if (telegramData.grievance?.botToken && !telegramData.grievance.botToken.includes("...")) {
+        setGrievBotToken(telegramData.grievance.botToken);
+      }
+      const rawGrievIds = telegramData.grievance?.chatIds || telegramData.grievance?.chatId || "";
+      if (rawGrievIds) {
+        const grievList = String(rawGrievIds).split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        if (grievList.length > 0) {
+          setGrievChatIdList(grievList);
+        }
+      }
+    }
+  }, [telegramData]);
 
   function handleAddSecChatId() {
     setSecChatIdList((prev) => [...prev, ""]);
@@ -302,6 +306,7 @@ export default function AdminSecurity() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      refetchTelegram();
       toast({ title: "🛡️ Super Admin Security Credentials Saved!" });
     },
     onError: (err: any) => {

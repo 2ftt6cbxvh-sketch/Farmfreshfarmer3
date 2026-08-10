@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-const ALL_MENU_OPTIONS = [
+export const ALL_MENU_OPTIONS = [
   // Core
   { href: "/admin", label: "Dashboard", category: "Core" },
   { href: "/admin/live-chat", label: "Live Support Chat 💬", category: "Core" },
@@ -18,31 +18,31 @@ const ALL_MENU_OPTIONS = [
   // Catalog
   { href: "/admin/products", label: "Products", category: "Catalog" },
   { href: "/admin/categories", label: "Categories", category: "Catalog" },
-  { href: "/admin/approvals", label: "Approvals", category: "Catalog" },
-  { href: "/admin/inventory", label: "Inventory", category: "Catalog" },
+  { href: "/admin/approvals", label: "Approvals & Moderation 🛡️", category: "Catalog" },
+  { href: "/admin/inventory", label: "Inventory & Stock", category: "Catalog" },
 
   // Sales
-  { href: "/admin/orders", label: "Orders", category: "Sales" },
+  { href: "/admin/orders", label: "Orders & Live Dispatch", category: "Sales" },
   { href: "/admin/refunds", label: "Refunds & PhonePe Processing 💳", category: "Sales" },
   { href: "/admin/subscriptions", label: "Subscriptions", category: "Sales" },
-  { href: "/admin/payments", label: "Payments", category: "Sales" },
+  { href: "/admin/payments", label: "Payments & Invoices", category: "Sales" },
 
   // Growth
   { href: "/admin/customers", label: "Customers", category: "Growth" },
-  { href: "/admin/reviews", label: "Reviews", category: "Growth" },
+  { href: "/admin/reviews", label: "Customer Reviews", category: "Growth" },
   { href: "/admin/coupons", label: "Coupons", category: "Growth" },
-  { href: "/admin/discounts", label: "Discounts", category: "Growth" },
-  { href: "/admin/referrals", label: "Referrals", category: "Growth" },
+  { href: "/admin/discounts", label: "Discounts & Offers", category: "Growth" },
+  { href: "/admin/referrals", label: "Referral Program", category: "Growth" },
 
-  // System
+  // System & Platform
   { href: "/admin/staff", label: "Staff & Sub-Admins", category: "System" },
   { href: "/admin/users", label: "User Roster", category: "System" },
   { href: "/admin/delivery-partners", label: "Delivery Partners", category: "System" },
+  { href: "/admin/warehouses", label: "Warehouses & Hubs", category: "System" },
+  { href: "/admin/delivery", label: "Delivery & Geo Logistics", category: "System" },
   { href: "/admin/gst", label: "GST & Tax Config", category: "System" },
-  { href: "/admin/security", label: "Security Logs", category: "System" },
-  { href: "/admin/settings", label: "Settings", category: "System" },
-  { href: "/admin/warehouses", label: "Warehouses", category: "System" },
-  { href: "/admin/delivery", label: "Delivery & Geo", category: "System" },
+  { href: "/admin/security", label: "Security Logs & Bot Access", category: "System" },
+  { href: "/admin/settings", label: "Settings (Platform Config)", category: "System" },
 ];
 
 const PRESET_ROLES = [
@@ -485,13 +485,34 @@ export default function AdminStaff() {
                 </div>
 
                 {/* Interactive Multi-Select Dropdown Container */}
-                <div className="border border-emerald-500/30 rounded-2xl bg-secondary/30 p-3 max-h-56 overflow-y-auto space-y-3">
+                <div className="border border-emerald-500/30 rounded-2xl bg-secondary/30 p-3 max-h-64 overflow-y-auto space-y-3">
                   {["Core", "Catalog", "Sales", "Growth", "System"].map((category) => {
                     const catItems = ALL_MENU_OPTIONS.filter((m) => m.category === category);
+                    const allCatChecked = catItems.every((m) => selectedPermissions.includes(m.href));
+
+                    const toggleCategory = () => {
+                      if (allCatChecked) {
+                        const toRemove = new Set(catItems.map((m) => m.href));
+                        setSelectedPermissions((prev) => prev.filter((p) => !toRemove.has(p)));
+                      } else {
+                        const toAdd = catItems.map((m) => m.href);
+                        setSelectedPermissions((prev) => Array.from(new Set([...prev, ...toAdd])));
+                      }
+                    };
+
                     return (
-                      <div key={category} className="space-y-1">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">{category}</p>
-                        <div className="grid grid-cols-2 gap-1.5">
+                      <div key={category} className="space-y-1.5 p-2 rounded-xl bg-background/50 border border-card-border/50">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-black uppercase text-foreground tracking-wider">{category}</p>
+                          <button
+                            type="button"
+                            onClick={toggleCategory}
+                            className="text-[10px] font-bold text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            {allCatChecked ? "Deselect Group" : "Select Group"}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {catItems.map((menu) => {
                             const isChecked = selectedPermissions.includes(menu.href);
                             return (
@@ -499,7 +520,7 @@ export default function AdminStaff() {
                                 key={menu.href}
                                 className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
                                   isChecked
-                                    ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
+                                    ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm"
                                     : "bg-background/60 border-border text-muted-foreground hover:bg-secondary"
                                 }`}
                               >
@@ -507,7 +528,7 @@ export default function AdminStaff() {
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleTogglePermission(menu.href)}
-                                  className="rounded text-emerald-500 focus:ring-emerald-500 accent-emerald-500"
+                                  className="rounded text-emerald-500 focus:ring-emerald-500 accent-emerald-500 cursor-pointer"
                                 />
                                 <span>{menu.label}</span>
                               </label>
