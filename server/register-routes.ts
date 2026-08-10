@@ -998,6 +998,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       operating_hours: all.operating_hours || "6:00 AM – 10:00 PM IST",
       return_window_hours: all.return_window_hours || "4",
       free_delivery_min: all.free_delivery_threshold || "499",
+      delivery_fee: all.instant_delivery_fee || all.delivery_fee || "30",
       panindia_shipping_base: all.panindia_shipping_base || "60",
       cod_enabled: all.cod_enabled !== "false",
       allow_cod: all.allow_cod !== "false",

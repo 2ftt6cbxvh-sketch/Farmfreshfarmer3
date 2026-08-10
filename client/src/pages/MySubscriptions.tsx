@@ -166,10 +166,22 @@ export default function MySubscriptions() {
       invalidateMine();
       setSubscribeOpen(false);
 
-      // Add all plan items to cart
+      // Add all plan items to cart — pass full Product object so useCart().add() works correctly
       if (subscribePlan?.items) {
         subscribePlan.items.forEach((item) => {
-          addToCart({ productId: item.productId, qty: item.qty });
+          // Build a Product-compatible object using data already returned by GET /api/plans
+          const productForCart = {
+            id: item.productId,
+            name: item.productName || `Product #${item.productId}`,
+            unit: item.productUnit || 'unit',
+            price: String(item.productPrice ?? 0),
+            image: item.productImage || '',
+            discountPercent: String(item.productDiscountPercent ?? 0),
+            stock: 999, // subscription products are always available
+            allowInternationalShipping: false,
+            categorySlug: '',
+          } as any;
+          addToCart(productForCart, item.qty);
         });
         queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       }

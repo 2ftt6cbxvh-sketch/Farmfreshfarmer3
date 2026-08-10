@@ -95,6 +95,15 @@ export default function Cart() {
     try { return JSON.parse(localStorage.getItem("deliveryResolution") || "null"); } catch { return null; }
   });
 
+  const { data: publicSettings } = useQuery<{
+    free_delivery_min?: string;
+    delivery_fee?: string;
+  }>({ 
+    queryKey: ["/api/settings/public"],
+    queryFn: () => apiGet("/api/settings/public"),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [inputPincode, setInputPincode] = useState<string>(deliveryRes?.pincode || "");
 
   useEffect(() => {
@@ -294,14 +303,14 @@ export default function Cart() {
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
   const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
-  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (deliveryRules?.freeAbove ?? 500));
+  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
   const isFreeDelivery = subtotal >= freeDeliveryThreshold;
 
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
     ? 0
     : ((deliveryRes && typeof deliveryRes.fee === "number" && deliveryRes.fee > 0)
         ? Number(deliveryRes.fee)
-        : 30);
+        : (Number(publicSettings?.delivery_fee) || 30));
 
   const effectiveDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
     ? 0
@@ -366,6 +375,7 @@ export default function Cart() {
       return res.json() as Promise<{ id: number }>;
     },
     onSuccess: async (order) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/mine"] });
       if (paymentMethod === "PHONEPE") {
         try {
           const pay = await initiatePayment.mutateAsync(order.id);
