@@ -106,7 +106,7 @@ export function registerTicketRoutes(app: Express) {
         `<b>Phone:</b> ${customerPhone}\n` +
         `<b>Email:</b> ${customerEmail}\n` +
         `<b>Concern:</b> "${concern}"\n\n` +
-        `👉 <b>Log in to Admin Panel to solve:</b>\nhttps://www.farmfreshfarmer.com/admin/tickets`;
+        `👉 <b>Action:</b> Please log into the Staff Portal with your credentials and open <b>Support Tickets</b> to respond. (Direct links omitted for security)`;
       
       await sendTelegramGrievanceAlert(alertMsg).catch(() => {});
 
@@ -249,7 +249,7 @@ export function registerTicketRoutes(app: Express) {
         `<b>Customer:</b> ${nameToUse} (${phoneToUse})\n` +
         `<b>Reason:</b> "${concern.trim()}"\n` +
         `📸 <b>Damage Photo Proof Attached</b>\n\n` +
-        `👉 <b>Inspect Photo & Process PhonePe Refund in Admin:</b>\nhttps://www.farmfreshfarmer.com/admin/tickets`;
+        `👉 <b>Action:</b> Please log into the Staff Portal with your credentials and open <b>Support Tickets / Refunds</b> to inspect photo proof and issue PhonePe refund. (Direct links omitted for security)`;
 
       await sendTelegramGrievanceAlert(alertMsg).catch(() => {});
 

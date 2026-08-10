@@ -186,8 +186,7 @@ ${detailsBlock}
 
 🛡️ <b>Storefront Status:</b> ⏳ Moderation Queue (Hidden from customers until approved)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <i>Review, edit images, adjust prices, or approve at:</i>
-<code>/admin/approvals</code>`;
+👉 <b>Instructions:</b> Please log into the Admin Dashboard with your Super Admin credentials and navigate to <b>Approvals</b> to review, modify, or approve. (Direct links are omitted for security)`;
 
   return sendRawTelegramMessage(botToken, chatId, message);
 }
@@ -355,7 +354,7 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
       if (cRows.length > 0) {
         reply += "<b>Categories:</b>\n" + cRows.slice(0, 5).map((c) => `• ${c.name} (${c.approvalStatus === "pending_deletion" ? "🗑️ Deletion" : "New/Edit"})`).join("\n") + (cRows.length > 5 ? `\n...and ${cRows.length - 5} more` : "") + "\n\n";
       }
-      reply += "👉 <i>Manage live on Admin Panel at /admin/approvals</i>";
+      reply += "👉 <i>Instructions: Please log into your Admin Dashboard and open Approvals to take action. (Direct links omitted for security)</i>";
     }
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };

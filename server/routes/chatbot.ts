@@ -607,8 +607,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       `<b>Session ID:</b> <code>${sessionToken}</code>\n` +
       `<b>Language:</b> ${language}\n` +
       `<b>Customer Message:</b> "${message}"\n\n` +
-      `👉 <b>Action Required:</b> Please log in to your Admin / Staff portal to claim & take over this chat:\n` +
-      `https://www.farmfreshfarmer.com/admin/live-chat`;
+      `👉 <b>Action Required:</b> Please log into your Staff Portal with your credentials and open <b>Live Support Chat</b> to claim and assist the customer. (Direct links omitted for security)`;
 
     await sendTelegramGrievanceAlert(alertText);
   }

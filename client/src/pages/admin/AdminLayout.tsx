@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw
+  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
+  ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -290,7 +291,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v8.0.8
+              v8.0.9
             </span>
           </div>
         </div>
@@ -319,10 +320,20 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           ))}
         </nav>
 
-        <div className="p-3 border-t border-sidebar-border space-y-1">
-          <Link href="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover-elevate" data-testid="link-view-store">
-            <Store size={18} /> View store
-          </Link>
+        <div className="p-3 border-t border-sidebar-border space-y-2">
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-xs font-extrabold bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-all shadow-sm group"
+            data-testid="link-view-store"
+          >
+            <div className="flex items-center gap-2.5">
+              <Store size={16} className="text-emerald-500" />
+              <span>View Live Store 🛍️</span>
+            </div>
+            <ExternalLink size={13} className="opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-transform" />
+          </a>
           <button
             type="button"
             onClick={(e) => handleLogout(e)}
@@ -337,9 +348,17 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center gap-3 overflow-x-auto bg-sidebar text-sidebar-foreground px-3 py-2">
+        <header className="md:hidden flex items-center gap-2 overflow-x-auto bg-sidebar text-sidebar-foreground px-3 py-2 border-b border-sidebar-border">
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-extrabold bg-emerald-500/20 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 whitespace-nowrap px-3 py-1 rounded-lg flex items-center gap-1.5 shrink-0"
+          >
+            <Store size={13} /> Store 🛍️
+          </a>
           {flatDisplayed.map((n) => (
-            <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}>
+            <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold" : ""}`}>
               {n.label}
             </Link>
           ))}
@@ -353,7 +372,20 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
         </header>
 
         <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden animate-page-enter-3d">
-          <h1 className="font-serif text-xl font-bold mb-6">{title}</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-3 border-b border-card-border">
+            <h1 className="font-serif text-xl font-bold">{title}</h1>
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 self-start sm:self-auto bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm transition-all"
+              data-testid="btn-view-live-store-header"
+            >
+              <Store size={14} className="text-emerald-500" />
+              <span>View Live Store 🛍️</span>
+              <ExternalLink size={12} className="opacity-70" />
+            </a>
+          </div>
           {children}
         </main>
       </div>
