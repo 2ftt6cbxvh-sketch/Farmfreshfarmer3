@@ -138,7 +138,44 @@ export function LaxshmiAiBot() {
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [bubbleVisible, setBubbleVisible] = useState(true);
+
+  // Smooth Animated Disappearing Speech Bubble State
+  const bubbleAnimOpacity = useRef(new Animated.Value(1)).current;
+  const bubbleAnimScale = useRef(new Animated.Value(1)).current;
+  const bubbleAnimTranslateY = useRef(new Animated.Value(0)).current;
+  const [bubbleRendered, setBubbleRendered] = useState(true);
+
+  const dismissBubbleSmoothly = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(bubbleAnimOpacity, {
+        toValue: 0,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bubbleAnimScale, {
+        toValue: 0.85,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bubbleAnimTranslateY, {
+        toValue: 8,
+        duration: 700,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setBubbleRendered(false);
+    });
+  }, [bubbleAnimOpacity, bubbleAnimScale, bubbleAnimTranslateY]);
+
+  // Auto-disappear speech bubble preview after 5 seconds smoothly
+  useEffect(() => {
+    if (bubbleRendered) {
+      const timer = setTimeout(() => {
+        dismissBubbleSmoothly();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [bubbleRendered, dismissBubbleSmoothly]);
 
   // Ticket Form State
   const [ticketName, setTicketName] = useState(user?.name || '');
@@ -151,16 +188,6 @@ export function LaxshmiAiBot() {
   const scrollViewRef = useRef<ScrollView>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const recognitionRef = useRef<any>(null);
-
-  // Auto-disappear speech bubble preview after 5 seconds so it doesn't block store products
-  useEffect(() => {
-    if (bubbleVisible) {
-      const timer = setTimeout(() => {
-        setBubbleVisible(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [bubbleVisible]);
 
   // Initialize Welcome Message
   useEffect(() => {
@@ -342,7 +369,7 @@ export function LaxshmiAiBot() {
           ) {
             Speech.speak('Namaste! Laxshmi is listening...', { language: 'en-IN', pitch: 1.25 });
             setIsOpen(true);
-            setBubbleVisible(false);
+            dismissBubbleSmoothly();
             try { wakeListener.stop(); } catch {}
             setTimeout(() => startListening(), 800);
             break;
@@ -364,7 +391,7 @@ export function LaxshmiAiBot() {
         try { wakeListener.stop(); } catch {}
       }
     };
-  }, [wakeWordEnabled, isOpen]);
+  }, [wakeWordEnabled, isOpen, dismissBubbleSmoothly]);
 
   // Connect to Human Support
   const handleConnectHuman = async () => {
@@ -425,21 +452,32 @@ export function LaxshmiAiBot() {
       {/* ── 1. Floating Action Launcher Button (Positioned safely above bottom tab bar) ── */}
       {!isOpen && (
         <View style={styles.floatingContainer}>
-          {bubbleVisible && (
-            <View style={styles.bubblePreview}>
+          {bubbleRendered && (
+            <Animated.View
+              style={[
+                styles.bubblePreview,
+                {
+                  opacity: bubbleAnimOpacity,
+                  transform: [
+                    { scale: bubbleAnimScale },
+                    { translateY: bubbleAnimTranslateY },
+                  ],
+                },
+              ]}
+            >
               <Text style={styles.diyaText}>🪔</Text>
               <Text style={styles.bubbleText}>{ui.bubbleGreeting}</Text>
-              <TouchableOpacity onPress={() => setBubbleVisible(false)} style={styles.bubbleClose}>
+              <TouchableOpacity onPress={dismissBubbleSmoothly} style={styles.bubbleClose}>
                 <Ionicons name="close-circle" size={16} color="#94a3b8" />
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           )}
 
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => {
               setIsOpen(true);
-              setBubbleVisible(false);
+              dismissBubbleSmoothly();
             }}
             style={styles.floatingBtn}
           >

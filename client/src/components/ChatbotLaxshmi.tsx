@@ -109,6 +109,19 @@ export function ChatbotLaxshmi() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
+  const [showFloatingBubble, setShowFloatingBubble] = useState(true);
+  const [isFadingBubble, setIsFadingBubble] = useState(false);
+
+  // Auto-disappear speech bubble preview after 5 seconds smoothly on website
+  useEffect(() => {
+    if (showFloatingBubble && !isFadingBubble) {
+      const timer = setTimeout(() => {
+        setIsFadingBubble(true);
+        setTimeout(() => setShowFloatingBubble(false), 700);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showFloatingBubble, isFadingBubble]);
 
   /* Ticket Creation State */
   const [ticketStep, setTicketStep] = useState<"name" | "phone" | "email" | "concern" | null>(null);
@@ -601,17 +614,38 @@ export function ChatbotLaxshmi() {
       {!isOpen && (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto"
           style={{ animation: 'laxFloatIcon 3.2s ease-in-out infinite' }}>
-          {/* Speech bubble */}
-          <div className="relative cursor-pointer" onClick={() => setIsOpen(true)}
-            style={{ animation: 'laxBounce 3s ease-in-out infinite' }}>
-            <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md rounded-2xl rounded-br-none px-3.5 py-2 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/5 dark:border-white/10 max-w-[185px]"
-              style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06)' }}>
-              {strings.bubbleGreeting}
+          {/* Animated Speech bubble */}
+          {showFloatingBubble && (
+            <div
+              className={`relative cursor-pointer transition-all duration-700 ${
+                isFadingBubble ? 'opacity-0 translate-y-2 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
+              }`}
+              onClick={() => setIsOpen(true)}
+              style={{ animation: isFadingBubble ? 'none' : 'laxBounce 3s ease-in-out infinite' }}
+            >
+              <div
+                className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md rounded-2xl rounded-br-none px-3.5 py-2 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/5 dark:border-white/10 max-w-[195px] flex items-center justify-between gap-1.5"
+                style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06)' }}
+              >
+                <span>{strings.bubbleGreeting}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsFadingBubble(true);
+                    setTimeout(() => setShowFloatingBubble(false), 700);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              {/* tail */}
+              <div
+                className="absolute -bottom-2 right-4 w-0 h-0"
+                style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.95)' }}
+              />
             </div>
-            {/* tail */}
-            <div className="absolute -bottom-2 right-4 w-0 h-0"
-              style={{ borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid rgba(255,255,255,0.95)' }} />
-          </div>
+          )}
           
           {/* Main button with pulse ring */}
           <div className="relative">
