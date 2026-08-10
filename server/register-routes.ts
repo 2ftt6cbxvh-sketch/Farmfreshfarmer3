@@ -1132,12 +1132,86 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.get("/api/admin/categories", requireAdmin, h(async (_req, res) => {
     res.json(await storage.categories.list({ includeInactive: true }));
   }));
+
   app.post("/api/admin/categories", requireAdmin, h(async (req, res) => {
-    res.json(await storage.categories.create(req.body));
+    const isPrimary = await isPrimaryAdminUser(req);
+    const categoryData: any = {
+      ...req.body,
+      submittedBy: req.session?.userId ?? null,
+      approvalStatus: isPrimary ? "approved" : "pending",
+      active: isPrimary ? (req.body.active ?? true) : false,
+    };
+    const created = await storage.categories.create(categoryData);
+
+    if (!isPrimary) {
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "category",
+          entityId: created.id,
+          entityName: created.name ?? "",
+          action: "submitted",
+          fromStatus: null,
+          toStatus: "pending",
+          adminUserId: null,
+          submittedByUserId: req.session?.userId ?? null,
+          note: "Category created by sub-admin, queued for Super Admin approval.",
+        });
+      } catch (err) {
+        console.warn("[category approval history log warning]", err);
+      }
+      return res.json({
+        ...created,
+        isPendingApproval: true,
+        message: "Submitted for Super Admin Approval! 📤 It will go live once approved.",
+      });
+    }
+
+    res.json(created);
   }));
+
   app.patch("/api/admin/categories/:id", requireAdmin, h(async (req, res) => {
-    const updated = await storage.categories.update(Number(req.params.id), req.body);
+    const isPrimary = await isPrimaryAdminUser(req);
+    const updateData: any = { ...req.body };
+
+    if (isPrimary) {
+      // Super Admin edits go LIVE IMMEDIATELY!
+      updateData.approvalStatus = "approved";
+      updateData.active = req.body.active ?? true;
+      updateData.approvalNote = "Updated directly by Super Admin";
+    } else {
+      // Sub-Admin edits require Super Admin approval before going live!
+      updateData.approvalStatus = "pending";
+      updateData.active = false; // Hide from public storefront until Super Admin approves!
+      updateData.submittedBy = req.session?.userId ?? null;
+      updateData.approvalNote = "Pending Super Admin re-approval for sub-admin edits.";
+    }
+
+    const updated = await storage.categories.update(Number(req.params.id), updateData);
     if (!updated) return res.status(404).json({ message: "Not found" });
+
+    if (!isPrimary) {
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "category",
+          entityId: updated.id,
+          entityName: updated.name ?? "",
+          action: "submitted_edit",
+          fromStatus: "approved",
+          toStatus: "pending",
+          adminUserId: null,
+          submittedByUserId: req.session?.userId ?? null,
+          note: "Category edits submitted by sub-admin, queued for Super Admin approval.",
+        });
+      } catch (err) {
+        console.warn("[category approval history log warning]", err);
+      }
+      return res.json({
+        ...updated,
+        isPendingApproval: true,
+        message: "Category modifications submitted for Super Admin Approval! 📤",
+      });
+    }
+
     res.json(updated);
   }));
   app.delete("/api/admin/categories/:id", requireAdmin, h(async (req, res) => {
