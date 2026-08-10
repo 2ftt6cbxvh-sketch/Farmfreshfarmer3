@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
@@ -86,6 +86,8 @@ export function AdminApprovals() {
   const [editDiscount, setEditDiscount] = useState("");
   const [editImage, setEditImage] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data: products = [], isLoading: loadingProducts } = useQuery<PendingProduct[]>({
     queryKey: ["/api/admin/approvals/products"],
@@ -104,6 +106,47 @@ export function AdminApprovals() {
     queryFn: () => apiGet<ApprovalHistoryItem[]>("/api/admin/approvals/history"),
     refetchInterval: 5000,
   });
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token") || "";
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers,
+        body: fd,
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEditImage(data.url);
+        toast({ title: "New image uploaded & attached! 📸" });
+        return;
+      }
+      throw new Error("Upload server error");
+    } catch (err) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          setEditImage(result);
+          toast({ title: "New image attached! 📸" });
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -210,7 +253,7 @@ export function AdminApprovals() {
               <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Review, edit, and approve products or categories submitted by sub-admins. Sub-admin dashboard updates automatically upon approval.
+              Review, edit images, adjust prices/stock, and approve products submitted by sub-admins. Changes update live instantly.
             </p>
           </div>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1">
@@ -305,7 +348,7 @@ export function AdminApprovals() {
                         onClick={() => openProductReviewModal(item, "approved")}
                         data-testid={`btn-approve-product-${item.id}`}
                       >
-                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review & Approve
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review, Edit & Approve
                       </Button>
                       <Button
                         size="sm"
@@ -429,7 +472,7 @@ export function AdminApprovals() {
                   Master Admin Review: "{productEditModal.item.name}"
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Inspect and tweak sub-admin submitted product values directly before publishing live to the storefront.
+                  Inspect, upload new images, and tweak sub-admin submitted product values directly before publishing live.
                 </DialogDescription>
               </DialogHeader>
 
@@ -459,25 +502,61 @@ export function AdminApprovals() {
                   <Input value={editUnit} onChange={(e) => setEditUnit(e.target.value)} className="mt-1" />
                 </div>
 
-                <div>
-                  <Label className="font-bold">Product Image URL</Label>
-                  <div className="flex items-center gap-3 mt-1">
-                    {editImage ? (
-                      <img src={imgUrl(editImage)} alt="" className="w-12 h-12 rounded-lg object-cover border border-card-border shrink-0" />
-                    ) : null}
-                    <Input value={editImage} onChange={(e) => setEditImage(e.target.value)} placeholder="Image URL..." />
+                {/* Upload & Update Product Image in Approval Stage */}
+                <div className="p-3 rounded-xl bg-secondary/50 border border-card-border space-y-2">
+                  <Label className="font-bold text-foreground flex items-center gap-1.5">
+                    <Upload size={14} className="text-emerald-500" /> Upload & Replace Product Image in Approval Stage
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <div className="h-16 w-16 rounded-xl bg-muted overflow-hidden shrink-0 border border-card-border">
+                      {editImage ? (
+                        <img src={imgUrl(editImage)} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                          <Package size={24} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUpload(f);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-bold gap-1.5"
+                      >
+                        <Upload size={14} /> {uploading ? "Uploading Image…" : "Upload New Image File 📸"}
+                      </Button>
+                      <Input
+                        value={editImage}
+                        onChange={(e) => setEditImage(e.target.value)}
+                        placeholder="...or paste image URL directly"
+                        className="text-[11px]"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div>
                   <Label className="font-bold">Product Description</Label>
-                  <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="mt-1 min-h-[80px]" />
+                  <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="mt-1 min-h-[70px]" />
                 </div>
 
                 <div className="p-3 bg-secondary/50 rounded-xl space-y-1">
                   <Label className="font-bold text-foreground">Master Admin Approval Note (Sent to Sub-Admin)</Label>
                   <Input
-                    placeholder="Optional note e.g. Adjusted price by ₹10 before publishing live..."
+                    placeholder="Optional note e.g. Updated product photo & price before approving..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     className="mt-1"
