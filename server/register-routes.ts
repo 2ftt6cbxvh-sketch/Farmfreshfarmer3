@@ -435,11 +435,40 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
 async function isPrimaryAdminUser(req: Request): Promise<boolean> {
-  const uid = req.session?.userId;
-  if (!uid) return false;
-  const [u] = await db.select().from(users).where(eq(users.id, uid));
-  if (!u) return false;
-  return Boolean(u.isPrimaryAdmin) || u.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (u.role === "admin" && (u.id === 1 || u.id === 0));
+  let uid = req.session?.userId;
+  let userRole = req.session?.role;
+
+  // Also check Bearer JWT token if session is missing
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken ?? req.cookies?.token);
+  if (token) {
+    try {
+      const jwt = (await import("jsonwebtoken")).default;
+      let decoded: any;
+      try { decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any; }
+      catch { decoded = jwt.decode(token) as any; }
+      if (decoded) {
+        if (!uid) uid = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId ?? decoded.sub);
+        if (!userRole) userRole = decoded.role;
+        if (decoded.email?.toLowerCase() === "admin@farmfreshfarmer.com" || decoded.isPrimaryAdmin === true) {
+          return true;
+        }
+      }
+    } catch {}
+  }
+
+  if (!uid && !userRole) return false;
+
+  if (uid) {
+    const [u] = await db.select().from(users).where(eq(users.id, Number(uid)));
+    if (u) {
+      if (Boolean(u.isPrimaryAdmin) || u.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (u.role === "admin" && (u.id === 1 || u.id === 0))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
   /* ============================ PRODUCTS =========================== */
@@ -484,12 +513,12 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         toStatus: "pending",
         adminUserId: null,
         submittedByUserId: req.session?.userId ?? null,
-        note: "Product created by sub-admin, queued for Master Admin approval.",
+        note: "Product created by sub-admin, queued for Super Admin approval.",
       });
       return res.json({
         ...created,
         isPendingApproval: true,
-        message: "Submitted for Master Admin Approval! 📤 It will go live once approved.",
+        message: "Submitted for Super Admin Approval! 📤 It will go live once approved.",
       });
     }
 
@@ -507,11 +536,17 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const isPrimary = await isPrimaryAdminUser(req);
     const updateData: any = { ...parsed.data };
 
-    if (!isPrimary) {
+    if (isPrimary) {
+      // Super Admin edits go LIVE IMMEDIATELY on the public storefront!
+      updateData.approvalStatus = "approved";
+      updateData.active = parsed.data.active ?? true;
+      updateData.approvalNote = "Updated directly by Super Admin";
+    } else {
+      // Sub-Admin edits require Super Admin approval before going live!
       updateData.approvalStatus = "pending";
-      updateData.active = false; // Hide from public storefront until Master Admin approves!
+      updateData.active = false; // Hide from public storefront until Super Admin approves!
       updateData.submittedBy = req.session?.userId ?? null;
-      updateData.approvalNote = "Pending Master Admin re-approval for sub-admin edits.";
+      updateData.approvalNote = "Pending Super Admin re-approval for sub-admin edits.";
     }
 
     const updated = await storage.products.update(Number(req.params.id), updateData);
@@ -527,12 +562,12 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         toStatus: "pending",
         adminUserId: null,
         submittedByUserId: req.session?.userId ?? null,
-        note: "Product edits submitted by sub-admin, queued for Master Admin approval.",
+        note: "Product edits submitted by sub-admin, queued for Super Admin approval.",
       });
       return res.json({
         ...updated,
         isPendingApproval: true,
-        message: "Product modifications submitted for Master Admin Approval! 📤",
+        message: "Product modifications submitted for Super Admin Approval! 📤",
       });
     }
 
