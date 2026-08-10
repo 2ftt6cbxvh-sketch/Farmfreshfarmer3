@@ -206,7 +206,7 @@ export default function AccountScreen() {
           <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {email}</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.0.1 · {email}</Text>
+        <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.0.2 · {email}</Text>
 
         {activeModal && (
           <LegalViewerModal
@@ -365,10 +365,10 @@ export default function AccountScreen() {
       <View style={{ alignItems: 'center', marginVertical: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
-          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '800' }}>App Build v8.0.1</Text>
+          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '800' }}>App Build v8.0.2</Text>
         </View>
       </View>
-      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.0.1 · {email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.0.2 · {email}</Text>
 
       {/* Support Tickets Modal */}
       <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>

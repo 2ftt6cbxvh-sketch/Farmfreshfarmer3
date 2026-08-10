@@ -30,6 +30,7 @@ import { ensureSeeded } from "./seed-runner";
 import {
   insertProductSchema, insertCouponSchema, insertReviewSchema, users,
   products, orders, subscriptionPlans, userSubscriptions, subscriptionPlanItems,
+  productApprovalHistory,
 } from "@shared/schema";
 import { z } from "zod";
 import { computePrice, parseDeliveryRules, type CartLine } from "./engine/pricing";
@@ -504,17 +505,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const created = await storage.products.create(productData);
 
     if (!isPrimary) {
-      await db.insert(productApprovalHistory).values({
-        entityType: "product",
-        entityId: created.id,
-        entityName: created.name ?? "",
-        action: "submitted",
-        fromStatus: null,
-        toStatus: "pending",
-        adminUserId: null,
-        submittedByUserId: req.session?.userId ?? null,
-        note: "Product created by sub-admin, queued for Super Admin approval.",
-      });
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "product",
+          entityId: created.id,
+          entityName: created.name ?? "",
+          action: "submitted",
+          fromStatus: null,
+          toStatus: "pending",
+          adminUserId: null,
+          submittedByUserId: req.session?.userId ?? null,
+          note: "Product created by sub-admin, queued for Super Admin approval.",
+        });
+      } catch (err) {
+        console.warn("[approval history log warning]", err);
+      }
       return res.json({
         ...created,
         isPendingApproval: true,
@@ -553,17 +558,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     if (!isPrimary) {
-      await db.insert(productApprovalHistory).values({
-        entityType: "product",
-        entityId: updated.id,
-        entityName: updated.name ?? "",
-        action: "submitted_edit",
-        fromStatus: "approved",
-        toStatus: "pending",
-        adminUserId: null,
-        submittedByUserId: req.session?.userId ?? null,
-        note: "Product edits submitted by sub-admin, queued for Super Admin approval.",
-      });
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "product",
+          entityId: updated.id,
+          entityName: updated.name ?? "",
+          action: "submitted_edit",
+          fromStatus: "approved",
+          toStatus: "pending",
+          adminUserId: null,
+          submittedByUserId: req.session?.userId ?? null,
+          note: "Product edits submitted by sub-admin, queued for Super Admin approval.",
+        });
+      } catch (err) {
+        console.warn("[approval history log warning]", err);
+      }
       return res.json({
         ...updated,
         isPendingApproval: true,
