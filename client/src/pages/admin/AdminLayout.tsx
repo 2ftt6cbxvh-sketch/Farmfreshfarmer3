@@ -55,7 +55,30 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const { user, loading, logout } = useAuth();
   const [location, navigate] = useLocation();
 
-  let adminUser = user;
+  // Live-fetch user with permissions from server every 15s — ensures instant reflection when super-admin changes permissions
+  const { data: liveUser } = useQuery({
+    queryKey: ["/api/me-live-perms"],
+    queryFn: async () => {
+      try {
+        const token = localStorage.getItem("accessToken") || "";
+        const res = await fetch("/api/me", {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const d = await res.json();
+          return d?.user || null;
+        }
+      } catch {}
+      return null;
+    },
+    refetchInterval: 15000,
+    staleTime: 0,
+    enabled: true,
+  });
+
+  // Prefer live server data so any permission changes reflect immediately
+  let adminUser = (liveUser && (liveUser as any)?.id) ? liveUser as any : user;
   if (!adminUser) {
     try {
       const stored = localStorage.getItem("adminUser");
@@ -88,23 +111,22 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       if (adminUser?.role === "warehouse_admin") {
         allowedHrefs = ["/admin", "/admin/inventory", "/admin/warehouses"];
       } else if (adminUser?.role === "manager_admin") {
-        allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory", "/admin/live-chat"];
+        allowedHrefs = ["/admin", "/admin/products", "/admin/categories", "/admin/orders", "/admin/inventory"];
       } else if (adminUser?.role === "customer_rep") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/live-chat"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers"];
       } else if (adminUser?.role === "local_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/live-chat"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews"];
       } else if (adminUser?.role === "zonal_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/live-chat"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports"];
       } else if (adminUser?.role === "chief_grievance_officer") {
-        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/reports", "/admin/settings", "/admin/live-chat"];
+        allowedHrefs = ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/settings"];
       } else {
-        allowedHrefs = ["/admin", "/admin/live-chat"];
+        allowedHrefs = ["/admin"];
       }
     }
 
-    if (!allowedHrefs.includes("/admin")) allowedHrefs.push("/admin");
-    if (!allowedHrefs.includes("/admin/live-chat")) allowedHrefs.push("/admin/live-chat");
-    if (!allowedHrefs.includes("/admin/tickets")) allowedHrefs.push("/admin/tickets");
+    // Sub-admins see ONLY the exact sections the Super Admin explicitly checked.
+    // No extra hrefs are force-added — strict permission enforcement.
   }
 
   const navToDisplay = NAV.map((section) => {
@@ -258,7 +280,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v7.6.1
+              v7.6.3
             </span>
           </div>
         </div>

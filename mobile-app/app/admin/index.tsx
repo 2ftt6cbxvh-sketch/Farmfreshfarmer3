@@ -70,6 +70,7 @@ export default function AdminDashboardScreen() {
     },
     staleTime: 0, // always fresh
     refetchOnMount: true,
+    refetchInterval: 15000,  // auto-refetch every 15s
   });
 
   // Merge: live server data takes precedence over cached zustand store user
