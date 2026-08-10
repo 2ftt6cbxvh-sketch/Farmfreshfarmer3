@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
 import { LakshmiAiBot } from '../components/LaxshmiAiBot';
+import { AppVersionPill } from '../components/AppVersionPill';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +84,7 @@ function AppContent() {
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
       </Stack>
       <LakshmiAiBot />
+      <AppVersionPill />
     </>
   );
 }
