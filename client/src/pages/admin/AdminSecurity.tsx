@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound } from "lucide-react";
+import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 
@@ -222,7 +222,7 @@ export default function AdminSecurity() {
 
   // 2. Grievance & Customer Support Bot State
   const [grievBotToken, setGrievBotToken] = useState("");
-  const [grievChatIds, setGrievChatIds] = useState("");
+  const [grievChatIdList, setGrievChatIdList] = useState<string[]>([""]);
 
   const [telegramLoaded, setTelegramLoaded] = useState(false);
 
@@ -244,13 +244,34 @@ export default function AdminSecurity() {
         if (data.grievance?.botToken && !data.grievance.botToken.includes("...")) {
           setGrievBotToken(data.grievance.botToken);
         }
-        setGrievChatIds(data.grievance?.chatIds || "");
+        const rawIds = data.grievance?.chatIds || "";
+        const list = rawIds.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean);
+        setGrievChatIdList(list.length > 0 ? list : [""]);
 
         setTelegramLoaded(true);
       }
       return data;
     },
   });
+
+  function handleAddChatId() {
+    setGrievChatIdList((prev) => [...prev, ""]);
+  }
+
+  function handleUpdateChatId(index: number, val: string) {
+    setGrievChatIdList((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  }
+
+  function handleRemoveChatId(index: number) {
+    setGrievChatIdList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [""];
+    });
+  }
 
   // Mutations for Security Bot
   const saveSecTelegramMutation = useMutation({
@@ -549,23 +570,61 @@ export default function AdminSecurity() {
               <p className="text-[10px] text-muted-foreground mt-1">Create a distinct support bot on Telegram @BotFather by sending <code>/newbot</code></p>
             </div>
 
-            <div>
-              <Label htmlFor="griev-chat-ids" className="text-xs font-bold text-emerald-500">Grievance / Staff Chat IDs (Multiple IDs Supported)</Label>
-              <Input
-                id="griev-chat-ids"
-                type="text"
-                placeholder="e.g. 1927711332, 987654321, -100123456789"
-                value={grievChatIds}
-                onChange={(e) => setGrievChatIds(e.target.value)}
-                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">Comma-separated user Chat IDs or Telegram Group Chat IDs (starting with -100...)</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-emerald-500">
+                  Grievance / Staff Chat IDs ({grievChatIdList.filter((s) => s.trim()).length} Configured)
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddChatId}
+                  className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[11px] h-7 px-2.5 rounded-lg font-bold gap-1 cursor-pointer"
+                >
+                  <Plus size={13} /> Add Chat ID
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {grievChatIdList.map((chatIdVal, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="text"
+                        placeholder={`Staff Chat ID #${idx + 1} (e.g. 1927711332 or -100...)`}
+                        value={chatIdVal}
+                        onChange={(e) => handleUpdateChatId(idx, e.target.value)}
+                        className="font-mono text-xs rounded-xl border-emerald-500/30 pl-3 pr-8"
+                      />
+                    </div>
+                    {grievChatIdList.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveChatId(idx)}
+                        className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg shrink-0 cursor-pointer"
+                        title="Remove Chat ID"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Click <strong>+ Add Chat ID</strong> to add individual staff members or Telegram Group IDs (starting with <code>-100...</code>).
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button
-              onClick={() => saveGrievTelegramMutation.mutate({ botToken: grievBotToken, chatIds: grievChatIds })}
+              onClick={() => {
+                const cleanJoined = grievChatIdList.map((s) => s.trim()).filter(Boolean).join(", ");
+                saveGrievTelegramMutation.mutate({ botToken: grievBotToken, chatIds: cleanJoined });
+              }}
               disabled={saveGrievTelegramMutation.isPending}
               className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
             >

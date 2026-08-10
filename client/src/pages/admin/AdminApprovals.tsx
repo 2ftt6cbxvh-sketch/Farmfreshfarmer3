@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw, Trash2, ShieldCheck } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw, Trash2, ShieldCheck, RefreshCw, FolderTree } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +69,12 @@ interface ApprovalHistoryItem {
   createdAt: string;
 }
 
+interface CategoryOption {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 interface ProductEditModalState {
   item: PendingProduct;
   action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
@@ -80,6 +93,7 @@ export function AdminApprovals() {
 
   // Edit fields state for Master Admin inline adjustments
   const [editName, setEditName] = useState("");
+  const [editCategorySlug, setEditCategorySlug] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editStock, setEditStock] = useState("");
   const [editUnit, setEditUnit] = useState("");
@@ -89,23 +103,40 @@ export function AdminApprovals() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const { data: products = [], isLoading: loadingProducts } = useQuery<PendingProduct[]>({
+  // Instant polling (every 1.5 seconds) for real-time live approval updates across clients!
+  const { data: products = [], isLoading: loadingProducts, isFetching: fetchingProducts, refetch: refetchProducts } = useQuery<PendingProduct[]>({
     queryKey: ["/api/admin/approvals/products"],
     queryFn: () => apiGet<PendingProduct[]>("/api/admin/approvals/products"),
-    refetchInterval: 5000,
+    refetchInterval: 1500,
+    refetchIntervalInBackground: true,
   });
 
-  const { data: categories = [], isLoading: loadingCategories } = useQuery<PendingCategory[]>({
+  const { data: categories = [], isLoading: loadingCategories, isFetching: fetchingCategories, refetch: refetchCategories } = useQuery<PendingCategory[]>({
     queryKey: ["/api/admin/approvals/categories"],
     queryFn: () => apiGet<PendingCategory[]>("/api/admin/approvals/categories"),
-    refetchInterval: 5000,
+    refetchInterval: 1500,
+    refetchIntervalInBackground: true,
   });
 
-  const { data: history = [], isLoading: loadingHistory } = useQuery<ApprovalHistoryItem[]>({
+  const { data: allCategories = [] } = useQuery<CategoryOption[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiGet<CategoryOption[]>("/api/categories"),
+  });
+
+  const { data: history = [], isLoading: loadingHistory, refetch: refetchHistory } = useQuery<ApprovalHistoryItem[]>({
     queryKey: ["/api/admin/approvals/history"],
     queryFn: () => apiGet<ApprovalHistoryItem[]>("/api/admin/approvals/history"),
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
+
+  const isRefreshing = fetchingProducts || fetchingCategories;
+
+  function handleManualRefresh() {
+    refetchProducts();
+    refetchCategories();
+    refetchHistory();
+    toast({ title: "Queue Refreshed 🔄", description: "Checked for new sub-admin requests." });
+  }
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -228,6 +259,7 @@ export function AdminApprovals() {
   const openProductReviewModal = (item: PendingProduct, action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion") => {
     setProductEditModal({ item, action });
     setEditName(item.name || "");
+    setEditCategorySlug(item.categorySlug || allCategories[0]?.slug || "fruits");
     setEditPrice(String(item.price || "0"));
     setEditStock(String(item.stock || "50"));
     setEditUnit(item.unit || "250 Grams");
@@ -246,6 +278,7 @@ export function AdminApprovals() {
       note,
       editFields: {
         name: editName,
+        categorySlug: editCategorySlug,
         price: editPrice,
         stock: editStock,
         unit: editUnit,
@@ -308,12 +341,24 @@ export function AdminApprovals() {
               <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Review edits, prices, images, and sub-admin deletion requests for products and categories.
+              Review assigned categories, prices, images, and sub-admin deletion requests for products and categories.
             </p>
           </div>
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1">
-            ⏳ Pending Items: {products.length + categories.length}
-          </Badge>
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualRefresh}
+              className="text-xs font-bold gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-8 cursor-pointer"
+            >
+              <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
+              <span>Refresh Queue</span>
+            </Button>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1.5 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping mr-1" />
+              ⏳ Pending Items: {products.length + categories.length}
+            </Badge>
+          </div>
         </div>
 
         <Tabs defaultValue="products" className="w-full">
@@ -347,6 +392,7 @@ export function AdminApprovals() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map((item) => {
                   const isDeletion = item.approvalStatus === "pending_deletion";
+                  const categoryName = allCategories.find((c) => c.slug === item.categorySlug)?.name || item.categorySlug || "Uncategorized";
                   return (
                     <div
                       key={item.id}
@@ -381,6 +427,11 @@ export function AdminApprovals() {
                                 <span className="text-muted-foreground">{item.unit || "250g"}</span>
                                 <span>•</span>
                                 <span className="text-muted-foreground">Stock: {item.stock ?? 50}</span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <Badge variant="outline" className="bg-primary/10 border-primary/25 text-primary text-[10px] font-extrabold px-2 py-0.5">
+                                  📁 {categoryName}
+                                </Badge>
                               </div>
                             </div>
                           </div>
@@ -624,7 +675,7 @@ export function AdminApprovals() {
                   Master Admin Review: "{productEditModal.item.name}"
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Inspect, upload new images, and tweak sub-admin submitted product values directly before publishing live.
+                  Inspect assigned category, upload new images, and tweak sub-admin submitted product values directly before publishing live.
                 </DialogDescription>
               </DialogHeader>
 
@@ -632,6 +683,28 @@ export function AdminApprovals() {
                 <div>
                   <Label className="font-bold">Product Title *</Label>
                   <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1" />
+                </div>
+
+                {/* Sub-Admin Assigned Category Dropdown */}
+                <div className="p-3 rounded-xl bg-secondary/50 border border-card-border space-y-1.5">
+                  <Label className="font-bold text-foreground flex items-center gap-1.5">
+                    <FolderTree size={14} className="text-emerald-500" /> Assigned Category (Sub-Admin Choice) *
+                  </Label>
+                  <Select value={editCategorySlug} onValueChange={setEditCategorySlug}>
+                    <SelectTrigger className="font-semibold text-xs bg-background">
+                      <SelectValue placeholder="Select assigned category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56">
+                      {allCategories.map((cat) => (
+                        <SelectItem key={cat.slug} value={cat.slug} className="text-xs">
+                          📁 {cat.name} ({cat.slug})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Sub-admin selected this category. You can reassign it to any other category before approving.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -708,7 +781,7 @@ export function AdminApprovals() {
                 <div className="p-3 bg-secondary/50 rounded-xl space-y-1">
                   <Label className="font-bold text-foreground">Master Admin Approval Note (Sent to Sub-Admin)</Label>
                   <Input
-                    placeholder="Optional note e.g. Updated product photo & price before approving..."
+                    placeholder="Optional note e.g. Updated product category & photo before approving..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     className="mt-1"
