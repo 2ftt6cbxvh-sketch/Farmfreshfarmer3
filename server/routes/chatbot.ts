@@ -1049,9 +1049,12 @@ function resolveCartQty(
             reply: cartReply,
             needsHuman: false,
           });
-        } catch (cartViewErr) {
-          console.error('[chatbot] Cart view error:', cartViewErr);
-          // Fall through to Gemini
+        } catch (cartViewErr: any) {
+          console.error('[chatbot] Cart view error:', cartViewErr?.message || cartViewErr);
+          return res.json({
+            reply: `Sorry, I had trouble reading your cart right now. Please try visiting your cart directly using the cart icon at the top right. If the issue persists, raise a ticket and our team will help! 🛒`,
+            needsHuman: false,
+          });
         }
       }
       // === END CART VIEW INTENT ===
