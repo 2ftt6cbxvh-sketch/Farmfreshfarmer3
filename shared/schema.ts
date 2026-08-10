@@ -873,6 +873,10 @@ export const supportTickets = pgTable("support_tickets", {
   customerPhone: text("customer_phone").notNull(),
   customerEmail: text("customer_email").notNull(),
   concern: text("concern").notNull(),
+  orderId: integer("order_id"),
+  photoUrl: text("photo_url"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  refundStatus: varchar("refund_status", { length: 32 }), // requested | approved | processing | refunded | rejected
   status: varchar("status", { length: 32 }).notNull().default("open"), // open | under_solving | solved | closed
   priority: varchar("priority", { length: 16 }).notNull().default("medium"), // low | medium | high | urgent
   assignedAgentId: integer("assigned_agent_id"),

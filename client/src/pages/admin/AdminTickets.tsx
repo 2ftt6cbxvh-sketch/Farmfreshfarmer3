@@ -16,6 +16,10 @@ interface SupportTicket {
   customerPhone: string;
   customerEmail: string;
   concern: string;
+  orderId?: number;
+  photoUrl?: string;
+  refundAmount?: string;
+  refundStatus?: string;
   status: "open" | "under_solving" | "solved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
   assignedAgentName?: string;
@@ -39,6 +43,7 @@ export default function AdminTickets() {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery<{ tickets: SupportTicket[] }>({
     queryKey: ["/api/admin/support-tickets", selectedStatus],
@@ -60,12 +65,44 @@ export default function AdminTickets() {
         },
         body: JSON.stringify({ status, adminNotes }),
       });
+      if (!res.ok) throw new Error("Failed to update ticket");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-tickets"] });
-      toast({ title: "Ticket Updated!", description: "Status and notes saved successfully." });
+      toast({ title: "Ticket Updated", description: "Changes saved successfully." });
       setEditingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-tickets"] });
+    },
+  });
+
+  const processRefundMutation = useMutation({
+    mutationFn: async (ticketId: number) => {
+      const res = await fetch(`/api/admin/support-tickets/${ticketId}/process-refund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to process refund");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Refund Approved & Processed! 💳",
+        description: data.message || "PhonePe refund initiated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/support-tickets"] });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Refund Execution Error ❌",
+        description: err.message || "Could not process PhonePe refund.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -193,6 +230,63 @@ export default function AdminTickets() {
                   </p>
                 </div>
 
+                {/* Uploaded Damage Photo Proof (Compulsory) */}
+                {t.photoUrl && (
+                  <div className="space-y-1.5 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                    <p className="text-[11px] font-extrabold text-red-500 flex items-center gap-1">
+                      📸 COMPULSORY DAMAGE PHOTO PROOF ATTACHED:
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={t.photoUrl}
+                        alt="Customer Damage Proof"
+                        className="w-20 h-20 object-cover rounded-lg border border-red-500/30 cursor-pointer hover:opacity-90 shadow-sm transition-all"
+                        onClick={() => setPreviewPhoto(t.photoUrl || null)}
+                      />
+                      <div className="space-y-1 text-xs">
+                        <p className="font-bold text-foreground">Inspect Damage Evidence</p>
+                        <p className="text-[11px] text-muted-foreground">Click thumbnail to view full high-res photo proof.</p>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhoto(t.photoUrl || null)}
+                          className="text-xs font-bold text-red-500 hover:underline inline-flex items-center gap-1"
+                        >
+                          🔍 Expand Photo Proof
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Refund Processing Section */}
+                {t.orderId && (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        Order #{t.orderId} · Refund Amount: ₹{t.refundAmount || "Full"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Status: <span className="font-bold uppercase text-emerald-600">{t.refundStatus || "Requested"}</span>
+                      </p>
+                    </div>
+
+                    {t.refundStatus !== "refunded" ? (
+                      <Button
+                        size="sm"
+                        disabled={processRefundMutation.isPending}
+                        onClick={() => processRefundMutation.mutate(t.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
+                      >
+                        {processRefundMutation.isPending ? "Executing..." : "💳 Approve & Process PhonePe Refund"}
+                      </Button>
+                    ) : (
+                      <Badge className="bg-emerald-500 text-white font-extrabold text-xs">
+                        ✓ Refunded
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
                 {/* Admin Notes & Rep */}
                 {t.adminNotes && editingId !== t.id && (
                   <div className="text-xs bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl text-emerald-700 dark:text-emerald-300">
@@ -232,6 +326,24 @@ export default function AdminTickets() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Lightbox Photo Preview Modal */}
+        {previewPhoto && (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setPreviewPhoto(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh] bg-card p-2 rounded-2xl border border-border shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setPreviewPhoto(null)}
+                className="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full font-extrabold text-sm flex items-center justify-center shadow-lg"
+              >
+                ✕
+              </button>
+              <img src={previewPhoto} alt="Damage Proof Evidence" className="max-w-full max-h-[80vh] rounded-xl object-contain" />
+            </div>
           </div>
         )}
       </div>

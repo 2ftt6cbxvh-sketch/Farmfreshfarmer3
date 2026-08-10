@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, TextInput, Image, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '../../lib/api';
 import { COLORS } from '../../constants/config';
 import type { Order } from '../../lib/types';
@@ -42,6 +43,12 @@ function SkeletonCard({ isDark }: { isDark: boolean }) {
 // ─── Order Card ───────────────────────────────────────────────────────────────
 function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [reason, setReason] = useState('Damaged or Spoiled Perishables');
+  const [comments, setComments] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   const cfg = STATUS_CONFIG[order.status] || { color: COLORS.textMuted, emoji: '📋', step: 1 };
   const cardBg = isDark ? '#0c121e' : '#ffffff';
   const textColor = isDark ? '#f8fafc' : COLORS.text;
@@ -50,6 +57,72 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
   const stepperActiveBg = isDark ? '#022c22' : '#f0fdf4';
 
   const currentStep = cfg.step;
+
+  const handlePickPhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Media library access is required to attach damage photo proof.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const mime = asset.mimeType || 'image/jpeg';
+          setPhotoUrl(`data:${mime};base64,${asset.base64}`);
+        } else if (asset.uri) {
+          setPhotoUrl(asset.uri);
+        }
+      }
+    } catch (err) {
+      Alert.alert('Photo Picker Error', 'Could not select photo. Please try again.');
+    }
+  };
+
+  const handleSubmitRefundRequest = async () => {
+    if (!photoUrl) {
+      Alert.alert(
+        '📸 Compulsory Photo Proof Required',
+        'Please select or take a clear photo of the damaged or delivered produce before submitting your return/refund request.'
+      );
+      return;
+    }
+    if (!comments.trim()) {
+      Alert.alert('Refund Details Required', 'Please describe the issue or reason for your refund request.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/api/orders/${order.id}/request-refund`, {
+        customerName: order.customerName || '',
+        customerPhone: order.phone || '',
+        customerEmail: (order as any).customerEmail || (order as any).email || '',
+        concern: `${reason}: ${comments.trim()}`,
+        photoUrl,
+        refundAmount: order.total,
+      });
+
+      setShowRefundModal(false);
+      setComments('');
+      setPhotoUrl('');
+      Alert.alert(
+        '✅ Refund Request Submitted',
+        res.data?.message || `Refund request for Order #${order.id} submitted successfully!`
+      );
+    } catch (err: any) {
+      Alert.alert('Refund Error', err?.response?.data?.message || 'Failed to submit refund request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -145,12 +218,150 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
             </View>
           </View>
 
-          {/* Reorder button */}
-          <TouchableOpacity style={styles.reorderBtn} onPress={() => router.push('/(tabs)')}>
-            <Text style={styles.reorderBtnText}>🔄 Reorder</Text>
-          </TouchableOpacity>
+          {/* Reorder and Refund Request Buttons */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+            <TouchableOpacity style={[styles.reorderBtn, { flex: 1 }]} onPress={() => router.push('/(tabs)')}>
+              <Text style={styles.reorderBtnText}>🔄 Reorder</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.reorderBtn,
+                { flex: 1, backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2', borderColor: '#f87171', borderWidth: 1 }
+              ]}
+              onPress={() => setShowRefundModal(true)}
+            >
+              <Text style={[styles.reorderBtnText, { color: '#ef4444' }]}>📸 Request Refund</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
+
+      {/* Compulsory Photo Proof Refund Modal */}
+      <Modal visible={showRefundModal} transparent animationType="slide" onRequestClose={() => setShowRefundModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: isDark ? '#0b1320' : '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '90%', borderWidth: 1, borderColor: borderCol }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>📸 Request Order Return & Refund</Text>
+              <TouchableOpacity onPress={() => setShowRefundModal(false)} style={{ padding: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 12 }}>
+                <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: 14, paddingBottom: 20 }}>
+              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: borderCol }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor }}>Order #{order.id} · Total ₹{parseFloat(order.total).toFixed(0)}</Text>
+                <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>{order.address}</Text>
+              </View>
+
+              {/* Select Reason */}
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, marginBottom: 6 }}>Select Issue Category:</Text>
+                {['Damaged or Spoiled Perishables', 'Quality Issue / Rotten Items', 'Wrong Items Delivered', 'Severe Delivery Delay'].map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    onPress={() => setReason(r)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: reason === r ? (isDark ? 'rgba(16,185,129,0.2)' : '#ecfdf5') : (isDark ? '#0f172a' : '#f8fafc'),
+                      borderColor: reason === r ? '#10b981' : borderCol,
+                      borderWidth: 1,
+                      padding: 10,
+                      borderRadius: 10,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: reason === r ? '800' : '400', color: reason === r ? '#10b981' : textColor, flex: 1 }}>{r}</Text>
+                    {reason === r && <Text style={{ color: '#10b981', fontWeight: 'bold' }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Compulsory Photo Upload */}
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#ef4444', marginBottom: 4 }}>
+                  📸 Damage Photo Proof (COMPULSORY *):
+                </Text>
+                <Text style={{ fontSize: 11, color: mutedColor, marginBottom: 8 }}>
+                  Attach a clear photo of the damaged produce item or package proof. Requests without photo proof cannot be processed.
+                </Text>
+
+                {photoUrl ? (
+                  <View style={{ alignItems: 'center', gap: 8 }}>
+                    <Image source={{ uri: photoUrl }} style={{ width: '100%', height: 160, borderRadius: 12, borderWidth: 1, borderColor: '#10b981' }} resizeMode="cover" />
+                    <TouchableOpacity onPress={handlePickPhoto} style={{ backgroundColor: isDark ? '#1e293b' : '#e2e8f0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: textColor }}>🔄 Change Photo</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlePickPhoto}
+                    style={{
+                      height: 110,
+                      backgroundColor: isDark ? '#0f172a' : '#fef2f2',
+                      borderColor: '#ef4444',
+                      borderWidth: 1.5,
+                      borderStyle: 'dashed',
+                      borderRadius: 14,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>📷</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#ef4444' }}>+ Upload Damage Photo Proof (Required)</Text>
+                    <Text style={{ fontSize: 10, color: mutedColor }}>Tap to choose photo from gallery / camera</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Detailed Comments */}
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, marginBottom: 4 }}>Describe Issue / Notes:</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                    color: textColor,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    fontSize: 12,
+                    height: 70,
+                  }}
+                  placeholder="Tell us what was wrong with your item or delivery..."
+                  placeholderTextColor={mutedColor}
+                  multiline
+                  value={comments}
+                  onChangeText={setComments}
+                />
+              </View>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#ef4444',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  marginTop: 6,
+                  opacity: submitting ? 0.6 : 1,
+                }}
+                onPress={handleSubmitRefundRequest}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 13 }}>Submit Refund Request & Photo Proof</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

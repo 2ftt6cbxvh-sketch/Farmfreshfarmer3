@@ -490,6 +490,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
+  // Customer photo upload endpoint (e.g. for refund damage proof photos)
+  app.post("/api/upload/customer-photo", (req, res) => {
+    upload.single("image")(req, res, (err: any) => {
+      if (err) {
+        console.error("Customer upload error:", err);
+        return res.status(400).json({ message: err.message || "Photo upload failed" });
+      }
+      if (!req.file) return res.status(400).json({ message: "No photo uploaded" });
+      const b64 = req.file.buffer.toString("base64");
+      res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
+    });
+  });
+
   /* ============================= REVIEWS =========================== */
   app.get("/api/reviews", h(async (req, res) => {
     const productId = Number(req.query.productId);
