@@ -55,14 +55,32 @@ export default function AdminDashboardScreen() {
   const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
 
-  const { data: meUserData } = useQuery({
+  // Fetch live user profile with permissions from server (GET /api/me is the correct server endpoint)
+  const { data: meUserData, isLoading: meLoading } = useQuery({
     queryKey: ['me-user-profile-permissions'],
-    queryFn: () => api.get('/api/user').then(r => r.data).catch(() => api.get('/api/auth/me').then(r => r.data)),
+    queryFn: async () => {
+      // Try /api/me first (the correct route on the server)
+      try {
+        const r = await api.get('/api/me');
+        // /api/me returns { user: {...} }
+        return r.data?.user || r.data;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 0, // always fresh
+    refetchOnMount: true,
   });
 
-  const currentUser = meUserData || user;
-  const isSuperAdmin = Boolean(currentUser?.isPrimaryAdmin || currentUser?.role === 'admin' || currentUser?.email?.toLowerCase() === 'admin@farmfreshfarmer.com');
+  // Merge: live server data takes precedence over cached zustand store user
+  const currentUser = (meUserData && meUserData.id) ? meUserData : user;
+  const isSuperAdmin = Boolean(
+    currentUser?.isPrimaryAdmin ||
+    currentUser?.role === 'admin' ||
+    currentUser?.email?.toLowerCase() === 'admin@farmfreshfarmer.com'
+  );
   
+  // Parse permissions — stored as JSON string in DB, returned as array by publicUser()
   let userPerms: string[] = [];
   if (Array.isArray(currentUser?.permissions)) {
     userPerms = currentUser.permissions;
@@ -99,20 +117,24 @@ export default function AdminDashboardScreen() {
   ];
 
   // Filter tabs for Sub-Admins based on Super Admin approved permissions
+  // Note: permissions are stored as web hrefs e.g. '/admin/products'
+  // tabPermissionMap maps tab ids to these same hrefs
   const visibleTabs = isSuperAdmin
     ? tabs
-    : tabs.filter((t) => {
-        const requiredPerms = tabPermissionMap[t.id] || [];
-        return requiredPerms.some(p => userPerms.includes(p));
-      });
+    : meLoading
+      ? [] // Don't filter until we have live data from server
+      : tabs.filter((t) => {
+          const requiredPerms = tabPermissionMap[t.id] || [];
+          return requiredPerms.some(p => userPerms.includes(p));
+        });
 
-  const [activeTab, setActiveTab] = useState(visibleTabs[0]?.id || '');
+  const [activeTab, setActiveTab] = useState('');
 
   useEffect(() => {
     if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
       setActiveTab(visibleTabs[0].id);
     }
-  }, [visibleTabs, activeTab]);
+  }, [visibleTabs]);
 
   // Forms State
   const [newProduct, setNewProduct] = useState({ name: '', price: '', stock: '', categoryId: '', image: '', unit: '1 Kg', discountPercent: '0' });
@@ -368,7 +390,14 @@ export default function AdminDashboardScreen() {
         </ScrollView>
       </View>
 
-      {visibleTabs.length === 0 && (
+      {meLoading && !isSuperAdmin && (
+        <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#10b981" />
+          <Text style={{ color: mutedColor, fontSize: 12, marginTop: 12 }}>Loading your permissions...</Text>
+        </View>
+      )}
+
+      {!meLoading && visibleTabs.length === 0 && (
         <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 32, marginBottom: 8 }}>🔒</Text>
           <Text style={{ fontSize: 16, fontWeight: 'bold', color: textColor, textAlign: 'center' }}>No Approved Menu Access</Text>
