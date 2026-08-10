@@ -561,7 +561,12 @@ export default function HomeScreen() {
           </View>
 
           {/* Feature Bar */}
-          <View style={[styles.heroFeatureStrip, isDark ? styles.heroFeatureStripDark : styles.heroFeatureStripLight]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.heroFeatureStrip, isDark ? styles.heroFeatureStripDark : styles.heroFeatureStripLight]}
+            contentContainerStyle={styles.heroFeatureStripContent}
+          >
             <View style={styles.featureItem}>
               <Text style={styles.featureIcon}>🛡️</Text>
               <Text style={[styles.featureText, isDark ? styles.textWhite : styles.textDark]}>100% Naturally Grown</Text>
@@ -574,7 +579,7 @@ export default function HomeScreen() {
               <Text style={styles.featureIcon}>📦</Text>
               <Text style={[styles.featureText, isDark ? styles.textWhite : styles.textDark]}>Zero Preservatives</Text>
             </View>
-          </View>
+          </ScrollView>
 
           {/* Hero Showcase Card */}
           <View style={[styles.heroShowcaseCard, isDark ? styles.heroShowcaseCardDark : styles.heroShowcaseCardLight]}>
@@ -1098,18 +1103,25 @@ const styles = StyleSheet.create({
   referEarnHeroBtnText: { color: '#fbbf24', fontWeight: '800', fontSize: 12 },
 
   heroFeatureStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     borderRadius: 16,
-    padding: 12,
     borderWidth: 1,
     marginBottom: 20,
+    maxHeight: 44,
+  },
+  heroFeatureStripContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
+    minWidth: '100%',
   },
   heroFeatureStripDark: { backgroundColor: '#0c121e', borderColor: 'rgba(52, 211, 153, 0.2)' },
   heroFeatureStripLight: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
   featureItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  featureIcon: { fontSize: 13 },
-  featureText: { fontSize: 10, fontWeight: '700' },
+  featureIcon: { fontSize: 12 },
+  featureText: { fontSize: 9.5, fontWeight: '700' },
 
   heroShowcaseCard: {
     borderRadius: 24,
