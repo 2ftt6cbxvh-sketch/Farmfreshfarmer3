@@ -28,19 +28,28 @@ const STAFF_ROLES = [
 
 const ALL_MENU_PERMISSIONS = [
   { href: '/admin', label: 'Dashboard Overview' },
+  { href: '/admin/live-chat', label: 'Live Support Chat 💬' },
+  { href: '/admin/tickets', label: 'Support Tickets 🎫' },
   { href: '/admin/products', label: 'Products Management' },
   { href: '/admin/categories', label: 'Categories' },
+  { href: '/admin/approvals', label: 'Approvals ✅' },
   { href: '/admin/inventory', label: 'Inventory Stock' },
   { href: '/admin/orders', label: 'Orders & Fulfillment' },
-  { href: '/admin/subscriptions', label: 'Subscriptions' },
-  { href: '/admin/payments', label: 'Payments' },
+  { href: '/admin/subscriptions', label: 'Subscriptions 🔁' },
+  { href: '/admin/payments', label: 'Payments 💳' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/reviews', label: 'Reviews & Ratings' },
-  { href: '/admin/coupons', label: 'Coupons & Promos' },
-  { href: '/admin/discounts', label: 'Discounts' },
-  { href: '/admin/referrals', label: 'Referrals' },
-  { href: '/admin/warehouses', label: 'Warehouses Hubs' },
-  { href: '/admin/delivery', label: 'Delivery & Pincodes' },
+  { href: '/admin/coupons', label: 'Coupons & Promos 🎟️' },
+  { href: '/admin/discounts', label: 'Discounts %' },
+  { href: '/admin/referrals', label: 'Referrals 🎁' },
+  { href: '/admin/staff', label: 'Sub-Admins & Staff 🛡️' },
+  { href: '/admin/users', label: 'User Roster 👤' },
+  { href: '/admin/delivery-partners', label: 'Delivery Partners 🚚' },
+  { href: '/admin/gst', label: 'GST & Tax Config 📊' },
+  { href: '/admin/security', label: 'Security Logs 🔑' },
+  { href: '/admin/settings', label: 'Settings ⚙️' },
+  { href: '/admin/warehouses', label: 'Warehouses Hubs 🏢' },
+  { href: '/admin/delivery', label: 'Delivery & Geo 🚚' },
 ];
 
 export default function AdminDashboardScreen() {
@@ -93,30 +102,54 @@ export default function AdminDashboardScreen() {
 
   const tabPermissionMap: Record<string, string[]> = {
     dashboard: ['/admin'],
-    warehouses: ['/admin/warehouses'],
+    'live-chat': ['/admin/live-chat'],
+    tickets: ['/admin/tickets'],
     products: ['/admin/products'],
     categories: ['/admin/categories'],
+    approvals: ['/admin/approvals'],
     inventory: ['/admin/inventory'],
-    orders: ['/admin/orders', '/admin/subscriptions'],
-    delivery: ['/admin/delivery'],
-    staff: ['/admin/staff'],
+    orders: ['/admin/orders'],
+    subscriptions: ['/admin/subscriptions'],
+    payments: ['/admin/payments'],
     customers: ['/admin/customers'],
     reviews: ['/admin/reviews'],
+    coupons: ['/admin/coupons'],
+    discounts: ['/admin/discounts'],
+    referrals: ['/admin/referrals'],
+    staff: ['/admin/staff'],
+    users: ['/admin/users'],
+    'delivery-partners': ['/admin/delivery-partners'],
+    gst: ['/admin/gst'],
+    security: ['/admin/security'],
     settings: ['/admin/settings'],
+    warehouses: ['/admin/warehouses'],
+    delivery: ['/admin/delivery'],
   };
 
   const tabs = [
     { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'live-chat', label: '💬 Live Support Chat' },
+    { id: 'tickets', label: '🎫 Support Tickets' },
     { id: 'warehouses', label: '🏢 Warehouses' },
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '🏷️ Categories' },
+    { id: 'approvals', label: '✅ Approvals' },
     { id: 'inventory', label: '🌾 Inventory' },
     { id: 'orders', label: '🧾 Orders' },
+    { id: 'subscriptions', label: '🔁 Subscriptions' },
+    { id: 'payments', label: '💳 Payments' },
     { id: 'delivery', label: '🚚 Pincodes' },
     { id: 'staff', label: '🛡️ Sub-Admins & Staff' },
     { id: 'customers', label: '👥 Customers' },
     { id: 'reviews', label: '⭐ Reviews' },
-    { id: 'settings', label: '⚙️ Settings' }
+    { id: 'coupons', label: '🎟️ Coupons & Promos' },
+    { id: 'discounts', label: '🏷️ Discounts' },
+    { id: 'referrals', label: '🎁 Referrals' },
+    { id: 'users', label: '👤 User Roster' },
+    { id: 'delivery-partners', label: '🚚 Delivery Partners' },
+    { id: 'gst', label: '📊 GST & Tax Config' },
+    { id: 'security', label: '🔑 Security Logs' },
+    { id: 'settings', label: '⚙️ Settings' },
   ];
 
   // Filter tabs for Sub-Admins based on Super Admin approved permissions
@@ -926,6 +959,36 @@ export default function AdminDashboardScreen() {
                 </TouchableOpacity>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* ── NEW TABS ────────────────────────────────────────────────────── */}
+        {['live-chat', 'tickets', 'approvals', 'subscriptions', 'payments', 'coupons', 'discounts', 'referrals', 'users', 'delivery-partners', 'gst', 'security'].includes(activeTab) && (
+          <View style={styles.tabContent}>
+            <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>
+                {activeTab === 'live-chat' ? 'Active Support Sessions 💬' :
+                 activeTab === 'tickets' ? 'Support Ticket Management 🎫' :
+                 activeTab === 'approvals' ? 'Approvals ✅' :
+                 activeTab === 'subscriptions' ? 'Subscriptions 🔁' :
+                 activeTab === 'payments' ? 'Payments 💳' :
+                 activeTab === 'coupons' ? 'Coupons & Promos 🎟️' :
+                 activeTab === 'discounts' ? 'Discounts %' :
+                 activeTab === 'referrals' ? 'Referrals 🎁' :
+                 activeTab === 'users' ? 'User Roster 👤' :
+                 activeTab === 'delivery-partners' ? 'Delivery Partners 🚚' :
+                 activeTab === 'gst' ? 'GST & Tax Config 📊' :
+                 'Security Logs 🔑'}
+              </Text>
+              <Text style={{ color: mutedColor, marginTop: 8 }}>
+                View and manage {activeTab.replace('-', ' ')} details here.
+              </Text>
+              {activeTab === 'tickets' && (
+                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/tickets' as any)}>
+                  <Text style={styles.actionBtnText}>Open Tickets Dashboard</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
