@@ -216,9 +216,14 @@ export default function AdminSecurity() {
 
   const isLocked = lockdownData?.active ?? false;
 
-  // Telegram Security State
-  const [botToken, setBotToken] = useState("");
-  const [chatId, setChatId] = useState("");
+  // 1. Super Admin Security Bot State
+  const [secBotToken, setSecBotToken] = useState("");
+  const [secChatId, setSecChatId] = useState("");
+
+  // 2. Grievance & Customer Support Bot State
+  const [grievBotToken, setGrievBotToken] = useState("");
+  const [grievChatIds, setGrievChatIds] = useState("");
+
   const [telegramLoaded, setTelegramLoaded] = useState(false);
 
   const { data: telegramData } = useQuery({
@@ -227,46 +232,91 @@ export default function AdminSecurity() {
       const res = await apiRequest("GET", "/api/admin/security/telegram");
       const data = await res.json();
       if (!telegramLoaded) {
-        if (data.botToken && !data.botToken.includes("...")) {
-          setBotToken(data.botToken);
+        // Security Bot
+        if (data.security?.botToken && !data.security.botToken.includes("...")) {
+          setSecBotToken(data.security.botToken);
+        } else if (data.botToken && !data.botToken.includes("...")) {
+          setSecBotToken(data.botToken);
         }
-        setChatId(data.chatId || "");
+        setSecChatId(data.security?.chatId || data.chatId || "");
+
+        // Grievance Bot
+        if (data.grievance?.botToken && !data.grievance.botToken.includes("...")) {
+          setGrievBotToken(data.grievance.botToken);
+        }
+        setGrievChatIds(data.grievance?.chatIds || "");
+
         setTelegramLoaded(true);
       }
       return data;
     },
   });
 
-  const saveTelegramMutation = useMutation({
+  // Mutations for Security Bot
+  const saveSecTelegramMutation = useMutation({
     mutationFn: async (payload: { botToken: string; chatId: string }) => {
-      const res = await apiRequest("POST", "/api/admin/security/telegram", payload);
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security", payload);
       return res.json();
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
-      toast({ title: "✨ Telegram Settings Saved", description: res.message });
+      toast({ title: "🛡️ Security Bot Saved", description: res.message });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const setupWebhookMutation = useMutation({
+  const setupSecWebhookMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/admin/security/telegram/setup-webhook");
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security/setup-webhook");
       return res.json();
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
-      toast({ title: "✨ Telegram Webhook Registered!", description: res.message });
+      toast({ title: "✨ Security Webhook Registered!", description: res.message });
     },
     onError: (err: any) => toast({ title: "Webhook Registration Error", description: err.message, variant: "destructive" }),
   });
 
-  const testAlertMutation = useMutation({
+  const testSecAlertMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/admin/security/telegram/test-alert");
+      const res = await apiRequest("POST", "/api/admin/security/telegram/security/test-alert");
       return res.json();
     },
-    onSuccess: (res) => toast({ title: "🔔 Test Alert Sent!", description: res.message }),
+    onSuccess: (res) => toast({ title: "🔔 Security Alert Sent!", description: res.message }),
+    onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
+  });
+
+  // Mutations for Grievance Bot
+  const saveGrievTelegramMutation = useMutation({
+    mutationFn: async (payload: { botToken: string; chatIds: string }) => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance", payload);
+      return res.json();
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "🎫 Grievance Bot Saved", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const setupGrievWebhookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance/setup-webhook");
+      return res.json();
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/security/telegram"] });
+      toast({ title: "✨ Grievance Webhook Registered!", description: res.message });
+    },
+    onError: (err: any) => toast({ title: "Webhook Registration Error", description: err.message, variant: "destructive" }),
+  });
+
+  const testGrievAlertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/security/telegram/grievance/test-alert");
+      return res.json();
+    },
+    onSuccess: (res) => toast({ title: "🔔 Support Alert Sent!", description: res.message }),
     onError: (err: any) => toast({ title: "Alert Failed", description: err.message, variant: "destructive" }),
   });
 
@@ -360,98 +410,209 @@ export default function AdminSecurity() {
       {/* Super Admin Password Change with TOTP & Old Password Validation */}
       <SuperAdminPasswordUpdateCard />
 
-      {/* Telegram Security Bot Controller */}
-      <Card className="border-emerald-500/30 bg-card shadow-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-emerald-950/40 via-card to-card border-b border-emerald-500/20">
+      {/* 1. Super Admin Security Bot Controller */}
+      <Card className="border-red-500/30 bg-card shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-red-950/40 via-card to-card border-b border-red-500/20">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg text-foreground font-serif">
-              <span className="text-xl">🤖</span> Telegram Remote Security & Webhook Controller
+              <span className="text-xl">🛡️</span> Super Admin Security Bot (Private • Super Admin Control)
             </CardTitle>
-            <Badge variant={telegramData?.configured ? "default" : "outline"} className={telegramData?.configured ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""}>
-              {telegramData?.configured ? "🟢 Connected & Secured" : "⚠️ Token & Chat ID Required"}
+            <Badge variant={telegramData?.security?.configured ? "default" : "outline"} className={telegramData?.security?.configured ? "bg-red-500/20 text-red-400 border-red-500/30" : ""}>
+              {telegramData?.security?.configured ? "🟢 Security Bot Connected" : "⚠️ Security Token & Chat ID Required"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Configure your Telegram Bot token, Chat ID, auto-register the Telegram webhook with 1-click, and test security notifications directly from this Superadmin panel.
+            <strong>Super Admin Ganesh Varma Only.</strong> Sends high-priority security alerts (unauthorized logins, brute force, secret passage requests) and executes platform commands (<code>/lock on</code>, <code>/lock off</code>, <code>/approve</code>, <code>/subadmin block</code>).
           </p>
         </CardHeader>
 
         <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="bot-token" className="text-xs font-bold">Telegram Bot Token (from @BotFather)</Label>
+              <Label htmlFor="sec-bot-token" className="text-xs font-bold text-red-400">Security Bot Token (from @BotFather)</Label>
               <Input
-                id="bot-token"
+                id="sec-bot-token"
                 type="password"
-                placeholder={telegramData?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 7123456789:AAFx..."}
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+                placeholder={telegramData?.security?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 7123456789:AAFx..."}
+                value={secBotToken}
+                onChange={(e) => setSecBotToken(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-red-500/30"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Obtain from Telegram @BotFather by running /newbot</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Create a private bot on Telegram @BotFather by sending <code>/newbot</code></p>
             </div>
 
             <div>
-              <Label htmlFor="chat-id" className="text-xs font-bold">Verified Telegram Chat ID (from @userinfobot)</Label>
+              <Label htmlFor="sec-chat-id" className="text-xs font-bold text-red-400">Super Admin Chat ID (from @userinfobot)</Label>
               <Input
-                id="chat-id"
+                id="sec-chat-id"
                 type="text"
-                placeholder="e.g. 123456789"
-                value={chatId}
-                onChange={(e) => setChatId(e.target.value)}
-                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+                placeholder="e.g. 1927711332"
+                value={secChatId}
+                onChange={(e) => setSecChatId(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-red-500/30"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Obtain from Telegram @userinfobot by sending any message</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Obtain your private Chat ID from Telegram @userinfobot</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button
-              onClick={() => saveTelegramMutation.mutate({ botToken, chatId })}
-              disabled={saveTelegramMutation.isPending}
-              className="bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg"
+              onClick={() => saveSecTelegramMutation.mutate({ botToken: secBotToken, chatId: secChatId })}
+              disabled={saveSecTelegramMutation.isPending}
+              className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
             >
-              {saveTelegramMutation.isPending ? "Saving..." : "💾 Save Telegram Credentials"}
+              {saveSecTelegramMutation.isPending ? "Saving..." : "💾 Save Security Credentials"}
             </Button>
 
             <Button
               variant="outline"
-              onClick={() => setupWebhookMutation.mutate()}
-              disabled={setupWebhookMutation.isPending || !telegramData?.configured}
-              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold rounded-xl text-xs py-4 px-5"
+              onClick={() => setupSecWebhookMutation.mutate()}
+              disabled={setupSecWebhookMutation.isPending || !telegramData?.security?.configured}
+              className="border-red-500/40 text-red-400 hover:bg-red-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
             >
-              {setupWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Telegram Webhook"}
+              {setupSecWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Security Webhook"}
             </Button>
 
             <Button
               variant="outline"
-              onClick={() => testAlertMutation.mutate()}
-              disabled={testAlertMutation.isPending || !telegramData?.configured}
-              className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold rounded-xl text-xs py-4 px-5"
+              onClick={() => testSecAlertMutation.mutate()}
+              disabled={testSecAlertMutation.isPending || !telegramData?.security?.configured}
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
             >
-              {testAlertMutation.isPending ? "Sending..." : "🔔 Send Test Security Alert"}
+              {testSecAlertMutation.isPending ? "Sending..." : "🔔 Send Test Security Alert"}
             </Button>
           </div>
 
-          {/* Quick Telegram Commands Guide */}
-          <div className="p-3.5 rounded-xl bg-secondary/30 border border-emerald-500/20 text-xs space-y-2">
-            <p className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>📱 Remote Telegram Commands (Send to your bot):</span>
+          {/* Quick Security Commands Guide */}
+          <div className="p-3.5 rounded-xl bg-secondary/30 border border-red-500/20 text-xs space-y-2">
+            <p className="font-bold text-red-400 flex items-center gap-1.5">
+              <span>📱 Super Admin Control Commands (Send to Security Bot):</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
               <div className="bg-background/80 p-2 rounded-lg border border-card-border">
-                <span className="text-emerald-400 font-bold block">/lock on [reason]</span>
+                <span className="text-red-400 font-bold block">/lock on [reason]</span>
                 <span className="text-muted-foreground text-[10px]">Turn on emergency lockdown</span>
               </div>
               <div className="bg-background/80 p-2 rounded-lg border border-card-border">
                 <span className="text-emerald-400 font-bold block">/lock off</span>
-                <span className="text-muted-foreground text-[10px]">Turn off platform lockdown</span>
+                <span className="text-muted-foreground text-[10px]">Deactivate platform lockdown</span>
               </div>
               <div className="bg-background/80 p-2 rounded-lg border border-card-border">
-                <span className="text-emerald-400 font-bold block">/lock or /status</span>
-                <span className="text-muted-foreground text-[10px]">Check live system status</span>
+                <span className="text-amber-400 font-bold block">/approve &lt;token&gt;</span>
+                <span className="text-muted-foreground text-[10px]">Approve secret passage unlock</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-red-400 font-bold block">/subadmin block &lt;email&gt;</span>
+                <span className="text-muted-foreground text-[10px]">Instantly block rogue sub-admin</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-indigo-400 font-bold block">/flush sessions</span>
+                <span className="text-muted-foreground text-[10px]">Revoke all active logins</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-blue-400 font-bold block">/status or /users</span>
+                <span className="text-muted-foreground text-[10px]">Live system & user metrics</span>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2. Grievance & Customer Support Bot Controller */}
+      <Card className="border-emerald-500/30 bg-card shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-emerald-950/40 via-card to-card border-b border-emerald-500/20">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg text-foreground font-serif">
+              <span className="text-xl">🎫</span> Grievance &amp; Customer Support Bot (Multi-Admin • Support Team)
+            </CardTitle>
+            <Badge variant={telegramData?.grievance?.configured ? "default" : "outline"} className={telegramData?.grievance?.configured ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""}>
+              {telegramData?.grievance?.configured ? "🟢 Support Bot Connected" : "⚠️ Support Token & Chat IDs Required"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            <strong>For Customer Support Reps &amp; Grievance Officers.</strong> Receives new support ticket notifications and Live Chat escalation requests. <em>Security and platform control commands are strictly disabled on this bot.</em>
+          </p>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="griev-bot-token" className="text-xs font-bold text-emerald-500">Support / Grievance Bot Token (from @BotFather)</Label>
+              <Input
+                id="griev-bot-token"
+                type="password"
+                placeholder={telegramData?.grievance?.configured ? "•••••••••••••••• (Saved. Type to change)" : "e.g. 8123456789:BBFx..."}
+                value={grievBotToken}
+                onChange={(e) => setGrievBotToken(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Create a distinct support bot on Telegram @BotFather by sending <code>/newbot</code></p>
+            </div>
+
+            <div>
+              <Label htmlFor="griev-chat-ids" className="text-xs font-bold text-emerald-500">Grievance / Staff Chat IDs (Multiple IDs Supported)</Label>
+              <Input
+                id="griev-chat-ids"
+                type="text"
+                placeholder="e.g. 1927711332, 987654321, -100123456789"
+                value={grievChatIds}
+                onChange={(e) => setGrievChatIds(e.target.value)}
+                className="mt-1 font-mono text-xs rounded-xl border-emerald-500/30"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Comma-separated user Chat IDs or Telegram Group Chat IDs (starting with -100...)</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              onClick={() => saveGrievTelegramMutation.mutate({ botToken: grievBotToken, chatIds: grievChatIds })}
+              disabled={saveGrievTelegramMutation.isPending}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs py-4 px-5 shadow-lg cursor-pointer"
+            >
+              {saveGrievTelegramMutation.isPending ? "Saving..." : "💾 Save Grievance Credentials"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setupGrievWebhookMutation.mutate()}
+              disabled={setupGrievWebhookMutation.isPending || !telegramData?.grievance?.configured}
+              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {setupGrievWebhookMutation.isPending ? "Registering..." : "⚡ Auto-Register Grievance Webhook"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => testGrievAlertMutation.mutate()}
+              disabled={testGrievAlertMutation.isPending || !telegramData?.grievance?.configured}
+              className="border-teal-500/40 text-teal-400 hover:bg-teal-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
+            >
+              {testGrievAlertMutation.isPending ? "Sending..." : "🔔 Send Test Support Alert"}
+            </Button>
+          </div>
+
+          {/* Quick Grievance Commands Guide */}
+          <div className="p-3.5 rounded-xl bg-secondary/30 border border-emerald-500/20 text-xs space-y-2">
+            <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>📋 Support Bot Features &amp; Commands:</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/tickets</span>
+                <span className="text-muted-foreground text-[10px]">View list of open support tickets</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/ticket &lt;id&gt;</span>
+                <span className="text-muted-foreground text-[10px]">Inspect full customer ticket</span>
+              </div>
+              <div className="bg-background/80 p-2 rounded-lg border border-card-border">
+                <span className="text-emerald-400 font-bold block">/resolve &lt;id&gt; [note]</span>
+                <span className="text-muted-foreground text-[10px]">Mark ticket solved from Telegram</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-amber-500/90 font-medium pt-1">
+              🔒 <strong>Security Policy:</strong> System control commands (<code>/lock</code>, <code>/approve</code>, <code>/block</code>, etc.) are strictly rejected in this bot to prevent unauthorized control of the website.
+            </p>
           </div>
         </CardContent>
       </Card>

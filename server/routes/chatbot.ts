@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
 import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products } from '@shared/schema';
-import { sendTelegramAlert } from '../services/telegram';
+import { sendTelegramGrievanceAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -729,7 +729,7 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
       `👉 <b>Action Required:</b> Please log in to your Admin / Staff portal to claim & take over this chat:\n` +
       `https://www.farmfreshfarmer.com/admin/live-chat`;
 
-    await sendTelegramAlert(alertText);
+    await sendTelegramGrievanceAlert(alertText);
   }
 
 function detectETAIntent(message: string): boolean {

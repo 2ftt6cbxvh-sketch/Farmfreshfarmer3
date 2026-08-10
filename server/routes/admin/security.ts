@@ -184,51 +184,103 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({ message: "Session revoked" });
   });
 
-  /** GET /api/admin/security/telegram — Fetch Telegram bot configuration */
+  /** GET /api/admin/security/telegram — Fetch both Telegram bots configuration */
   app.get("/api/admin/security/telegram", requireAdmin as any, async (_req: Request, res: Response) => {
     try {
-      const { getTelegramCredentials } = await import("../../services/telegram");
+      const { getTelegramSecurityCredentials, getTelegramGrievanceCredentials } = await import("../../services/telegram");
       const { storage } = await import("../../storage");
-      const { botToken, chatId } = await getTelegramCredentials();
-      const dbToken = await storage.settings.get("telegram_bot_token");
-      const dbChatId = await storage.settings.get("telegram_chat_id");
 
-      const isValidToken = !!(botToken && botToken.includes(":") && !botToken.includes("..."));
+      // 1. Security Bot
+      const sec = await getTelegramSecurityCredentials();
+      const secDbToken = await storage.settings.get("telegram_security_bot_token") || await storage.settings.get("telegram_bot_token");
+      const secDbChatId = await storage.settings.get("telegram_security_chat_id") || await storage.settings.get("telegram_chat_id");
+      const secIsValid = !!(sec.botToken && sec.botToken.includes(":") && !sec.botToken.includes("..."));
+      const secMasked = secIsValid ? `${sec.botToken.substring(0, 5)}...${sec.botToken.slice(-4)}` : "";
 
-      const maskedToken = isValidToken
-        ? `${botToken.substring(0, 5)}...${botToken.slice(-4)}`
-        : "";
+      // 2. Grievance & Support Bot
+      const griev = await getTelegramGrievanceCredentials();
+      const grievDbToken = await storage.settings.get("telegram_grievance_bot_token") || await storage.settings.get("telegram_support_bot_token");
+      const grievDbChatIds = await storage.settings.get("telegram_grievance_chat_ids") || await storage.settings.get("telegram_support_chat_ids");
+      const grievIsValid = !!(griev.botToken && griev.botToken.includes(":") && !griev.botToken.includes("..."));
+      const grievMasked = grievIsValid ? `${griev.botToken.substring(0, 5)}...${griev.botToken.slice(-4)}` : "";
 
       return res.json({
-        configured: !!(isValidToken && chatId),
-        botToken: isValidToken ? maskedToken : "",
-        chatId: dbChatId || chatId || "",
+        security: {
+          configured: !!(secIsValid && sec.chatId),
+          botToken: secIsValid ? secMasked : "",
+          chatId: secDbChatId || sec.chatId || "",
+          envConfigured: !!(process.env.TELEGRAM_SECURITY_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN),
+        },
+        grievance: {
+          configured: !!(grievIsValid && griev.chatIds.length > 0),
+          botToken: grievIsValid ? grievMasked : "",
+          chatIds: grievDbChatIds || griev.chatIds.join(", ") || "",
+          envConfigured: !!(process.env.TELEGRAM_GRIEVANCE_BOT_TOKEN || process.env.TELEGRAM_SUPPORT_BOT_TOKEN),
+        },
+        // Legacy top-level aliases mapped to Security Bot
+        configured: !!(secIsValid && sec.chatId),
+        botToken: secIsValid ? secMasked : "",
+        chatId: secDbChatId || sec.chatId || "",
         envConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       });
     } catch (err: any) {
-      return res.status(500).json({ message: err?.message || "Failed to fetch Telegram security config" });
+      return res.status(500).json({ message: err?.message || "Failed to fetch Telegram configuration" });
     }
   });
 
-  /** POST /api/admin/security/telegram — Save Telegram credentials */
+  /** POST /api/admin/security/telegram/security — Save Security Bot credentials (Super Admin only) */
+  app.post("/api/admin/security/telegram/security", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { botToken, chatId } = req.body || {};
+      const { storage } = await import("../../storage");
+
+      if (chatId !== undefined && String(chatId).trim()) {
+        const cleanChatId = String(chatId).trim();
+        await storage.settings.set("telegram_security_chat_id", cleanChatId);
+        await storage.settings.set("telegram_chat_id", cleanChatId);
+      }
+
+      if (botToken !== undefined && String(botToken).trim()) {
+        const cleanToken = String(botToken).trim();
+        if (cleanToken.includes("...")) {
+          // Ignore masked preview
+        } else if (!cleanToken.includes(":")) {
+          return res.status(400).json({
+            message: `Invalid Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':' (e.g. 7123456789:AAFx...). Note: Your Chat ID is NOT your Bot Token.`,
+          });
+        } else {
+          await storage.settings.set("telegram_security_bot_token", cleanToken);
+          await storage.settings.set("telegram_bot_token", cleanToken);
+        }
+      }
+
+      return res.json({ message: "🛡️ Super Admin Security Bot credentials saved successfully" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to save Security Bot credentials" });
+    }
+  });
+
+  // Legacy route alias for Security credentials
   app.post("/api/admin/security/telegram", requireAdmin as any, async (req: Request, res: Response) => {
     try {
       const { botToken, chatId } = req.body || {};
       const { storage } = await import("../../storage");
 
       if (chatId !== undefined && String(chatId).trim()) {
-        await storage.settings.set("telegram_chat_id", String(chatId).trim());
+        const cleanChatId = String(chatId).trim();
+        await storage.settings.set("telegram_security_chat_id", cleanChatId);
+        await storage.settings.set("telegram_chat_id", cleanChatId);
       }
 
       if (botToken !== undefined && String(botToken).trim()) {
         const cleanToken = String(botToken).trim();
-        if (cleanToken.includes("...")) {
-          // Ignore masked string preview
-        } else if (!cleanToken.includes(":")) {
-          return res.status(400).json({
-            message: `Invalid Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':' (e.g. 7123456789:AAFx...). Note: Your Chat ID (1927711332) is NOT your Bot Token.`,
-          });
-        } else {
+        if (!cleanToken.includes("...")) {
+          if (!cleanToken.includes(":")) {
+            return res.status(400).json({
+              message: `Invalid Bot Token format. A Telegram Bot Token from @BotFather must contain a colon ':'.`,
+            });
+          }
+          await storage.settings.set("telegram_security_bot_token", cleanToken);
           await storage.settings.set("telegram_bot_token", cleanToken);
         }
       }
@@ -239,15 +291,48 @@ export function registerAdminSecurityRoutes(app: Express) {
     }
   });
 
-  /** POST /api/admin/security/telegram/setup-webhook — One-Click Auto Webhook Registration */
-  app.post("/api/admin/security/telegram/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+  /** POST /api/admin/security/telegram/security/setup-webhook — Auto-Register Security Webhook */
+  app.post("/api/admin/security/telegram/security/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
     try {
-      const { getTelegramCredentials } = await import("../../services/telegram");
-      const { botToken, chatId } = await getTelegramCredentials();
+      const { getTelegramSecurityCredentials } = await import("../../services/telegram");
+      const { botToken } = await getTelegramSecurityCredentials();
 
       if (!botToken || botToken.includes("...") || !botToken.includes(":")) {
         return res.status(400).json({
-          message: `The saved Bot Token ("${botToken || "empty"}") is invalid. A real Telegram Bot Token from @BotFather contains a colon ':' (e.g. 7123456789:AAFx...). Enter your real Bot Token in the field and click Save Telegram Credentials first.`,
+          message: `The saved Security Bot Token is invalid. A real Telegram Bot Token from @BotFather contains a colon ':' (e.g. 7123456789:AAFx...). Save your real Bot Token first.`,
+        });
+      }
+
+      const host = req.headers.host || "farmfreshfarmer.com";
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const webhookUrl = `${protocol}://${host}/api/telegram/security/webhook`;
+
+      const telegramUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+      const resTelegram = await fetch(telegramUrl);
+      const data = await resTelegram.json();
+
+      if (data.ok) {
+        return res.json({ message: `✨ Security Bot Webhook Registered! (${webhookUrl})`, details: data });
+      } else {
+        return res.status(400).json({
+          message: `Telegram API Error: ${data.description || "Failed to register webhook. Verify Security Bot Token from @BotFather."}`,
+          details: data,
+        });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Webhook auto-setup error" });
+    }
+  });
+
+  // Legacy setup-webhook alias
+  app.post("/api/admin/security/telegram/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { getTelegramSecurityCredentials } = await import("../../services/telegram");
+      const { botToken } = await getTelegramSecurityCredentials();
+
+      if (!botToken || botToken.includes("...") || !botToken.includes(":")) {
+        return res.status(400).json({
+          message: `The saved Bot Token is invalid. Enter a real Bot Token from @BotFather first.`,
         });
       }
 
@@ -260,15 +345,127 @@ export function registerAdminSecurityRoutes(app: Express) {
       const data = await resTelegram.json();
 
       if (data.ok) {
-        return res.json({ message: `✨ Telegram Webhook Auto-Registered Successfully! (${webhookUrl})`, details: data });
+        return res.json({ message: `✨ Telegram Webhook Registered! (${webhookUrl})`, details: data });
+      } else {
+        return res.status(400).json({ message: `Telegram API Error: ${data.description}`, details: data });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Webhook auto-setup error" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/security/test-alert — Dispatch test alert to Super Admin Security Bot */
+  app.post(["/api/admin/security/telegram/security/test-alert", "/api/admin/security/telegram/test-alert"], requireAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../../services/telegram");
+      if (!(await isTelegramSecurityConfigured())) {
+        return res.status(400).json({ message: "Security Bot token or Chat ID is not configured." });
+      }
+
+      const success = await sendTelegramSecurityAlert(
+        `🔔 <b>SUPER ADMIN SECURITY BOT TEST</b>\n\n` +
+        `This is a verified test notification from FarmFreshFarmer Security.\n` +
+        `Timestamp: ${new Date().toLocaleString()}\n` +
+        `Status: All platform protection services are fully operational.`
+      );
+
+      if (success) {
+        return res.json({ message: "Test alert dispatched to Super Admin Security Bot in Telegram!" });
+      } else {
+        return res.status(500).json({ message: "Failed to dispatch Telegram message. Check your bot token and chat ID." });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Error sending test alert" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/grievance — Save Grievance & Support Bot credentials */
+  app.post("/api/admin/security/telegram/grievance", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { botToken, chatIds } = req.body || {};
+      const { storage } = await import("../../storage");
+
+      if (chatIds !== undefined) {
+        const cleanChatIds = String(chatIds).trim();
+        await storage.settings.set("telegram_grievance_chat_ids", cleanChatIds);
+        await storage.settings.set("telegram_support_chat_ids", cleanChatIds);
+      }
+
+      if (botToken !== undefined && String(botToken).trim()) {
+        const cleanToken = String(botToken).trim();
+        if (cleanToken.includes("...")) {
+          // Ignore masked preview
+        } else if (!cleanToken.includes(":")) {
+          return res.status(400).json({
+            message: `Invalid Grievance Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':' (e.g. 7123456789:AAFx...).`,
+          });
+        } else {
+          await storage.settings.set("telegram_grievance_bot_token", cleanToken);
+          await storage.settings.set("telegram_support_bot_token", cleanToken);
+        }
+      }
+
+      return res.json({ message: "🎫 Grievance & Support Bot credentials saved successfully" });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Failed to save Grievance Bot credentials" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/grievance/setup-webhook — Auto-Register Grievance Webhook */
+  app.post("/api/admin/security/telegram/grievance/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { getTelegramGrievanceCredentials } = await import("../../services/telegram");
+      const { botToken } = await getTelegramGrievanceCredentials();
+
+      if (!botToken || botToken.includes("...") || !botToken.includes(":")) {
+        return res.status(400).json({
+          message: `The saved Grievance Bot Token is invalid. Enter a real Bot Token from @BotFather first.`,
+        });
+      }
+
+      const host = req.headers.host || "farmfreshfarmer.com";
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const webhookUrl = `${protocol}://${host}/api/telegram/grievance/webhook`;
+
+      const telegramUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+      const resTelegram = await fetch(telegramUrl);
+      const data = await resTelegram.json();
+
+      if (data.ok) {
+        return res.json({ message: `✨ Grievance Bot Webhook Registered! (${webhookUrl})`, details: data });
       } else {
         return res.status(400).json({
-          message: `Telegram API Error: ${data.description || "Failed to register webhook. Verify Bot Token from @BotFather."}`,
+          message: `Telegram API Error: ${data.description || "Failed to register Grievance webhook. Verify Bot Token from @BotFather."}`,
           details: data,
         });
       }
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Webhook auto-setup error" });
+    }
+  });
+
+  /** POST /api/admin/security/telegram/grievance/test-alert — Dispatch test alert to Grievance & Support Bot */
+  app.post("/api/admin/security/telegram/grievance/test-alert", requireAdmin as any, async (_req: Request, res: Response) => {
+    try {
+      const { sendTelegramGrievanceAlert, isTelegramGrievanceConfigured } = await import("../../services/telegram");
+      if (!(await isTelegramGrievanceConfigured())) {
+        return res.status(400).json({ message: "Grievance Bot token or Chat IDs are not configured." });
+      }
+
+      const success = await sendTelegramGrievanceAlert(
+        `🎫 <b>GRIEVANCE & CUSTOMER SUPPORT BOT TEST</b>\n\n` +
+        `This is a verified test notification sent to all registered Grievance Officers & Support Representatives.\n` +
+        `Timestamp: ${new Date().toLocaleString()}\n` +
+        `Status: Customer ticket notifications & live chat escalations are active!`
+      );
+
+      if (success) {
+        return res.json({ message: "Test alert dispatched to Grievance & Support Bot in Telegram!" });
+      } else {
+        return res.status(500).json({ message: "Failed to dispatch Grievance message. Check your bot token and chat IDs." });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Error sending test alert" });
     }
   });
 

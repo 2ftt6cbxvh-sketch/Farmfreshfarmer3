@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or } from 'drizzle-orm';
 import { supportTickets, users } from '@shared/schema';
-import { sendTelegramAlert } from '../services/telegram';
+import { sendTelegramGrievanceAlert } from '../services/telegram';
 
 const ALLOWED_STAFF_ROLES = [
   'admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin',
@@ -99,7 +99,7 @@ export function registerTicketRoutes(app: Express) {
         `<b>Concern:</b> "${concern}"\n\n` +
         `👉 <b>Log in to Admin Panel to solve:</b>\nhttps://www.farmfreshfarmer.com/admin/tickets`;
       
-      await sendTelegramAlert(alertMsg).catch(() => {});
+      await sendTelegramGrievanceAlert(alertMsg).catch(() => {});
 
       return res.json({
         success: true,

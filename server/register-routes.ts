@@ -51,7 +51,7 @@ import { registerSearchRoutes } from "./routes/search";
 import { registerCartRoutes } from "./routes/cart";
 import { authRateLimit, apiRateLimit } from "./middleware/rate-limit";
 import { lockdownMiddleware } from "./services/lockdown";
-import { processTelegramWebhook } from "./services/telegram";
+import { processSecurityTelegramWebhook, processGrievanceTelegramWebhook } from "./services/telegram";
 import { registerAdminSecurityRoutes } from "./routes/admin/security";
 import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
 import { registerAdminDeliveryRoutes } from "./routes/admin/delivery-admin";
@@ -1352,9 +1352,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   registerAdminContentRoutes(app);
   app.use("/api/admin", gstRouter);
 
-  // Telegram bot webhook endpoint for remote /lockdown commands
+  // Telegram Security Bot webhook endpoint (Super Admin Remote Lockdown & Controls)
+  app.post("/api/telegram/security/webhook", h(async (req, res) => {
+    const result = await processSecurityTelegramWebhook(req.body);
+    return res.json(result);
+  }));
+
+  // Legacy / Default Telegram webhook route (mapped to Security Bot)
   app.post("/api/telegram/webhook", h(async (req, res) => {
-    const result = await processTelegramWebhook(req.body);
+    const result = await processSecurityTelegramWebhook(req.body);
+    return res.json(result);
+  }));
+
+  // Telegram Grievance & Customer Support Bot webhook endpoint (Staff / Support)
+  app.post("/api/telegram/grievance/webhook", h(async (req, res) => {
+    const result = await processGrievanceTelegramWebhook(req.body);
+    return res.json(result);
+  }));
+
+  app.post("/api/telegram/support/webhook", h(async (req, res) => {
+    const result = await processGrievanceTelegramWebhook(req.body);
     return res.json(result);
   }));
 
