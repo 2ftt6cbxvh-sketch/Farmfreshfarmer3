@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert,
   ActivityIndicator, Image, Switch, Linking
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -218,7 +219,11 @@ export default function BasketScreen() {
         clearCart();
         const url = res.data.payment.redirectUrl;
         if (url.startsWith('http')) {
-          Linking.openURL(url);
+          try {
+            await WebBrowser.openBrowserAsync(url);
+          } catch {
+            Linking.openURL(url);
+          }
         }
         router.replace('/(tabs)/orders');
         return;
