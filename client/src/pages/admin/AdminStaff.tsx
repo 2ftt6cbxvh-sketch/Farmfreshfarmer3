@@ -23,6 +23,7 @@ const ALL_MENU_OPTIONS = [
 
   // Sales
   { href: "/admin/orders", label: "Orders", category: "Sales" },
+  { href: "/admin/refunds", label: "Refunds & PhonePe Processing 💳", category: "Sales" },
   { href: "/admin/subscriptions", label: "Subscriptions", category: "Sales" },
   { href: "/admin/payments", label: "Payments", category: "Sales" },
 

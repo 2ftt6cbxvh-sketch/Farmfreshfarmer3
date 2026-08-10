@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare
+  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -27,6 +27,7 @@ const NAV = [
   ]},
   { section: "Sales", items: [
     { href: "/admin/orders", label: "Orders", icon: ClipboardList },
+    { href: "/admin/refunds", label: "Refunds 📸", icon: RotateCcw },
     { href: "/admin/subscriptions", label: "Subscriptions", icon: Repeat },
     { href: "/admin/payments", label: "Payments", icon: CreditCard },
   ]},
@@ -289,7 +290,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-              v7.8.0
+              v7.8.1
             </span>
           </div>
         </div>
