@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS } from '../../constants/config';
+import { AdminLiveChatView } from '../../components/AdminLiveChatView';
 
 const PRESET_PRODUCT_IMAGES = [
   { label: '🥭 Mango', url: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=500&auto=format&fit=crop&q=80' },
@@ -962,13 +963,23 @@ export default function AdminDashboardScreen() {
           </View>
         )}
 
-        {/* ── NEW TABS ────────────────────────────────────────────────────── */}
-        {['live-chat', 'tickets', 'approvals', 'subscriptions', 'payments', 'coupons', 'discounts', 'referrals', 'users', 'delivery-partners', 'gst', 'security'].includes(activeTab) && (
+        {/* ── 💬 LIVE SUPPORT CHAT CONSOLE TAB ──────────────────────────────── */}
+        {activeTab === 'live-chat' && (
+          <AdminLiveChatView
+            cardBg={cardBg}
+            textColor={textColor}
+            mutedColor={mutedColor}
+            borderCol={borderCol}
+            isDark={isDark}
+          />
+        )}
+
+        {/* ── OTHER GRANULAR TABS ───────────────────────────────────────────── */}
+        {['tickets', 'approvals', 'subscriptions', 'payments', 'coupons', 'discounts', 'referrals', 'users', 'delivery-partners', 'gst', 'security'].includes(activeTab) && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>
-                {activeTab === 'live-chat' ? 'Active Support Sessions 💬' :
-                 activeTab === 'tickets' ? 'Support Ticket Management 🎫' :
+                {activeTab === 'tickets' ? 'Support Ticket Management 🎫' :
                  activeTab === 'approvals' ? 'Approvals ✅' :
                  activeTab === 'subscriptions' ? 'Subscriptions 🔁' :
                  activeTab === 'payments' ? 'Payments 💳' :
