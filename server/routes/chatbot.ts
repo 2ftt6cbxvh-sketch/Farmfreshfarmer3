@@ -975,7 +975,9 @@ function resolveCartQty(
 
           // Fetch product details for all cart items
           const productIds = items.map(i => i.productId);
-          const allProductsList = await storage.products.list();
+          const allProductsList = productIds.length > 0
+            ? await db.select().from(products).where(inArray(products.id, productIds))
+            : [];
           const productMap = new Map(allProductsList.map((p: any) => [p.id, p]));
 
           // GST rates by category (India)
