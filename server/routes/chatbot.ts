@@ -50,6 +50,73 @@ async function requireStaffOrAdmin(req: Request, res: Response, next: NextFuncti
 
 export function registerChatbotRoutes(app: Express, storage: any) {
 
+  // Dedicated cart view endpoint — bypasses Gemini entirely
+  app.get('/api/chatbot/cart-view', async (req: Request, res: Response) => {
+    try {
+      // Resolve userId
+      let userId: number | null = null;
+      if ((req.session as any)?.userId) {
+        userId = (req.session as any).userId;
+      } else {
+        const authHeader = req.headers.authorization;
+        const token = authHeader?.startsWith('Bearer ') 
+          ? authHeader.substring(7) 
+          : (req.cookies?.accessToken || req.cookies?.token || req.query.token as string);
+        if (token) {
+          try {
+            const jwt = (await import('jsonwebtoken')).default;
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+            userId = decoded?.userId || decoded?.sub || decoded?.id || null;
+            if (userId) userId = typeof userId === 'string' ? parseInt(userId as string, 10) : userId;
+          } catch {}
+        }
+      }
+
+      if (!userId) {
+        return res.json({
+          reply: 'To see your cart, please log in first! Sign in using the button at the top right corner. 🛒',
+          requiresLogin: true,
+        });
+      }
+
+      const { db } = await import('../db.js');
+      const { carts, cartItems, products } = await import('@shared/schema');
+      const { eq, inArray } = await import('drizzle-orm');
+
+      const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+      if (!userCart) return res.json({ reply: 'Your cart is empty! 🛒 Start adding fresh produce.', needsHuman: false });
+
+      const items = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
+      if (!items.length) return res.json({ reply: 'Your cart is empty! 🛒 Start adding fresh produce.', needsHuman: false });
+
+      const productIds = items.map(i => i.productId);
+      const productList = await db.select().from(products).where(inArray(products.id, productIds));
+      const productMap = new Map(productList.map(p => [p.id, p]));
+
+      let subtotal = 0;
+      const lines: string[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const p = productMap.get(item.productId);
+        if (!p) continue;
+        const price = Number(p.price) * (1 - Number(p.discountPercent || 0) / 100);
+        const line = price * item.qty;
+        subtotal += line;
+        lines.push(`${i + 1}. ${p.name} — ${item.qty} × ₹${price.toFixed(0)} = ₹${line.toFixed(0)}`);
+      }
+      const delivery = subtotal >= 499 ? 0 : 30;
+      const reply = `🛒 Your Cart (${items.length} item${items.length > 1 ? 's' : ''}):\n\n` +
+        lines.join('\n') +
+        `\n\n💰 Subtotal: ₹${subtotal.toFixed(0)}\n` +
+        `🚚 Delivery: ${delivery === 0 ? 'FREE' : '₹' + delivery}\n` +
+        `✅ Grand Total: ₹${(subtotal + delivery).toFixed(0)}`;
+      return res.json({ reply, needsHuman: false });
+    } catch (e: any) {
+      console.error('[cart-view]', e.message);
+      return res.json({ reply: `Cart error: ${e.message}`, needsHuman: false });
+    }
+  });
+
   // GET chatbot settings
   app.get('/api/chatbot/settings', async (_req, res) => {
     try {
@@ -215,26 +282,15 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}. Use c
   }
 
 // Detect if user is asking to VIEW their cart
-function detectCartViewIntent(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  const patterns = [
-    /what[' ]?s? in my cart/i,
-    /show my cart/i,
-    /my cart/i,
-    /cart (total|summary|details|items|breakdown|price|cost)/i,
-    /what (have|did) i (added?|put|placed)/i,
-    /how much (is|are) (my|the) cart/i,
-    /cart (gst|tax)/i,
-    /checkout total/i,
-    /what i (have|'ve) (added?|ordered?)/i,
-    /view (my )?cart/i,
-    /price breakdown/i,
-    /gst breakdown/i,
-    /total (payable|amount|bill)/i,
-    /cart bill/i,
-    /my (order|purchase) total/i,
-  ];
-  return patterns.some(p => p.test(lower));
+function detectCartViewIntent(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  return [
+    'what is in my cart', "what's in my cart", 'whats in my cart',
+    'show my cart', 'view my cart', 'my cart items', 'cart items',
+    'what do i have in cart', 'what have i added', 'show cart',
+    'view cart', 'cart detail', 'cart summary',
+  ].some(kw => lower.includes(kw)) ||
+  /what.*in.*my.*cart|show.*my.*cart|my.*cart.*item|cart.*detail/i.test(lower);
 }
 
 const STOP_WORDS = new Set([
@@ -945,6 +1001,20 @@ function resolveCartQty(
       // === CART VIEW INTENT ===
       if (detectCartViewIntent(message)) {
         console.log('[chatbot] Cart view intent detected, userId:', userId);
+        if (!userId) {
+          try {
+            const cookieToken = req.cookies?.accessToken || req.cookies?.token;
+            const bodyToken = (req.body as any)?.sessionToken;
+            const tryToken = cookieToken || bodyToken;
+            if (tryToken) {
+              const jwtMod = (await import('jsonwebtoken')).default;
+              const dec = jwtMod.verify(tryToken, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+              userId = dec?.userId || dec?.sub || dec?.id || null;
+              if (userId) userId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            }
+          } catch {}
+        }
+        
         if (!userId) {
           return res.json({
             reply: `To see your cart details, you need to be logged in! Please sign in using Google One-Tap or Email OTP at the top right corner. Once logged in, just ask me "what's in my cart" and I'll give you a full breakdown! 🛒`,

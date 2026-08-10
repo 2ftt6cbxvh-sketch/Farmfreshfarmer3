@@ -190,6 +190,25 @@ export function ChatbotLaxshmi() {
 
   const sendMutation = useMutation({
     mutationFn: async (payload: { message: string; history: Array<{ role: string; content: string }> }) => {
+      // Client-side cart view detection — bypass chatbot route entirely
+      const cartViewPatterns = [
+        'what is in my cart', "what's in my cart", 'whats in my cart',
+        'show my cart', 'view my cart', 'my cart items', 'cart items',
+        'what do i have in cart', 'show cart', 'cart detail', 'cart summary',
+      ];
+      const lower = payload.message.toLowerCase().trim();
+      const isCartView = cartViewPatterns.some(p => lower.includes(p)) ||
+        /what.*in.*my.*cart|show.*my.*cart|cart.*detail/i.test(lower);
+      
+      if (isCartView) {
+        // Call dedicated cart view endpoint with auth token
+        const authTok = (user as any)?.sessionToken || (user as any)?.token || (user as any)?.accessToken || '';
+        const cartRes = await fetch('/api/chatbot/cart-view', {
+          headers: authTok ? { 'Authorization': `Bearer ${authTok}` } : {},
+        });
+        return cartRes.json();
+      }
+
       const r = await fetch("/api/chatbot/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
