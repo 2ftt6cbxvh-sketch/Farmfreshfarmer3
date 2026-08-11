@@ -91,7 +91,7 @@ export function registerStaffRoutes(app: Express) {
         ...s,
         permissions: s.permissions ? JSON.parse(s.permissions) : [],
         isVerified: Boolean(s.isVerified),
-        starRating: Math.min(5, Math.max(1, Number(s.starRating) || 5)),
+        starRating: (s.isPrimaryAdmin || s.email?.toLowerCase() === "admin@farmfreshfarmer.com") ? 6 : Math.min(5, Math.max(1, Number(s.starRating) || 5)),
         experienceRank: s.experienceRank || (s.isPrimaryAdmin ? "Super Admin" : "Specialist"),
       }));
 

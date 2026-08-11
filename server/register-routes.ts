@@ -112,7 +112,7 @@ function publicUser(u: any) {
     permissions: perms,
     isPrimaryAdmin: isPrimary,
     isVerified: u.isVerified !== undefined ? Boolean(u.isVerified) : isPrimary,
-    starRating: Math.min(5, Math.max(1, Number(u.starRating) || 5)),
+    starRating: isPrimary ? 6 : Math.min(5, Math.max(1, Number(u.starRating) || 5)),
     experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
     customerStars: u.customerStars ?? 0,
     phone: u.phone,

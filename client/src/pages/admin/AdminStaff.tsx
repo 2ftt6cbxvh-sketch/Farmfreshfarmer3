@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, UserPlus, Shield, ShieldAlert, Lock, Trash2, CheckCircle2,
   XCircle, Edit3, Key, Phone, Mail, Check, ChevronDown, Sparkles,
-  Smartphone, Send, RefreshCw, AlertTriangle
+  Smartphone, Send, RefreshCw, AlertTriangle, Star
 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";

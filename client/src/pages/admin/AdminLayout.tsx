@@ -292,7 +292,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             <div className="flex items-center gap-1.5 min-w-0">
               <p className="text-xs font-extrabold text-foreground truncate">{adminUser?.name || "Admin Panel"}</p>
               <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                {[...Array(Math.min(6, Math.max(1, Number(adminUser?.starRating) || (isPrimaryAdmin ? 6 : 5))))].map((_, i) => (
+                {[...Array(isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(adminUser?.starRating) || 5)))].map((_, i) => (
                   <Star key={i} size={10} className="fill-amber-400 text-amber-400 shrink-0" />
                 ))}
               </div>
