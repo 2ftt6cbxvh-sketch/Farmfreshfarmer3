@@ -1360,6 +1360,16 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       if (comp.fssai) await storage.settings.set("fssai_license_number", String(comp.fssai).trim());
       if (comp.cin) await storage.settings.set("company_cin", String(comp.cin).trim());
       if (comp.legalName) await storage.settings.set("company_legal_name", String(comp.legalName).trim());
+      if (comp.phone) await storage.settings.set("support_phone", String(comp.phone).trim());
+      if (comp.email) await storage.settings.set("support_email", String(comp.email).trim());
+    }
+
+    if (invoicePayload?.placeOfSupply) {
+      await storage.settings.set("jurisdiction_city", String(invoicePayload.placeOfSupply).trim());
+    }
+
+    if (invoicePayload?.signatory?.declaration) {
+      await storage.settings.set("invoice_declaration", String(invoicePayload.signatory.declaration).trim());
     }
 
     const [updated] = await db.update(orders)

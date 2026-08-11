@@ -172,6 +172,27 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 border-0 bg-transparent shadow-2xl">
         <style dangerouslySetInnerHTML={{ __html: `
+          .tax-invoice-modal-body input,
+          .tax-invoice-modal-body textarea {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+            opacity: 1 !important;
+          }
+          .tax-invoice-modal-body input:focus,
+          .tax-invoice-modal-body textarea:focus {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+            border-color: #059669 !important;
+            outline: 2px solid rgba(16, 185, 129, 0.2) !important;
+          }
+          .tax-invoice-modal-body input::placeholder,
+          .tax-invoice-modal-body textarea::placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+          }
           @media print {
             body * { visibility: hidden !important; }
             #printable-tax-invoice, #printable-tax-invoice * { visibility: visible !important; }
@@ -263,11 +284,11 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
           ) : (
             <div
               id="printable-tax-invoice"
-              className="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl shadow-xl border border-slate-200 font-sans text-xs space-y-6"
+              className="tax-invoice-modal-body bg-white text-slate-900 p-6 sm:p-10 rounded-2xl shadow-xl border border-slate-200 font-sans text-xs space-y-6"
             >
               {/* Header: Brand, Company Info & Invoice Badge */}
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b-2 border-emerald-800/20 pb-5">
-                <div className="space-y-1.5 max-w-md">
+                <div className="space-y-1.5 max-w-md w-full sm:w-auto">
                   {/* Redesigned Logo */}
                   <div className="flex items-center gap-2.5 mb-2">
                     <img
@@ -286,21 +307,29 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                   </div>
 
                   {isEditing ? (
-                    <div className="space-y-1.5 text-[11px] bg-amber-50/80 p-3 rounded-xl border border-amber-300 shadow-inner">
-                      <p className="text-[10px] font-black uppercase text-amber-900">✏️ Edit Our Company Info (Updates All Bills):</p>
-                      <Input
-                        value={editForm?.company.legalName}
-                        onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, legalName: e.target.value } })}
-                        placeholder="Company Legal Name"
-                        className="h-7 text-xs font-bold bg-white border-amber-300"
-                      />
-                      <Textarea
-                        value={editForm?.company.address}
-                        onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, address: e.target.value } })}
-                        placeholder="Company Registered Address"
-                        rows={2}
-                        className="text-xs bg-white border-amber-300 resize-none"
-                      />
+                    <div className="space-y-2 text-[11px] bg-amber-50/80 p-3 rounded-xl border border-amber-300 shadow-inner">
+                      <p className="text-[10px] font-black uppercase text-amber-900 flex items-center gap-1">
+                        <span>✏️ Edit Our Company Info (Applies to all Bills):</span>
+                      </p>
+                      <div>
+                        <span className="text-[9px] text-slate-600 font-bold block mb-0.5">Company Legal Name:</span>
+                        <Input
+                          value={editForm?.company.legalName}
+                          onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, legalName: e.target.value } })}
+                          placeholder="Company Legal Name"
+                          className="h-7 text-xs font-bold !bg-white !text-slate-900 border-amber-300 shadow-sm"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-600 font-bold block mb-0.5">Registered Address:</span>
+                        <Textarea
+                          value={editForm?.company.address}
+                          onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, address: e.target.value } })}
+                          placeholder="Company Registered Address"
+                          rows={2}
+                          className="text-xs !bg-white !text-slate-900 border-amber-300 resize-none shadow-sm"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
                         <div>
                           <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">GSTIN:</span>
@@ -308,7 +337,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             value={editForm?.company.gstin}
                             onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, gstin: e.target.value } })}
                             placeholder="GSTIN"
-                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
                           />
                         </div>
                         <div>
@@ -317,7 +346,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             value={editForm?.company.pan}
                             onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, pan: e.target.value } })}
                             placeholder="PAN"
-                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
                           />
                         </div>
                         <div>
@@ -326,7 +355,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             value={editForm?.company.fssai}
                             onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, fssai: e.target.value } })}
                             placeholder="FSSAI License"
-                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
                           />
                         </div>
                         <div>
@@ -335,7 +364,25 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             value={editForm?.company.cin}
                             onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, cin: e.target.value } })}
                             placeholder="CIN"
-                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">Support Phone:</span>
+                          <Input
+                            value={editForm?.company.phone}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, phone: e.target.value } })}
+                            placeholder="Support Phone"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">Support Email:</span>
+                          <Input
+                            value={editForm?.company.email}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, email: e.target.value } })}
+                            placeholder="Support Email"
+                            className="h-6 text-[10px] font-mono !bg-white !text-slate-900 border-amber-300"
                           />
                         </div>
                       </div>
@@ -368,7 +415,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                         <Input
                           value={editForm?.invoiceNumber}
                           onChange={(e) => setEditForm({ ...editForm!, invoiceNumber: e.target.value })}
-                          className="h-6 w-36 text-xs font-mono font-bold"
+                          className="h-6 w-36 text-xs font-mono font-bold !bg-white !text-slate-900 border-amber-300"
                         />
                       ) : (
                         <span className="font-mono text-emerald-800">{activeData.invoiceNumber}</span>
@@ -380,7 +427,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                         <Input
                           value={editForm?.invoiceDate}
                           onChange={(e) => setEditForm({ ...editForm!, invoiceDate: e.target.value })}
-                          className="h-6 w-28 text-xs"
+                          className="h-6 w-28 text-xs !bg-white !text-slate-900 border-amber-300"
                         />
                       ) : (
                         <b>{activeData.invoiceDate}</b>
@@ -388,7 +435,19 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                     </p>
                     <p className="text-slate-600 text-[10px]">Order Ref: <b>#{activeData.orderId}</b></p>
                     <p className="text-slate-600 text-[10px]">Payment: <b className="uppercase">{activeData.paymentMethod} ({activeData.paymentStatus})</b></p>
-                    <p className="text-slate-600 text-[10px]">Place of Supply: <b>{activeData.placeOfSupply}</b></p>
+                    <p className="text-slate-600 text-[10px] flex items-center sm:justify-end gap-1">
+                      <span>Place of Supply:</span>
+                      {isEditing ? (
+                        <Input
+                          value={editForm?.placeOfSupply}
+                          onChange={(e) => setEditForm({ ...editForm!, placeOfSupply: e.target.value })}
+                          placeholder="Place of Supply & State"
+                          className="h-6 w-48 text-[10px] font-bold !bg-white !text-slate-900 border-amber-300"
+                        />
+                      ) : (
+                        <b>{activeData.placeOfSupply}</b>
+                      )}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -439,7 +498,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             <Input
                               value={it.name}
                               onChange={(e) => handleItemChange(idx, "name", e.target.value)}
-                              className="h-6 text-xs font-bold"
+                              className="h-6 text-xs font-bold !bg-white !text-slate-900 border-amber-300"
                             />
                           ) : (
                             <span className="font-bold text-slate-900">{it.name}</span>
@@ -450,7 +509,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                             <Input
                               value={it.hsn}
                               onChange={(e) => handleItemChange(idx, "hsn", e.target.value)}
-                              className="h-6 w-16 text-center text-xs font-mono mx-auto"
+                              className="h-6 w-16 text-center text-xs font-mono mx-auto !bg-white !text-slate-900 border-amber-300"
                             />
                           ) : (
                             it.hsn
@@ -463,12 +522,12 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                                 type="number"
                                 value={it.qty}
                                 onChange={(e) => handleItemChange(idx, "qty", e.target.value)}
-                                className="h-6 w-12 text-center text-xs"
+                                className="h-6 w-12 text-center text-xs !bg-white !text-slate-900 border-amber-300"
                               />
                               <Input
                                 value={it.unit}
                                 onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
-                                className="h-6 w-16 text-xs"
+                                className="h-6 w-16 text-xs !bg-white !text-slate-900 border-amber-300"
                               />
                             </div>
                           ) : (
@@ -481,7 +540,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                               type="number"
                               value={it.unitPrice}
                               onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
-                              className="h-6 w-20 text-right text-xs font-mono ml-auto"
+                              className="h-6 w-20 text-right text-xs font-mono ml-auto !bg-white !text-slate-900 border-amber-300 font-bold"
                             />
                           ) : (
                             `₹${it.unitPrice}`
@@ -510,8 +569,18 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                   </div>
 
                   <div className="text-[10px] text-slate-500 leading-relaxed bg-amber-50/50 p-3 rounded-xl border border-amber-200/60">
-                    <p className="font-bold text-amber-900 mb-0.5">Terms & Conditions:</p>
-                    <p>{activeData.signatory.declaration}</p>
+                    <p className="font-bold text-amber-900 mb-0.5">Terms & Conditions / Jurisdiction:</p>
+                    {isEditing ? (
+                      <Textarea
+                        value={editForm?.signatory.declaration}
+                        onChange={(e) => setEditForm({ ...editForm!, signatory: { ...editForm!.signatory, declaration: e.target.value } })}
+                        placeholder="e.g. All disputes subject to Visakhapatnam jurisdiction."
+                        rows={2}
+                        className="text-xs !bg-white !text-slate-900 border-amber-300 resize-none mt-1 shadow-sm"
+                      />
+                    ) : (
+                      <p>{activeData.signatory.declaration}</p>
+                    )}
                   </div>
                 </div>
 
@@ -549,10 +618,30 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
 
               {/* Signatory Footer — Computer Generated Slip */}
               <div className="flex flex-col sm:flex-row justify-between items-end gap-4 pt-4 border-t border-slate-200">
-                <div className="text-[10px] text-slate-500">
-                  <p>Customer Support: <b>{activeData.company.phone}</b> | <b>{activeData.company.email}</b></p>
-                  <p>Thank you for choosing certified fresh organic farming!</p>
-                </div>
+                {isEditing ? (
+                  <div className="space-y-1 text-[11px] bg-amber-50/70 p-2.5 rounded-lg border border-amber-300">
+                    <span className="font-bold text-amber-900 text-[10px] uppercase block">Customer Support Hotline & Email:</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Input
+                        value={editForm?.company.phone}
+                        onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, phone: e.target.value } })}
+                        placeholder="Support Phone"
+                        className="h-6 w-36 text-[10px] !bg-white !text-slate-900 border-amber-300 font-mono"
+                      />
+                      <Input
+                        value={editForm?.company.email}
+                        onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, email: e.target.value } })}
+                        placeholder="Support Email"
+                        className="h-6 w-44 text-[10px] !bg-white !text-slate-900 border-amber-300 font-mono"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-slate-500">
+                    <p>Customer Support: <b>{activeData.company.phone}</b> | <b>{activeData.company.email}</b></p>
+                    <p>Thank you for choosing certified fresh organic farming!</p>
+                  </div>
+                )}
 
                 <div className="text-right space-y-1.5 min-w-[260px]">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-black shadow-sm">
