@@ -2003,6 +2003,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         const summary = await referralSummary(c.id).catch(() => null);
         return {
           id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status,
+          customerStars: c.customerStars ?? 0,
           hasCompletedFirstOrder: profile?.hasCompletedFirstOrder ?? false,
           totalOrders: profile?.totalOrders ?? 0,
           totalSpent: profile?.totalSpent ?? "0",
