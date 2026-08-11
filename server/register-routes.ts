@@ -1270,7 +1270,11 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const totalTax = totalCgst + totalSgst;
     const subtotalNum = taxableSubtotal + totalTax;
     const discountNum = parseFloat(order.discount) || 0;
-    const totalNum = Math.max(0, subtotalNum - discountNum);
+    const orderTotalNum = parseFloat(order.total) || 0;
+    
+    // Explicit delivery fee calculation: Total = Subtotal - Discount + Delivery Fee
+    const deliveryFeeNum = Math.max(0, round2(orderTotalNum - (subtotalNum - discountNum)));
+    const totalNum = orderTotalNum > 0 ? orderTotalNum : round2(Math.max(0, subtotalNum - discountNum + deliveryFeeNum));
 
     const amountInWords = numberToIndianWords(totalNum);
 
@@ -1310,10 +1314,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         gstin: (order as any).customerGstin || "Unregistered / Consumer",
       },
 
-      // Line Items
+      // Line Items (Unit Price and Taxable Value are identical for 1 unit)
       items: lineItems,
 
-      // Totals & Taxes
+      // Totals & Taxes (Every rupee clearly accounted for)
       summary: {
         taxableSubtotal: taxableSubtotal.toFixed(2),
         totalCgst: totalCgst.toFixed(2),
@@ -1321,6 +1325,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         totalTax: totalTax.toFixed(2),
         subtotal: subtotalNum.toFixed(2),
         discount: discountNum.toFixed(2),
+        deliveryFee: deliveryFeeNum.toFixed(2),
         firstOrderDiscount: parseFloat(order.firstOrderDiscount || "0").toFixed(2),
         referralDiscount: parseFloat(order.referralDiscount || "0").toFixed(2),
         couponCode: order.couponCode || null,
@@ -1338,8 +1343,33 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       },
     };
 
-    // If super admin has saved customized invoice edits, merge them seamlessly
-    const mergedInvoice = (order as any).invoiceData ? { ...baseInvoice, ...(order as any).invoiceData, orderId: order.id } : baseInvoice;
+    // If super admin has customized invoice metadata, preserve text edits but always enforce strict accurate math
+    let mergedInvoice = baseInvoice;
+    if ((order as any).invoiceData) {
+      const saved = (order as any).invoiceData;
+      mergedInvoice = {
+        ...baseInvoice,
+        ...saved,
+        orderId: order.id,
+        company: { ...baseInvoice.company, ...(saved.company || {}) },
+        customer: { ...baseInvoice.customer, ...(saved.customer || {}) },
+        placeOfSupply: saved.placeOfSupply || baseInvoice.placeOfSupply,
+        signatory: { ...baseInvoice.signatory, ...(saved.signatory || {}) },
+        items: lineItems, // Always use freshly normalized math where Unit Price === Taxable Value
+        summary: {
+          ...baseInvoice.summary,
+          taxableSubtotal: taxableSubtotal.toFixed(2),
+          totalCgst: totalCgst.toFixed(2),
+          totalSgst: totalSgst.toFixed(2),
+          totalTax: totalTax.toFixed(2),
+          subtotal: subtotalNum.toFixed(2),
+          discount: discountNum.toFixed(2),
+          deliveryFee: deliveryFeeNum.toFixed(2),
+          grandTotal: totalNum.toFixed(2),
+          amountInWords,
+        },
+      };
+    }
 
     res.json(mergedInvoice);
   }));

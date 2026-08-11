@@ -64,6 +64,7 @@ export interface InvoiceData {
     totalTax: string;
     subtotal: string;
     discount: string;
+    deliveryFee?: string;
     firstOrderDiscount?: string;
     referralDiscount?: string;
     couponCode?: string | null;
@@ -319,13 +320,19 @@ export function renderStandaloneInvoiceHtml(data: InvoiceData): string {
           <span style="font-family: monospace;">₹${data.summary.totalSgst}</span>
         </div>
         <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; font-weight: bold;">
-          <span>Subtotal:</span>
+          <span>Subtotal (Goods + Tax):</span>
           <span style="font-family: monospace;">₹${data.summary.subtotal}</span>
         </div>
         ${parseFloat(data.summary.discount) > 0 ? `
         <div style="display: flex; justify-content: space-between; margin-top: 4px; color: #059669; font-weight: bold;">
           <span>Discount Applied ${data.summary.couponCode ? `(${data.summary.couponCode})` : ""}:</span>
           <span style="font-family: monospace;">−₹${data.summary.discount}</span>
+        </div>
+        ` : ""}
+        ${parseFloat(data.summary.deliveryFee || "0") > 0 ? `
+        <div style="display: flex; justify-content: space-between; margin-top: 4px; color: #334155; font-weight: bold;">
+          <span>Delivery / Shipping Charges:</span>
+          <span style="font-family: monospace;">+₹${data.summary.deliveryFee}</span>
         </div>
         ` : ""}
         <div class="grand-total">
@@ -953,7 +960,7 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                     <span className="font-mono">₹{activeData.summary.totalSgst}</span>
                   </div>
                   <div className="flex justify-between py-0.5 border-t border-slate-200 pt-1">
-                    <span className="font-semibold">Subtotal:</span>
+                    <span className="font-semibold">Subtotal (Goods + Tax):</span>
                     <span className="font-mono font-bold">₹{activeData.summary.subtotal}</span>
                   </div>
 
@@ -961,6 +968,13 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                     <div className="flex justify-between py-0.5 text-emerald-600 font-bold">
                       <span>Discount / Promo Applied {activeData.summary.couponCode ? `(${activeData.summary.couponCode})` : ""}:</span>
                       <span className="font-mono">−₹{activeData.summary.discount}</span>
+                    </div>
+                  )}
+
+                  {parseFloat(activeData.summary.deliveryFee || "0") > 0 && (
+                    <div className="flex justify-between py-0.5 text-slate-700 font-medium">
+                      <span>Delivery / Shipping Charges:</span>
+                      <span className="font-mono font-bold">+₹{activeData.summary.deliveryFee}</span>
                     </div>
                   )}
 
