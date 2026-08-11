@@ -130,4 +130,49 @@ export async function runAutoMigrations() {
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }
+  try {
+    // Create employee_perk_settings table if missing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS employee_perk_settings (
+        id SERIAL PRIMARY KEY,
+        subadmin_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 15,
+        subadmin_max_cap NUMERIC(10,2) NOT NULL DEFAULT 500,
+        subadmin_monthly_limit INTEGER NOT NULL DEFAULT 4,
+        delivery_partner_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 20,
+        delivery_partner_max_cap NUMERIC(10,2) NOT NULL DEFAULT 300,
+        delivery_partner_monthly_limit INTEGER NOT NULL DEFAULT 6,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+    `);
+    const perkCheck = await pool.query(`SELECT * FROM employee_perk_settings LIMIT 1`);
+    if (perkCheck.rows.length === 0) {
+      await pool.query(`
+        INSERT INTO employee_perk_settings (id, subadmin_discount_percent, subadmin_max_cap, subadmin_monthly_limit, delivery_partner_discount_percent, delivery_partner_max_cap, delivery_partner_monthly_limit)
+        VALUES (1, 15, 500, 4, 20, 300, 6)
+        ON CONFLICT (id) DO NOTHING;
+      `);
+    }
+    console.log('[db] auto-migration: employee_perk_settings table ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+  try {
+    // Create delivery_fee_rules table if missing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS delivery_fee_rules (
+        id SERIAL PRIMARY KEY,
+        min_distance_km NUMERIC(8,2) NOT NULL DEFAULT 0,
+        max_distance_km NUMERIC(8,2) NOT NULL DEFAULT 30,
+        base_fee NUMERIC(10,2) NOT NULL DEFAULT 30.00,
+        per_km_fee NUMERIC(8,2) NOT NULL DEFAULT 6.00,
+        max_fee_cap NUMERIC(10,2) DEFAULT 150.00,
+        free_delivery_above_order_value NUMERIC(10,2) DEFAULT 500.00,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('[db] auto-migration: delivery_fee_rules table ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
 }

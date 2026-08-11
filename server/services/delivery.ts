@@ -172,20 +172,20 @@ async function calculateFee(distanceKm: number, orderValue: number): Promise<{ f
   return { fee: Math.round(30 + distanceKm * 5), freeDeliveryAbove: freeAbove };
 }
 
-export async function resolveByPincode(pincode: string, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
+export async function resolveByPincode(pincode: string | null | undefined, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
   // Self-healing: ensure max_radius_km column exists
   try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
 
   // STRICT INDIAN PINCODE VALIDATION: must be exactly 6 digits, first digit 1-9
-  const cleanPin = pincode.trim();
-  if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+  const cleanPin = pincode ? String(pincode).trim() : "";
+  if (!cleanPin || !/^[1-9][0-9]{5}$/.test(cleanPin)) {
     return {
       serviceable: false,
-      fee: 0,
-      etaMinutes: 0,
+      fee: 30,
+      etaMinutes: 45,
       freeDeliveryAbove: 500,
       pincode: cleanPin,
-      locationArea: 'Invalid PIN Code',
+      locationArea: cleanPin ? 'Invalid PIN Code' : 'Default Delivery Area',
       reason: 'Please enter a valid 6-digit Indian PIN code (e.g. 522001)',
     };
   }

@@ -428,18 +428,21 @@ export default function Cart() {
         customerName: name.trim(),
         phone: phone.trim(),
         address: fullAddress,
+        pincode: inputPincode.trim() || undefined,
         items: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, price: i.price, qty: i.qty })),
         couponCode: coupon?.code ?? undefined,
         referralCode: referralInput.trim() || undefined,
         redeemReward,
         paymentMethod,
-        city: city || undefined,
+        city: city || cityArea || undefined,
       };
       const res = await apiRequest("POST", "/api/orders", payload);
       return res.json() as Promise<{ id: number }>;
     },
     onSuccess: async (order) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/mine"] });
       if (paymentMethod === "PHONEPE") {
         try {
           const pay = await initiatePayment.mutateAsync(order.id);
@@ -458,10 +461,16 @@ export default function Cart() {
         return;
       }
       clear();
-      toast({ title: "Order placed!", description: `Order #${order.id} — pay cash on delivery.` });
+      toast({ title: "🎉 Order placed successfully!", description: `Order #${order.id} — pay cash on delivery.` });
       navigate(user ? "/orders" : "/");
     },
-    onError: () => toast({ title: "Could not place order", description: "Please try again.", variant: "destructive" }),
+    onError: (err: any) => {
+      toast({
+        title: "Could not place order",
+        description: err?.message || "Please check your delivery details and try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;

@@ -411,9 +411,14 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   const afterDiscount = round2(subtotal - discount);
 
   // ---- Delivery fee calculation using distance rules & geofencing ----
+  let deliveryFee = subtotal >= 500 ? 0 : 30;
+  let deliveryCity: string | null = req.city || null;
+
   try {
     const { resolveByPincode } = await import("../services/delivery");
     const { deliveryFeeRules } = await import("@shared/schema");
+    const { db } = await import("../db");
+    const { eq } = await import("drizzle-orm");
     const userPincode = req.pincode ?? null;
     const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
     const freeThreshold = resByPin?.freeDeliveryAbove || 500;

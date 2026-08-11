@@ -946,11 +946,18 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
     const userId = extractUserId(req);
 
-    // Require phone number for order
+    // Require phone number for order and auto-save to user profile
+    const incomingPhone = String(req.body.phone || "").trim();
     if (userId) {
       const u = await storage.users.get(userId);
-      if (!u?.phone) {
-        return res.status(400).json({ message: 'Please add your phone number in account settings before placing an order. We need it to send delivery updates.' });
+      if (incomingPhone && (!u?.phone || u.phone.trim() !== incomingPhone)) {
+        try {
+          await db.update(users).set({ phone: incomingPhone }).where(eq(users.id, userId));
+        } catch (e) {
+          console.warn('[orders] Failed to auto-update phone on user:', e);
+        }
+      } else if (!u?.phone && !incomingPhone) {
+        return res.status(400).json({ message: 'Please enter your phone number to receive delivery updates.' });
       }
     }
 
@@ -968,7 +975,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const { order, price } = await placeOrder({
       userId,
       customerName: String(req.body.customerName || ""),
-      phone: String(req.body.phone || ""),
+      phone: incomingPhone,
       address: String(req.body.address || ""),
       items,
       couponCode: req.body.couponCode ?? null,
@@ -976,6 +983,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       redeemReward: Boolean(req.body.redeemReward),
       paymentMethod,
       city: req.body.city ?? null,
+      pincode: req.body.pincode ? String(req.body.pincode).trim() : null,
     });
 
     // If order contains a subscription plan item, activate user subscription

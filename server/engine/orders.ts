@@ -23,6 +23,7 @@ export interface PlaceOrderInput {
   subscriptionId?: number | null;
   deliveryDay?: string | null;
   city?: string | null;           // delivery city chosen at checkout
+  pincode?: string | null;        // delivery pincode
 }
 
 export interface PlacedOrder {
@@ -65,6 +66,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     referralCode: input.referralCode,
     redeemReward: input.redeemReward,
     city: input.city ?? null,
+    pincode: input.pincode ?? null,
   });
 
   const paymentMethod = input.paymentMethod || "COD";
