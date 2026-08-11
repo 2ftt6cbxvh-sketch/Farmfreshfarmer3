@@ -1211,10 +1211,23 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const invoiceDate = (order as any).invoiceData?.invoiceDate || new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
     // Itemized table with HSN codes & GST computation
-    const lineItems = items.map((it: any, index: number) => {
-      const priceNum = parseFloat(it.price) || 0;
-      const qtyNum = it.qty || 1;
-      const lineTotalNum = parseFloat(it.lineTotal) || (priceNum * qtyNum);
+    const lineItems = await Promise.all(items.map(async (it: any, index: number) => {
+      let priceNum = parseFloat(it.price) || 0;
+      const qtyNum = parseInt(String(it.qty || 1), 10) || 1;
+
+      // If product has a catalog discount (e.g. 5% off on Boondi Laddu), use effective discounted selling price
+      if (it.productId) {
+        try {
+          const prod = await storage.products.get(Number(it.productId));
+          if (prod) {
+            const rawPrice = Number(prod.price) || 0;
+            const discPercent = Number(prod.discountPercent) || 0;
+            if (discPercent > 0) {
+              priceNum = round2(rawPrice * (1 - discPercent / 100));
+            }
+          }
+        } catch (e) {}
+      }
       
       // Assign appropriate HSN code based on item name
       let hsn = "0709"; // Fresh vegetables (0% GST)
@@ -1262,7 +1275,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         sgstAmount: sgstAmount.toFixed(2),
         lineTotal: lineTotal.toFixed(2),
       };
-    });
+    }));
 
     const taxableSubtotal = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.taxableValue), 0);
     const totalCgst = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.cgstAmount), 0);
