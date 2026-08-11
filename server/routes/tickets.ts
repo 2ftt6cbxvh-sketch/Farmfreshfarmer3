@@ -241,17 +241,20 @@ export function registerTicketRoutes(app: Express) {
         priority: 'high',
       }).returning();
 
-      // Dispatch Telegram Alert to Staff
-      const alertMsg = `🚨 <b>[NEW RETURN & REFUND REQUEST]</b>\n` +
-        `<b>Ticket ID:</b> <code>${ticketId}</code>\n` +
-        `<b>Order ID:</b> #${order.id}\n` +
-        `<b>Amount:</b> ₹${amountToRefund}\n` +
-        `<b>Customer:</b> ${nameToUse} (${phoneToUse})\n` +
-        `<b>Reason:</b> "${concern.trim()}"\n` +
-        `📸 <b>Damage Photo Proof Attached</b>\n\n` +
-        `👉 <b>Action:</b> Please log into the Staff Portal with your credentials and open <b>Support Tickets / Refunds</b> to inspect photo proof and issue PhonePe refund. (Direct links omitted for security)`;
-
-      await sendTelegramGrievanceAlert(alertMsg).catch(() => {});
+      // Dispatch Telegram Alert ONLY to Super Admin Security Bot
+      try {
+        const { sendTelegramRefundSecurityNotification } = await import('../services/telegram');
+        sendTelegramRefundSecurityNotification({
+          ticketId,
+          orderId: order.id,
+          customerName: nameToUse,
+          phone: phoneToUse,
+          refundAmount: amountToRefund,
+          refundStatus: 'requested',
+          concern: concern.trim(),
+          photoUrl: String(photoUrl).trim(),
+        }).catch((e) => console.warn('[telegram] Refund notification error:', e));
+      } catch (e) {}
 
       return res.json({
         success: true,
@@ -313,6 +316,22 @@ export function registerTicketRoutes(app: Express) {
       await db.update(orders)
         .set({ paymentStatus: 'refunded', status: 'Cancelled' })
         .where(eq(orders.id, ticket.orderId));
+
+      // Dispatch Super Admin Security Bot alert
+      try {
+        const { sendTelegramRefundSecurityNotification } = await import('../services/telegram');
+        sendTelegramRefundSecurityNotification({
+          ticketId: ticket.ticketId,
+          orderId: ticket.orderId,
+          customerName: ticket.customerName,
+          phone: ticket.customerPhone || '',
+          refundAmount: ticket.refundAmount || '0',
+          refundStatus: 'refunded',
+          concern: ticket.concern,
+          processedBy: (req as any).user?.name || 'Admin',
+          gatewayMessage: refundMessage,
+        }).catch((e) => console.warn('[telegram] Refund processed notification error:', e));
+      } catch (e) {}
 
       return res.json({
         success: true,

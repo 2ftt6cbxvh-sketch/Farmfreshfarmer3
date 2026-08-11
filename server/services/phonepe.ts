@@ -301,6 +301,28 @@ async function applyResolution(
       await storage.orders.setPaymentStatus(payment.orderId, "paid", "PhonePe");
       // Move a freshly-placed order into confirmed once paid.
       await storage.orders.setStatus(payment.orderId, "confirmed", "Payment received via PhonePe");
+
+      // Notify Super Admin Security Bot
+      try {
+        const order = await storage.orders.get(payment.orderId);
+        if (order) {
+          const items = await storage.orders.items(order.id);
+          const { sendTelegramOrderSecurityNotification } = await import("./telegram");
+          sendTelegramOrderSecurityNotification({
+            orderId: order.id,
+            customerName: order.customerName,
+            phone: order.phone,
+            address: order.address,
+            items: items.map((it: any) => ({ name: it.name, unit: it.unit, price: it.price, qty: it.qty })),
+            subtotal: order.subtotal,
+            discount: order.discount,
+            total: order.total,
+            paymentMethod: "PhonePe (Paid Online)",
+            couponCode: order.couponCode,
+            orderType: order.orderType,
+          }).catch((e) => console.warn('[telegram] PhonePe order notification error:', e));
+        }
+      } catch (e) {}
     } else if (status === "failed") {
       await storage.orders.setPaymentStatus(payment.orderId, "failed", "PhonePe");
     }

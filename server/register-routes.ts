@@ -1035,8 +1035,27 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         payment: { merchantOrderId: pay.merchantOrderId, redirectUrl: pay.redirectUrl, simulated: pay.simulated },
       });
     }
-    // COD: confirm immediately.
+    // COD: confirm immediately and dispatch Super Admin Security Bot alert.
     await storage.orders.setStatus(order.id, "confirmed", "Order placed (Cash on Delivery)");
+
+    try {
+      const { sendTelegramOrderSecurityNotification } = await import("./services/telegram");
+      sendTelegramOrderSecurityNotification({
+        orderId: order.id,
+        customerName: order.customerName,
+        phone: order.phone,
+        address: order.address,
+        items,
+        subtotal: price.subtotal,
+        discount: price.discount,
+        deliveryFee: price.deliveryFee,
+        total: order.total,
+        paymentMethod: "Cash on Delivery (COD)",
+        couponCode: order.couponCode,
+        orderType: order.orderType,
+      }).catch((e) => console.warn('[telegram] COD order notification error:', e));
+    } catch (e) {}
+
     res.json({ id: order.id, total: order.total, price });
   }));
 
@@ -1070,7 +1089,56 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!status) return res.status(400).json({ message: "Missing status" });
     const updated = await storage.orders.setStatus(Number(req.params.id), status, req.body.note);
     if (!updated) return res.status(404).json({ message: "Not found" });
+
+    // If order was cancelled by Admin, dispatch Super Admin Security Bot alert
+    if (status.toLowerCase() === "cancelled") {
+      try {
+        const { sendTelegramOrderCancellationSecurityNotification } = await import("./services/telegram");
+        sendTelegramOrderCancellationSecurityNotification({
+          orderId: updated.id,
+          customerName: updated.customerName,
+          phone: updated.phone,
+          total: updated.total,
+          paymentMethod: updated.paymentMethod,
+          reason: req.body.note || "Cancelled by Admin",
+          cancelledBy: "Admin",
+        }).catch((e) => console.warn('[telegram] Admin cancel notification error:', e));
+      } catch (e) {}
+    }
+
     res.json(updated);
+  }));
+
+  // Customer order cancellation
+  app.post("/api/orders/:id/cancel", requireAuth, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const order = await storage.orders.get(id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (req.session.role !== "admin" && order.userId !== req.session.userId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    if (order.status === "Delivered" || order.status === "Cancelled") {
+      return res.status(400).json({ message: `Cannot cancel order with status "${order.status}"` });
+    }
+
+    const reason = String(req.body.reason || "Cancelled by Customer").trim();
+    const updated = await storage.orders.setStatus(id, "Cancelled", reason);
+
+    // Dispatch Telegram Alert ONLY to Super Admin Security Bot
+    try {
+      const { sendTelegramOrderCancellationSecurityNotification } = await import("./services/telegram");
+      sendTelegramOrderCancellationSecurityNotification({
+        orderId: order.id,
+        customerName: order.customerName,
+        phone: order.phone,
+        total: order.total,
+        paymentMethod: order.paymentMethod,
+        reason,
+        cancelledBy: req.session.role === "admin" ? "Admin" : "Customer",
+      }).catch((e) => console.warn('[telegram] Customer cancel notification error:', e));
+    } catch (e) {}
+
+    res.json({ success: true, message: "Order cancelled successfully", order: updated });
   }));
 
   /* ====================== GST TAX INVOICE & BILLING ================== */

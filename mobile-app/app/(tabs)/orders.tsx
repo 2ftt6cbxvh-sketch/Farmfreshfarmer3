@@ -514,7 +514,8 @@ export default function OrdersScreen() {
     queryKey: ['my-orders'],
     queryFn: () => api.get('/api/orders/mine').then((r) => r.data),
     enabled: !!user,
-    staleTime: 30000,
+    refetchInterval: 3000, // Live automatic sync every 3s!
+    staleTime: 2000,
   });
 
   const orders: Order[] = data?.orders || data || [];

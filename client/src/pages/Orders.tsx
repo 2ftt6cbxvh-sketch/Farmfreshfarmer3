@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { Package, Camera, AlertTriangle, CheckCircle, X, FileText } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
-import { apiGet } from "@/lib/queryClient";
+import { apiGet, queryClient } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
 import type { Order } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,7 @@ export default function Orders() {
     queryKey: ["/api/orders/mine"],
     queryFn: () => apiGet<Order[]>("/api/orders/mine"),
     enabled: !!user,
+    refetchInterval: 3000, // Live automatic sync every 3s!
   });
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,6 +103,7 @@ export default function Orders() {
       setActiveOrder(null);
       setComments("");
       setPhotoDataUrl("");
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/mine"] });
     } catch (err: any) {
       toast({
         title: "Submission Error ❌",

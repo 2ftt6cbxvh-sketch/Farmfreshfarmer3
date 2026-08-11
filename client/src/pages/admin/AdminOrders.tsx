@@ -38,6 +38,7 @@ export default function AdminOrders() {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
     queryFn: () => apiGet<Order[]>("/api/orders"),
+    refetchInterval: 2500, // Live automatic sync every 2.5s!
   });
 
   const { data: detail, isLoading: detailLoading } = useQuery<OrderDetail>({

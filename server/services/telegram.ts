@@ -421,7 +421,125 @@ ${params.price ? `💰 <b>Price:</b> ₹${params.price} | <b>Category:</b> ${par
 }
 
 /* ====================================================================
-   3C. DEPLOYMENT / VERSION UPDATE PUSH BROADCASTER (SECURITY BOT)
+   3C. ORDER, CANCELLATION & REFUND NOTIFICATIONS (SUPER ADMIN SECURITY BOT ONLY)
+   ==================================================================== */
+
+export interface OrderSecurityNotificationParams {
+  orderId: number;
+  customerName: string;
+  phone: string;
+  address: string;
+  items: Array<{ name: string; unit?: string; price: number | string; qty: number }>;
+  subtotal: number | string;
+  discount?: number | string;
+  deliveryFee?: number | string;
+  total: number | string;
+  paymentMethod: string;
+  couponCode?: string | null;
+  orderType?: string | null;
+}
+
+export async function sendTelegramOrderSecurityNotification(params: OrderSecurityNotificationParams): Promise<boolean> {
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
+
+  const itemLines = (params.items || [])
+    .map((it) => `• <b>${it.name}</b> (${it.unit || "1 pc"}) × ${it.qty} = ₹${(Number(it.price) * it.qty).toFixed(0)}`)
+    .join("\n");
+
+  const message = `🛍️ <b>NEW ORDER PLACED (SECURITY BOT)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆔 <b>Order ID:</b> #${params.orderId}
+💰 <b>Grand Total:</b> ₹${Number(params.total).toFixed(0)} (${params.paymentMethod})
+👤 <b>Customer:</b> ${params.customerName}
+📱 <b>Phone:</b> ${params.phone}
+📍 <b>Delivery Address:</b>
+${params.address}
+
+🛒 <b>Ordered Items (${params.items?.length || 0}):</b>
+${itemLines || "• General farm produce"}
+
+🧾 <b>Price Breakdown:</b>
+• Subtotal: ₹${Number(params.subtotal).toFixed(0)}
+${Number(params.discount) > 0 ? `• Discount: -₹${Number(params.discount).toFixed(0)}\n` : ""}${Number(params.deliveryFee) > 0 ? `• Delivery Fee: ₹${Number(params.deliveryFee).toFixed(0)}\n` : "• Delivery: FREE\n"}• <b>Total: ₹${Number(params.total).toFixed(0)}</b>
+💳 <b>Payment Method:</b> ${params.paymentMethod}
+${params.couponCode ? `🏷️ <b>Coupon Code:</b> ${params.couponCode}\n` : ""}${params.orderType === "subscription" ? "📦 <b>Order Type:</b> Weekly Subscription Box\n" : ""}⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+  );
+  return results.some((r) => r === true);
+}
+
+export interface OrderCancellationSecurityNotificationParams {
+  orderId: number;
+  customerName?: string | null;
+  phone?: string | null;
+  total: number | string;
+  paymentMethod: string;
+  reason?: string | null;
+  cancelledBy?: string | null;
+}
+
+export async function sendTelegramOrderCancellationSecurityNotification(params: OrderCancellationSecurityNotificationParams): Promise<boolean> {
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
+
+  const message = `❌ <b>ORDER CANCELLED (SECURITY BOT)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆔 <b>Order ID:</b> #${params.orderId}
+👤 <b>Customer:</b> ${params.customerName || "Customer"} ${params.phone ? `(${params.phone})` : ""}
+💰 <b>Order Value:</b> ₹${Number(params.total).toFixed(0)}
+💳 <b>Payment Method:</b> ${params.paymentMethod}
+📝 <b>Reason / Note:</b> ${params.reason || "Cancelled by user / admin"}
+👤 <b>Cancelled By:</b> ${params.cancelledBy || "Customer / Admin"}
+⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+  );
+  return results.some((r) => r === true);
+}
+
+export interface RefundSecurityNotificationParams {
+  ticketId?: string | null;
+  orderId: number;
+  customerName: string;
+  phone: string;
+  refundAmount: number | string;
+  refundStatus: string;
+  concern: string;
+  photoUrl?: string | null;
+  processedBy?: string | null;
+  gatewayMessage?: string | null;
+}
+
+export async function sendTelegramRefundSecurityNotification(params: RefundSecurityNotificationParams): Promise<boolean> {
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
+
+  const isApproved = params.refundStatus === "refunded" || params.refundStatus === "approved";
+  const icon = isApproved ? "✅" : "🚨";
+  const statusTitle = isApproved ? "REFUND PROCESSED & COMPLETED" : "NEW RETURN & REFUND REQUESTED";
+
+  const message = `${icon} <b>${statusTitle} (SECURITY BOT)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆔 <b>Order ID:</b> #${params.orderId} ${params.ticketId ? `(Ticket: <code>${params.ticketId}</code>)` : ""}
+💵 <b>Refund Amount:</b> ₹${Number(params.refundAmount).toFixed(0)}
+📊 <b>Status:</b> ${params.refundStatus.toUpperCase()}
+👤 <b>Customer:</b> ${params.customerName} (${params.phone})
+📋 <b>Reason / Concern:</b>
+<blockquote>${params.concern}</blockquote>
+${params.photoUrl ? `📸 <b>Damage Proof Photo:</b> ${params.photoUrl.startsWith("data:") ? "[Base64 Image Attached in Ticket]" : `<a href="${params.photoUrl}">View Uploaded Photo</a>`}\n` : ""}${params.processedBy ? `👤 <b>Processed By:</b> ${params.processedBy}\n` : ""}${params.gatewayMessage ? `💳 <b>Gateway Note:</b> ${params.gatewayMessage}\n` : ""}⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+  );
+  return results.some((r) => r === true);
+}
+
+/* ====================================================================
+   3D. DEPLOYMENT / VERSION UPDATE PUSH BROADCASTER (SECURITY BOT)
    ==================================================================== */
 
 export async function sendTelegramDeployNotification(version: string, details?: string): Promise<boolean> {
