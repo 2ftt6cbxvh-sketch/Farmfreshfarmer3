@@ -77,7 +77,7 @@ interface CategoryOption {
 
 interface ProductEditModalState {
   item: PendingProduct;
-  action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
+  action: "approved" | "under_review" | "changes_requested" | "rejected" | "approve_deletion" | "reject_deletion";
 }
 
 export function AdminApprovals() {
@@ -86,9 +86,13 @@ export function AdminApprovals() {
     type: "product" | "category";
     id: number;
     name: string;
-    action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
+    action: "approved" | "under_review" | "changes_requested" | "rejected" | "approve_deletion" | "reject_deletion";
   } | null>(null);
   const [productEditModal, setProductEditModal] = useState<ProductEditModalState | null>(null);
+  const [reconsiderPromptModal, setReconsiderPromptModal] = useState<PendingProduct | null>(null);
+  const [reconsiderEditModal, setReconsiderEditModal] = useState<PendingProduct | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [resubmitNote, setResubmitNote] = useState("");
   const [note, setNote] = useState("");
 
   // Edit fields state for Master Admin inline adjustments
@@ -115,6 +119,13 @@ export function AdminApprovals() {
     queryKey: ["/api/admin/approvals/categories"],
     queryFn: () => apiGet<PendingCategory[]>("/api/admin/approvals/categories"),
     refetchInterval: 1500,
+    refetchIntervalInBackground: true,
+  });
+
+  const { data: reconsiderationProducts = [], isLoading: loadingReconsideration, refetch: refetchReconsideration } = useQuery<PendingProduct[]>({
+    queryKey: ["/api/admin/approvals/reconsideration"],
+    queryFn: () => apiGet<PendingProduct[]>("/api/admin/approvals/reconsideration"),
+    refetchInterval: 2000,
     refetchIntervalInBackground: true,
   });
 
@@ -189,7 +200,7 @@ export function AdminApprovals() {
     }: {
       type: "product" | "category";
       id: number;
-      action: "approved" | "under_review" | "rejected" | "approve_deletion" | "reject_deletion";
+      action: "approved" | "under_review" | "changes_requested" | "rejected" | "approve_deletion" | "reject_deletion";
       note: string;
       editFields?: any;
     }) => {
@@ -199,6 +210,7 @@ export function AdminApprovals() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/reconsideration"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
@@ -209,6 +221,9 @@ export function AdminApprovals() {
       if (variables.action === "approved") {
         title = "Approved & Published Live! 🚀";
         desc = "Item changes published to live storefront.";
+      } else if (variables.action === "changes_requested") {
+        title = "Sent for Reconsideration ↩️";
+        desc = "Product sent back to Sub-Admin with your feedback note. Sub-Admin notified via Telegram.";
       } else if (variables.action === "approve_deletion") {
         title = "Item Permanently Deleted 🗑️";
         desc = "Sub-admin deletion request was approved and item removed.";
@@ -220,6 +235,8 @@ export function AdminApprovals() {
       toast({ title, description: desc });
       setActionModal(null);
       setProductEditModal(null);
+      setReconsiderPromptModal(null);
+      setFeedbackNote("");
       setNote("");
     },
     onError: (err: any) => {
@@ -228,6 +245,24 @@ export function AdminApprovals() {
         description: err?.message || "Could not update approval status",
         variant: "destructive",
       });
+    },
+  });
+
+  const resubmitMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: number; payload: any }) => {
+      const res = await apiRequest("POST", `/api/admin/approvals/products/${id}/resubmit`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/reconsideration"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/history"] });
+      setReconsiderEditModal(null);
+      setResubmitNote("");
+      toast({ title: "🚀 Product Resubmitted!", description: "Changes updated and sent to Super Admin for approval. Alert dispatched on Telegram." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Resubmission failed", description: err?.message || "Server error", variant: "destructive" });
     },
   });
 
@@ -362,12 +397,15 @@ export function AdminApprovals() {
         </div>
 
         <Tabs defaultValue="products" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="products" data-testid="tab-products">
               Products {products.length > 0 && `(${products.length})`}
             </TabsTrigger>
             <TabsTrigger value="categories" data-testid="tab-categories">
               Categories {categories.length > 0 && `(${categories.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="reconsideration" data-testid="tab-reconsideration" className="text-amber-500 font-bold">
+              🔄 Re-Consider {reconsiderationProducts.length > 0 && `(${reconsiderationProducts.length})`}
             </TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">
               Approval Log
@@ -481,23 +519,38 @@ export function AdminApprovals() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 pt-3 border-t border-card-border">
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
-                            onClick={() => openProductReviewModal(item, "approved")}
-                            data-testid={`btn-approve-product-${item.id}`}
-                          >
-                            <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review, Edit & Approve
-                          </Button>
+                        <div className="flex flex-col gap-2 pt-3 border-t border-card-border">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
+                              onClick={() => openProductReviewModal(item, "approved")}
+                              data-testid={`btn-approve-product-${item.id}`}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" /> Review & Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-500/30 hover:bg-red-50 text-xs font-bold"
+                              onClick={() => openProductReviewModal(item, "rejected")}
+                              data-testid={`btn-reject-product-${item.id}`}
+                            >
+                              <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                            </Button>
+                          </div>
+
+                          {/* Request Changes / Send for Reconsideration */}
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-500/30 hover:bg-red-50 text-xs font-bold"
-                            onClick={() => openProductReviewModal(item, "rejected")}
-                            data-testid={`btn-reject-product-${item.id}`}
+                            onClick={() => {
+                              setReconsiderPromptModal(item);
+                              setFeedbackNote("");
+                            }}
+                            className="w-full text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/10 text-xs font-bold h-8 gap-1.5"
                           >
-                            <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                            <span>↩️ Send Back to Sub-Admin for Changes</span>
                           </Button>
                         </div>
                       )}
@@ -606,6 +659,114 @@ export function AdminApprovals() {
             )}
           </TabsContent>
 
+          {/* Re-Consideration Queue Tab (Products sent back for changes) */}
+          <TabsContent value="reconsideration" className="space-y-4 pt-4">
+            {loadingReconsideration ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-56 rounded-xl" />
+                <Skeleton className="h-56 rounded-xl" />
+              </div>
+            ) : reconsiderationProducts.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground border border-dashed rounded-2xl bg-card">
+                <CheckCircle className="mx-auto text-emerald-500 mb-2" size={36} />
+                <h3 className="font-bold text-base text-foreground">Re-Consideration Queue Clear!</h3>
+                <p className="text-xs mt-1">No products currently require changes or modifications from sub-admins.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {reconsiderationProducts.map((item) => {
+                  const categoryName = allCategories.find((c) => c.slug === item.categorySlug)?.name || item.categorySlug || "Uncategorized";
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5 shadow-sm space-y-4 flex flex-col justify-between"
+                      data-testid={`card-reconsider-${item.id}`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            {item.image ? (
+                              <img
+                                src={imgUrl(item.image)}
+                                alt={item.name}
+                                className="w-14 h-14 rounded-xl object-cover border border-amber-500/30 bg-muted shrink-0"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-xl bg-muted border border-amber-500/30 flex items-center justify-center text-muted-foreground shrink-0">
+                                <Package className="w-7 h-7" />
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-bold text-base line-clamp-1 text-foreground">{item.name}</h3>
+                              <div className="flex items-center gap-2 text-xs font-semibold text-amber-500 mt-0.5">
+                                <span>₹{item.price}</span>
+                                <span>•</span>
+                                <span className="text-muted-foreground">{item.unit || "250g"}</span>
+                                <span>•</span>
+                                <span className="text-muted-foreground">Stock: {item.stock ?? 50}</span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30 text-amber-600 text-[10px] font-extrabold px-2 py-0.5">
+                                  📁 {categoryName}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Super Admin Feedback Banner */}
+                        <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                            <span>💬 Super Admin Feedback / Required Changes:</span>
+                          </p>
+                          <p className="text-xs text-foreground font-medium italic">
+                            "{item.approvalNote || "Please review and adjust product details."}"
+                          </p>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1 bg-secondary/40 p-2.5 rounded-xl border border-card-border/50">
+                          <p>
+                            <span className="font-bold text-foreground">Assigned Sub-Admin:</span>{" "}
+                            <span className="text-emerald-500 font-extrabold">{item.submitterName || (item.submittedBy ? `Staff #${item.submittedBy}` : "Sub-Admin")}</span>
+                          </p>
+                          <p>
+                            <span className="font-medium text-foreground">Returned:</span>{" "}
+                            {new Date(item.createdAt).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-3 border-t border-amber-500/30">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-md"
+                          onClick={() => {
+                            setReconsiderEditModal(item);
+                            setEditName(item.name || "");
+                            setEditCategorySlug(item.categorySlug || allCategories[0]?.slug || "fruits");
+                            setEditPrice(String(item.price || "0"));
+                            setEditStock(String(item.stock || "50"));
+                            setEditUnit(item.unit || "250 Grams");
+                            setEditDiscount(String(item.discountPercent || "0"));
+                            setEditImage(item.image || "");
+                            setEditDescription(item.description || "");
+                            setResubmitNote("");
+                          }}
+                        >
+                          <Edit3 className="w-3.5 h-3.5 mr-1" /> Review & Edit Changes
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
           {/* History Tab */}
           <TabsContent value="history" className="space-y-4 pt-4">
             {loadingHistory ? (
@@ -664,6 +825,219 @@ export function AdminApprovals() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Super Admin Reconsideration Feedback Prompt Dialog */}
+        {reconsiderPromptModal && (
+          <Dialog open={reconsiderPromptModal !== null} onOpenChange={(open) => !open && setReconsiderPromptModal(null)}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-amber-500">
+                  <span>↩️ Send "{reconsiderPromptModal.name}" Back for Changes</span>
+                </DialogTitle>
+                <DialogDescription className="text-xs leading-relaxed">
+                  Provide specific notes or feedback to the Sub-Admin. They will be notified via Telegram and this product will be placed in their Re-Consideration Queue.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-2 text-xs">
+                <div>
+                  <Label className="font-bold text-foreground">Admin Feedback & Required Adjustments *</Label>
+                  <Textarea
+                    value={feedbackNote}
+                    onChange={(e) => setFeedbackNote(e.target.value)}
+                    placeholder="e.g. Please increase unit size to 500g, correct price to ₹180, and add higher resolution organic farm photo..."
+                    className="mt-1 min-h-[90px] text-xs font-medium"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="ghost" onClick={() => setReconsiderPromptModal(null)} disabled={mutation.isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!feedbackNote.trim()) {
+                      toast({ title: "Feedback note required", description: "Please enter instructions for the Sub-Admin.", variant: "destructive" });
+                      return;
+                    }
+                    mutation.mutate({
+                      type: "product",
+                      id: reconsiderPromptModal.id,
+                      action: "changes_requested",
+                      note: feedbackNote.trim(),
+                    });
+                  }}
+                  disabled={mutation.isPending}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-md"
+                >
+                  {mutation.isPending ? "Sending..." : "↩️ Send Back to Sub-Admin"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Sub-Admin Reconsideration Edit & Resubmit Modal */}
+        {reconsiderEditModal && (
+          <Dialog open={reconsiderEditModal !== null} onOpenChange={(open) => !open && setReconsiderEditModal(null)}>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-amber-500">
+                  <Edit3 size={18} />
+                  Re-Consider & Modify: "{reconsiderEditModal.name}"
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Review the Admin feedback note below, make the required corrections to the product, and resubmit for approval.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2 text-xs">
+                {/* Admin Feedback Box */}
+                <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    💬 Required Changes from Super Admin:
+                  </p>
+                  <p className="text-xs font-semibold text-foreground italic">
+                    "{reconsiderEditModal.approvalNote || "Please review and adjust product details."}"
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="font-bold">Product Title *</Label>
+                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="mt-1" />
+                </div>
+
+                <div className="p-3 rounded-xl bg-secondary/50 border border-card-border space-y-1.5">
+                  <Label className="font-bold text-foreground flex items-center gap-1.5">
+                    <FolderTree size={14} className="text-emerald-500" /> Category *
+                  </Label>
+                  <Select value={editCategorySlug} onValueChange={setEditCategorySlug}>
+                    <SelectTrigger className="font-semibold text-xs bg-background">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56">
+                      {allCategories.map((cat) => (
+                        <SelectItem key={cat.slug} value={cat.slug} className="text-xs">
+                          📁 {cat.name} ({cat.slug})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="font-bold">Price (₹) *</Label>
+                    <Input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="font-bold">Discount %</Label>
+                    <Input type="number" value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="font-bold">Stock Qty *</Label>
+                    <Input type="number" value={editStock} onChange={(e) => setEditStock(e.target.value)} className="mt-1" />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="font-bold">Unit / Pack Size *</Label>
+                  <Input value={editUnit} onChange={(e) => setEditUnit(e.target.value)} className="mt-1" />
+                </div>
+
+                {/* Upload & Update Product Image */}
+                <div className="p-3 rounded-xl bg-secondary/50 border border-card-border space-y-2">
+                  <Label className="font-bold text-foreground flex items-center gap-1.5">
+                    <Upload size={14} className="text-emerald-500" /> Update Product Image
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <div className="h-16 w-16 rounded-xl bg-muted overflow-hidden shrink-0 border border-card-border">
+                      {editImage ? (
+                        <img src={imgUrl(editImage)} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                          <Package size={24} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUpload(f);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-bold gap-1.5"
+                      >
+                        <Upload size={14} /> {uploading ? "Uploading Image…" : "Upload New Image 📸"}
+                      </Button>
+                      <Input
+                        value={editImage}
+                        onChange={(e) => setEditImage(e.target.value)}
+                        placeholder="...or paste image URL"
+                        className="text-[11px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="font-bold">Product Description</Label>
+                  <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="mt-1 min-h-[70px]" />
+                </div>
+
+                <div className="p-3 bg-secondary/50 rounded-xl space-y-1">
+                  <Label className="font-bold text-foreground">Note for Super Admin on Changes Made</Label>
+                  <Input
+                    placeholder="e.g. Updated price to ₹180 and replaced photo as requested..."
+                    value={resubmitNote}
+                    onChange={(e) => setResubmitNote(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="ghost" onClick={() => setReconsiderEditModal(null)} disabled={resubmitMutation.isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    resubmitMutation.mutate({
+                      id: reconsiderEditModal.id,
+                      payload: {
+                        name: editName,
+                        categorySlug: editCategorySlug,
+                        price: editPrice,
+                        stock: editStock,
+                        unit: editUnit,
+                        discountPercent: editDiscount,
+                        image: editImage,
+                        description: editDescription,
+                        resubmitNote: resubmitNote.trim(),
+                      },
+                    });
+                  }}
+                  disabled={resubmitMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md gap-1.5"
+                >
+                  <Save size={15} /> {resubmitMutation.isPending ? "Resubmitting..." : "Resubmit for Approval 🚀"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Master Admin Interactive Approval & Inline Edit Dialog */}
         {productEditModal && (

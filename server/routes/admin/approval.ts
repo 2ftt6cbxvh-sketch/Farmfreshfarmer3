@@ -7,7 +7,7 @@ import { eq, or, and, desc } from "drizzle-orm";
 import { products, categories, productApprovalHistory, users } from "../../../shared/schema";
 import { db } from "../../db";
 
-type ApprovalAction = "approved" | "rejected" | "under_review" | "approve_deletion" | "reject_deletion";
+type ApprovalAction = "approved" | "rejected" | "under_review" | "changes_requested" | "approve_deletion" | "reject_deletion";
 
 function h(fn: (req: Request, res: Response) => Promise<any>) {
   return (req: Request, res: Response) => {
@@ -103,7 +103,7 @@ export function registerApprovalRoutes(app: Express, storage: any): void {
     const id = parseInt(Array.isArray(idRaw) ? idRaw[0] : idRaw, 10);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid product id" });
     const { action, note, editFields } = req.body as { action?: ApprovalAction; note?: string; editFields?: any };
-    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review", "approve_deletion", "reject_deletion"];
+    const VALID: ApprovalAction[] = ["approved", "rejected", "under_review", "changes_requested", "approve_deletion", "reject_deletion"];
     if (!action || !VALID.includes(action)) return res.status(400).json({ message: `'action' must be one of: ${VALID.join(", ")}` });
     const [existing] = await db.select().from(products).where(eq(products.id, id));
     if (!existing) return res.status(404).json({ message: "Product not found" });
@@ -137,6 +137,49 @@ export function registerApprovalRoutes(app: Express, storage: any): void {
         });
       } catch (err) { console.warn("[history log err]", err); }
       return res.json({ success: true, message: "Product deletion rejected & restored to storefront 🎉", product: updated });
+    }
+
+    // Handle Changes Requested / Send for Reconsideration
+    if (action === "changes_requested") {
+      const feedbackNote = note || "Super Admin requested modifications. Please review feedback.";
+      const [updated] = await db.update(products).set({
+        approvalStatus: "changes_requested",
+        active: false,
+        approvalNote: feedbackNote,
+        updatedAt: new Date(),
+      }).where(eq(products.id, id)).returning();
+
+      // Log in history
+      try {
+        await db.insert(productApprovalHistory).values({
+          entityType: "product", entityId: id, entityName: updated.name ?? existing.name ?? "",
+          action: "changes_requested", fromStatus: existing.approvalStatus ?? "pending", toStatus: "changes_requested",
+          adminUserId: req.session.userId ?? 1, submittedByUserId: existing.submittedBy ?? null, note: feedbackNote,
+        });
+      } catch (err) { console.warn("[history log err]", err); }
+
+      // Fetch Sub-Admin Info for Telegram Notification
+      try {
+        let submitterUser: any = null;
+        if (existing.submittedBy) {
+          const [u] = await db.select().from(users).where(eq(users.id, existing.submittedBy));
+          submitterUser = u;
+        }
+        const { sendTelegramReconsiderationNotification } = await import("../../services/telegram");
+        await sendTelegramReconsiderationNotification({
+          entityType: "product",
+          entityName: updated.name,
+          entityId: id,
+          submitterName: submitterUser?.name || "Sub-Admin",
+          submitterEmail: submitterUser?.email || null,
+          submitterChatId: submitterUser?.telegramChatId || null,
+          adminFeedback: feedbackNote,
+          price: updated.price,
+          categorySlug: updated.categorySlug,
+        });
+      } catch (err) { console.warn("[telegram reconsideration notify err]", err); }
+
+      return res.json({ success: true, message: "Product sent back to Sub-Admin for changes & notification dispatched ↩️", product: updated });
     }
 
     const patch: Record<string, any> = {
@@ -175,6 +218,81 @@ export function registerApprovalRoutes(app: Express, storage: any): void {
     }
 
     return res.json({ success: true, message: `Product ${action} successfully 🎉`, product: updated });
+  }));
+
+  // GET Re-Consideration Queue (Products returned for changes)
+  app.get("/api/admin/approvals/reconsideration", requireAdmin, h(async (req, res) => {
+    const rows = await db.select().from(products)
+      .where(eq(products.approvalStatus, "changes_requested"))
+      .orderBy(desc(products.updatedAt));
+    const result = await Promise.all(rows.map(async (p) => ({
+      ...p,
+      submitterName: await resolveSubmitterName(p.submittedBy),
+    })));
+    return res.json(result);
+  }));
+
+  // POST Resubmit Product with Sub-Admin Changes
+  app.post("/api/admin/approvals/products/:id/resubmit", requireAdmin, h(async (req, res) => {
+    const idRaw = req.params.id;
+    const id = parseInt(Array.isArray(idRaw) ? idRaw[0] : idRaw, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid product id" });
+    const [existing] = await db.select().from(products).where(eq(products.id, id));
+    if (!existing) return res.status(404).json({ message: "Product not found" });
+
+    const { name, description, categorySlug, price, unit, stock, image, discountPercent, dietTag, resubmitNote } = req.body;
+
+    const patch: Record<string, any> = {
+      approvalStatus: "pending",
+      approvalNote: resubmitNote ? `Resubmitted: ${resubmitNote}` : "Resubmitted by Sub-Admin with requested changes.",
+      active: false,
+      updatedAt: new Date(),
+    };
+
+    if (name != null) patch.name = String(name).trim();
+    if (description != null) patch.description = String(description).trim();
+    if (categorySlug != null) patch.categorySlug = String(categorySlug).trim();
+    if (price != null) patch.price = String(price);
+    if (discountPercent != null) patch.discountPercent = String(discountPercent);
+    if (unit != null) patch.unit = String(unit).trim();
+    if (image != null) patch.image = String(image).trim();
+    if (stock != null) patch.stock = Number(stock) || 0;
+    if (dietTag != null) patch.dietTag = dietTag;
+
+    const [updated] = await db.update(products).set(patch).where(eq(products.id, id)).returning();
+
+    // Log in history
+    try {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product", entityId: id, entityName: updated.name ?? existing.name ?? "",
+        action: "resubmitted", fromStatus: "changes_requested", toStatus: "pending",
+        adminUserId: req.session.userId ?? 1, submittedByUserId: req.session.userId ?? existing.submittedBy ?? null,
+        note: resubmitNote || "Product changes made & resubmitted for approval.",
+      });
+    } catch (err) { console.warn("[history log err]", err); }
+
+    // Notify Super Admin on Telegram
+    try {
+      const { sendTelegramApprovalNotification } = await import("../../services/telegram");
+      let submitterName = "Sub-Admin";
+      if (req.session.userId) {
+        const [u] = await db.select().from(users).where(eq(users.id, req.session.userId));
+        if (u?.name) submitterName = u.name;
+      }
+      await sendTelegramApprovalNotification({
+        entityType: "product",
+        action: "edit",
+        entityName: updated.name,
+        entityId: id,
+        submitterName,
+        price: updated.price,
+        unit: updated.unit,
+        stock: updated.stock,
+        categorySlug: updated.categorySlug,
+      });
+    } catch (err) { console.warn("[telegram resubmit alert err]", err); }
+
+    return res.json({ success: true, message: "Product updated & resubmitted for Super Admin approval! 🚀", product: updated });
   }));
 
   app.patch("/api/admin/approvals/categories/:id", requireAdmin, h(async (req, res) => {

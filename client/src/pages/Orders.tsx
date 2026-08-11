@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Package, Camera, AlertTriangle, CheckCircle, X } from "lucide-react";
+import { Package, Camera, AlertTriangle, CheckCircle, X, FileText } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
 import { apiGet } from "@/lib/queryClient";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { TaxInvoiceModal } from "@/components/TaxInvoiceModal";
 
 function statusVariant(status: string): "default" | "secondary" | "outline" {
   if (status === "Delivered") return "default";
@@ -24,6 +25,7 @@ export default function Orders() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [billOrderId, setBillOrderId] = useState<number | null>(null);
   const [reason, setReason] = useState("Damaged or Spoiled Perishables");
   const [comments, setComments] = useState("");
   const [photoDataUrl, setPhotoDataUrl] = useState("");
@@ -149,12 +151,22 @@ export default function Orders() {
                   <span className="font-bold text-base">{formatINR(Number(o.total))}</span>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-card-border/60">
+                <div className="flex justify-end items-center gap-2 pt-2 border-t border-card-border/60">
+                  {/* View / Download Official Bill */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBillOrderId(o.id)}
+                    className="border-sky-500/30 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/20 text-xs font-bold gap-1 rounded-xl"
+                  >
+                    <FileText size={13} /> View / Download Bill
+                  </Button>
+
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setActiveOrder(o)}
-                    className="border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-bold gap-1"
+                    className="border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-bold gap-1 rounded-xl"
                   >
                     <Camera size={13} /> Request Return / Refund
                   </Button>
@@ -164,6 +176,14 @@ export default function Orders() {
           </ul>
         )}
       </div>
+
+      {/* Official Tax Invoice / Bill Modal */}
+      <TaxInvoiceModal
+        orderId={billOrderId}
+        open={billOrderId != null}
+        onOpenChange={(v) => !v && setBillOrderId(null)}
+        isAdmin={false}
+      />
 
       {/* Compulsory Photo Proof Refund Modal */}
       {activeOrder && (

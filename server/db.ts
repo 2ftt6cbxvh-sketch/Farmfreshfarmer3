@@ -85,10 +85,11 @@ export async function runAutoMigrations() {
     console.warn('[db] auto-migration warning:', e?.message);
   }
   try {
-    // Add assigned_partner_id & assigned_at columns to orders table if missing
+    // Add assigned_partner_id, assigned_at & invoice_data columns to orders table if missing
     await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_partner_id INTEGER`);
     await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP WITH TIME ZONE`);
-    console.log('[db] auto-migration: orders assignment columns ensured');
+    await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_data JSONB`);
+    console.log('[db] auto-migration: orders assignment & invoice_data columns ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }

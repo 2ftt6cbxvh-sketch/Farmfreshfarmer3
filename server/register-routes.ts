@@ -29,7 +29,8 @@ import { eq } from "drizzle-orm";
 import { ensureSeeded } from "./seed-runner";
 import {
   insertProductSchema, insertCouponSchema, insertReviewSchema, users,
-  products, orders, subscriptionPlans, userSubscriptions, subscriptionPlanItems,
+  products, orders, orderItems, orderStatusLogs, orderDiscounts,
+  subscriptionPlans, userSubscriptions, subscriptionPlanItems,
   productApprovalHistory,
 } from "@shared/schema";
 import { z } from "zod";
@@ -1062,6 +1063,250 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const updated = await storage.orders.setStatus(Number(req.params.id), status, req.body.note);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
+  }));
+
+  /* ====================== GST TAX INVOICE & BILLING ================== */
+  function numberToIndianWords(num: number): string {
+    const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const n = Math.floor(Math.abs(num));
+    if (n === 0) return 'INR Zero Rupees Only';
+
+    function convertTwoDigits(n: number): string {
+      if (n < 20) return a[n];
+      const tens = b[Math.floor(n / 10)];
+      const units = a[n % 10];
+      return tens + (units ? ' ' + units : '');
+    }
+
+    function convertThreeDigits(n: number): string {
+      const hundred = Math.floor(n / 100);
+      const rest = n % 100;
+      let res = '';
+      if (hundred > 0) res += a[hundred] + ' Hundred';
+      if (rest > 0) res += (res ? ' ' : '') + convertTwoDigits(rest);
+      return res;
+    }
+
+    let words = '';
+    const crore = Math.floor(n / 10000000);
+    const lakh = Math.floor((n % 10000000) / 100000);
+    const thousand = Math.floor((n % 100000) / 1000);
+    const remainder = n % 1000;
+
+    if (crore > 0) words += convertThreeDigits(crore) + ' Crore ';
+    if (lakh > 0) words += convertThreeDigits(lakh) + ' Lakh ';
+    if (thousand > 0) words += convertThreeDigits(thousand) + ' Thousand ';
+    if (remainder > 0) words += convertThreeDigits(remainder);
+
+    return 'INR ' + words.trim() + ' Only';
+  }
+
+  // GET /api/orders/:id/invoice — Generate / Fetch Legal GST Tax Invoice
+  app.get("/api/orders/:id/invoice", requireAuth, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const order = await storage.orders.get(id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Allow primary admin, staff, or the customer who placed the order
+    if (req.session.role !== "admin" && !["warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(req.session.role || "") && order.userId !== req.session.userId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const items = await storage.orders.items(order.id);
+    const discounts = await storage.orders.discounts(order.id);
+
+    // Fetch dynamic store/company settings from DB
+    const allSettings = await storage.settings.list();
+    const settingsMap = Object.fromEntries(allSettings.map((s: any) => [s.key, s.value]));
+
+    const legalCompanyName = settingsMap["company_legal_name"] || settingsMap["store_name"] || "FARMFRESHFARMER AGRI VENTURES PRIVATE LIMITED";
+    const brandName = settingsMap["store_name"] || "FarmFreshFarmer — Organic Farm to Home";
+    const companyGstin = settingsMap["company_gstin"] || "37AABCF9876Q1Z2";
+    const companyPan = settingsMap["company_pan"] || "AABCF9876Q";
+    const companyFssai = settingsMap["fssai_license_number"] || "10021044000321";
+    const companyCin = settingsMap["company_cin"] || "U01110AP2024PTC123456";
+    const companyAddress = settingsMap["company_address"] || settingsMap["operating_cities"] || "Plot #42, Green Agro Valley, Rushikonda, Visakhapatnam, Andhra Pradesh - 530045, India";
+    const supportEmail = settingsMap["support_email"] || "billing@farmfreshfarmer.com";
+    const supportPhone = settingsMap["support_phone"] || "+91 891 234 5678";
+    const placeOfSupply = settingsMap["jurisdiction_city"] ? `${settingsMap["jurisdiction_city"]}, Andhra Pradesh (State Code: 37)` : "Andhra Pradesh (State Code: 37)";
+
+    const invoiceNumber = (order as any).invoiceData?.invoiceNumber || `FFF/TAX/${new Date(order.createdAt).getFullYear()}/${String(order.id).padStart(5, '0')}`;
+    const invoiceDate = (order as any).invoiceData?.invoiceDate || new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    // Itemized table with HSN codes & GST computation
+    const lineItems = items.map((it: any, index: number) => {
+      const priceNum = parseFloat(it.price) || 0;
+      const qtyNum = it.qty || 1;
+      const lineTotalNum = parseFloat(it.lineTotal) || (priceNum * qtyNum);
+      
+      // Assign appropriate HSN code based on item name
+      let hsn = "0709"; // Fresh vegetables (0% GST)
+      let gstRate = 0;
+      const lowerName = (it.name || "").toLowerCase();
+      if (lowerName.includes("milk") || lowerName.includes("curd") || lowerName.includes("paneer")) {
+        hsn = "0401";
+        gstRate = 0;
+      } else if (lowerName.includes("sweet") || lowerName.includes("laddu") || lowerName.includes("halwa")) {
+        hsn = "2106";
+        gstRate = 5;
+      } else if (lowerName.includes("pickle") || lowerName.includes("pachadi") || lowerName.includes("oil")) {
+        hsn = "2001";
+        gstRate = 5;
+      } else if (lowerName.includes("spice") || lowerName.includes("powder") || lowerName.includes("masala")) {
+        hsn = "0910";
+        gstRate = 5;
+      } else if (lowerName.includes("fruit") || lowerName.includes("mango") || lowerName.includes("apple")) {
+        hsn = "0804";
+        gstRate = 0;
+      }
+
+      const taxableValue = gstRate > 0 ? (lineTotalNum / (1 + gstRate / 100)) : lineTotalNum;
+      const taxAmount = lineTotalNum - taxableValue;
+      const cgstRate = gstRate / 2;
+      const sgstRate = gstRate / 2;
+      const cgstAmount = taxAmount / 2;
+      const sgstAmount = taxAmount / 2;
+
+      return {
+        serialNo: index + 1,
+        id: it.id,
+        name: it.name,
+        unit: it.unit || "Unit",
+        hsn,
+        qty: qtyNum,
+        unitPrice: priceNum.toFixed(2),
+        taxableValue: taxableValue.toFixed(2),
+        gstRate,
+        cgstRate,
+        cgstAmount: cgstAmount.toFixed(2),
+        sgstRate,
+        sgstAmount: sgstAmount.toFixed(2),
+        lineTotal: lineTotalNum.toFixed(2),
+      };
+    });
+
+    const subtotalNum = parseFloat(order.subtotal) || 0;
+    const discountNum = parseFloat(order.discount) || 0;
+    const totalNum = parseFloat(order.total) || 0;
+
+    const totalCgst = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.cgstAmount), 0);
+    const totalSgst = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.sgstAmount), 0);
+    const totalTax = totalCgst + totalSgst;
+    const taxableSubtotal = subtotalNum - totalTax;
+
+    const amountInWords = numberToIndianWords(totalNum);
+
+    const baseInvoice = {
+      orderId: order.id,
+      invoiceNumber,
+      invoiceDate,
+      orderDate: new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
+      placeOfSupply,
+      reverseCharge: "No",
+
+      // Company / Vendor Details
+      company: {
+        legalName: legalCompanyName,
+        brandName,
+        logoUrl: "/images/logo-horizontal-brand.png",
+        iconUrl: "/images/logo-icon.png",
+        gstin: companyGstin,
+        pan: companyPan,
+        fssai: companyFssai,
+        cin: companyCin,
+        address: companyAddress,
+        email: supportEmail,
+        phone: supportPhone,
+        website: "www.farmfreshfarmer.com",
+      },
+
+      // Customer Details
+      customer: {
+        name: order.customerName,
+        phone: order.phone,
+        address: order.address,
+        email: (order as any).customerEmail || "",
+        gstin: (order as any).customerGstin || "Unregistered / Consumer",
+      },
+
+      // Line Items
+      items: lineItems,
+
+      // Totals & Taxes
+      summary: {
+        taxableSubtotal: taxableSubtotal.toFixed(2),
+        totalCgst: totalCgst.toFixed(2),
+        totalSgst: totalSgst.toFixed(2),
+        totalTax: totalTax.toFixed(2),
+        subtotal: subtotalNum.toFixed(2),
+        discount: discountNum.toFixed(2),
+        firstOrderDiscount: parseFloat(order.firstOrderDiscount || "0").toFixed(2),
+        referralDiscount: parseFloat(order.referralDiscount || "0").toFixed(2),
+        couponCode: order.couponCode || null,
+        grandTotal: totalNum.toFixed(2),
+        amountInWords,
+      },
+
+      // Authorized Signatory & Legal Terms
+      signatory: {
+        signatoryName: "Authorised Signatory",
+        designation: "Finance & Accounts Lead",
+        companyName: legalCompanyName,
+        signatureUrl: "/images/logo-icon.png",
+        declaration: "We declare that this invoice shows the actual price of the organic goods described and that all particulars are true and correct. All disputes subject to Visakhapatnam jurisdiction.",
+      },
+    };
+
+    // If super admin has saved customized invoice edits, merge them seamlessly
+    const mergedInvoice = (order as any).invoiceData ? { ...baseInvoice, ...(order as any).invoiceData, orderId: order.id } : baseInvoice;
+
+    res.json(mergedInvoice);
+  }));
+
+  // PATCH /api/admin/orders/:id/invoice — Super Admin Save Custom Invoice Edits
+  app.patch("/api/admin/orders/:id/invoice", requireAdmin, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const order = await storage.orders.get(id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const invoicePayload = req.body;
+    const [updated] = await db.update(orders)
+      .set({
+        invoiceData: invoicePayload,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, id))
+      .returning();
+
+    res.json({ success: true, message: "Customized GST Tax Invoice saved successfully! 💾", invoice: invoicePayload });
+  }));
+
+  // DELETE /api/admin/orders/:id/hard-delete — Permanently Erase Order Out-of-Existence
+  app.delete("/api/admin/orders/:id/hard-delete", requireAdmin, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const order = await storage.orders.get(id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Delete dependent order child records in foreign key cascade order
+    try {
+      await db.delete(orderItems).where(eq(orderItems.orderId, id));
+    } catch (e) {}
+    try {
+      await db.delete(orderStatusLogs).where(eq(orderStatusLogs.orderId, id));
+    } catch (e) {}
+    try {
+      await db.delete(orderDiscounts).where(eq(orderDiscounts.orderId, id));
+    } catch (e) {}
+
+    // Delete the order itself
+    await db.delete(orders).where(eq(orders.id, id));
+
+    res.json({ success: true, message: `Order #${id} deleted out of existence permanently 🗑️` });
   }));
 
   /* ============================== USERS ============================ */

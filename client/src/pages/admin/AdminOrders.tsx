@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Eye } from "lucide-react";
+import { Eye, FileText, Trash2, AlertTriangle } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { TaxInvoiceModal } from "@/components/TaxInvoiceModal";
 
 interface OrderItemRow { id: number; name: string; unit: string; price: string; qty: number; lineTotal: string; }
 interface OrderDiscountRow { id: number; ruleType: string; label: string; amount: string; createdAt: string; }
@@ -31,6 +32,8 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [invoiceOrderId, setInvoiceOrderId] = useState<number | null>(null);
+  const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
@@ -53,6 +56,21 @@ export default function AdminOrders() {
       toast({ title: "Order updated" });
     },
     onError: () => toast({ title: "Could not update order", variant: "destructive" }),
+  });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/orders/${id}/hard-delete`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setDeleteOrderId(null);
+      toast({ title: "🗑️ Deleted Out of Existence", description: data.message });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to delete order", description: err?.message || "Server error", variant: "destructive" });
+    },
   });
 
   const filtered = orders.filter((o) =>
@@ -100,10 +118,13 @@ export default function AdminOrders() {
             </thead>
             <tbody>
               {filtered.map((o) => (
-                <tr key={o.id} className="border-t border-card-border" data-testid={`row-order-${o.id}`}>
+                <tr key={o.id} className="border-t border-card-border hover:bg-secondary/20 transition-colors" data-testid={`row-order-${o.id}`}>
                   <td className="p-3 font-semibold">#{o.id}</td>
-                  <td className="p-3">{o.customerName}</td>
-                  <td className="p-3 font-medium">{formatINR(Number(o.total))}</td>
+                  <td className="p-3">
+                    <p className="font-medium text-foreground">{o.customerName}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{o.phone}</p>
+                  </td>
+                  <td className="p-3 font-medium text-emerald-500 font-mono">{formatINR(Number(o.total))}</td>
                   <td className="p-3 text-muted-foreground">{o.paymentMethod}</td>
                   <td className="p-3"><Badge variant="outline">{o.paymentStatus}</Badge></td>
                   <td className="p-3">
@@ -117,10 +138,42 @@ export default function AdminOrders() {
                     </div>
                   </td>
                   <td className="p-3 text-muted-foreground">{new Date(o.createdAt).toLocaleDateString("en-IN")}</td>
-                  <td className="p-3">
-                    <Button variant="ghost" size="icon" onClick={() => setDetailId(o.id)} data-testid={`button-view-order-${o.id}`}>
-                      <Eye size={15} />
-                    </Button>
+                  <td className="p-3 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* GST Tax Invoice / Bill Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setInvoiceOrderId(o.id)}
+                        className="h-8 px-2 rounded-xl text-xs font-bold text-sky-400 hover:bg-sky-500/10 border border-sky-500/20"
+                        title="Generate / View GST Tax Bill"
+                      >
+                        <FileText size={13} className="mr-1" /> Bill
+                      </Button>
+
+                      {/* Detail View Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDetailId(o.id)}
+                        className="h-8 px-2 rounded-xl text-xs font-bold border border-border"
+                        data-testid={`button-view-order-${o.id}`}
+                        title="View Order Details"
+                      >
+                        <Eye size={13} className="mr-1" /> View
+                      </Button>
+
+                      {/* Delete Out of Existence Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteOrderId(o.id)}
+                        className="h-8 px-2 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 border border-red-500/30"
+                        title="Delete order out of existence permanently"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -129,6 +182,52 @@ export default function AdminOrders() {
           </table>
         </div>
       )}
+
+      {/* Tax Invoice Modal for Super Admin (with Live Edit & Print) */}
+      <TaxInvoiceModal
+        orderId={invoiceOrderId}
+        open={invoiceOrderId != null}
+        onOpenChange={(v) => !v && setInvoiceOrderId(null)}
+        isAdmin={true}
+      />
+
+      {/* Hard Delete Confirmation Dialog */}
+      <Dialog open={deleteOrderId != null} onOpenChange={(v) => !v && setDeleteOrderId(null)}>
+        <DialogContent className="max-w-md rounded-3xl border-red-500/40 bg-card p-6 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 mb-2">
+              <AlertTriangle size={24} />
+            </div>
+            <DialogTitle className="text-lg font-bold text-foreground">
+              Delete Order #{deleteOrderId} Out-of-Existence?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1.5 leading-relaxed">
+              This action will <b>permanently erase Order #{deleteOrderId}</b>, its line items, status timelines, discount logs, and refund tickets from the database. 
+              <br /><br />
+              <span className="text-red-400 font-bold">⚠️ This cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex items-center justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteOrderId(null)}
+              className="rounded-xl text-xs font-bold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={hardDeleteMutation.isPending}
+              onClick={() => deleteOrderId && hardDeleteMutation.mutate(deleteOrderId)}
+              className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs shadow-md"
+            >
+              {hardDeleteMutation.isPending ? "Erasing Order..." : "🗑️ Confirm Hard Deletion"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={detailId != null} onOpenChange={(v) => !v && setDetailId(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto max-w-2xl">

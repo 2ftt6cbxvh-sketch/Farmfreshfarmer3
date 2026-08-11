@@ -227,6 +227,7 @@ export const orders = pgTable("orders", {
   status: varchar("status", { length: 24 }).notNull().default("Placed"), // Placed | Packed | Out for delivery | Delivered | Cancelled
   assignedPartnerId: integer("assigned_partner_id"),
   assignedAt: timestamp("assigned_at", { withTimezone: true }),
+  invoiceData: jsonb("invoice_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

@@ -366,6 +366,61 @@ ${detailsBlock}
 }
 
 /* ====================================================================
+   3B-2. PRODUCT RECONSIDERATION & CHANGE REQUEST NOTIFIER (GRIEVANCE BOT)
+   ==================================================================== */
+
+export interface ReconsiderationNotificationParams {
+  entityType: "product" | "category";
+  entityName: string;
+  entityId: number;
+  submitterName?: string | null;
+  submitterEmail?: string | null;
+  submitterChatId?: string | null;
+  adminFeedback: string;
+  price?: string | number | null;
+  categorySlug?: string | null;
+}
+
+export async function sendTelegramReconsiderationNotification(params: ReconsiderationNotificationParams): Promise<boolean> {
+  const entityTitle = params.entityType === "product" ? "Product" : "Category";
+  const submitter = params.submitterName
+    ? `${params.submitterName}${params.submitterEmail ? ` (${params.submitterEmail})` : ""}`
+    : params.submitterEmail || "Sub-Admin";
+
+  const message = `⚠️ <b>PRODUCT RECONSIDERATION REQUESTED</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 <b>Entity:</b> ${entityTitle}
+🏷️ <b>Item:</b> <b>${params.entityName}</b> (ID: #${params.entityId})
+${params.price ? `💰 <b>Price:</b> ₹${params.price} | <b>Category:</b> ${params.categorySlug || "N/A"}\n` : ""}👤 <b>Assigned Sub-Admin:</b> ${submitter}
+⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+
+💬 <b>SUPER ADMIN FEEDBACK / REQUIRED CHANGES:</b>
+<blockquote>${params.adminFeedback}</blockquote>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <b>Action Required:</b> Please log into your Sub-Admin Dashboard and open the <b>Re-Consideration Queue</b> to review notes, make the necessary corrections, and click <b>Resubmit for Approval</b>.`;
+
+  const results: boolean[] = [];
+
+  // 1. Direct message to Sub-Admin's personal Telegram Chat ID if available
+  if (params.submitterChatId) {
+    const { botToken: grievToken } = await getTelegramGrievanceCredentials();
+    const { botToken: secToken } = await getTelegramSecurityCredentials();
+    const token = grievToken || secToken;
+    if (token) {
+      const res = await sendRawTelegramMessage(token, params.submitterChatId, message);
+      results.push(res);
+    }
+  }
+
+  // 2. Broadcast to Grievance & Support Bot channel
+  const grievAlert = await sendTelegramGrievanceAlert(message);
+  results.push(grievAlert);
+
+  return results.some((r) => r === true);
+}
+
+/* ====================================================================
    3C. DEPLOYMENT / VERSION UPDATE PUSH BROADCASTER (SECURITY BOT)
    ==================================================================== */
 

@@ -47,7 +47,22 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
   const [reason, setReason] = useState('Damaged or Spoiled Perishables');
   const [comments, setComments] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<any>(null);
+
+  const fetchInvoice = async () => {
+    setShowInvoiceModal(true);
+    setInvoiceLoading(true);
+    try {
+      const res = await api.get(`/api/orders/${order.id}/invoice`);
+      setInvoiceData(res.data);
+    } catch (err: any) {
+      Alert.alert('Invoice Error', err?.response?.data?.message || 'Could not load official tax invoice.');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
 
   const cfg = STATUS_CONFIG[order.status] || { color: COLORS.textMuted, emoji: '📋', step: 1 };
   const cardBg = isDark ? '#0c121e' : '#ffffff';
@@ -167,7 +182,12 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
 
       {/* Footer summary */}
       <View style={styles.cardFooter}>
-        <Text style={styles.total}>₹{parseFloat(order.total).toFixed(0)}</Text>
+        <View>
+          <Text style={styles.total}>₹{parseFloat(order.total).toFixed(0)}</Text>
+          <TouchableOpacity onPress={fetchInvoice} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#0ea5e9' }}>🧾 View Tax Bill</Text>
+          </TouchableOpacity>
+        </View>
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           {order.couponCode && (
             <Text style={[styles.badge, { backgroundColor: isDark ? '#1a2e1a' : '#f0fdf4', color: '#10b981' }]}>🏷 {order.couponCode}</Text>
@@ -218,8 +238,18 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
             </View>
           </View>
 
-          {/* Reorder and Refund Request Buttons */}
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+          {/* Action Buttons */}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+            <TouchableOpacity
+              style={[
+                styles.reorderBtn,
+                { flex: 1, backgroundColor: isDark ? 'rgba(14, 165, 233, 0.15)' : '#f0f9ff', borderColor: '#0ea5e9', borderWidth: 1 }
+              ]}
+              onPress={fetchInvoice}
+            >
+              <Text style={[styles.reorderBtnText, { color: '#0ea5e9' }]}>🧾 View Bill</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[styles.reorderBtn, { flex: 1 }]} onPress={() => router.push('/(tabs)')}>
               <Text style={styles.reorderBtnText}>🔄 Reorder</Text>
             </TouchableOpacity>
@@ -231,11 +261,118 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
               ]}
               onPress={() => setShowRefundModal(true)}
             >
-              <Text style={[styles.reorderBtnText, { color: '#ef4444' }]}>📸 Request Refund</Text>
+              <Text style={[styles.reorderBtnText, { color: '#ef4444' }]}>📸 Refund</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
+
+      {/* Official GST Tax Invoice Native Modal */}
+      <Modal visible={showInvoiceModal} transparent animationType="slide" onRequestClose={() => setShowInvoiceModal(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: isDark ? '#0b1320' : '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%', borderWidth: 1, borderColor: borderCol }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '900', color: textColor }}>🧾 Legal GST Tax Invoice</Text>
+                <View style={{ backgroundColor: '#047857', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>ORIGINAL</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowInvoiceModal(false)} style={{ padding: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 12 }}>
+                <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {invoiceLoading ? (
+              <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color="#10b981" />
+                <Text style={{ color: mutedColor, fontSize: 12, marginTop: 10 }}>Compiling official GST invoice...</Text>
+              </View>
+            ) : invoiceData ? (
+              <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+                {/* Brand & Vendor Header */}
+                <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: borderCol }}>
+                  <Text style={{ fontSize: 14, fontWeight: '900', color: '#047857' }}>{invoiceData.company.legalName}</Text>
+                  <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2, lineHeight: 16 }}>{invoiceData.company.address}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                    <Text style={{ fontSize: 10, color: textColor, fontWeight: '700' }}>GSTIN: {invoiceData.company.gstin}</Text>
+                    <Text style={{ fontSize: 10, color: textColor, fontWeight: '700' }}>FSSAI: {invoiceData.company.fssai}</Text>
+                  </View>
+                </View>
+
+                {/* Invoice Meta Grid */}
+                <View style={{ backgroundColor: isDark ? '#0f172a' : '#f0fdf4', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#10b98130', flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View>
+                    <Text style={{ fontSize: 10, color: mutedColor, fontWeight: '600' }}>INVOICE NUMBER</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: textColor, marginTop: 2 }}>{invoiceData.invoiceNumber}</Text>
+                    <Text style={{ fontSize: 10, color: mutedColor, marginTop: 4 }}>Order #{invoiceData.orderId}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 10, color: mutedColor, fontWeight: '600' }}>DATE</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: textColor, marginTop: 2 }}>{invoiceData.invoiceDate}</Text>
+                    <Text style={{ fontSize: 10, color: '#10b981', fontWeight: '700', marginTop: 4 }}>Paid via {invoiceData.paymentMethod}</Text>
+                  </View>
+                </View>
+
+                {/* Billed To Customer */}
+                <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#047857', textTransform: 'uppercase' }}>Billed & Shipped To</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: textColor, marginTop: 2 }}>{invoiceData.customer.name}</Text>
+                  <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>{invoiceData.customer.address}</Text>
+                  <Text style={{ fontSize: 11, color: textColor, fontWeight: '600', marginTop: 2 }}>📱 {invoiceData.customer.phone}</Text>
+                </View>
+
+                {/* Itemized Table */}
+                <View style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderRadius: 14, borderWidth: 1, borderColor: borderCol, overflow: 'hidden' }}>
+                  <View style={{ flexDirection: 'row', backgroundColor: '#047857', padding: 8 }}>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', flex: 2 }}>Item Description</Text>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', width: 45, textAlign: 'center' }}>HSN</Text>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', width: 40, textAlign: 'center' }}>Qty</Text>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', width: 55, textAlign: 'right' }}>Total</Text>
+                  </View>
+                  {invoiceData.items.map((it: any, i: number) => (
+                    <View key={i} style={{ flexDirection: 'row', padding: 8, borderBottomWidth: i < invoiceData.items.length - 1 ? 1 : 0, borderBottomColor: borderCol }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: textColor, flex: 2 }} numberOfLines={2}>{it.name}</Text>
+                      <Text style={{ fontSize: 10, color: mutedColor, width: 45, textAlign: 'center' }}>{it.hsn}</Text>
+                      <Text style={{ fontSize: 10, color: textColor, width: 40, textAlign: 'center' }}>{it.qty}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#047857', width: 55, textAlign: 'right' }}>₹{it.lineTotal}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Summary & Tax Breakdown */}
+                <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: borderCol, gap: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 11, color: mutedColor }}>Taxable Goods Subtotal:</Text>
+                    <Text style={{ fontSize: 11, color: textColor, fontWeight: '600' }}>₹{invoiceData.summary.taxableSubtotal}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 11, color: mutedColor }}>CGST + SGST Tax:</Text>
+                    <Text style={{ fontSize: 11, color: textColor, fontWeight: '600' }}>₹{invoiceData.summary.totalTax}</Text>
+                  </View>
+                  {parseFloat(invoiceData.summary.discount) > 0 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 11, color: '#10b981' }}>Discounts / Promo:</Text>
+                      <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '700' }}>−₹{invoiceData.summary.discount}</Text>
+                    </View>
+                  )}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 6, marginTop: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '900', color: textColor }}>Grand Total (INR):</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '900', color: '#047857' }}>₹{invoiceData.summary.grandTotal}</Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: mutedColor, fontStyle: 'italic', marginTop: 2 }}>{invoiceData.summary.amountInWords}</Text>
+                </View>
+
+                {/* Legal Signatory */}
+                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                  <Text style={{ fontSize: 10, color: mutedColor }}>Digitally Generated Tax Invoice · No Physical Signature Required</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: textColor, marginTop: 2 }}>{invoiceData.company.legalName}</Text>
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* Compulsory Photo Proof Refund Modal */}
       <Modal visible={showRefundModal} transparent animationType="slide" onRequestClose={() => setShowRefundModal(false)}>

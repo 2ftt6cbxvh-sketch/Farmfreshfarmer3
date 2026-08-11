@@ -47,6 +47,8 @@ export default function AdminProducts() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [reconsiderProduct, setReconsiderProduct] = useState<Product | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState("");
   const [form, setForm] = useState<Form>(EMPTY);
   const [filter, setFilter] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -136,6 +138,27 @@ export default function AdminProducts() {
       }
     },
     onError: (err: any) => toast({ title: err?.message || "Could not delete product", variant: "destructive" }),
+  });
+
+  const reconsiderMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: number; note: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/approvals/products/${id}`, {
+        action: "changes_requested",
+        note,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/reconsideration"] });
+      setReconsiderProduct(null);
+      setFeedbackNote("");
+      toast({ title: "↩️ Sent for Reconsideration", description: "Product returned to sub-admin with your instructions and notified on Telegram." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to send back product", description: err?.message || "Server error", variant: "destructive" });
+    },
   });
 
   async function handleUpload(file: File) {
@@ -260,6 +283,10 @@ export default function AdminProducts() {
                         <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-extrabold gap-1">
                           <CheckCircle2 size={12} /> Live Storefront
                         </Badge>
+                      ) : status === "changes_requested" ? (
+                        <Badge variant="outline" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/40 text-[11px] font-extrabold gap-1">
+                          <Clock size={12} /> In Re-Consideration 🔄
+                        </Badge>
                       ) : status === "pending_deletion" ? (
                         <Badge variant="destructive" className="bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 text-[11px] font-extrabold animate-pulse gap-1">
                           <Trash2 size={12} /> Deletion Pending Approval ⏳
@@ -275,7 +302,21 @@ export default function AdminProducts() {
                       )}
                     </td>
                     <td className="p-3">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end items-center gap-1">
+                        {isPrimaryAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setReconsiderProduct(p);
+                              setFeedbackNote("");
+                            }}
+                            className="h-8 px-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border border-amber-500/20 rounded-xl"
+                            title="Send back to sub-admin for changes"
+                          >
+                            ↩️ Changes
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)} data-testid={`button-edit-${p.id}`}><Pencil size={15} /></Button>
                         <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) del.mutate(p.id); }} data-testid={`button-delete-${p.id}`}><Trash2 size={15} /></Button>
                       </div>
@@ -393,6 +434,56 @@ export default function AdminProducts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Super Admin Reconsideration Prompt Dialog */}
+      {reconsiderProduct && (
+        <Dialog open={reconsiderProduct !== null} onOpenChange={(v) => !v && setReconsiderProduct(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-amber-500">
+                <span>↩️ Request Changes for "{reconsiderProduct.name}"</span>
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground leading-relaxed pt-1">
+                Enter the changes or feedback you want the sub-admin to address. This item will be moved to the Re-Consideration Queue and the sub-admin will be notified via Telegram.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2 text-xs">
+              <div>
+                <Label className="font-bold text-foreground">Feedback & Requested Modifications *</Label>
+                <Textarea
+                  value={feedbackNote}
+                  onChange={(e) => setFeedbackNote(e.target.value)}
+                  placeholder="e.g. Please correct price, verify stock count, or update organic certificate photo..."
+                  className="mt-1 min-h-[90px] text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setReconsiderProduct(null)} disabled={reconsiderMutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!feedbackNote.trim()) {
+                    toast({ title: "Feedback required", description: "Please enter instructions for the sub-admin.", variant: "destructive" });
+                    return;
+                  }
+                  reconsiderMutation.mutate({
+                    id: reconsiderProduct.id,
+                    note: feedbackNote.trim(),
+                  });
+                }}
+                disabled={reconsiderMutation.isPending}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs shadow-md"
+              >
+                {reconsiderMutation.isPending ? "Sending..." : "↩️ Send Back for Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </AdminLayout>
   );
 }
