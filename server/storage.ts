@@ -17,13 +17,15 @@ import {
   subscriptionChangeLogs, subscriptionBillingCycles, discountRules,
   discountUsages, orderDiscounts, referralCodes, referrals, referralRewards,
   referralRewardUsages, payments, paymentEvents, refunds, settings,
+  starDiscountRules,
 } from "@shared/schema";
 import type {
   User, InsertUser, Category, InsertCategory, Product, InsertProduct,
   Coupon, InsertCoupon, Review, Order, CustomerProfile, SubscriptionPlan,
   UserSubscription, DiscountRule, ReferralCode, Payment,
+  StarDiscountRule, InsertStarDiscountRule,
 } from "@shared/schema";
-import { eq, and, ilike, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, ilike, desc, sql, inArray, lte, gte } from "drizzle-orm";
 
 /* ================================ USERS ============================== */
 export const userStore = {
@@ -558,6 +560,37 @@ export const settingStore = {
   },
 };
 
+/* ========================= STAR DISCOUNT RULES ===================== */
+export const starDiscountRuleStore = {
+  async list() {
+    return db.select().from(starDiscountRules).orderBy(starDiscountRules.ruleType, starDiscountRules.starFrom);
+  },
+  async create(data: InsertStarDiscountRule) {
+    const [rule] = await db.insert(starDiscountRules).values(data).returning();
+    return rule;
+  },
+  async update(id: number, data: Partial<InsertStarDiscountRule>) {
+    const [rule] = await db.update(starDiscountRules).set({ ...data, updatedAt: new Date() }).where(eq(starDiscountRules.id, id)).returning();
+    return rule;
+  },
+  async remove(id: number) {
+    await db.delete(starDiscountRules).where(eq(starDiscountRules.id, id));
+  },
+  async getActiveForStars(stars: number, ruleType: 'customer' | 'staff'): Promise<StarDiscountRule | null> {
+    const [rule] = await db.select().from(starDiscountRules)
+      .where(
+        and(
+          eq(starDiscountRules.active, true),
+          eq(starDiscountRules.ruleType, ruleType),
+          lte(starDiscountRules.starFrom, stars),
+          gte(starDiscountRules.starTo, stars)
+        )
+      )
+      .limit(1);
+    return rule ?? null;
+  },
+};
+
 /* -------- Aggregate export mirroring the old `storage` object -------- */
 export const storage = {
   users: userStore, profiles: profileStore, categories: categoryStore,
@@ -565,6 +598,7 @@ export const storage = {
   orders: orderStore, plans: planStore, subscriptions: subscriptionStore,
   discounts: discountStore, referrals: referralStore, payments: paymentStore,
   settings: settingStore,
+  starDiscountRules: starDiscountRuleStore,
 };
 
 export type Storage = typeof storage;

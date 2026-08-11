@@ -47,6 +47,7 @@ export const users = pgTable("users", {
   isVerified: boolean("is_verified").notNull().default(false),
   starRating: integer("star_rating").notNull().default(5),
   experienceRank: varchar("experience_rank", { length: 64 }).notNull().default("Specialist"),
+  customerStars: integer("customer_stars").notNull().default(0),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -657,6 +658,28 @@ export const securityAuditLogs = pgTable("security_audit_logs", {
   createdIdx: index("security_audit_logs_created_idx").on(t.createdAt),
 }));
 export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
+
+/* ========================= STAR DISCOUNT RULES ======================== */
+// Configurable star-based discount tiers.
+// ruleType: 'customer' = applied at checkout for customer loyalty stars
+// ruleType: 'staff' = defines max discount % a staff member can grant
+export const starDiscountRules = pgTable("star_discount_rules", {
+  id: serial("id").primaryKey(),
+  ruleType: varchar("rule_type", { length: 16 }).notNull().default("customer"), // customer | staff
+  starFrom: integer("star_from").notNull(), // inclusive lower bound
+  starTo: integer("star_to").notNull(),     // inclusive upper bound
+  discountPercent: numeric("discount_percent", { precision: 5, scale: 2 }).notNull().default("0"),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertStarDiscountRuleSchema = createInsertSchema(starDiscountRules).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type InsertStarDiscountRule = z.infer<typeof insertStarDiscountRuleSchema>;
+export type StarDiscountRule = typeof starDiscountRules.$inferSelect;
 
 /* ============================ OTP CODES ========================== */
 export const otpCodes = pgTable("otp_codes", {

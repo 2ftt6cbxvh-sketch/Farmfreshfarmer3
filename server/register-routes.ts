@@ -114,6 +114,7 @@ function publicUser(u: any) {
     isVerified: u.isVerified !== undefined ? Boolean(u.isVerified) : isPrimary,
     starRating: Math.min(5, Math.max(1, Number(u.starRating) || 5)),
     experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
+    customerStars: u.customerStars ?? 0,
     phone: u.phone,
     address: u.address,
   };
@@ -869,6 +870,50 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
     const discountPercent = parseFloat(String(coupon.discountPercent || "0")) || 10;
     res.json({ valid: true, code: coupon.code, discountPercent });
+  }));
+
+  /* =================== STAR DISCOUNT RULES ========================= */
+  // Get all star discount rules (public - used by client to show discount tiers)
+  app.get("/api/star-discount-rules", h(async (_req, res) => {
+    const rules = await storage.starDiscountRules.list();
+    res.json(rules);
+  }));
+
+  // Create a new star discount rule (Super Admin only)
+  app.post("/api/star-discount-rules", requireAdmin, h(async (req, res) => {
+    const { ruleType, starFrom, starTo, discountPercent, description, active } = req.body;
+    if (!ruleType || starFrom === undefined || starTo === undefined || discountPercent === undefined) {
+      return res.status(400).json({ message: "ruleType, starFrom, starTo, discountPercent are required" });
+    }
+    const rule = await storage.starDiscountRules.create({ ruleType, starFrom, starTo, discountPercent, description, active: active !== false });
+    res.status(201).json(rule);
+  }));
+
+  // Update a star discount rule (Super Admin only)
+  app.patch("/api/star-discount-rules/:id", requireAdmin, h(async (req, res) => {
+    const id = Number(req.params.id);
+    const rule = await storage.starDiscountRules.update(id, req.body);
+    if (!rule) return res.status(404).json({ message: "Rule not found" });
+    res.json(rule);
+  }));
+
+  // Delete a star discount rule (Super Admin only)
+  app.delete("/api/star-discount-rules/:id", requireAdmin, h(async (req, res) => {
+    await storage.starDiscountRules.remove(Number(req.params.id));
+    res.json({ ok: true });
+  }));
+
+  /* =================== CUSTOMER STARS ============================== */
+  // Set customer loyalty stars (Super Admin only)
+  app.patch("/api/users/:id/customer-stars", requireAdmin, h(async (req, res) => {
+    const userId = Number(req.params.id);
+    const stars = Number(req.body.customerStars);
+    if (isNaN(stars) || stars < 0 || stars > 10) {
+      return res.status(400).json({ message: "customerStars must be 0–10" });
+    }
+    const [updated] = await db.update(users).set({ customerStars: stars, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json({ user: publicUser(updated) });
   }));
 
   function extractUserId(req: any): number | null {

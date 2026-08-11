@@ -119,6 +119,8 @@ export interface PriceResult {
   referralRewardApplied: number;  // reward credit the referrer spent
   referralCodeUsed: string | null;
   breakdown: DiscountLine[];
+  starDiscountAmount: number;   // the ₹ amount saved from customer loyalty stars
+  starDiscountPercent: number;  // the % from the rule (e.g. 8 for 8%)
   // context needed by the order-placement step to write referral records
   meta: {
     isFirstOrder: boolean;
@@ -407,8 +409,37 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     }
   }
 
+  // ── Customer Loyalty Stars Discount ──────────────────────────────────
+  let starDiscountAmount = 0;
+  let starDiscountPercent = 0;
+  if (req.userId) {
+    try {
+      const { db } = await import("../db");
+      const { eq } = await import("drizzle-orm");
+      const { users } = await import("@shared/schema");
+      
+      const [user] = await db.select({ customerStars: users.customerStars })
+        .from(users)
+        .where(eq(users.id, req.userId))
+        .limit(1);
+      const stars = user?.customerStars ?? 0;
+      if (stars > 0) {
+        const rule = await storage.starDiscountRules.getActiveForStars(stars, 'customer');
+        if (rule) {
+          starDiscountPercent = parseFloat(String(rule.discountPercent)) || 0;
+          starDiscountAmount = round2((subtotal * starDiscountPercent) / 100);
+          if (starDiscountAmount > 0) {
+            breakdown.push({ ruleType: "star_discount", label: `Customer Loyalty Stars Discount (${starDiscountPercent}%)`, amount: starDiscountAmount });
+          }
+        }
+      }
+    } catch (e) {
+      // Non-critical: star discount silently skipped on error
+    }
+  }
+
   // ---- Total, clamped so it never goes below zero ----
-  let discount = round2(firstOrderDiscount + referralDiscount + couponDiscount + perkDiscount + referralRewardApplied);
+  let discount = round2(firstOrderDiscount + referralDiscount + couponDiscount + perkDiscount + referralRewardApplied + starDiscountAmount);
   if (discount > subtotal) discount = subtotal;
   const afterDiscount = round2(subtotal - discount);
 
@@ -456,6 +487,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     firstOrderDiscount, referralDiscount, referralRewardApplied,
     referralCodeUsed: referralValid ? referralCodeResolved : null,
     breakdown,
+    starDiscountAmount, starDiscountPercent,
     meta: { isFirstOrder, referrerUserId, referralValid, referralReason },
   };
 }
