@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput, ActivityIndicator, LayoutAnimation, Modal } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput, ActivityIndicator, LayoutAnimation, Modal, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +13,27 @@ export default function AccountScreen() {
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
+
+  const glowAnim = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.45,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [glowAnim]);
 
   const [editingPhone, setEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState(user?.phone || '');
@@ -235,11 +256,31 @@ export default function AccountScreen() {
           <Text style={styles.avatarText}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
         </View>
         <Text style={styles.userName}>{user.name}</Text>
-        {/* Customer Loyalty Stars Display */}
-        {(user.customerStars ?? 0) > 0 && (
-          <View style={{ marginVertical: 6, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(59,130,246,0.15)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }}>
-            <Text style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: 13 }}>★ {user.customerStars} Stars</Text>
-          </View>
+        {/* User Role Badge & Glowing Stars */}
+        {user && (
+          (user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com') ? (
+            <View style={{ marginVertical: 8, alignItems: 'center' }}>
+              <Animated.View style={{ opacity: glowAnim, flexDirection: 'row', gap: 4, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(245, 158, 11, 0.18)', borderWidth: 1.5, borderColor: 'rgba(245, 158, 11, 0.5)', shadowColor: '#f59e0b', shadowRadius: 10, shadowOpacity: 0.5 }}>
+                {Array.from({ length: 6 }, (_, i) => (
+                  <Text key={i} style={{ color: '#fbbf24', fontSize: 18, fontWeight: 'bold' }}>★</Text>
+                ))}
+              </Animated.View>
+              <Text style={{ color: '#fcd34d', fontWeight: '900', fontSize: 11, marginTop: 4 }}>👑 Super Admin (6 Gold Stars)</Text>
+            </View>
+          ) : user.role !== 'customer' ? (
+            <View style={{ marginVertical: 8, alignItems: 'center' }}>
+              <Animated.View style={{ opacity: glowAnim, flexDirection: 'row', gap: 4, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(245, 158, 11, 0.18)', borderWidth: 1.5, borderColor: 'rgba(245, 158, 11, 0.45)', shadowColor: '#f59e0b', shadowRadius: 8, shadowOpacity: 0.4 }}>
+                {Array.from({ length: Math.min(5, Math.max(1, Number(user.starRating) || 5)) }, (_, i) => (
+                  <Text key={i} style={{ color: '#fbbf24', fontSize: 18, fontWeight: 'bold' }}>★</Text>
+                ))}
+              </Animated.View>
+              <Text style={{ color: '#6ee7b7', fontWeight: '800', fontSize: 11, marginTop: 4 }}>🛡️ Staff ({user.starRating || 5} Gold Stars)</Text>
+            </View>
+          ) : (user.customerStars ?? 0) > 0 ? (
+            <View style={{ marginVertical: 6, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 14, backgroundColor: 'rgba(59,130,246,0.15)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.35)' }}>
+              <Text style={{ color: '#60a5fa', fontWeight: '900', fontSize: 14 }}>★ {user.customerStars} Stars</Text>
+            </View>
+          ) : null
         )}
         {user.email ? <Text style={styles.userEmail}>{user.email}</Text> : null}
         {user.phone ? <Text style={styles.userPhone}>📱 {user.phone}</Text> : (
