@@ -247,19 +247,9 @@ export function Header() {
                     ))}
                   </div>
                 ) : (user.customerStars ?? 0) > 0 ? (
-                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Blue Loyalty Stars`}>
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: Math.min(user.customerStars ?? 0, 5) }, (_, i) => (
-                        <span key={i} className="text-blue-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(59,130,246,0.9)]">★</span>
-                      ))}
-                    </div>
-                    {(user.customerStars ?? 0) > 5 && (
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: (user.customerStars ?? 0) - 5 }, (_, i) => (
-                          <span key={i} className="text-blue-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(59,130,246,0.9)]">★</span>
-                        ))}
-                      </div>
-                    )}
+                  <div className="flex items-center gap-1 shrink-0 px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-extrabold text-xs shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Loyalty Stars`}>
+                    <span className="text-blue-400">★</span>
+                    <span>{user.customerStars} Stars</span>
                   </div>
                 ) : null}
                 <DropdownMenu>

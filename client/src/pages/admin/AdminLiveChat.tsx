@@ -396,11 +396,9 @@ export function AdminLiveChat() {
                               </span>
                               {m.sender === "customer" ? (
                                 (m.senderMeta?.customerStars ?? 0) > 0 && (
-                                  <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                                    {[...Array(Math.min(m.senderMeta?.customerStars ?? 0, 10))].map((_, i) => (
-                                      <span key={i} className="text-blue-400 text-[10px] leading-none drop-shadow-[0_0_4px_rgba(59,130,246,0.9)]">★</span>
-                                    ))}
-                                  </div>
+                                  <span className="text-blue-400 font-extrabold text-[10px] bg-blue-500/15 px-2 py-0.5 rounded-md border border-blue-400/30 shrink-0">
+                                    ★ {m.senderMeta?.customerStars} Stars
+                                  </span>
                                 )
                               ) : (
                                 <>

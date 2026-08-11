@@ -81,20 +81,14 @@ export default function AdminCustomers() {
                       className="flex flex-col gap-0.5 group p-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/15 transition-all text-left"
                       title="Click to edit loyalty stars"
                     >
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: Math.min(c.customerStars || 0, 5) }, (_, i) => (
-                          <span key={i} className="text-blue-400 text-xs drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]">★</span>
-                        ))}
-                        {(c.customerStars || 0) === 0 && <span className="text-xs text-muted-foreground italic">No stars</span>}
+                      <div className="flex items-center gap-1 font-extrabold text-xs text-blue-400">
+                        {(c.customerStars || 0) > 0 ? (
+                          <span>★ {c.customerStars} Stars</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic font-normal">No stars</span>
+                        )}
                       </div>
-                      {(c.customerStars || 0) > 5 && (
-                        <div className="flex items-center gap-0.5">
-                          {Array.from({ length: (c.customerStars || 0) - 5 }, (_, i) => (
-                            <span key={i} className="text-blue-400 text-xs drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]">★</span>
-                          ))}
-                        </div>
-                      )}
-                      <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold">Edit ({c.customerStars || 0}/10)</span>
+                      <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold mt-0.5">Edit ({c.customerStars || 0}/10)</span>
                     </button>
                   </td>
                   <td className="p-3 text-muted-foreground">{c.phone || "—"}</td>

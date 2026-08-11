@@ -942,11 +942,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                           </span>
                         </>
                       ) : (user.customerStars ?? 0) > 0 ? (
-                        <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                          {[...Array(Math.min(user.customerStars ?? 0, 10))].map((_, i) => (
-                            <span key={i} className="text-blue-400 text-[10px] leading-none drop-shadow-[0_0_4px_rgba(59,130,246,0.9)]">★</span>
-                          ))}
-                        </div>
+                        <span className="text-blue-300 font-extrabold text-[10px] bg-blue-500/20 px-2 py-0.5 rounded-md border border-blue-400/30 shrink-0">
+                          ★ {user.customerStars} Stars
+                        </span>
                       ) : null}
                       <span className="text-purple-300 font-extrabold">{user.name}</span>
                     </div>
