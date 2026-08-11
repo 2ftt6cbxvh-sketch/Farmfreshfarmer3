@@ -235,6 +235,23 @@ export default function AccountScreen() {
           <Text style={styles.avatarText}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
         </View>
         <Text style={styles.userName}>{user.name}</Text>
+        {/* Customer Loyalty Stars Display (5 in line 1, 5 in line 2) */}
+        {(user.customerStars ?? 0) > 0 && (
+          <View style={{ marginVertical: 6, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 3 }}>
+              {Array.from({ length: Math.min(user.customerStars ?? 0, 5) }, (_, i) => (
+                <Text key={i} style={{ color: '#60a5fa', fontSize: 16, textShadowColor: 'rgba(59,130,246,0.8)', textShadowRadius: 6 }}>★</Text>
+              ))}
+            </div>
+            {(user.customerStars ?? 0) > 5 && (
+              <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
+                {Array.from({ length: (user.customerStars ?? 0) - 5 }, (_, i) => (
+                  <Text key={i} style={{ color: '#60a5fa', fontSize: 16, textShadowColor: 'rgba(59,130,246,0.8)', textShadowRadius: 6 }}>★</Text>
+                ))}
+              </div>
+            )}
+          </View>
+        )}
         {user.email ? <Text style={styles.userEmail}>{user.email}</Text> : null}
         {user.phone ? <Text style={styles.userPhone}>📱 {user.phone}</Text> : (
           <Text style={[styles.userPhone, { color: '#fbbf24' }]}>⚠️ No phone number — add one below</Text>

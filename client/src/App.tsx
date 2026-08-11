@@ -34,6 +34,7 @@ import AdminCustomers from "@/pages/admin/AdminCustomers";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminCoupons from "@/pages/admin/AdminCoupons";
 import AdminDiscounts from "@/pages/admin/AdminDiscounts";
+import AdminStarDiscountRules from "@/pages/admin/AdminStarDiscountRules";
 import AdminReferrals from "@/pages/admin/AdminReferrals";
 import AdminPayments from "@/pages/admin/AdminPayments";
 import AdminSettings from "@/pages/admin/AdminSettings";
@@ -91,6 +92,7 @@ function AppRouter() {
       <Route path="/admin/reviews" component={AdminReviews} />
       <Route path="/admin/coupons" component={AdminCoupons} />
       <Route path="/admin/discounts" component={AdminDiscounts} />
+      <Route path="/admin/star-discount-rules" component={AdminStarDiscountRules} />
       <Route path="/admin/referrals" component={AdminReferrals} />
       <Route path="/admin/payments" component={AdminPayments} />
       <Route path="/admin/security" component={AdminSecurity} />

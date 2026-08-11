@@ -37,6 +37,7 @@ const NAV = [
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/coupons", label: "Coupons", icon: Ticket },
     { href: "/admin/discounts", label: "Discounts", icon: Percent },
+    { href: "/admin/star-discount-rules", label: "Star Discount Rules ⭐", icon: Star },
     { href: "/admin/referrals", label: "Referrals", icon: Gift },
   ]},
   { section: "System", items: [

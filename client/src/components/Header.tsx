@@ -230,13 +230,31 @@ export function Header() {
 
             {/* Account Menu */}
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">
-                    <UserIcon size={16} className="text-primary" />
-                    <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
-                  </Button>
-                </DropdownMenuTrigger>
+              <div className="flex items-center gap-1.5">
+                {/* Blue Loyalty Stars (5 in row 1, 5 in row 2) */}
+                {(user.customerStars ?? 0) > 0 && (
+                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-blue-500/10 border border-blue-500/25 shadow-[0_0_8px_rgba(59,130,246,0.2)]" title={`${user.customerStars} Loyalty Stars`}>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: Math.min(user.customerStars ?? 0, 5) }, (_, i) => (
+                        <span key={i} className="text-blue-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(59,130,246,0.9)]">★</span>
+                      ))}
+                    </div>
+                    {(user.customerStars ?? 0) > 5 && (
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: (user.customerStars ?? 0) - 5 }, (_, i) => (
+                          <span key={i} className="text-blue-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(59,130,246,0.9)]">★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">
+                      <UserIcon size={16} className="text-primary" />
+                      <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-2xl border border-emerald-500/30 bg-card/95 backdrop-blur-xl p-2 shadow-2xl z-50">
                   <DropdownMenuItem onClick={() => navigate("/orders")} className="rounded-xl font-medium" data-testid="menu-orders">
                     My Orders
@@ -266,6 +284,7 @@ export function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
             ) : (
               <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" onClick={() => navigate("/login")} data-testid="button-login">
                 <UserIcon size={16} className="text-primary" />

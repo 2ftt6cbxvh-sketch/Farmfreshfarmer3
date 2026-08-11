@@ -55,6 +55,8 @@ interface PriceQuote {
   referralDiscount: number;
   referralRewardApplied: number;
   couponDiscount: number;
+  starDiscountAmount?: number;
+  starDiscountPercent?: number;
   breakdown: PriceBreakdownLine[];
 }
 
