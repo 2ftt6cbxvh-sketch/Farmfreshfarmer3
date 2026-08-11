@@ -146,10 +146,10 @@ export default function AdminOrders() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setInvoiceOrderId(o.id)}
-                        className="h-8 px-2 rounded-xl text-xs font-bold text-sky-400 hover:bg-sky-500/10 border border-sky-500/20"
-                        title="Generate / View GST Tax Bill"
+                        className="h-8 px-2.5 rounded-xl text-xs font-bold text-sky-400 hover:bg-sky-500/20 bg-sky-500/10 border border-sky-500/30 shadow-sm"
+                        title="Generate, Preview and Edit Legal GST Tax Invoice Bill"
                       >
-                        <FileText size={13} className="mr-1" /> Bill
+                        <FileText size={13} className="mr-1 text-sky-400" /> Generate Bill
                       </Button>
 
                       {/* Detail View Button */}
@@ -232,7 +232,22 @@ export default function AdminOrders() {
 
       <Dialog open={detailId != null} onOpenChange={(v) => !v && setDetailId(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto max-w-2xl">
-          <DialogHeader><DialogTitle>Order #{detailId}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle>Order #{detailId}</DialogTitle>
+              <Button
+                size="sm"
+                onClick={() => {
+                  const targetId = detailId;
+                  setDetailId(null);
+                  setInvoiceOrderId(targetId);
+                }}
+                className="h-8 px-3 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-sm"
+              >
+                <FileText size={13} className="mr-1.5" /> Generate & Edit Bill
+              </Button>
+            </div>
+          </DialogHeader>
           {detailLoading || !detail ? <Skeleton className="h-64 rounded-lg" /> : (
             <div className="space-y-5">
               <div className="grid sm:grid-cols-2 gap-3 text-sm">

@@ -541,6 +541,10 @@ export const settingStore = {
     const rows = await db.select().from(settings);
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   },
+  async list(): Promise<Array<{ key: string; value: string }>> {
+    const rows = await db.select().from(settings);
+    return rows;
+  },
   async get(key: string): Promise<string | undefined> {
     const [r] = await db.select().from(settings).where(eq(settings.key, key));
     return r?.value;

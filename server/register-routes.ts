@@ -1194,8 +1194,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const discounts = await storage.orders.discounts(order.id);
 
     // Fetch dynamic store/company settings from DB
-    const allSettings = await storage.settings.list();
-    const settingsMap = Object.fromEntries(allSettings.map((s: any) => [s.key, s.value]));
+    const settingsMap = await storage.settings.all();
 
     const legalCompanyName = settingsMap["company_legal_name"] || settingsMap["store_name"] || "FARMFRESHFARMER AGRI VENTURES PRIVATE LIMITED";
     const brandName = settingsMap["store_name"] || "FarmFreshFarmer — Organic Farm to Home";

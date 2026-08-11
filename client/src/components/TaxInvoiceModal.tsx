@@ -255,8 +255,9 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
             </div>
           ) : error || !activeData ? (
             <div className="p-12 text-center text-red-500 bg-white rounded-2xl space-y-2">
-              <AlertTriangle size={32} className="mx-auto" />
+              <AlertTriangle size={32} className="mx-auto text-red-500" />
               <p className="text-sm font-bold">Failed to load invoice details.</p>
+              <p className="text-xs text-slate-500">{error instanceof Error ? error.message : "Please check your connection and retry."}</p>
             </div>
           ) : (
             <div
