@@ -285,11 +285,19 @@ export function registerStaffRoutes(app: Express) {
       const staffId = parseInt(req.params.id, 10);
       if (isNaN(staffId)) return res.status(400).json({ message: "Invalid staff ID" });
 
+      const currentUserId = (req as any).currentUser?.id || (req.session as any)?.userId;
+
       const [target] = await db.select().from(users).where(eq(users.id, staffId)).limit(1);
       if (!target) return res.status(404).json({ message: "Staff account not found" });
 
-      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin || target.role === "admin") {
-        return res.status(403).json({ message: "Super Admin account cannot be revoked or deleted." });
+      // Prevent self-deletion while logged in
+      if (currentUserId && target.id === Number(currentUserId)) {
+        return res.status(400).json({ message: "You cannot delete your own active account while logged in." });
+      }
+
+      // Root Primary Admin (admin@farmfreshfarmer.com / isPrimaryAdmin) is strictly protected
+      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin) {
+        return res.status(403).json({ message: "Root Primary Admin (admin@farmfreshfarmer.com) is protected and cannot be deleted." });
       }
 
       await db.delete(users).where(eq(users.id, staffId));
