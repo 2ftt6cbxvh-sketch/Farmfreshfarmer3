@@ -221,9 +221,9 @@ export function PrivacyPage() {
         We process orders, manage subscriptions/referrals, provide customer support, prevent fraud, and comply with legal requirements.
       </p>
 
-      <H2>3. Lakshmi AI Chatbot Data</H2>
+      <H2>3. Lakshmi AI Assistant Personalization & Privacy Policy</H2>
       <p>
-        Anonymized chatbot interaction data is used to improve service quality. Queries escalated to human support are shared only with customer representatives. No personally identifiable information is stored in chatbot sessions beyond a temporary session token.
+        When you log in to {business}, Lakshmi AI Assistant accesses your registered full name from your account login details solely to address you warmly and personalize conversational support in live chat. Lakshmi AI uses Gemini AI models to generate dynamic, intelligent responses — your phone number is strictly kept private and used exclusively for delivery dispatch updates, never for AI chat greetings or public display. Anonymized chatbot interaction data is used to improve service quality, and queries escalated to human support are shared only with authorized customer representatives.
       </p>
 
       <H2>4. Sharing of Information</H2>

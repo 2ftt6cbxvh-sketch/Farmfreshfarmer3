@@ -271,7 +271,8 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     contactContext: string,
     language: string,
     history?: Array<{ role: string; content: string }>,
-    creatorContext?: string
+    creatorContext?: string,
+    customerName?: string | null
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) {
@@ -281,6 +282,11 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
 
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
     const systemPrompt = `You are Lakshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
+
+==================== CUSTOMER PERSONALIZATION & NAME RULE ====================
+- Logged-In Customer Name: ${customerName ? `"${customerName}"` : 'Guest / Not Logged In'}
+${customerName ? `- IMPORTANT: Address and greet the customer naturally and warmly by their registered full name "${customerName}" (derived from their login details). Do NOT use their phone number, email address, or generic placeholders. Treat them with utmost respect, warmth, and care.` : '- If the customer is not logged in, greet them politely as a valued customer.'}
+- NEVER use hardcoded or generic template messages for everyone. Generate a dynamic, personalized response using your full AI capabilities and live database context.
 
 ==================== LIVE DATABASE & SYSTEM CONTEXT ====================
 1. PRODUCT CATALOG & PRICING:
@@ -787,6 +793,34 @@ function resolveCartQty(
         });
       }
 
+      // Resolve logged-in customer userId & customerName from session / auth token / cookies
+      let userId: number | null = null;
+      if ((req.session as any)?.userId) {
+        userId = (req.session as any).userId;
+      } else {
+        const authHeader = req.headers.authorization;
+        const authToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || sessionToken);
+        if (authToken) {
+          try {
+            const jwt = (await import("jsonwebtoken")).default;
+            const decoded = jwt.verify(authToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+            if (decoded && (decoded.userId || decoded.sub || decoded.id)) {
+              userId = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub || decoded.id);
+            }
+          } catch {}
+        }
+      }
+
+      let customerName: string | null = null;
+      if (userId) {
+        try {
+          const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
+          if (u?.name) customerName = u.name;
+        } catch (e) {
+          console.warn('[chatbot] Failed to fetch customer name for user:', userId, e);
+        }
+      }
+
       // Read ALL settings from DB first
       const allSettings = await storage.settings.all();
 
@@ -1143,6 +1177,7 @@ function resolveCartQty(
       const legalContext = `
 • Platform Name: FarmFreshFarmer
 • Service Area: Instant 30-90 minute delivery across Vijayawada & major Andhra Pradesh locations. Express delivery 2-4 days for non-perishables.
+• Privacy Policy & Customer Name Personalization: Customer names from login details are used exclusively by Lakshmi AI Assistant to personalize chat responses (addressing customers by name). Customer phone numbers are strictly protected and used solely for instant SMS/WhatsApp delivery updates and order dispatch verification, and are NEVER used by Lakshmi AI or shared publicly.
 • Terms & Conditions: 100% naturally grown organic produce sourced direct from local Andhra farmers with zero chemical preservatives.
 • Return & Refund Policy: Perishable goods & damaged items can be returned within 4 hours of delivery with photo proof. Refunds are credited to original payment method within 2 business days.
 • Shipping Policy: Free delivery on orders above minimum threshold. Delivered fresh daily between 6:00 AM and 10:00 PM.
@@ -1212,7 +1247,8 @@ function resolveCartQty(
           contactContext,
           lang,
           history,
-          creatorContext
+          creatorContext,
+          customerName
         );
       }
 
