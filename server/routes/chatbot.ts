@@ -290,9 +290,9 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
     const systemPrompt = `You are Lakshmi, the intelligent, warm, and highly knowledgeable AI Assistant & Nutrition Consultant for FarmFreshFarmer (Vijayawada & Andhra Pradesh's premier 100% organic farm-to-doorstep delivery platform).
 
-==================== CUSTOMER PERSONALIZATION & NAME RULE ====================
+==================== CUSTOMER PERSONALIZATION & MANDATORY NAME GREETING RULE ====================
 - Logged-In Customer Name: ${customerName ? `"${customerName}"` : 'Guest / Not Logged In'}
-${customerName ? `- IMPORTANT: Address and greet the customer naturally and warmly by their registered full name "${customerName}" (derived from their login details). Do NOT use their phone number, email address, or generic placeholders. Treat them with utmost respect, warmth, and care.` : '- If the customer is not logged in, greet them politely as a valued customer.'}
+${customerName ? `- MANDATORY INSTRUCTION: The customer chatting with you is logged in as "${customerName}". You MUST ALWAYS greet and address them directly by their name "${customerName}" in your response (e.g. "Namaste ${customerName}!", "Hello ${customerName}!", "Hi ${customerName}!"). NEVER use generic placeholders like "there" or "friend".` : '- If the customer is not logged in, greet them politely as a valued customer.'}
 - NEVER use hardcoded or generic template messages for everyone. Generate a dynamic, personalized response using your full AI capabilities and live database context.
 
 ==================== LIVE DATABASE & SYSTEM CONTEXT ====================
@@ -800,11 +800,12 @@ function resolveCartQty(
         });
       }
 
-      // Resolve logged-in customer userId & customerName from session / auth token / cookies
-      let userId: number | null = null;
-      if ((req.session as any)?.userId) {
+      // Resolve logged-in customer userId & customerName from req.body / session / auth token / cookies
+      let userId: number | null = req.body.userId ? Number(req.body.userId) : null;
+      if (!userId && (req.session as any)?.userId) {
         userId = (req.session as any).userId;
-      } else {
+      }
+      if (!userId) {
         const authHeader = req.headers.authorization;
         const authToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || sessionToken);
         if (authToken) {
@@ -818,8 +819,8 @@ function resolveCartQty(
         }
       }
 
-      let customerName: string | null = null;
-      if (userId) {
+      let customerName: string | null = req.body.customerName || null;
+      if (userId && !customerName) {
         try {
           const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
           if (u?.name) customerName = u.name;

@@ -277,10 +277,20 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
         };
       }
 
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
       const r = await fetch("/api/chatbot/message", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, sessionToken, language }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          ...payload,
+          sessionToken,
+          language,
+          userId: user?.id,
+          customerName: user?.name,
+        }),
       });
       return r.json();
     },
@@ -302,6 +312,20 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
         queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
         queryClient.invalidateQueries({ queryKey: ['/api/cart/count'] });
       }
+      if (data.speech) {
+        speakText(data.reply, reply.id, language);
+      }
+    },
+    onError: () => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err_${Date.now()}`,
+          role: "model",
+          content: "Sorry, I had trouble processing that. Please try again!",
+          timestamp: new Date(),
+        },
+      ]);
     },
   });
 
@@ -335,9 +359,15 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   useEffect(() => {
     if (isOpen && !hasOpened) {
       setHasOpened(true);
-      setMessages([{ id: "welcome", role: "model", content: WELCOME_MESSAGES[language], timestamp: new Date() }]);
+      const nameGreeting = user?.name ? `🙏 Namaste ${user.name}! ` : "🙏 Namaste! ";
+      const personalizedWelcome: Record<Language, string> = {
+        en: `${nameGreeting}I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart`,
+        hi: `${user?.name ? `🙏 नमस्ते ${user.name}! ` : "🙏 नमस्ते! "}मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?\n\nमैं इन चीज़ों में मदद कर सकती हूँ:\n• उत्पाद की कीमतें और उपलब्धता\n• डिलीवरी समय\n• ऑर्डर ट्रैकिंग\n• रिटर्न और रिफंड नीति`,
+        te: `${user?.name ? `🙏 నమస్తే ${user.name}! ` : "🙏 నమస్తే! "}నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?\n\nనేను ఇవి చేయగలను:\n• ఉత్పత్తి ధరలు & అందుబాటు\n• డెలివరీ సమయాలు\n• ఆర్డర్ ట్రాకింగ్\n• రిటర్న్ & రీఫండ్ పాలసీ`,
+      };
+      setMessages([{ id: "welcome", role: "model", content: personalizedWelcome[language], timestamp: new Date() }]);
     }
-  }, [isOpen, hasOpened, language]);
+  }, [isOpen, hasOpened, language, user]);
 
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
