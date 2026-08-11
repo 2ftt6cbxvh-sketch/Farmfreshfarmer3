@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
   Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
-  ExternalLink
+  ExternalLink, Crown, CheckCircle2
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
@@ -280,19 +280,31 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <div className="p-5 border-b border-sidebar-border">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="font-serif text-lg font-bold">FarmFreshFarmer</span>
             {isPrimaryAdmin ? (
-              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">👑 Sole Super Admin</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-black tracking-wide shadow-sm whitespace-nowrap">
+                <Crown size={12} className="text-amber-400 fill-amber-400 shrink-0" />
+                <span>Super Admin</span>
+                <CheckCircle2 size={11} className="text-sky-400 fill-sky-400/20 shrink-0" />
+              </span>
             ) : (
-              <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full border border-primary/30 capitalize">
-                {adminUser?.role === "admin" ? "Main Admin" : adminUser?.role?.replace("_", " ")}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-extrabold border border-primary/30 capitalize whitespace-nowrap">
+                {adminUser?.isVerified && <CheckCircle2 size={11} className="text-sky-400 fill-sky-400/20 shrink-0" />}
+                <span>{adminUser?.role === "admin" ? "Main Admin" : adminUser?.role?.replace("_", " ")}</span>
               </span>
             )}
           </div>
-          <div className="flex items-center justify-between mt-1">
-            <p className="text-xs opacity-70">{adminUser?.name || "Admin Panel"}</p>
-            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
+          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-xs font-extrabold text-foreground truncate">{adminUser?.name || "Admin Panel"}</p>
+              <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                {[...Array(Math.min(5, Math.max(1, Number(adminUser?.starRating) || 5)))].map((_, i) => (
+                  <Star key={i} size={10} className="fill-amber-400 text-amber-400 shrink-0" />
+                ))}
+              </div>
+            </div>
+            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm shrink-0">
               v8.2.0
             </span>
           </div>

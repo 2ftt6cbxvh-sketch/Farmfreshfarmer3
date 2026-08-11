@@ -12,10 +12,14 @@ import { eq, ne, and, sql } from "drizzle-orm";
 /** Helper: Ensure user is authenticated AND is Primary Admin */
 async function requirePrimaryAdmin(req: Request, res: Response, next: NextFunction) {
   try {
-    // Ensure permissions and is_primary_admin columns exist
+    // Ensure permissions, is_primary_admin, is_verified, star_rating, and experience_rank columns exist
     try {
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INT NOT NULL DEFAULT 5`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) DEFAULT 'Specialist'`);
+      await db.execute(sql`UPDATE users SET is_verified = TRUE, star_rating = 5, experience_rank = 'Super Admin' WHERE email = 'admin@farmfreshfarmer.com' OR is_primary_admin = TRUE`);
     } catch {}
 
     let userId: number | undefined = (req.session as any)?.userId;
@@ -75,6 +79,9 @@ export function registerStaffRoutes(app: Express) {
         telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
+        isVerified: users.isVerified,
+        starRating: users.starRating,
+        experienceRank: users.experienceRank,
         status: users.status,
         createdAt: users.createdAt,
       }).from(users).where(and(ne(users.role, "customer"), ne(users.role, "delivery_partner")));
@@ -83,6 +90,9 @@ export function registerStaffRoutes(app: Express) {
       const formatted = staffList.map((s) => ({
         ...s,
         permissions: s.permissions ? JSON.parse(s.permissions) : [],
+        isVerified: Boolean(s.isVerified),
+        starRating: Math.min(5, Math.max(1, Number(s.starRating) || 5)),
+        experienceRank: s.experienceRank || (s.isPrimaryAdmin ? "Super Admin" : "Specialist"),
       }));
 
       return res.json({ staff: formatted });
@@ -168,7 +178,7 @@ export function registerStaffRoutes(app: Express) {
   /** POST /api/admin/staff — Create a new sub-admin/staff member (Primary Admin only) */
   app.post("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, password, role, customTitle, telegramChatId, permissions } = req.body || {};
+      const { name, email, phone, password, role, customTitle, telegramChatId, permissions, isVerified, starRating, experienceRank } = req.body || {};
 
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required" });
@@ -196,6 +206,9 @@ export function registerStaffRoutes(app: Express) {
         telegramChatId: telegramChatId ? String(telegramChatId).trim() : null,
         permissions: permString,
         isPrimaryAdmin: false,
+        isVerified: isVerified !== undefined ? Boolean(isVerified) : false,
+        starRating: Math.min(5, Math.max(1, Number(starRating) || 5)),
+        experienceRank: (experienceRank && String(experienceRank).trim()) ? String(experienceRank).trim() : "Specialist",
         status: "active",
       }).returning({
         id: users.id,
@@ -208,6 +221,9 @@ export function registerStaffRoutes(app: Express) {
         telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
+        isVerified: users.isVerified,
+        starRating: users.starRating,
+        experienceRank: users.experienceRank,
         status: users.status,
         createdAt: users.createdAt,
       });
@@ -216,6 +232,9 @@ export function registerStaffRoutes(app: Express) {
         staff: {
           ...created,
           permissions: created.permissions ? JSON.parse(created.permissions) : [],
+          isVerified: Boolean(created.isVerified),
+          starRating: Number(created.starRating) || 5,
+          experienceRank: created.experienceRank || "Specialist",
         },
       });
     } catch (err: any) {
@@ -238,7 +257,7 @@ export function registerStaffRoutes(app: Express) {
         return res.status(403).json({ message: "Primary Admin credentials cannot be modified via sub-admin management" });
       }
 
-      const { name, phone, password, role, customTitle, telegramChatId, status, permissions } = req.body || {};
+      const { name, phone, password, role, customTitle, telegramChatId, status, permissions, isVerified, starRating, experienceRank } = req.body || {};
       const updates: any = { updatedAt: new Date() };
 
       if (name) updates.name = name.trim();
@@ -250,6 +269,10 @@ export function registerStaffRoutes(app: Express) {
       if (permissions !== undefined) {
         updates.permissions = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
       }
+      if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
+      if (starRating !== undefined) updates.starRating = Math.min(5, Math.max(1, Number(starRating) || 5));
+      if (experienceRank !== undefined) updates.experienceRank = String(experienceRank).trim() || "Specialist";
+
       if (password && password.trim().length >= 6) {
         updates.password = await bcrypt.hash(password.trim(), 10);
       }
@@ -265,6 +288,9 @@ export function registerStaffRoutes(app: Express) {
         telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
+        isVerified: users.isVerified,
+        starRating: users.starRating,
+        experienceRank: users.experienceRank,
         status: users.status,
         createdAt: users.createdAt,
       });
@@ -273,6 +299,9 @@ export function registerStaffRoutes(app: Express) {
         staff: {
           ...updated,
           permissions: updated.permissions ? JSON.parse(updated.permissions) : [],
+          isVerified: Boolean(updated.isVerified),
+          starRating: Number(updated.starRating) || 5,
+          experienceRank: updated.experienceRank || "Specialist",
         },
       });
     } catch (err: any) {

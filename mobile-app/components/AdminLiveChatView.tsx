@@ -35,6 +35,14 @@ interface ChatMessage {
   senderName?: string | null;
   message: string;
   createdAt: string;
+  senderMeta?: {
+    isPrimaryAdmin?: boolean;
+    isVerified?: boolean;
+    starRating?: number;
+    experienceRank?: string;
+    role?: string;
+    customTitle?: string;
+  } | null;
 }
 
 interface MissedQuery {
@@ -391,9 +399,35 @@ export function AdminLiveChatView({
                           : styles.bubbleBot,
                       ]}
                     >
-                      <Text style={styles.msgSenderName}>
-                        {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Lakshmi Bot')}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'nowrap', marginBottom: 3 }}>
+                        <Text style={styles.msgSenderName}>
+                          {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Lakshmi Bot')}
+                        </Text>
+                        {isSupport && (
+                          <>
+                            {m.senderMeta?.isVerified !== false && (
+                              <Ionicons name="checkmark-circle" size={12} color="#38bdf8" />
+                            )}
+                            {m.senderMeta?.isPrimaryAdmin ? (
+                              <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.25)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 10, borderWidth: 1, borderColor: '#f59e0b', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <Text style={{ fontSize: 9 }}>👑</Text>
+                                <Text style={{ color: '#fcd34d', fontSize: 9, fontWeight: '900' }}>Super Admin</Text>
+                              </View>
+                            ) : (
+                              <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.25)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8 }}>
+                                <Text style={{ color: '#6ee7b7', fontSize: 9, fontWeight: '800' }}>
+                                  🏅 {m.senderMeta?.experienceRank || m.senderMeta?.customTitle || 'Specialist'}
+                                </Text>
+                              </View>
+                            )}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                              {[...Array(Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
+                                <Ionicons key={i} name="star" size={9} color="#f59e0b" />
+                              ))}
+                            </View>
+                          </>
+                        )}
+                      </View>
                       <Text style={styles.msgText}>{m.message}</Text>
                       <Text style={styles.msgTime}>
                         {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -44,6 +44,9 @@ export const users = pgTable("users", {
   telegramChatId: varchar("telegram_chat_id", { length: 64 }),
   permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
   isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
+  isVerified: boolean("is_verified").notNull().default(false),
+  starRating: integer("star_rating").notNull().default(5),
+  experienceRank: varchar("experience_rank", { length: 64 }).notNull().default("Specialist"),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

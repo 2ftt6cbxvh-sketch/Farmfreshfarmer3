@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2 } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,15 @@ interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  senderName?: string;
+  senderMeta?: {
+    isPrimaryAdmin?: boolean;
+    isVerified?: boolean;
+    starRating?: number;
+    experienceRank?: string;
+    role?: string;
+    customTitle?: string;
+  } | null;
   action?: string;
   actionData?: any;
   needsHuman?: boolean;
@@ -171,7 +180,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const { data: liveSessionData } = useQuery<{
     status: "bot" | "waiting_for_agent" | "agent_connected" | "closed";
     assignedAgentName?: string | null;
-    messages: Array<{ id: string; sender: string; senderName?: string; message: string; createdAt: string }>;
+    messages: Array<{
+      id: string;
+      sender: string;
+      senderName?: string;
+      message: string;
+      createdAt: string;
+      senderMeta?: {
+        isPrimaryAdmin?: boolean;
+        isVerified?: boolean;
+        starRating?: number;
+        experienceRank?: string;
+        role?: string;
+        customTitle?: string;
+      } | null;
+    }>;
   }>({
     queryKey: ["/api/chatbot/live-session", sessionToken],
     queryFn: async () => {
@@ -192,7 +215,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           .map((lm) => ({
             id: lm.id,
             role: lm.sender === "customer" ? ("user" as const) : ("model" as const),
-            content: lm.sender === "system" ? lm.message : `${lm.senderName ? `[${lm.senderName}] ` : ""}${lm.message}`,
+            content: lm.message,
+            senderName: lm.senderName,
+            senderMeta: lm.senderMeta || null,
             timestamp: new Date(lm.createdAt),
           }));
         if (newLive.length === 0) return prev;
@@ -831,10 +856,33 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 {msg.role === "model" && (
                   <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
                     style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
-                    <span style={{ fontSize: '12px' }}>🪔</span>
+                    <span style={{ fontSize: '12px' }}>{msg.senderName ? "👤" : "🪔"}</span>
                   </div>
                 )}
-                <div className="max-w-[78%]">
+                <div className="max-w-[80%]">
+                  {msg.senderName && msg.role === "model" && (
+                    <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-extrabold">{msg.senderName}</span>
+                      {msg.senderMeta?.isVerified !== false && (
+                        <CheckCircle2 size={12} className="text-sky-500 fill-sky-500/20 shrink-0" title="Verified Staff" />
+                      )}
+                      {msg.senderMeta?.isPrimaryAdmin ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-700 dark:text-amber-300 text-[9px] font-black shrink-0">
+                          <Crown size={10} className="fill-amber-500 text-amber-500 shrink-0" />
+                          <span>Super Admin</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-[9px] font-extrabold shrink-0">
+                          🏅 {msg.senderMeta?.experienceRank || msg.senderMeta?.customTitle || "Specialist"}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                        {[...Array(Math.min(5, Math.max(1, Number(msg.senderMeta?.starRating) || 5)))].map((_, i) => (
+                          <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${
                     msg.role === "user"
                       ? "text-white rounded-tr-sm"

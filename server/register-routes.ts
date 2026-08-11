@@ -111,6 +111,9 @@ function publicUser(u: any) {
     customTitle: u.customTitle || null,
     permissions: perms,
     isPrimaryAdmin: isPrimary,
+    isVerified: u.isVerified !== undefined ? Boolean(u.isVerified) : isPrimary,
+    starRating: Math.min(5, Math.max(1, Number(u.starRating) || 5)),
+    experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
     phone: u.phone,
     address: u.address,
   };

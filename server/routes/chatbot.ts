@@ -149,16 +149,35 @@ export function registerChatbotRoutes(app: Express, storage: any) {
         .where(eq(liveChatMessages.sessionToken, sessionToken))
         .orderBy(liveChatMessages.createdAt);
 
+      const senderIds = [...new Set(msgs.map(m => m.senderId).filter(Boolean))] as number[];
+      const userMap = new Map<number, any>();
+      if (senderIds.length > 0) {
+        const agentUsers = await db.select().from(users).where(inArray(users.id, senderIds));
+        for (const u of agentUsers) userMap.set(u.id, u);
+      }
+
       return res.json({
         status: session.status,
         assignedAgentName: session.assignedAgentName,
-        messages: msgs.map(m => ({
-          id: String(m.id),
-          sender: m.sender,
-          senderName: m.senderName,
-          message: m.message,
-          createdAt: m.createdAt,
-        })),
+        messages: msgs.map(m => {
+          const agentUser = m.senderId ? userMap.get(m.senderId) : null;
+          const isPrimary = Boolean(agentUser?.isPrimaryAdmin || agentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || agentUser?.id === 1);
+          return {
+            id: String(m.id),
+            sender: m.sender,
+            senderName: m.senderName,
+            message: m.message,
+            createdAt: m.createdAt,
+            senderMeta: agentUser ? {
+              isPrimaryAdmin: isPrimary,
+              isVerified: agentUser.isVerified !== false,
+              starRating: Math.min(5, Math.max(1, Number(agentUser.starRating) || 5)),
+              experienceRank: agentUser.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
+              role: agentUser.role,
+              customTitle: agentUser.customTitle,
+            } : null,
+          };
+        }),
       });
     } catch (err) {
       console.error('[chatbot] Error getting live session:', err);
@@ -1374,7 +1393,30 @@ function resolveCartQty(
         .where(eq(liveChatMessages.sessionToken, sessionToken))
         .orderBy(liveChatMessages.createdAt);
 
-      return res.json({ session, messages });
+      const senderIds = [...new Set(messages.map(m => m.senderId).filter(Boolean))] as number[];
+      const userMap = new Map<number, any>();
+      if (senderIds.length > 0) {
+        const agentUsers = await db.select().from(users).where(inArray(users.id, senderIds));
+        for (const u of agentUsers) userMap.set(u.id, u);
+      }
+
+      const formattedMsgs = messages.map(m => {
+        const agentUser = m.senderId ? userMap.get(m.senderId) : null;
+        const isPrimary = Boolean(agentUser?.isPrimaryAdmin || agentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || agentUser?.id === 1);
+        return {
+          ...m,
+          senderMeta: agentUser ? {
+            isPrimaryAdmin: isPrimary,
+            isVerified: agentUser.isVerified !== false,
+            starRating: Math.min(5, Math.max(1, Number(agentUser.starRating) || 5)),
+            experienceRank: agentUser.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
+            role: agentUser.role,
+            customTitle: agentUser.customTitle,
+          } : null,
+        };
+      });
+
+      return res.json({ session, messages: formattedMsgs });
     } catch (err: any) {
       return res.status(500).json({ message: 'Failed to fetch session messages' });
     }

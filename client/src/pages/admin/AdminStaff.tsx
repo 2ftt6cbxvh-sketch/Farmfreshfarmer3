@@ -74,6 +74,9 @@ export default function AdminStaff() {
   const [customTitle, setCustomTitle] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["/admin", "/admin/orders"]);
+  const [isVerified, setIsVerified] = useState(true);
+  const [starRating, setStarRating] = useState(5);
+  const [experienceRank, setExperienceRank] = useState("Senior Specialist");
 
   // 2FA Global Settings State
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
@@ -145,6 +148,9 @@ export default function AdminStaff() {
     setCustomTitle("");
     setTelegramChatId("");
     setSelectedPermissions(["/admin", "/admin/orders"]);
+    setIsVerified(true);
+    setStarRating(5);
+    setExperienceRank("Senior Specialist");
     setModalOpen(true);
   };
 
@@ -158,6 +164,9 @@ export default function AdminStaff() {
     setCustomTitle(staff.customTitle || "");
     setTelegramChatId(staff.telegramChatId || "");
     setSelectedPermissions(Array.isArray(staff.permissions) ? staff.permissions : []);
+    setIsVerified(staff.isVerified !== false);
+    setStarRating(Math.min(5, Math.max(1, Number(staff.starRating) || 5)));
+    setExperienceRank(staff.experienceRank || "Senior Specialist");
     setModalOpen(true);
   };
 
@@ -241,6 +250,9 @@ export default function AdminStaff() {
           customTitle: customTitle.trim(),
           telegramChatId: telegramChatId.trim(),
           permissions: selectedPermissions,
+          isVerified,
+          starRating,
+          experienceRank: experienceRank.trim() || "Senior Specialist",
         },
       });
     } else {
@@ -253,6 +265,9 @@ export default function AdminStaff() {
         customTitle: customTitle.trim(),
         telegramChatId: telegramChatId.trim(),
         permissions: selectedPermissions,
+        isVerified,
+        starRating,
+        experienceRank: experienceRank.trim() || "Senior Specialist",
       });
     }
   };
@@ -617,6 +632,71 @@ export default function AdminStaff() {
                     placeholder={editStaff ? "Leave blank to keep existing" : "Min 6 characters"}
                     className="w-full mt-1 rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Verified Badge, Experience Rank & Star Rating Controls */}
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-emerald-300 flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-sky-400 fill-sky-400/20" />
+                    <span>Verified Staff Tick Mark</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground">{isVerified ? "ON (Verified ✓)" : "OFF"}</span>
+                    <input
+                      type="checkbox"
+                      checked={isVerified}
+                      onChange={(e) => setIsVerified(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-500 accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground">Experience Rank Title</label>
+                    <input
+                      type="text"
+                      value={experienceRank}
+                      onChange={(e) => setExperienceRank(e.target.value)}
+                      placeholder="e.g. Senior Lead, Operations Master"
+                      className="w-full mt-1 rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
+                    />
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {["Senior Lead", "Operations Master", "Executive Admin", "L2 Specialist", "Customer Lead"].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setExperienceRank(preset)}
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-secondary border border-border text-foreground hover:bg-emerald-500/20"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground">Staff Star Rating (1 - 5 Stars)</label>
+                    <div className="flex items-center gap-1 mt-1.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setStarRating(star)}
+                          className={`p-1.5 rounded-lg border transition ${
+                            starRating >= star
+                              ? "bg-amber-500/20 border-amber-400 text-amber-400"
+                              : "bg-background border-border text-muted-foreground"
+                          }`}
+                        >
+                          <Star size={14} className={starRating >= star ? "fill-amber-400" : ""} />
+                        </button>
+                      ))}
+                      <span className="text-xs font-extrabold text-amber-400 ml-2">{starRating}/5</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { MessageSquare, UserCheck, CheckCircle2, Send, Clock, ShieldAlert, Sparkles, RefreshCw, XCircle } from "lucide-react";
+import { MessageSquare, UserCheck, CheckCircle2, Send, Clock, ShieldAlert, Sparkles, RefreshCw, XCircle, Crown, Star } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,14 @@ interface ChatMessage {
   senderName?: string | null;
   message: string;
   createdAt: string;
+  senderMeta?: {
+    isPrimaryAdmin?: boolean;
+    isVerified?: boolean;
+    starRating?: number;
+    experienceRank?: string;
+    role?: string;
+    customTitle?: string;
+  } | null;
 }
 
 interface MissedQuery {
@@ -376,17 +384,41 @@ export function AdminLiveChat() {
                           </div>
                         ) : (
                           <div
-                            className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-sm ${
+                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-xs shadow-sm ${
                               m.sender === "customer"
                                 ? "bg-white dark:bg-zinc-800 text-foreground border border-card-border rounded-tl-none"
-                                : "bg-emerald-600 text-white rounded-tr-none"
+                                : "bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-tr-none"
                             }`}
                           >
-                            <p className="font-bold text-[10px] opacity-80 mb-0.5">
-                              {m.senderName || (m.sender === "customer" ? "Customer" : "Support Rep")}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto">
+                              <span className="font-extrabold text-[11px] text-white">
+                                {m.senderName || (m.sender === "customer" ? "Customer" : "Support Rep")}
+                              </span>
+                              {m.sender === "support" && (
+                                <>
+                                  {m.senderMeta?.isVerified !== false && (
+                                    <CheckCircle2 size={12} className="text-sky-300 fill-sky-300/20 shrink-0" title="Verified Staff" />
+                                  )}
+                                  {m.senderMeta?.isPrimaryAdmin ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400/30 via-emerald-400/30 to-amber-400/30 border border-amber-300/50 text-amber-200 text-[9px] font-black shrink-0">
+                                      <Crown size={10} className="fill-amber-300 text-amber-300 shrink-0" />
+                                      <span>Super Admin</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[9px] font-extrabold shrink-0">
+                                      🏅 {m.senderMeta?.experienceRank || m.senderMeta?.customTitle || "Specialist"}
+                                    </span>
+                                  )}
+                                  <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                                    {[...Array(Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
+                                      <Star key={i} size={9} className="fill-amber-300 text-amber-300 shrink-0" />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
                             <p className="whitespace-pre-wrap leading-relaxed">{m.message}</p>
-                            <p className="text-[9px] opacity-60 text-right mt-1">
+                            <p className="text-[9px] opacity-70 text-right mt-1">
                               {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </div>
