@@ -231,25 +231,30 @@ export function Header() {
             {/* Account Menu */}
             {user ? (
               <div className="flex items-center gap-1.5">
-                {/* Stars Display for All User Roles */}
+                {/* Stars Display for All User Roles — Responsive layout */}
                 {user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ? (
-                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-400/35 shadow-[0_0_10px_rgba(251,191,36,0.3)]" title="Super Admin — 6 Gold Stars">
-                    <div className="flex items-center gap-0.5">
+                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-1.5 py-1 sm:px-2 rounded-xl bg-amber-500/15 border border-amber-400/35 shadow-[0_0_10px_rgba(251,191,36,0.3)]" title="Super Admin — 6 Gold Stars">
+                    <div className="hidden sm:flex items-center gap-0.5">
                       {Array.from({ length: 6 }, (_, i) => (
                         <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-pulse">★</span>
                       ))}
                     </div>
+                    <span className="sm:hidden text-amber-400 font-extrabold text-xs">👑 6★</span>
                   </div>
                 ) : user.role !== "customer" ? (
-                  <div className="flex items-center gap-0.5 shrink-0 px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]" title={`Staff — ${user.starRating || 5} Gold Stars`}>
-                    {Array.from({ length: Math.min(5, Math.max(1, Number(user.starRating) || 5)) }, (_, i) => (
-                      <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(251,191,36,0.9)]">★</span>
-                    ))}
+                  <div className="flex items-center gap-0.5 shrink-0 px-1.5 py-1 sm:px-2 rounded-xl bg-amber-500/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]" title={`Staff — ${user.starRating || 5} Gold Stars`}>
+                    <div className="hidden sm:flex items-center gap-0.5">
+                      {Array.from({ length: Math.min(5, Math.max(1, Number(user.starRating) || 5)) }, (_, i) => (
+                        <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(251,191,36,0.9)]">★</span>
+                      ))}
+                    </div>
+                    <span className="sm:hidden text-amber-400 font-extrabold text-xs">🛡️ {user.starRating || 5}★</span>
                   </div>
                 ) : (user.customerStars ?? 0) > 0 ? (
-                  <div className="flex items-center gap-1 shrink-0 px-2.5 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-extrabold text-xs shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Loyalty Stars`}>
+                  <div className="flex items-center gap-1 shrink-0 px-2 py-1 sm:px-2.5 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-extrabold text-xs shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Loyalty Stars`}>
                     <span className="text-blue-400">★</span>
-                    <span>{user.customerStars} Stars</span>
+                    <span className="hidden sm:inline">{user.customerStars} Stars</span>
+                    <span className="sm:hidden">{user.customerStars}</span>
                   </div>
                 ) : null}
                 <DropdownMenu>

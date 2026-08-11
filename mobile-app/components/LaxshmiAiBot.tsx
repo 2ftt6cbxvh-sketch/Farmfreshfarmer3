@@ -186,15 +186,21 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
 
   // Initialize Welcome Message
   useEffect(() => {
+    const nameGreeting = user?.name ? `🙏 Namaste ${user.name}! ` : "🙏 Namaste! ";
+    const personalizedWelcome: Record<Language, string> = {
+      en: `${nameGreeting}I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart`,
+      hi: `${user?.name ? `🙏 नमस्ते ${user.name}! ` : "🙏 नमस्ते! "}मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?`,
+      te: `${user?.name ? `🙏 నమస్తే ${user.name}! ` : "🙏 నమస్తే! "}నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?`,
+    };
     setMessages([
       {
         id: 'welcome',
         role: 'model',
-        content: WELCOME_MESSAGES[language],
+        content: personalizedWelcome[language],
         timestamp: new Date(),
       },
     ]);
-  }, [language]);
+  }, [language, user]);
 
   // Pulse animation for AI floating button
   useEffect(() => {
@@ -335,6 +341,8 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
           history: historyPayload,
           language,
           sessionToken: getSessionToken(),
+          userId: user?.id,
+          customerName: user?.name,
         },
         { timeout: 60000 }
       );
