@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput, ActivityIndicator, LayoutAnimation, Modal, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { COLORS, BRAND } from '../../constants/config';
 import { useAuth } from '../../lib/store';
@@ -9,7 +9,7 @@ import { useThemeStore } from '../../lib/theme';
 import { api } from '../../lib/api';
 
 export default function AccountScreen() {
-  const { user, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
@@ -35,13 +35,15 @@ export default function AccountScreen() {
     return () => loop.stop();
   }, [glowAnim]);
 
-  useEffect(() => {
-    api.get('/api/me').then(res => {
-      if (res.data?.user) {
-        setUser(res.data.user);
-      }
-    }).catch(() => {});
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      api.get('/api/me').then(res => {
+        if (res.data?.user) {
+          setUser(res.data.user);
+        }
+      }).catch(() => {});
+    }, [setUser])
+  );
 
   const [editingPhone, setEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState(user?.phone || '');
@@ -406,10 +408,10 @@ export default function AccountScreen() {
       <View style={{ alignItems: 'center', marginVertical: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
-          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '800' }}>App Build v8.5.4</Text>
+          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '800' }}>App Build v8.5.5</Text>
         </View>
       </View>
-      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.5.4 · {email}</Text>
+      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.5.5 · {email}</Text>
 
       {/* Support Tickets Modal */}
       <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>
