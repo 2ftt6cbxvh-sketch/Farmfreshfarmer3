@@ -156,25 +156,32 @@ export function registerChatbotRoutes(app: Express, storage: any) {
         for (const u of agentUsers) userMap.set(u.id, u);
       }
 
+      // Also fetch customer user if session has userId
+      if (session.userId && !userMap.has(session.userId)) {
+        const [cust] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+        if (cust) userMap.set(cust.id, cust);
+      }
+
       return res.json({
         status: session.status,
         assignedAgentName: session.assignedAgentName,
         messages: msgs.map(m => {
-          const agentUser = m.senderId ? userMap.get(m.senderId) : null;
-          const isPrimary = Boolean(agentUser?.isPrimaryAdmin || agentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || agentUser?.id === 1);
+          const userObj = m.senderId ? userMap.get(m.senderId) : (m.sender === 'customer' && session.userId ? userMap.get(session.userId) : null);
+          const isPrimary = Boolean(userObj?.isPrimaryAdmin || userObj?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || userObj?.id === 1);
           return {
             id: String(m.id),
             sender: m.sender,
-            senderName: m.senderName,
+            senderName: m.senderName || (m.sender === 'customer' ? (userObj?.name || 'Customer') : 'Support Rep'),
             message: m.message,
             createdAt: m.createdAt,
-            senderMeta: agentUser ? {
+            senderMeta: userObj ? {
               isPrimaryAdmin: isPrimary,
-              isVerified: agentUser.isVerified !== false,
-              starRating: Math.min(5, Math.max(1, Number(agentUser.starRating) || 5)),
-              experienceRank: agentUser.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
-              role: agentUser.role,
-              customTitle: agentUser.customTitle,
+              isVerified: userObj.isVerified !== false,
+              starRating: isPrimary ? 6 : Math.min(5, Math.max(1, Number(userObj.starRating) || 5)),
+              customerStars: userObj.customerStars ?? 0,
+              experienceRank: userObj.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
+              role: userObj.role,
+              customTitle: userObj.customTitle,
             } : null,
           };
         }),
@@ -1436,18 +1443,26 @@ function resolveCartQty(
         for (const u of agentUsers) userMap.set(u.id, u);
       }
 
+      // Also fetch customer user if session has userId
+      if (session?.userId && !userMap.has(session.userId)) {
+        const [cust] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+        if (cust) userMap.set(cust.id, cust);
+      }
+
       const formattedMsgs = messages.map(m => {
-        const agentUser = m.senderId ? userMap.get(m.senderId) : null;
-        const isPrimary = Boolean(agentUser?.isPrimaryAdmin || agentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || agentUser?.id === 1);
+        const userObj = m.senderId ? userMap.get(m.senderId) : (m.sender === 'customer' && session?.userId ? userMap.get(session.userId) : null);
+        const isPrimary = Boolean(userObj?.isPrimaryAdmin || userObj?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || userObj?.id === 1);
         return {
           ...m,
-          senderMeta: agentUser ? {
+          senderName: m.senderName || (m.sender === 'customer' ? (userObj?.name || 'Customer') : 'Support Rep'),
+          senderMeta: userObj ? {
             isPrimaryAdmin: isPrimary,
-            isVerified: agentUser.isVerified !== false,
-            starRating: Math.min(5, Math.max(1, Number(agentUser.starRating) || 5)),
-            experienceRank: agentUser.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
-            role: agentUser.role,
-            customTitle: agentUser.customTitle,
+            isVerified: userObj.isVerified !== false,
+            starRating: isPrimary ? 6 : Math.min(5, Math.max(1, Number(userObj.starRating) || 5)),
+            customerStars: userObj.customerStars ?? 0,
+            experienceRank: userObj.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
+            role: userObj.role,
+            customTitle: userObj.customTitle,
           } : null,
         };
       });

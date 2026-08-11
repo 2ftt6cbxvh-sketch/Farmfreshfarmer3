@@ -231,9 +231,23 @@ export function Header() {
             {/* Account Menu */}
             {user ? (
               <div className="flex items-center gap-1.5">
-                {/* Blue Loyalty Stars (5 in row 1, 5 in row 2) */}
-                {(user.customerStars ?? 0) > 0 && (
-                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-blue-500/10 border border-blue-500/25 shadow-[0_0_8px_rgba(59,130,246,0.2)]" title={`${user.customerStars} Loyalty Stars`}>
+                {/* Stars Display for All User Roles */}
+                {user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ? (
+                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-400/35 shadow-[0_0_10px_rgba(251,191,36,0.3)]" title="Super Admin — 6 Gold Stars">
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 6 }, (_, i) => (
+                        <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-pulse">★</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : user.role !== "customer" ? (
+                  <div className="flex items-center gap-0.5 shrink-0 px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]" title={`Staff — ${user.starRating || 5} Gold Stars`}>
+                    {Array.from({ length: Math.min(5, Math.max(1, Number(user.starRating) || 5)) }, (_, i) => (
+                      <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(251,191,36,0.9)]">★</span>
+                    ))}
+                  </div>
+                ) : (user.customerStars ?? 0) > 0 ? (
+                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-2 py-1 rounded-xl bg-blue-500/15 border border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Blue Loyalty Stars`}>
                     <div className="flex items-center gap-0.5">
                       {Array.from({ length: Math.min(user.customerStars ?? 0, 5) }, (_, i) => (
                         <span key={i} className="text-blue-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(59,130,246,0.9)]">★</span>
@@ -247,7 +261,7 @@ export function Header() {
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">

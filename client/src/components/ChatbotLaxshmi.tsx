@@ -859,8 +859,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                     <span style={{ fontSize: '12px' }}>{msg.senderName ? "👤" : "🪔"}</span>
                   </div>
                 )}
-                <div className="max-w-[80%]">
-                  {msg.senderName && msg.role === "model" && (
+                <div className="max-w-[85%]">
+                  {/* Sender Name & Meta Header for Model / Live Support Messages */}
+                  {msg.role === "model" && msg.senderName && (
                     <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
                       <span className="text-emerald-700 dark:text-emerald-300 font-extrabold">{msg.senderName}</span>
                       {msg.senderMeta?.isVerified !== false && (
@@ -877,10 +878,47 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                         </span>
                       )}
                       <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                        {[...Array(Math.min(5, Math.max(1, Number(msg.senderMeta?.starRating) || 5)))].map((_, i) => (
+                        {[...Array(msg.senderMeta?.isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(msg.senderMeta?.starRating) || 5)))].map((_, i) => (
                           <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0" />
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Sender Name & Meta Header for Customer / User Messages */}
+                  {msg.role === "user" && user && (
+                    <div className="flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
+                      {user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ? (
+                        <>
+                          <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                            {[...Array(6)].map((_, i) => (
+                              <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0 animate-pulse" />
+                            ))}
+                          </div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-300 text-[9px] font-black shrink-0">
+                            <Crown size={10} className="fill-amber-400 text-amber-400 shrink-0" />
+                            <span>Super Admin</span>
+                          </span>
+                        </>
+                      ) : user.role !== "customer" ? (
+                        <>
+                          <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                            {[...Array(Math.min(5, Math.max(1, Number(user.starRating) || 5)))].map((_, i) => (
+                              <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0" />
+                            ))}
+                          </div>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-900/40 text-emerald-300 text-[9px] font-extrabold shrink-0">
+                            🛡️ Staff
+                          </span>
+                        </>
+                      ) : (user.customerStars ?? 0) > 0 ? (
+                        <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                          {[...Array(Math.min(user.customerStars ?? 0, 10))].map((_, i) => (
+                            <span key={i} className="text-blue-400 text-[10px] leading-none drop-shadow-[0_0_4px_rgba(59,130,246,0.9)]">★</span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <span className="text-purple-300 font-extrabold">{user.name}</span>
                     </div>
                   )}
                   <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${

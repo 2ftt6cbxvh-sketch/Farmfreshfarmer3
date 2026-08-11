@@ -391,10 +391,18 @@ export function AdminLiveChat() {
                             }`}
                           >
                             <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto">
-                              <span className="font-extrabold text-[11px] text-white">
+                              <span className={`font-extrabold text-[11px] ${m.sender === "customer" ? "text-emerald-400 dark:text-emerald-300" : "text-white"}`}>
                                 {m.senderName || (m.sender === "customer" ? "Customer" : "Support Rep")}
                               </span>
-                              {m.sender === "support" && (
+                              {m.sender === "customer" ? (
+                                (m.senderMeta?.customerStars ?? 0) > 0 && (
+                                  <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                                    {[...Array(Math.min(m.senderMeta?.customerStars ?? 0, 10))].map((_, i) => (
+                                      <span key={i} className="text-blue-400 text-[10px] leading-none drop-shadow-[0_0_4px_rgba(59,130,246,0.9)]">★</span>
+                                    ))}
+                                  </div>
+                                )
+                              ) : (
                                 <>
                                   {m.senderMeta?.isVerified !== false && (
                                     <CheckCircle2 size={12} className="text-sky-300 fill-sky-300/20 shrink-0" title="Verified Staff" />
@@ -410,7 +418,7 @@ export function AdminLiveChat() {
                                     </span>
                                   )}
                                   <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                                    {[...Array(Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
+                                    {[...Array(m.senderMeta?.isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
                                       <Star key={i} size={9} className="fill-amber-300 text-amber-300 shrink-0" />
                                     ))}
                                   </div>
