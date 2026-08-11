@@ -889,6 +889,30 @@ export default function AdminDashboardScreen() {
                     <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="New Password (optional)" secureTextEntry onChangeText={t => setEditingStaff({...editingStaff, password: t})} />
                     <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Custom Sub-Admin Title" value={editingStaff.customTitle} onChangeText={t => setEditingStaff({...editingStaff, customTitle: t})} />
 
+                    <View style={{ marginVertical: 8 }}>
+                      <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Staff Star Rating (1 to 5 Stars):</Text>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity
+                            key={star}
+                            onPress={() => setEditingStaff({ ...editingStaff, starRating: star })}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: (editingStaff.starRating || 5) === star ? '#f59e0b' : borderCol,
+                              backgroundColor: (editingStaff.starRating || 5) === star ? 'rgba(245,158,11,0.2)' : 'transparent',
+                            }}
+                          >
+                            <Text style={{ color: (editingStaff.starRating || 5) === star ? '#f59e0b' : mutedColor, fontWeight: 'bold', fontSize: 13 }}>
+                              ★ {star}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
                     <TouchableOpacity style={styles.actionBtn} onPress={() => updateStaffMutation.mutate({
                       id: editingStaff.id,
                       data: {
@@ -897,6 +921,7 @@ export default function AdminDashboardScreen() {
                         customTitle: editingStaff.customTitle,
                         password: editingStaff.password,
                         role: editingStaff.role,
+                        starRating: Number(editingStaff.starRating) || 5,
                         permissions: editingStaff.permissions || [],
                       }
                     })}>
