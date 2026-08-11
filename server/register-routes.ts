@@ -1237,12 +1237,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         gstRate = 0;
       }
 
-      const taxableValue = gstRate > 0 ? (lineTotalNum / (1 + gstRate / 100)) : lineTotalNum;
-      const taxAmount = lineTotalNum - taxableValue;
+      // Unit Price and Taxable Value are identical for 1 unit (taxableValue = unitPrice * qty)
+      const unitPrice = priceNum;
+      const taxableValue = unitPrice * qtyNum;
       const cgstRate = gstRate / 2;
       const sgstRate = gstRate / 2;
-      const cgstAmount = taxAmount / 2;
-      const sgstAmount = taxAmount / 2;
+      const cgstAmount = (taxableValue * (cgstRate / 100));
+      const sgstAmount = (taxableValue * (sgstRate / 100));
+      const lineTotal = taxableValue + cgstAmount + sgstAmount;
 
       return {
         serialNo: index + 1,
@@ -1251,25 +1253,24 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         unit: it.unit || "Unit",
         hsn,
         qty: qtyNum,
-        unitPrice: priceNum.toFixed(2),
+        unitPrice: unitPrice.toFixed(2),
         taxableValue: taxableValue.toFixed(2),
         gstRate,
         cgstRate,
         cgstAmount: cgstAmount.toFixed(2),
         sgstRate,
         sgstAmount: sgstAmount.toFixed(2),
-        lineTotal: lineTotalNum.toFixed(2),
+        lineTotal: lineTotal.toFixed(2),
       };
     });
 
-    const subtotalNum = parseFloat(order.subtotal) || 0;
-    const discountNum = parseFloat(order.discount) || 0;
-    const totalNum = parseFloat(order.total) || 0;
-
+    const taxableSubtotal = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.taxableValue), 0);
     const totalCgst = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.cgstAmount), 0);
     const totalSgst = lineItems.reduce((acc: number, cur: any) => acc + parseFloat(cur.sgstAmount), 0);
     const totalTax = totalCgst + totalSgst;
-    const taxableSubtotal = subtotalNum - totalTax;
+    const subtotalNum = taxableSubtotal + totalTax;
+    const discountNum = parseFloat(order.discount) || 0;
+    const totalNum = Math.max(0, subtotalNum - discountNum);
 
     const amountInWords = numberToIndianWords(totalNum);
 

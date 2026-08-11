@@ -449,21 +449,28 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
       const p = parseFloat(newItems[index].unitPrice) || 0;
       const q = parseInt(String(newItems[index].qty), 10) || 1;
       const r = parseFloat(String(newItems[index].gstRate)) || 0;
-      const total = p * q;
-      const taxable = r > 0 ? total / (1 + r / 100) : total;
-      const tax = total - taxable;
-      newItems[index].lineTotal = total.toFixed(2);
+      const taxable = p * q; // Unit price and taxable value are same per unit
+      const cgstRate = r / 2;
+      const sgstRate = r / 2;
+      const cgst = taxable * (cgstRate / 100);
+      const sgst = taxable * (sgstRate / 100);
+      const total = taxable + cgst + sgst;
+
+      newItems[index].unitPrice = p.toFixed(2);
       newItems[index].taxableValue = taxable.toFixed(2);
-      newItems[index].cgstAmount = (tax / 2).toFixed(2);
-      newItems[index].sgstAmount = (tax / 2).toFixed(2);
-      newItems[index].cgstRate = r / 2;
-      newItems[index].sgstRate = r / 2;
+      newItems[index].cgstRate = cgstRate;
+      newItems[index].sgstRate = sgstRate;
+      newItems[index].cgstAmount = cgst.toFixed(2);
+      newItems[index].sgstAmount = sgst.toFixed(2);
+      newItems[index].lineTotal = total.toFixed(2);
     }
 
     // Recompute summaries
-    const newSubtotal = newItems.reduce((acc, it) => acc + (parseFloat(it.lineTotal) || 0), 0);
+    const taxableSubtotal = newItems.reduce((acc, it) => acc + (parseFloat(it.taxableValue) || 0), 0);
     const newCgst = newItems.reduce((acc, it) => acc + (parseFloat(it.cgstAmount) || 0), 0);
     const newSgst = newItems.reduce((acc, it) => acc + (parseFloat(it.sgstAmount) || 0), 0);
+    const totalTax = newCgst + newSgst;
+    const newSubtotal = taxableSubtotal + totalTax;
     const disc = parseFloat(editForm.summary.discount) || 0;
     const grand = Math.max(0, newSubtotal - disc);
 
@@ -472,11 +479,11 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
       items: newItems,
       summary: {
         ...editForm.summary,
-        subtotal: newSubtotal.toFixed(2),
+        taxableSubtotal: taxableSubtotal.toFixed(2),
         totalCgst: newCgst.toFixed(2),
         totalSgst: newSgst.toFixed(2),
-        totalTax: (newCgst + newSgst).toFixed(2),
-        taxableSubtotal: (newSubtotal - (newCgst + newSgst)).toFixed(2),
+        totalTax: totalTax.toFixed(2),
+        subtotal: newSubtotal.toFixed(2),
         grandTotal: grand.toFixed(2),
       },
     });
