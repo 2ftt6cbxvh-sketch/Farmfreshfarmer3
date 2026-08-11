@@ -155,6 +155,7 @@ export default function AdminStaff() {
   };
 
   const openEditModal = (staff: any) => {
+    if (!staff) return;
     setEditStaff(staff);
     setName(staff.name || "");
     setEmail(staff.email || "");
@@ -163,7 +164,19 @@ export default function AdminStaff() {
     setRole(staff.role || "custom_subadmin");
     setCustomTitle(staff.customTitle || "");
     setTelegramChatId(staff.telegramChatId || "");
-    setSelectedPermissions(Array.isArray(staff.permissions) ? staff.permissions : []);
+
+    let permsArray: string[] = [];
+    if (Array.isArray(staff.permissions)) {
+      permsArray = staff.permissions;
+    } else if (typeof staff.permissions === "string" && staff.permissions.trim()) {
+      try {
+        const parsed = JSON.parse(staff.permissions);
+        if (Array.isArray(parsed)) permsArray = parsed;
+      } catch (e) {
+        console.warn("[AdminStaff] failed to parse perms string:", e);
+      }
+    }
+    setSelectedPermissions(permsArray);
     setIsVerified(staff.isVerified !== false);
     setStarRating(Math.min(5, Math.max(1, Number(staff.starRating) || 5)));
     setExperienceRank(staff.experienceRank || "Senior Specialist");
@@ -215,9 +228,10 @@ export default function AdminStaff() {
   });
 
   const handleTogglePermission = (href: string) => {
-    setSelectedPermissions((prev) =>
-      prev.includes(href) ? prev.filter((p) => p !== href) : [...prev, href]
-    );
+    setSelectedPermissions((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      return arr.includes(href) ? arr.filter((p) => p !== href) : [...arr, href];
+    });
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -773,16 +787,17 @@ export default function AdminStaff() {
                 {/* Interactive Multi-Select Dropdown Container */}
                 <div className="border border-emerald-500/30 rounded-2xl bg-secondary/30 p-3 max-h-64 overflow-y-auto space-y-3">
                   {["Core", "Catalog", "Sales", "Growth", "System"].map((category) => {
+                    const safePerms = Array.isArray(selectedPermissions) ? selectedPermissions : [];
                     const catItems = ALL_MENU_OPTIONS.filter((m) => m.category === category);
-                    const allCatChecked = catItems.every((m) => selectedPermissions.includes(m.href));
+                    const allCatChecked = catItems.every((m) => safePerms.includes(m.href));
 
                     const toggleCategory = () => {
                       if (allCatChecked) {
                         const toRemove = new Set(catItems.map((m) => m.href));
-                        setSelectedPermissions((prev) => prev.filter((p) => !toRemove.has(p)));
+                        setSelectedPermissions((prev) => (Array.isArray(prev) ? prev : []).filter((p) => !toRemove.has(p)));
                       } else {
                         const toAdd = catItems.map((m) => m.href);
-                        setSelectedPermissions((prev) => Array.from(new Set([...prev, ...toAdd])));
+                        setSelectedPermissions((prev) => Array.from(new Set([...(Array.isArray(prev) ? prev : []), ...toAdd])));
                       }
                     };
 
@@ -800,7 +815,7 @@ export default function AdminStaff() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {catItems.map((menu) => {
-                            const isChecked = selectedPermissions.includes(menu.href);
+                            const isChecked = safePerms.includes(menu.href);
                             return (
                               <label
                                 key={menu.href}

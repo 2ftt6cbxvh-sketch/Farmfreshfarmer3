@@ -75,12 +75,35 @@ export async function runAutoMigrations() {
     console.warn('[db] auto-migration warning:', e?.message);
   }
   try {
-    // Add permissions, is_primary_admin, custom_title, telegram_chat_id columns to users table if missing
+    // Add permissions, is_primary_admin, custom_title, telegram_chat_id, is_verified, star_rating, experience_rank, customer_stars columns to users table if missing
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INTEGER NOT NULL DEFAULT 5`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) NOT NULL DEFAULT 'Specialist'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_stars INTEGER NOT NULL DEFAULT 0`);
     console.log('[db] auto-migration: users columns ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
+  try {
+    // Create star_discount_rules table if missing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS star_discount_rules (
+        id SERIAL PRIMARY KEY,
+        rule_type VARCHAR(16) NOT NULL DEFAULT 'customer',
+        star_from INTEGER NOT NULL,
+        star_to INTEGER NOT NULL,
+        discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+        description TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('[db] auto-migration: star_discount_rules table ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }

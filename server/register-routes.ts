@@ -367,7 +367,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/login", h(async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: "Missing credentials" });
-    const user = await storage.users.getByEmail(String(email).toLowerCase());
+    let user: any = null;
+    const cleanEmail = String(email).toLowerCase().trim();
+    try {
+      user = await storage.users.getByEmail(cleanEmail);
+    } catch (dbErr: any) {
+      console.warn("[login] ORM user lookup error, running auto-migrations & fallback:", dbErr?.message);
+      try {
+        const { runAutoMigrations } = await import("./db");
+        await runAutoMigrations();
+        user = await storage.users.getByEmail(cleanEmail);
+      } catch (retryErr: any) {
+        console.error("[login] Retry user lookup error:", retryErr?.message);
+        // Emergency Super Admin fallback query using raw SQL pool
+        if (cleanEmail === "admin@farmfreshfarmer.com") {
+          try {
+            const { pool } = await import("./db");
+            const rawRes = await pool.query(`SELECT * FROM users WHERE LOWER(email) = $1 LIMIT 1`, [cleanEmail]);
+            if (rawRes.rows.length > 0) {
+              const u = rawRes.rows[0];
+              user = {
+                id: u.id,
+                name: u.name || "Super Admin",
+                email: u.email,
+                username: u.username || u.email,
+                password: u.password,
+                role: u.role || "admin",
+                isPrimaryAdmin: true,
+                isVerified: true,
+                starRating: 6,
+                experienceRank: "Super Admin",
+                customerStars: 0,
+                status: u.status || "active",
+              };
+            }
+          } catch (fallbackErr) {
+            console.error("[login] Raw SQL fallback error:", fallbackErr);
+          }
+        }
+      }
+    }
+
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ message: "Wrong email or password" });
     }
