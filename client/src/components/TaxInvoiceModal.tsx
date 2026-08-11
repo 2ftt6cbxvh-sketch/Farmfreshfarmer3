@@ -5,6 +5,7 @@ import { apiGet, apiRequest, queryClient, imgUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export interface InvoiceItem {
@@ -285,33 +286,72 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                   </div>
 
                   {isEditing ? (
-                    <div className="space-y-1 text-[11px]">
+                    <div className="space-y-1.5 text-[11px] bg-amber-50/80 p-3 rounded-xl border border-amber-300 shadow-inner">
+                      <p className="text-[10px] font-black uppercase text-amber-900">✏️ Edit Our Company Info (Updates All Bills):</p>
                       <Input
                         value={editForm?.company.legalName}
                         onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, legalName: e.target.value } })}
                         placeholder="Company Legal Name"
-                        className="h-7 text-xs font-bold"
+                        className="h-7 text-xs font-bold bg-white border-amber-300"
                       />
-                      <Input
+                      <Textarea
                         value={editForm?.company.address}
                         onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, address: e.target.value } })}
-                        placeholder="Registered Address"
-                        className="h-7 text-xs"
+                        placeholder="Company Registered Address"
+                        rows={2}
+                        className="text-xs bg-white border-amber-300 resize-none"
                       />
+                      <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">GSTIN:</span>
+                          <Input
+                            value={editForm?.company.gstin}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, gstin: e.target.value } })}
+                            placeholder="GSTIN"
+                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">PAN:</span>
+                          <Input
+                            value={editForm?.company.pan}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, pan: e.target.value } })}
+                            placeholder="PAN"
+                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">FSSAI Lic:</span>
+                          <Input
+                            value={editForm?.company.fssai}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, fssai: e.target.value } })}
+                            placeholder="FSSAI License"
+                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-600 font-sans font-bold block mb-0.5">CIN:</span>
+                          <Input
+                            value={editForm?.company.cin}
+                            onChange={(e) => setEditForm({ ...editForm!, company: { ...editForm!.company, cin: e.target.value } })}
+                            placeholder="CIN"
+                            className="h-6 text-[10px] font-mono bg-white border-amber-300"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>
                       <p className="font-extrabold text-slate-900 text-xs">{activeData.company.legalName}</p>
                       <p className="text-[11px] text-slate-600 leading-relaxed">{activeData.company.address}</p>
+                      <div className="grid grid-cols-2 gap-x-3 text-[10px] text-slate-600 pt-1 font-mono">
+                        <p><b>GSTIN:</b> {activeData.company.gstin}</p>
+                        <p><b>PAN:</b> {activeData.company.pan}</p>
+                        <p><b>FSSAI Lic:</b> {activeData.company.fssai}</p>
+                        <p><b>CIN:</b> {activeData.company.cin}</p>
+                      </div>
                     </>
                   )}
-
-                  <div className="grid grid-cols-2 gap-x-3 text-[10px] text-slate-600 pt-1 font-mono">
-                    <p><b>GSTIN:</b> {activeData.company.gstin}</p>
-                    <p><b>PAN:</b> {activeData.company.pan}</p>
-                    <p><b>FSSAI Lic:</b> {activeData.company.fssai}</p>
-                    <p><b>CIN:</b> {activeData.company.cin}</p>
-                  </div>
                 </div>
 
                 {/* Invoice Meta Tag */}
@@ -353,39 +393,16 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                 </div>
               </div>
 
-              {/* Customer Billed To / Shipped To */}
+              {/* Customer Billed To / Shipped To (Read-only as placed by customer) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                   <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider mb-1">Billed & Shipped To</p>
-                  {isEditing ? (
-                    <div className="space-y-1">
-                      <Input
-                        value={editForm?.customer.name}
-                        onChange={(e) => setEditForm({ ...editForm!, customer: { ...editForm!.customer, name: e.target.value } })}
-                        placeholder="Customer Name"
-                        className="h-7 text-xs font-bold"
-                      />
-                      <Input
-                        value={editForm?.customer.phone}
-                        onChange={(e) => setEditForm({ ...editForm!, customer: { ...editForm!.customer, phone: e.target.value } })}
-                        placeholder="Customer Phone"
-                        className="h-7 text-xs font-mono"
-                      />
-                      <Input
-                        value={editForm?.customer.address}
-                        onChange={(e) => setEditForm({ ...editForm!, customer: { ...editForm!.customer, address: e.target.value } })}
-                        placeholder="Delivery Address"
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-0.5">
-                      <p className="font-extrabold text-sm text-slate-900">{activeData.customer.name}</p>
-                      <p className="text-slate-600 text-xs leading-relaxed">{activeData.customer.address}</p>
-                      <p className="text-slate-700 text-xs font-mono pt-0.5">📱 {activeData.customer.phone}</p>
-                      {activeData.customer.email && <p className="text-slate-500 text-[11px]">✉️ {activeData.customer.email}</p>}
-                    </div>
-                  )}
+                  <div className="space-y-0.5">
+                    <p className="font-extrabold text-sm text-slate-900">{activeData.customer.name}</p>
+                    <p className="text-slate-600 text-xs leading-relaxed">{activeData.customer.address}</p>
+                    <p className="text-slate-700 text-xs font-mono pt-0.5">📱 {activeData.customer.phone}</p>
+                    {activeData.customer.email && <p className="text-slate-500 text-[11px]">✉️ {activeData.customer.email}</p>}
+                  </div>
                 </div>
 
                 <div className="sm:text-right space-y-1 text-slate-600 text-xs">
@@ -530,26 +547,24 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
                 </div>
               </div>
 
-              {/* Signatory Footer */}
+              {/* Signatory Footer — Computer Generated Slip */}
               <div className="flex flex-col sm:flex-row justify-between items-end gap-4 pt-4 border-t border-slate-200">
                 <div className="text-[10px] text-slate-500">
                   <p>Customer Support: <b>{activeData.company.phone}</b> | <b>{activeData.company.email}</b></p>
                   <p>Thank you for choosing certified fresh organic farming!</p>
                 </div>
 
-                <div className="text-right space-y-1 min-w-[200px]">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">For {activeData.company.legalName}</p>
-                  <div className="h-12 flex items-center justify-end py-1">
-                    <img
-                      src={imgUrl("/images/logo-icon.png")}
-                      alt="Stamp"
-                      className="h-10 opacity-70 object-contain"
-                    />
+                <div className="text-right space-y-1.5 min-w-[260px]">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-black shadow-sm">
+                    <ShieldCheck size={14} className="text-emerald-600" />
+                    <span>Computer Generated Slip</span>
                   </div>
-                  <p className="font-extrabold text-xs text-slate-900 border-t border-slate-300 pt-1">
-                    {activeData.signatory.signatoryName}
+                  <p className="text-[10px] text-slate-500 italic">
+                    This is a computer-generated slip. No physical signature is required.
                   </p>
-                  <p className="text-[10px] text-slate-500">{activeData.signatory.designation}</p>
+                  <p className="text-[10px] font-bold text-slate-700 uppercase pt-1 border-t border-slate-200">
+                    For {activeData.company.legalName}
+                  </p>
                 </div>
               </div>
             </div>

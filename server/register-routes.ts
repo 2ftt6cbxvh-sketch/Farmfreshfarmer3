@@ -1350,6 +1350,18 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const invoicePayload = req.body;
+
+    // Persist company details globally so all invoices reflect changes
+    if (invoicePayload?.company) {
+      const comp = invoicePayload.company;
+      if (comp.address) await storage.settings.set("company_address", String(comp.address).trim());
+      if (comp.gstin) await storage.settings.set("company_gstin", String(comp.gstin).trim());
+      if (comp.pan) await storage.settings.set("company_pan", String(comp.pan).trim());
+      if (comp.fssai) await storage.settings.set("fssai_license_number", String(comp.fssai).trim());
+      if (comp.cin) await storage.settings.set("company_cin", String(comp.cin).trim());
+      if (comp.legalName) await storage.settings.set("company_legal_name", String(comp.legalName).trim());
+    }
+
     const [updated] = await db.update(orders)
       .set({
         invoiceData: invoicePayload,
@@ -1358,7 +1370,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       .where(eq(orders.id, id))
       .returning();
 
-    res.json({ success: true, message: "Customized GST Tax Invoice saved successfully! 💾", invoice: invoicePayload });
+    res.json({ success: true, message: "Customized GST Tax Invoice and Company Details saved successfully! 💾", invoice: invoicePayload });
   }));
 
   // DELETE /api/admin/orders/:id/hard-delete — Permanently Erase Order Out-of-Existence
