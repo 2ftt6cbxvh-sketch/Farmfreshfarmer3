@@ -403,7 +403,13 @@ export function AdminLiveChatView({
                         <Text style={styles.msgSenderName}>
                           {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Lakshmi Bot')}
                         </Text>
-                        {isSupport && (
+                        {isCustomer ? (
+                          (m.senderMeta?.customerStars ?? 0) > 0 && (
+                            <View style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+                              <Text style={{ color: '#60a5fa', fontSize: 9, fontWeight: '900' }}>★ {m.senderMeta?.customerStars} Stars</Text>
+                            </View>
+                          )
+                        ) : (
                           <>
                             {m.senderMeta?.isVerified !== false && (
                               <Ionicons name="checkmark-circle" size={12} color="#38bdf8" />
@@ -421,7 +427,7 @@ export function AdminLiveChatView({
                               </View>
                             )}
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                              {[...Array(Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
+                              {[...Array(m.senderMeta?.isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(m.senderMeta?.starRating) || 5)))].map((_, i) => (
                                 <Ionicons key={i} name="star" size={9} color="#f59e0b" />
                               ))}
                             </View>

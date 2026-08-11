@@ -284,7 +284,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between gap-2">
             <span className="font-serif text-base font-bold tracking-tight truncate">FarmFreshFarmer</span>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
-              v8.5.0
+              v8.5.1
             </span>
           </div>
 
