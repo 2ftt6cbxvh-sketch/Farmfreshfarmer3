@@ -283,9 +283,11 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between">
             <span className="font-serif text-lg font-bold">FarmFreshFarmer</span>
             {isPrimaryAdmin ? (
-              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">Superuser</span>
+              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">👑 Sole Super Admin</span>
             ) : (
-              <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full border border-primary/30 capitalize">{adminUser?.role?.replace("_", " ")}</span>
+              <span className="bg-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-full border border-primary/30 capitalize">
+                {adminUser?.role === "admin" ? "Main Admin" : adminUser?.role?.replace("_", " ")}
+              </span>
             )}
           </div>
           <div className="flex items-center justify-between mt-1">

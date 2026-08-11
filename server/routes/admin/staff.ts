@@ -183,13 +183,15 @@ export function registerStaffRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(password, 10);
       const permString = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
 
+      const assignedRole = (role === "superadmin" || role === "super_admin") ? "admin" : (role || "custom_subadmin");
+
       const [created] = await db.insert(users).values({
         name: name.trim(),
         email: cleanEmail,
         username: cleanEmail,
         password: hashedPassword,
         phone: phone ? phone.trim() : null,
-        role: role || "custom_subadmin",
+        role: assignedRole,
         customTitle: customTitle ? customTitle.trim() : null,
         telegramChatId: telegramChatId ? String(telegramChatId).trim() : null,
         permissions: permString,
@@ -241,7 +243,7 @@ export function registerStaffRoutes(app: Express) {
 
       if (name) updates.name = name.trim();
       if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
-      if (role) updates.role = role;
+      if (role) updates.role = (role === "superadmin" || role === "super_admin") ? "admin" : role;
       if (customTitle !== undefined) updates.customTitle = customTitle ? customTitle.trim() : null;
       if (telegramChatId !== undefined) updates.telegramChatId = telegramChatId ? String(telegramChatId).trim() : null;
       if (status) updates.status = status; // 'active' | 'blocked' | 'inactive'

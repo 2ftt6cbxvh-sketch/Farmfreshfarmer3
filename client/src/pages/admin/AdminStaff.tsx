@@ -56,7 +56,7 @@ const PRESET_ROLES = [
   { value: "local_grievance_officer", label: "Local Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
   { value: "zonal_grievance_officer", label: "Zonal Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
   { value: "chief_grievance_officer", label: "Chief Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat", "/admin/settings"] },
-  { value: "admin", label: "Full Admin", defaultPerms: ALL_MENU_OPTIONS.map((m) => m.href) },
+  { value: "admin", label: "Main Admin (Full Rights)", defaultPerms: ALL_MENU_OPTIONS.map((m) => m.href) },
 ];
 
 export default function AdminStaff() {
@@ -445,7 +445,7 @@ export default function AdminStaff() {
                                 {s.name}
                                 {isPrimary && (
                                   <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-full border border-emerald-500/30">
-                                    Primary Admin
+                                    👑 Sole Super Admin
                                   </span>
                                 )}
                               </p>
@@ -458,7 +458,7 @@ export default function AdminStaff() {
                         <td className="p-4">
                           <div>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/15 text-primary border border-primary/30 capitalize">
-                              {s.role ? s.role.replace("_", " ") : "Sub-Admin"}
+                              {isPrimary ? "Sole Super Admin" : s.role === "admin" ? "Main Admin" : s.role ? s.role.replace("_", " ") : "Sub-Admin"}
                             </span>
                             {s.customTitle && (
                               <p className="text-[10px] font-bold text-amber-300 mt-1">🏷️ {s.customTitle}</p>
