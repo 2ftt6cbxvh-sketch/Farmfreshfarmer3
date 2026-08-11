@@ -283,9 +283,9 @@ export default function AdminOrders() {
               </div>
 
               <div>
-                <h3 className="font-semibold text-sm mb-2">Discount breakdown</h3>
+                <h3 className="font-semibold text-sm mb-2">Order Price & Discount Breakdown</h3>
                 <ul className="text-sm space-y-1">
-                  <li className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatINR(Number(detail.order.subtotal))}</span></li>
+                  <li className="flex justify-between"><span className="text-muted-foreground">Subtotal (Goods + Tax)</span><span>{formatINR(Number(detail.order.subtotal))}</span></li>
                   {Number(detail.order.firstOrderDiscount) > 0 && (
                     <li className="flex justify-between"><span className="text-muted-foreground">First-order discount</span><span>-{formatINR(Number(detail.order.firstOrderDiscount))}</span></li>
                   )}
@@ -298,7 +298,19 @@ export default function AdminOrders() {
                   {detail.discounts.map((d) => (
                     <li key={d.id} className="flex justify-between"><span className="text-muted-foreground">{d.label}</span><span>-{formatINR(Number(d.amount))}</span></li>
                   ))}
-                  <li className="flex justify-between font-bold border-t border-card-border pt-1"><span>Total</span><span>{formatINR(Number(detail.order.total))}</span></li>
+                  {(() => {
+                    const sub = Number(detail.order.subtotal) || 0;
+                    const disc = Number(detail.order.discount) || 0;
+                    const tot = Number(detail.order.total) || 0;
+                    const delFee = Math.max(0, Math.round((tot - (sub - disc)) * 100) / 100);
+                    return delFee > 0 ? (
+                      <li className="flex justify-between text-emerald-600 font-medium">
+                        <span>Delivery / Shipping Fee</span>
+                        <span>+{formatINR(delFee)}</span>
+                      </li>
+                    ) : null;
+                  })()}
+                  <li className="flex justify-between font-bold border-t border-card-border pt-1"><span>Grand Total</span><span>{formatINR(Number(detail.order.total))}</span></li>
                 </ul>
               </div>
 
