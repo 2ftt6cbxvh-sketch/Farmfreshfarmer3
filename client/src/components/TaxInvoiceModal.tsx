@@ -79,6 +79,283 @@ export interface InvoiceData {
   };
 }
 
+export function renderStandaloneInvoiceHtml(data: InvoiceData): string {
+  const itemRows = data.items.map((it) => `
+    <tr>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #64748b;">${it.serialNo}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #0f172a;">${it.name}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: monospace; color: #475569;">${it.hsn}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #334155;">${it.qty} × ${it.unit}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; color: #334155;">₹${it.unitPrice}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; color: #334155;">₹${it.taxableValue}</td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-size: 11px; color: #475569;">₹${it.cgstAmount} <span style="font-size: 9px; color: #94a3b8;">(${it.cgstRate}%)</span></td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-size: 11px; color: #475569;">₹${it.sgstAmount} <span style="font-size: 9px; color: #94a3b8;">(${it.sgstRate}%)</span></td>
+      <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-weight: bold; color: #065f46;">₹${it.lineTotal}</td>
+    </tr>
+  `).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tax Invoice - ${data.invoiceNumber}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body {
+      margin: 0 !important;
+      padding: 12px !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .invoice-card {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #065f46;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+    }
+    .brand-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #065f46;
+      font-family: serif;
+      letter-spacing: -0.5px;
+    }
+    .brand-subtitle {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: bold;
+      color: #047857;
+      margin-top: 2px;
+    }
+    .badge {
+      display: inline-block;
+      background: #065f46;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin: 16px 0;
+    }
+    th {
+      background: #065f46;
+      color: #ffffff;
+      padding: 8px 10px;
+      text-transform: uppercase;
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-top: 16px;
+      border-top: 2px solid #e2e8f0;
+      padding-top: 16px;
+    }
+    .summary-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 260px;
+    }
+    .grand-total {
+      display: flex;
+      justify-content: space-between;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #065f46;
+      margin-top: 8px;
+    }
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 16px;
+    }
+    .computer-slip-badge {
+      display: inline-block;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-card">
+    <div class="header-row">
+      <div>
+        <div class="brand-title">FarmFresh<span style="color: #10b981;">Farmer</span></div>
+        <div class="brand-subtitle">Organic · Farm to Home</div>
+        <p style="font-weight: 800; color: #0f172a; margin: 8px 0 2px 0;">${data.company.legalName}</p>
+        <p style="color: #475569; font-size: 11px; margin: 0 0 6px 0; max-width: 360px;">${data.company.address}</p>
+        <div style="font-family: monospace; font-size: 10px; color: #475569; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <span><b>GSTIN:</b> ${data.company.gstin}</span>
+          <span><b>PAN:</b> ${data.company.pan}</span>
+          <span><b>FSSAI Lic:</b> ${data.company.fssai}</span>
+          <span><b>CIN:</b> ${data.company.cin}</span>
+        </div>
+      </div>
+
+      <div style="text-align: right;">
+        <div class="badge">TAX INVOICE / BILL OF SUPPLY</div>
+        <p style="font-size: 10px; color: #64748b; margin: 4px 0 8px 0;">Original for Recipient</p>
+        <p style="font-size: 11px; margin: 2px 0;"><b>Invoice #:</b> <span style="font-family: monospace; color: #065f46; font-weight: 800;">${data.invoiceNumber}</span></p>
+        <p style="font-size: 11px; margin: 2px 0;"><b>Date:</b> ${data.invoiceDate}</p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">Order Ref: <b>#${data.orderId}</b></p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">Payment: <b style="text-transform: uppercase;">${data.paymentMethod} (${data.paymentStatus})</b></p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">Place of Supply: <b>${data.placeOfSupply}</b></p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="box">
+        <p style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #065f46; margin: 0 0 6px 0; letter-spacing: 0.5px;">Billed & Shipped To</p>
+        <p style="font-weight: 800; font-size: 13px; margin: 0 0 2px 0; color: #0f172a;">${data.customer.name}</p>
+        <p style="color: #475569; font-size: 11px; margin: 0 0 4px 0;">${data.customer.address}</p>
+        <p style="font-family: monospace; font-size: 11px; margin: 0; color: #334155;">📱 ${data.customer.phone}</p>
+        ${data.customer.email ? `<p style="font-size: 10px; color: #64748b; margin: 2px 0 0 0;">✉️ ${data.customer.email}</p>` : ""}
+      </div>
+
+      <div class="box" style="text-align: right;">
+        <p style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #065f46; margin: 0 0 6px 0; letter-spacing: 0.5px;">Delivery & Logistics</p>
+        <p style="margin: 2px 0; font-size: 11px; color: #475569;">Order Status: <b style="color: #0f172a;">${data.orderStatus}</b></p>
+        <p style="margin: 2px 0; font-size: 11px; color: #475569;">Order Placed: <b>${data.orderDate}</b></p>
+        <p style="margin: 2px 0; font-size: 11px; color: #475569;">Reverse Charge: <b>${data.reverseCharge}</b></p>
+        <p style="margin: 2px 0; font-size: 11px; color: #475569;">Customer GSTIN: <span style="font-family: monospace;">${data.customer.gstin}</span></p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="border-top-left-radius: 6px;">#</th>
+          <th>Item Description</th>
+          <th style="text-align: center;">HSN</th>
+          <th style="text-align: center;">Qty / Unit</th>
+          <th style="text-align: right;">Unit Price</th>
+          <th style="text-align: right;">Taxable Val</th>
+          <th style="text-align: right;">CGST</th>
+          <th style="text-align: right;">SGST</th>
+          <th style="text-align: right; border-top-right-radius: 6px;">Total (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+      </tbody>
+    </table>
+
+    <div class="totals-row">
+      <div style="flex: 1;">
+        <div class="box" style="margin-bottom: 10px;">
+          <p style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b; margin: 0 0 2px 0;">Amount in Words:</p>
+          <p style="font-weight: 800; color: #065f46; margin: 0; font-size: 12px;">${data.summary.amountInWords}</p>
+        </div>
+
+        <div class="box" style="background: #fffbeb; border-color: #fde68a;">
+          <p style="font-weight: bold; color: #92400e; margin: 0 0 2px 0; font-size: 10px;">Terms & Conditions / Jurisdiction:</p>
+          <p style="color: #78350f; font-size: 10px; margin: 0;">${data.signatory.declaration}</p>
+        </div>
+      </div>
+
+      <div class="summary-box">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569;">
+          <span>Taxable Amount (Goods):</span>
+          <span style="font-family: monospace;">₹${data.summary.taxableSubtotal}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569;">
+          <span>Total CGST:</span>
+          <span style="font-family: monospace;">₹${data.summary.totalCgst}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color: #475569;">
+          <span>Total SGST:</span>
+          <span style="font-family: monospace;">₹${data.summary.totalSgst}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; font-weight: bold;">
+          <span>Subtotal:</span>
+          <span style="font-family: monospace;">₹${data.summary.subtotal}</span>
+        </div>
+        ${parseFloat(data.summary.discount) > 0 ? `
+        <div style="display: flex; justify-content: space-between; margin-top: 4px; color: #059669; font-weight: bold;">
+          <span>Discount Applied ${data.summary.couponCode ? `(${data.summary.couponCode})` : ""}:</span>
+          <span style="font-family: monospace;">−₹${data.summary.discount}</span>
+        </div>
+        ` : ""}
+        <div class="grand-total">
+          <span>Grand Total (INR):</span>
+          <span style="font-family: monospace;">₹${data.summary.grandTotal}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-row">
+      <div style="font-size: 10px; color: #64748b;">
+        <p style="margin: 0 0 2px 0;">Customer Support: <b>${data.company.phone}</b> | <b>${data.company.email}</b></p>
+        <p style="margin: 0;">Thank you for choosing certified fresh organic farming!</p>
+      </div>
+
+      <div style="text-align: right;">
+        <div class="computer-slip-badge">🛡️ Computer Generated Slip</div>
+        <p style="font-size: 9px; color: #64748b; font-style: italic; margin: 4px 0 2px 0;">
+          This is a computer-generated slip. No physical signature is required.
+        </p>
+        <p style="font-size: 10px; font-weight: bold; color: #334155; text-transform: uppercase; margin: 4px 0 0 0; padding-top: 4px; border-top: 1px solid #e2e8f0;">
+          For ${data.company.legalName}
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 interface TaxInvoiceModalProps {
   orderId: number | null;
   open: boolean;
@@ -120,7 +397,46 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
   });
 
   const handlePrint = () => {
-    window.print();
+    if (!activeData) return;
+
+    // 1. Try opening an isolated print popup window (Immune to all modal/dark mode bugs)
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(renderStandaloneInvoiceHtml(activeData));
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+      return;
+    }
+
+    // 2. Fallback: Print via clean hidden iframe (works if popups blocked)
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(renderStandaloneInvoiceHtml(activeData));
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          try { document.body.removeChild(iframe); } catch (e) {}
+        }, 1500);
+      }, 300);
+    } else {
+      window.print();
+    }
   };
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, val: any) => {
@@ -194,19 +510,51 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
             -webkit-text-fill-color: #94a3b8 !important;
           }
           @media print {
-            body * { visibility: hidden !important; }
-            #printable-tax-invoice, #printable-tax-invoice * { visibility: visible !important; }
+            html, body {
+              background-color: #ffffff !important;
+              background: #ffffff !important;
+              color: #0f172a !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              min-height: 100% !important;
+              overflow: visible !important;
+            }
+            [data-radix-portal], [role="dialog"], div[data-state] {
+              position: static !important;
+              transform: none !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              max-height: none !important;
+              overflow: visible !important;
+            }
+            .no-print, [data-radix-dialog-overlay] {
+              display: none !important;
+              visibility: hidden !important;
+            }
             #printable-tax-invoice {
-              position: absolute !important;
+              display: block !important;
+              visibility: visible !important;
+              position: relative !important;
               left: 0 !important;
               top: 0 !important;
               width: 100% !important;
+              max-width: 100% !important;
               margin: 0 !important;
-              padding: 20px !important;
+              padding: 16px !important;
+              background-color: #ffffff !important;
               background: #ffffff !important;
-              color: #000000 !important;
+              color: #0f172a !important;
+              border: none !important;
+              box-shadow: none !important;
             }
-            .no-print { display: none !important; }
+            #printable-tax-invoice * {
+              visibility: visible !important;
+              color-adjust: exact !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
           }
         ` }} />
 
