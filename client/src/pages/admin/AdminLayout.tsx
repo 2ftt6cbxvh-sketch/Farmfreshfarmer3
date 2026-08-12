@@ -142,13 +142,20 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   }
 
   const navToDisplay = NAV.map((section) => {
-    const filteredItems = section.items.filter((item) => {
-      // Security, Settings, Staff, and Delivery Partners menus are strictly reserved for Primary Admin
-      if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings") {
-        return isPrimaryAdmin;
-      }
-      return isPrimaryAdmin || allowedHrefs.includes(item.href) || (item.href === "/admin/approvals" && allowedHrefs.includes("/admin/products"));
-    });
+    const filteredItems = section.items
+      .filter((item) => {
+        // Security, Settings, Staff, and Delivery Partners menus are strictly reserved for Primary Admin
+        if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings") {
+          return isPrimaryAdmin;
+        }
+        return isPrimaryAdmin || allowedHrefs.includes(item.href) || (item.href === "/admin/approvals" && allowedHrefs.includes("/admin/products"));
+      })
+      .map((item) => {
+        if (item.href === "/admin/approvals" && !isPrimaryAdmin) {
+          return { ...item, label: "My Reconsiderations ↩️", icon: RotateCcw };
+        }
+        return item;
+      });
     return { ...section, items: filteredItems };
   }).filter((section) => section.items.length > 0);
 
@@ -284,7 +291,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between gap-2">
             <span className="font-serif text-base font-bold tracking-tight truncate">FarmFreshFarmer</span>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
-              v8.6.0
+              v8.6.1
             </span>
           </div>
 

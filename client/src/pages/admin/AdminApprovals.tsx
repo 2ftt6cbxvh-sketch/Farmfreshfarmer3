@@ -368,15 +368,25 @@ export function AdminApprovals() {
   };
 
   return (
-    <AdminLayout title="Product & Category Approvals">
+    <AdminLayout title={isPrimaryAdmin ? "Product & Category Approvals" : "Product Reconsiderations ↩️"}>
       <div className="space-y-6">
         <div className="bg-card border border-card-border p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-xl font-extrabold flex items-center gap-2">
-              <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
+              {isPrimaryAdmin ? (
+                <>
+                  <CheckCircle className="text-emerald-500" size={24} /> Master Admin Approval Queue
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="text-amber-500" size={24} /> Product Reconsideration Hub ↩️
+                </>
+              )}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Review assigned categories, prices, images, and sub-admin deletion requests for products and categories.
+              {isPrimaryAdmin
+                ? "Review assigned categories, prices, images, and sub-admin deletion requests for products and categories."
+                : "Review feedback notes from Master Admin, edit requested product details, and click Resubmit."}
             </p>
           </div>
           <div className="flex items-center gap-2.5">
@@ -387,40 +397,46 @@ export function AdminApprovals() {
               className="text-xs font-bold gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-8 cursor-pointer"
             >
               <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
-              <span>Refresh Queue</span>
+              <span>Refresh</span>
             </Button>
             <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-bold px-3 py-1.5 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping mr-1" />
-              ⏳ Pending Items: {products.length + categories.length}
+              {isPrimaryAdmin ? `⏳ Pending Items: ${products.length + categories.length}` : `↩️ Requires Action: ${reconsiderationProducts.length}`}
             </Badge>
           </div>
         </div>
 
-        {reconsiderationProducts.length > 0 && (
+        {!isPrimaryAdmin && reconsiderationProducts.length > 0 && (
           <div className="p-4 bg-amber-500/15 border-2 border-amber-500/40 rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-300 font-extrabold shadow-sm">
             <RotateCcw className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 animate-spin" />
             <div>
               <span>
-                <strong>Sub-Admin Action Required:</strong> You have {reconsiderationProducts.length} product(s) sent back for reconsideration by Master Admin. Please check the feedback notes in the <strong>🔄 Re-Consider</strong> tab below, edit the details, and click <strong>Resubmit</strong>.
+                <strong>Sub-Admin Action Required:</strong> You have {reconsiderationProducts.length} product(s) sent back for reconsideration by Master Admin. Edit the details below and click <strong>Resubmit</strong>.
               </span>
             </div>
           </div>
         )}
 
-        <Tabs defaultValue={typeof window !== "undefined" && window.location.search.includes("tab=reconsideration") ? "reconsideration" : (reconsiderationProducts.length > 0 ? "reconsideration" : "products")} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-            <TabsTrigger value="products" data-testid="tab-products">
-              Products {products.length > 0 && `(${products.length})`}
-            </TabsTrigger>
-            <TabsTrigger value="categories" data-testid="tab-categories">
-              Categories {categories.length > 0 && `(${categories.length})`}
-            </TabsTrigger>
+        <Tabs defaultValue="reconsideration" className="w-full">
+          <TabsList className={`grid w-full ${isPrimaryAdmin ? "grid-cols-4 max-w-2xl" : "grid-cols-1 max-w-xs"}`}>
+            {isPrimaryAdmin && (
+              <TabsTrigger value="products" data-testid="tab-products">
+                Products {products.length > 0 && `(${products.length})`}
+              </TabsTrigger>
+            )}
+            {isPrimaryAdmin && (
+              <TabsTrigger value="categories" data-testid="tab-categories">
+                Categories {categories.length > 0 && `(${categories.length})`}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="reconsideration" data-testid="tab-reconsideration" className="text-amber-500 font-bold">
               🔄 Re-Consider {reconsiderationProducts.length > 0 && `(${reconsiderationProducts.length})`}
             </TabsTrigger>
-            <TabsTrigger value="history" data-testid="tab-history">
-              Approval Log
-            </TabsTrigger>
+            {isPrimaryAdmin && (
+              <TabsTrigger value="history" data-testid="tab-history">
+                Approval Log
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Products Tab */}
