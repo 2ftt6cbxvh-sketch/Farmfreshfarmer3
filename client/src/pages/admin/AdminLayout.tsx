@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/lib/store";
 import AdminLogin from "./AdminLogin";
 import Forbidden403 from "../Forbidden403";
+import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
 
 const NAV = [
   { section: "Core", items: [
@@ -95,12 +96,31 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     } catch(e) {}
   }
 
+  const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);
+
   // Whenever fresh permissions arrive from server, update localStorage to prevent stale data
   useEffect(() => {
     if (liveUser && (liveUser as any)?.id) {
       localStorage.setItem("adminUser", JSON.stringify(liveUser));
+
+      const u = liveUser as any;
+      if (!isPrimaryAdmin) {
+        const currentStars = u.starRating || 5;
+        const currentTitle = u.customTitle || u.experienceRank || "Sub-Admin Specialist";
+        const storedStarKey = `seen_staff_stars_${u.id}`;
+        const prevStars = Number(localStorage.getItem(storedStarKey) ?? "-1");
+
+        if (prevStars !== -1 && currentStars > prevStars) {
+          setPromotedStaffInfo({
+            stars: currentStars,
+            title: currentTitle,
+            role: u.role,
+          });
+        }
+        localStorage.setItem(storedStarKey, String(currentStars));
+      }
     }
-  }, [liveUser]);
+  }, [liveUser, isPrimaryAdmin]);
 
   const isPrimaryAdmin =
     adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
@@ -284,14 +304,22 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen bg-background flex text-foreground">
+      {promotedStaffInfo && (
+        <StaffPromotionOverlay
+          stars={promotedStaffInfo.stars}
+          title={promotedStaffInfo.title}
+          role={promotedStaffInfo.role}
+          onClose={() => setPromotedStaffInfo(null)}
+        />
+      )}
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <div className="p-4 border-b border-sidebar-border space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="font-serif text-base font-bold tracking-tight truncate">FarmFreshFarmer</span>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
-              v8.6.1
+              v8.6.2
             </span>
           </div>
 
