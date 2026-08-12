@@ -370,3 +370,33 @@
 .animate-mobile-drawer-exit {
   animation: mobileDrawerExit 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes introPop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes introTextSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-intro-pop {
+  animation: introPop 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-intro-text-slide {
+  animation: introTextSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}

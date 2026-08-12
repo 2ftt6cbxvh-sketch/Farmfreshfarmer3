@@ -8,8 +8,7 @@ import { AuthProvider, CartProvider } from "@/lib/store";
 import { useEffect, useState } from "react";
 import LockdownOverlay from "@/components/LockdownOverlay";
 import { ThemeProvider } from "@/lib/theme-provider";
-
-import Home from "@/pages/Home";
+import { IntroLoader } from "@/components/IntroLoader";
 import Category from "@/pages/Category";
 import SearchPage from "@/pages/SearchPage";
 import ProductDetail from "@/pages/ProductDetail";
@@ -168,6 +167,7 @@ function AppContent() {
 
   return (
     <>
+      <IntroLoader />
       <TooltipProvider>
         <AuthProvider>
           <CartProvider>

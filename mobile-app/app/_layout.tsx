@@ -6,8 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../lib/api';
 import { LakshmiAiBot } from '../components/LaxshmiAiBot';
+import { IntroSplash } from '../components/IntroSplash';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,8 +73,10 @@ function AppContent() {
     );
   }
 
+
   return (
     <>
+      <IntroSplash />
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
