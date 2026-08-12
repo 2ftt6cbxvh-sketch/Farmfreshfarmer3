@@ -221,10 +221,49 @@ export default function AdminProducts() {
     setOpen(true);
   }
 
-  const filtered = products.filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()));
+  const reconsiderationProducts = products.filter((p) => (p as any).approvalStatus === "changes_requested");
+  const pendingProducts = products.filter((p) => (p as any).approvalStatus === "pending" || (p as any).approvalStatus === "under_review" || (p as any).approvalStatus === "pending_deletion");
+
+  const [statusTab, setStatusTab] = useState<"all" | "approved" | "reconsideration" | "pending" | "rejected">("all");
+
+  const filtered = products.filter((p) => {
+    const matchesQuery = p.name.toLowerCase().includes(filter.toLowerCase()) || p.categorySlug.toLowerCase().includes(filter.toLowerCase());
+    const status = (p as any).approvalStatus || "approved";
+    if (!matchesQuery) return false;
+    if (statusTab === "all") return true;
+    if (statusTab === "approved") return status === "approved";
+    if (statusTab === "reconsideration") return status === "changes_requested";
+    if (statusTab === "pending") return status === "pending" || status === "under_review" || status === "pending_deletion";
+    if (statusTab === "rejected") return status === "rejected";
+    return true;
+  });
 
   return (
     <AdminLayout title="Products">
+      {/* Reconsideration Banner */}
+      {reconsiderationProducts.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-500/15 border-2 border-amber-500/40 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+              <AlertCircle className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                {reconsiderationProducts.length} Product(s) Require Reconsideration! ↩️
+              </h4>
+              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium mt-0.5">
+                Primary Admin sent these items back for revision with specific feedback notes.
+              </p>
+            </div>
+          </div>
+          <a href="/admin/approvals?tab=reconsideration">
+            <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shrink-0 gap-1.5 shadow-md">
+              <span>View & Resubmit Reconsiderations ↩️</span>
+            </Button>
+          </a>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="relative max-w-xs w-full">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -233,6 +272,43 @@ export default function AdminProducts() {
         <Button onClick={openAdd} data-testid="button-add-product">
           <Plus size={16} className="mr-1" /> Add product
         </Button>
+      </div>
+
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 text-xs font-bold border-b border-card-border">
+        <button
+          type="button"
+          onClick={() => setStatusTab("all")}
+          className={`px-3 py-1.5 rounded-lg border transition-all ${statusTab === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-card-border text-muted-foreground hover:text-foreground"}`}
+        >
+          All ({products.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatusTab("approved")}
+          className={`px-3 py-1.5 rounded-lg border transition-all ${statusTab === "approved" ? "bg-emerald-600 text-white border-emerald-600" : "bg-card border-card-border text-muted-foreground hover:text-foreground"}`}
+        >
+          Live Storefront
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatusTab("reconsideration")}
+          className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1 ${statusTab === "reconsideration" ? "bg-amber-500 text-white border-amber-500 font-extrabold shadow-sm" : "bg-card border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"}`}
+        >
+          <span>In Reconsideration ↩️</span>
+          {reconsiderationProducts.length > 0 && (
+            <span className="ml-1 bg-amber-700 text-white text-[10px] px-1.5 py-0.2 rounded-full">
+              {reconsiderationProducts.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatusTab("pending")}
+          className={`px-3 py-1.5 rounded-lg border transition-all ${statusTab === "pending" ? "bg-blue-600 text-white border-blue-600" : "bg-card border-card-border text-muted-foreground hover:text-foreground"}`}
+        >
+          Pending Approval ({pendingProducts.length})
+        </button>
       </div>
 
       {!isPrimaryAdmin && (

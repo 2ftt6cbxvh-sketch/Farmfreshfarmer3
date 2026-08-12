@@ -396,7 +396,18 @@ export function AdminApprovals() {
           </div>
         </div>
 
-        <Tabs defaultValue="products" className="w-full">
+        {reconsiderationProducts.length > 0 && (
+          <div className="p-4 bg-amber-500/15 border-2 border-amber-500/40 rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-300 font-extrabold shadow-sm">
+            <RotateCcw className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 animate-spin" />
+            <div>
+              <span>
+                <strong>Sub-Admin Action Required:</strong> You have {reconsiderationProducts.length} product(s) sent back for reconsideration by Master Admin. Please check the feedback notes in the <strong>🔄 Re-Consider</strong> tab below, edit the details, and click <strong>Resubmit</strong>.
+              </span>
+            </div>
+          </div>
+        )}
+
+        <Tabs defaultValue={typeof window !== "undefined" && window.location.search.includes("tab=reconsideration") ? "reconsideration" : (reconsiderationProducts.length > 0 ? "reconsideration" : "products")} className="w-full">
           <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="products" data-testid="tab-products">
               Products {products.length > 0 && `(${products.length})`}

@@ -107,7 +107,7 @@ export default function AdminDashboardScreen() {
     tickets: ['/admin/tickets'],
     products: ['/admin/products'],
     categories: ['/admin/categories'],
-    approvals: ['/admin/approvals'],
+    approvals: ['/admin/approvals', '/admin/products'],
     inventory: ['/admin/inventory'],
     orders: ['/admin/orders'],
     subscriptions: ['/admin/subscriptions'],
@@ -268,6 +268,9 @@ export default function AdminDashboardScreen() {
     }
   };
 
+  const [mobileReconsiderProduct, setMobileReconsiderProduct] = useState<any>(null);
+  const [resubmitForm, setResubmitForm] = useState({ name: '', price: '', stock: '', unit: '', image: '', resubmitNote: '' });
+
   // Data Queries
   const { data: rawOrders, isLoading: ordersLoading } = useQuery({ queryKey: ['admin-orders'], queryFn: () => api.get('/api/admin/orders').then(r => r.data), enabled: activeTab === 'orders' || activeTab === 'dashboard' });
   const { data: rawProducts, isLoading: productsLoading } = useQuery({ queryKey: ['admin-products'], queryFn: () => api.get('/api/products').then(r => r.data), enabled: activeTab === 'inventory' || activeTab === 'products' || activeTab === 'dashboard' });
@@ -281,6 +284,18 @@ export default function AdminDashboardScreen() {
   const { data: rawReviews } = useQuery({ queryKey: ['admin-reviews'], queryFn: () => api.get('/api/admin/reviews').then(r => r.data), enabled: activeTab === 'reviews' });
   const { data: rawWarehouses, isLoading: warehousesLoading } = useQuery({ queryKey: ['admin-warehouses'], queryFn: () => api.get('/api/admin/warehouses').then(r => r.data), enabled: activeTab === 'warehouses' });
   const { data: rawStaffData, isLoading: staffLoading } = useQuery({ queryKey: ['admin-staff'], queryFn: () => api.get('/api/admin/staff').then(r => r.data), enabled: activeTab === 'staff' });
+  const { data: rawReconsiderations } = useQuery({
+    queryKey: ['admin-reconsiderations'],
+    queryFn: () => api.get('/api/admin/approvals/reconsideration').then(r => r.data),
+    enabled: activeTab === 'approvals' || activeTab === 'products' || activeTab === 'dashboard',
+    refetchInterval: 3000,
+  });
+  const { data: rawPendingApprovals } = useQuery({
+    queryKey: ['admin-approvals-products'],
+    queryFn: () => api.get('/api/admin/approvals/products').then(r => r.data),
+    enabled: activeTab === 'approvals',
+    refetchInterval: 3000,
+  });
 
   // Safe Array Extractions (Prevents TypeError: map is not a function)
   const orders: any[] = Array.isArray(rawOrders) ? rawOrders : (rawOrders?.orders || []);
@@ -291,6 +306,20 @@ export default function AdminDashboardScreen() {
   const reviews: any[] = Array.isArray(rawReviews) ? rawReviews : (rawReviews?.reviews || []);
   const warehouses: any[] = Array.isArray(rawWarehouses) ? rawWarehouses : (rawWarehouses?.warehouses || []);
   const staffList: any[] = Array.isArray(rawStaffData) ? rawStaffData : (rawStaffData?.staff || []);
+  const reconsiderations: any[] = Array.isArray(rawReconsiderations) ? rawReconsiderations : [];
+  const pendingApprovals: any[] = Array.isArray(rawPendingApprovals) ? rawPendingApprovals : [];
+
+  const resubmitProductMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: any }) => api.post(`/api/admin/approvals/products/${id}/resubmit`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reconsiderations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approvals-products'] });
+      setMobileReconsiderProduct(null);
+      Alert.alert('Success 🚀', 'Product updated & resubmitted for Super Admin approval!');
+    },
+    onError: (err: any) => Alert.alert('Error', err.response?.data?.message || 'Could not resubmit product'),
+  });
 
   // Mutations
   const updateOrderStatus = useMutation({
@@ -417,7 +446,6 @@ export default function AdminDashboardScreen() {
         <View style={{ width: 60 }} />
       </View>
 
-      <View style={styles.tabsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {visibleTabs.map((tab) => (
             <TouchableOpacity key={tab.id} style={[styles.tab, activeTab === tab.id && styles.tabActive]} onPress={() => setActiveTab(tab.id)}>
@@ -999,8 +1027,94 @@ export default function AdminDashboardScreen() {
           />
         )}
 
+        {/* ── ↩️ APPROVALS & RECONSIDERATION TAB ───────────────────────────── */}
+        {activeTab === 'approvals' && (
+          <View style={styles.tabContent}>
+            <Text style={[styles.cardTitle, { color: textColor, marginBottom: 8 }]}>
+              Product Approvals & Reconsiderations ↩️
+            </Text>
+
+            {reconsiderations.length > 0 && (
+              <View style={{ backgroundColor: 'rgba(245,158,11,0.15)', borderColor: 'rgba(245,158,11,0.4)', borderWidth: 1.5, borderRadius: 16, padding: 14, marginBottom: 14 }}>
+                <Text style={{ color: '#fbbf24', fontWeight: '900', fontSize: 13 }}>
+                  ⚠️ Attention Sub-Admin ({reconsiderations.length} Products Need Revision)
+                </Text>
+                <Text style={{ color: textColor, fontSize: 12, marginTop: 4 }}>
+                  Master Admin requested changes for products below. Read the feedback note, edit details, and tap Resubmit.
+                </Text>
+              </View>
+            )}
+
+            {/* Reconsiderations Section */}
+            {reconsiderations.map((item) => (
+              <View key={`rec-${item.id}`} style={[styles.card, { backgroundColor: cardBg, borderColor: '#f59e0b', borderWidth: 1.5 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.cardTitle, { color: textColor, fontSize: 15 }]}>{item.name}</Text>
+                  <View style={{ backgroundColor: 'rgba(245,158,11,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                    <Text style={{ color: '#fbbf24', fontSize: 11, fontWeight: 'bold' }}>↩️ In Reconsideration</Text>
+                  </View>
+                </View>
+
+                <Text style={{ color: mutedColor, fontSize: 12, marginTop: 4 }}>
+                  💰 Price: ₹{item.price} / {item.unit || '250g'} • 📦 Stock: {item.stock ?? 50}
+                </Text>
+
+                {/* Feedback Note from Master Admin */}
+                <View style={{ backgroundColor: 'rgba(245,158,11,0.12)', padding: 10, borderRadius: 10, marginVertical: 8, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' }}>
+                  <Text style={{ color: '#fbbf24', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' }}>💬 Master Admin Feedback Note:</Text>
+                  <Text style={{ color: textColor, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>
+                    "{item.approvalNote || 'Please review and adjust product details.'}"
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: '#f59e0b' }]}
+                  onPress={() => {
+                    setMobileReconsiderProduct(item);
+                    setResubmitForm({
+                      name: item.name || '',
+                      price: String(item.price || ''),
+                      stock: String(item.stock || ''),
+                      unit: item.unit || '250 Grams',
+                      image: item.image || '',
+                      resubmitNote: '',
+                    });
+                  }}
+                >
+                  <Text style={styles.actionBtnText}>✏️ Revise & Resubmit Product</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {/* Pending Approvals Queue Section */}
+            <Text style={[styles.cardTitle, { color: textColor, marginTop: 14, marginBottom: 8 }]}>
+              ⏳ Pending Approvals Queue ({pendingApprovals.length})
+            </Text>
+
+            {pendingApprovals.length === 0 && reconsiderations.length === 0 ? (
+              <Text style={{ color: mutedColor, textAlign: 'center', marginVertical: 20 }}>
+                No pending approvals or reconsiderations.
+              </Text>
+            ) : (
+              pendingApprovals.map((item) => (
+                <View key={`pending-${item.id}`} style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={[styles.cardTitle, { color: textColor, fontSize: 14 }]}>{item.name}</Text>
+                    <View style={{ backgroundColor: 'rgba(59,130,246,0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: 'bold' }}>⏳ Pending Review</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: mutedColor, fontSize: 12, marginTop: 4 }}>
+                    Price: ₹{item.price} • Stock: {item.stock} • Category: {item.categorySlug}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
         {/* ── OTHER GRANULAR TABS ───────────────────────────────────────────── */}
-        {['tickets', 'approvals', 'subscriptions', 'payments', 'coupons', 'discounts', 'referrals', 'users', 'delivery-partners', 'gst', 'security'].includes(activeTab) && (
+        {['tickets', 'subscriptions', 'payments', 'coupons', 'discounts', 'referrals', 'users', 'delivery-partners', 'gst', 'security'].includes(activeTab) && (
           <View style={styles.tabContent}>
             <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
               <Text style={[styles.cardTitle, { color: textColor }]}>
@@ -1199,7 +1313,50 @@ export default function AdminDashboardScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      {/* ── 📝 REVISE & RESUBMIT MODAL (MOBILE) ────────────────────── */}
+      {mobileReconsiderProduct && (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setMobileReconsiderProduct(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', padding: 20 }}>
+            <ScrollView contentContainerStyle={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>Revise & Resubmit Product</Text>
+              <Text style={{ color: mutedColor, fontSize: 12, marginBottom: 12 }}>
+                Update requested fields below to resubmit to Master Admin.
+              </Text>
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Product Name:</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={resubmitForm.name} onChangeText={t => setResubmitForm({...resubmitForm, name: t})} />
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Price (₹):</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={resubmitForm.price} onChangeText={t => setResubmitForm({...resubmitForm, price: t})} />
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Stock Count:</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} keyboardType="numeric" value={resubmitForm.stock} onChangeText={t => setResubmitForm({...resubmitForm, stock: t})} />
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Unit / Quantity:</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={resubmitForm.unit} onChangeText={t => setResubmitForm({...resubmitForm, unit: t})} />
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Image URL:</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} value={resubmitForm.image} onChangeText={t => setResubmitForm({...resubmitForm, image: t})} />
+
+              <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>Sub-Admin Resubmission Note:</Text>
+              <TextInput style={[styles.input, { color: textColor, borderColor: borderCol, height: 60 }]} multiline placeholder="Explain changes made to Master Admin..." value={resubmitForm.resubmitNote} onChangeText={t => setResubmitForm({...resubmitForm, resubmitNote: t})} />
+
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
+                onPress={() => resubmitProductMutation.mutate({
+                  id: mobileReconsiderProduct.id,
+                  payload: resubmitForm,
+                })}
+              >
+                <Text style={styles.actionBtnText}>🚀 Resubmit for Master Admin Approval</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setMobileReconsiderProduct(null)}>
+                <Text style={{ color: mutedColor, fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Modal>
       )}
     </View>
   );
