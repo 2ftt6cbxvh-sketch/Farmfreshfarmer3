@@ -82,6 +82,12 @@ interface ProductEditModalState {
 
 export function AdminApprovals() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isPrimaryAdmin = Boolean(
+    user?.isPrimaryAdmin ||
+    user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    (user?.role === "admin" && (user?.id === 1 || user?.id === 0))
+  );
   const [actionModal, setActionModal] = useState<{
     type: "product" | "category";
     id: number;

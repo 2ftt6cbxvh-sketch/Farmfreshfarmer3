@@ -4,6 +4,7 @@ import type { AuthUser, CartItem, Product } from "./types";
 import { effectivePrice } from "./types";
 
 import { StarPromotionOverlay } from "@/components/StarPromotionOverlay";
+import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
 
 /* ----------------------------- Auth ------------------------------ */
 interface AuthContextType {
@@ -21,7 +22,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [promotedStars, setPromotedStars] = useState<number | null>(null);
+  const [promotedCustomerStars, setPromotedCustomerStars] = useState<number | null>(null);
+  const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);
 
   async function refresh() {
     try {
@@ -29,16 +31,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       const newUser = data.user || null;
 
-      if (newUser && newUser.role === "customer") {
-        const newStars = newUser.customerStars ?? 0;
-        const storedKey = `seen_star_level_${newUser.id}`;
-        const prevStars = Number(localStorage.getItem(storedKey) ?? "-1");
+      if (newUser) {
+        if (newUser.role === "customer") {
+          const newStars = newUser.customerStars ?? 0;
+          const storedKey = `seen_star_level_${newUser.id}`;
+          const prevStars = Number(localStorage.getItem(storedKey) ?? "-1");
 
-        // Trigger celebration overlay when customer star level increases
-        if (prevStars !== -1 && newStars > prevStars && newStars > 0) {
-          setPromotedStars(newStars);
+          // Trigger celebration overlay when customer star level increases
+          if (prevStars !== -1 && newStars > prevStars && newStars > 0) {
+            setPromotedCustomerStars(newStars);
+          }
+          localStorage.setItem(storedKey, String(newStars));
+        } else if (!newUser.isPrimaryAdmin && newUser.email?.toLowerCase() !== "admin@farmfreshfarmer.com") {
+          // Sub-admin & staff promotion check
+          const currentStars = newUser.starRating || 5;
+          const currentTitle = newUser.customTitle || newUser.experienceRank || "Sub-Admin Specialist";
+          const storedStarKey = `seen_staff_stars_${newUser.id}`;
+          const prevStars = Number(localStorage.getItem(storedStarKey) ?? "-1");
+
+          if (prevStars !== -1 && currentStars > prevStars) {
+            setPromotedStaffInfo({
+              stars: currentStars,
+              title: currentTitle,
+              role: newUser.role,
+            });
+          }
+          localStorage.setItem(storedStarKey, String(currentStars));
         }
-        localStorage.setItem(storedKey, String(newStars));
       }
 
       setUser(newUser);
@@ -103,8 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser }}>
-      {promotedStars !== null && (
-        <StarPromotionOverlay stars={promotedStars} onClose={() => setPromotedStars(null)} />
+      {promotedCustomerStars !== null && (
+        <StarPromotionOverlay stars={promotedCustomerStars} onClose={() => setPromotedCustomerStars(null)} />
+      )}
+      {promotedStaffInfo !== null && (
+        <StaffPromotionOverlay
+          stars={promotedStaffInfo.stars}
+          title={promotedStaffInfo.title}
+          role={promotedStaffInfo.role}
+          onClose={() => setPromotedStaffInfo(null)}
+        />
       )}
       {children}
     </AuthContext.Provider>
