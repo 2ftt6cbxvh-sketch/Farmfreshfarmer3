@@ -10,11 +10,10 @@ export function IntroSplash() {
   });
 
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const sproutScale = useRef(new Animated.Value(0.4)).current;
-  const sproutTranslate = useRef(new Animated.Value(24)).current;
-  const glowOpacity = useRef(new Animated.Value(0.3)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const translateAnim = useRef(new Animated.Value(12)).current;
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
-  const textTranslateAnim = useRef(new Animated.Value(14)).current;
+  const textTranslateAnim = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
     if (!visible) return;
@@ -27,51 +26,47 @@ export function IntroSplash() {
       }
     }).catch(() => {});
 
-    // Sprout & Growth Motion (Phase 1 & 2)
+    // Sleek Spring Entrance (Official Logo)
     Animated.parallel([
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 500,
+        duration: 400,
         useNativeDriver: true,
       }),
-      Animated.spring(sproutScale, {
+      Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 6,
-        tension: 40,
+        friction: 7,
+        tension: 50,
         useNativeDriver: true,
       }),
-      Animated.timing(sproutTranslate, {
+      Animated.timing(translateAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 450,
         useNativeDriver: true,
       }),
-      Animated.sequence([
-        Animated.timing(glowOpacity, { toValue: 0.8, duration: 600, useNativeDriver: true }),
-        Animated.timing(glowOpacity, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-      ]),
     ]).start();
 
-    // Text Unfold (Phase 3)
+    // Text & Tagline Entrance
     Animated.sequence([
-      Animated.delay(350),
+      Animated.delay(200),
       Animated.parallel([
         Animated.timing(textOpacityAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.timing(textTranslateAnim, {
           toValue: 0,
-          duration: 600,
+          duration: 400,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
 
-    // Auto-finish after 1.8s
+    // Fast, crisp timing (~1.1s total) for returning users
     const timer = setTimeout(() => {
       handleExit();
-    }, 1800);
+    }, 1100);
 
     return () => clearTimeout(timer);
   }, [visible]);
@@ -79,7 +74,7 @@ export function IntroSplash() {
   const handleExit = () => {
     Animated.timing(opacityAnim, {
       toValue: 0,
-      duration: 400,
+      duration: 300,
       useNativeDriver: true,
     }).start(() => {
       hasSeenMobileIntro = true;
@@ -96,16 +91,16 @@ export function IntroSplash() {
       style={StyleSheet.absoluteFillObject}
     >
       <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-        {/* Soft Radial Emerald Sprout Glow */}
-        <Animated.View style={[styles.emeraldGlow, { opacity: glowOpacity }]} />
+        {/* Soft Ambient Emerald Glow */}
+        <View style={styles.emeraldGlow} />
 
         <View style={styles.content}>
-          {/* Sprouting Emblem */}
+          {/* Exact Official Mobile Logo Asset */}
           <Animated.View
             style={[
               styles.iconWrapper,
               {
-                transform: [{ scale: sproutScale }, { translateY: sproutTranslate }],
+                transform: [{ scale: scaleAnim }, { translateY: translateAnim }],
               },
             ]}
           >
@@ -130,11 +125,11 @@ export function IntroSplash() {
               FarmFresh<Text style={styles.brandEmerald}>Farmer</Text>
             </Text>
             <Text style={styles.tagline}>
-              🌾 Organic · Farm to Home Delivery
+              🌿 Fresh Harvest · Direct To Your Doorstep
             </Text>
           </Animated.View>
 
-          {/* Skip Hint */}
+          {/* Fast Skip Hint */}
           <Text style={styles.skipHint}>TAP ANYWHERE TO SKIP</Text>
         </View>
       </Animated.View>
@@ -148,14 +143,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#06060c',
     zIndex: 99999,
     alignItems: 'center',
-    justify.content: 'center',
+    justifyContent: 'center',
   },
   emeraldGlow: {
     position: 'absolute',
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
   },
   content: {
     alignItems: 'center',
@@ -163,11 +158,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   iconWrapper: {
-    width: 110,
-    height: 110,
+    width: 105,
+    height: 105,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   logoImg: {
     width: '100%',
@@ -197,7 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#64748b',
-    marginTop: 26,
+    marginTop: 24,
     letterSpacing: 1.5,
   },
 });

@@ -96,6 +96,12 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     } catch(e) {}
   }
 
+  const isPrimaryAdmin = Boolean(
+    adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    adminUser?.isPrimaryAdmin === true ||
+    (adminUser?.role === "admin" && (adminUser?.id === 1 || adminUser?.id === 0))
+  );
+
   const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);
 
   // Whenever fresh permissions arrive from server, update localStorage to prevent stale data
@@ -121,11 +127,6 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       }
     }
   }, [liveUser, isPrimaryAdmin]);
-
-  const isPrimaryAdmin =
-    adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-    adminUser?.isPrimaryAdmin === true ||
-    (adminUser?.role === "admin" && (adminUser?.id === 1 || adminUser?.id === 0));
 
   let allowedHrefs: string[] = [];
   if (isPrimaryAdmin) {
@@ -319,7 +320,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           <div className="flex items-center justify-between gap-2">
             <span className="font-serif text-base font-bold tracking-tight truncate">FarmFreshFarmer</span>
             <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs shrink-0">
-              v8.6.4
+              v8.6.6
             </span>
           </div>
 
