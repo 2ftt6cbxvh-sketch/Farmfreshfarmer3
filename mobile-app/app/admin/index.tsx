@@ -1312,6 +1312,9 @@ export default function AdminDashboardScreen() {
             </TouchableOpacity>
           </View>
         )}
+        </ScrollView>
+      )}
+
       {/* ── 📝 REVISE & RESUBMIT MODAL (MOBILE) ────────────────────── */}
       {mobileReconsiderProduct && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setMobileReconsiderProduct(null)}>
