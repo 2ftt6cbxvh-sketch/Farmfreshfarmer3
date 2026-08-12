@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, Eye, Package, Tag, Edit3, Save, Upload, RotateCcw, Trash2, ShieldCheck, RefreshCw, FolderTree } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
+import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
