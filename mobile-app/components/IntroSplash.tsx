@@ -10,10 +10,11 @@ export function IntroSplash() {
   });
 
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
-  const translateAnim = useRef(new Animated.Value(14)).current;
+  const sproutScale = useRef(new Animated.Value(0.4)).current;
+  const sproutTranslate = useRef(new Animated.Value(24)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
-  const textTranslateAnim = useRef(new Animated.Value(10)).current;
+  const textTranslateAnim = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
     if (!visible) return;
@@ -26,46 +27,51 @@ export function IntroSplash() {
       }
     }).catch(() => {});
 
-    // Entrance Animation (Emblem)
+    // Sprout & Growth Motion (Phase 1 & 2)
     Animated.parallel([
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 600,
+        duration: 500,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
+      Animated.spring(sproutScale, {
         toValue: 1,
-        duration: 700,
+        friction: 6,
+        tension: 40,
         useNativeDriver: true,
       }),
-      Animated.timing(translateAnim, {
+      Animated.timing(sproutTranslate, {
         toValue: 0,
-        duration: 700,
+        duration: 800,
         useNativeDriver: true,
       }),
+      Animated.sequence([
+        Animated.timing(glowOpacity, { toValue: 0.8, duration: 600, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+      ]),
     ]).start();
 
-    // Entrance Animation (Text & Tagline)
+    // Text Unfold (Phase 3)
     Animated.sequence([
-      Animated.delay(150),
+      Animated.delay(350),
       Animated.parallel([
         Animated.timing(textOpacityAnim, {
           toValue: 1,
-          duration: 500,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(textTranslateAnim, {
           toValue: 0,
-          duration: 500,
+          duration: 600,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
 
-    // Auto-finish after 1.5s
+    // Auto-finish after 1.8s
     const timer = setTimeout(() => {
       handleExit();
-    }, 1450);
+    }, 1800);
 
     return () => clearTimeout(timer);
   }, [visible]);
@@ -73,7 +79,7 @@ export function IntroSplash() {
   const handleExit = () => {
     Animated.timing(opacityAnim, {
       toValue: 0,
-      duration: 350,
+      duration: 400,
       useNativeDriver: true,
     }).start(() => {
       hasSeenMobileIntro = true;
@@ -90,16 +96,16 @@ export function IntroSplash() {
       style={StyleSheet.absoluteFillObject}
     >
       <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-        {/* Soft Radial Emerald Glow */}
-        <View style={styles.emeraldGlow} />
+        {/* Soft Radial Emerald Sprout Glow */}
+        <Animated.View style={[styles.emeraldGlow, { opacity: glowOpacity }]} />
 
         <View style={styles.content}>
-          {/* Emblem */}
+          {/* Sprouting Emblem */}
           <Animated.View
             style={[
               styles.iconWrapper,
               {
-                transform: [{ scale: scaleAnim }, { translateY: translateAnim }],
+                transform: [{ scale: sproutScale }, { translateY: sproutTranslate }],
               },
             ]}
           >
@@ -124,7 +130,7 @@ export function IntroSplash() {
               FarmFresh<Text style={styles.brandEmerald}>Farmer</Text>
             </Text>
             <Text style={styles.tagline}>
-              🌿 Fresh Harvest · Direct To Your Doorstep
+              🌾 Organic · Farm to Home Delivery
             </Text>
           </Animated.View>
 
@@ -142,14 +148,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#06060c',
     zIndex: 99999,
     alignItems: 'center',
-    justifyContent: 'center',
+    justify.content: 'center',
   },
   emeraldGlow: {
     position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
   },
   content: {
     alignItems: 'center',
@@ -157,11 +163,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   iconWrapper: {
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   logoImg: {
     width: '100%',
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontFamily: 'System',
-    fontSize: 26,
+    fontSize: 27,
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: -0.5,
@@ -191,7 +197,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#64748b',
-    marginTop: 24,
+    marginTop: 26,
     letterSpacing: 1.5,
   },
 });
