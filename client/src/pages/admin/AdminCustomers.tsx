@@ -88,7 +88,7 @@ export default function AdminCustomers() {
                           <span className="text-xs text-muted-foreground italic font-normal">No stars</span>
                         )}
                       </div>
-                      <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold mt-0.5">Edit ({c.customerStars || 0}/10)</span>
+                      <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
                     </button>
                   </td>
                   <td className="p-3 text-muted-foreground">{c.phone || "—"}</td>
@@ -123,36 +123,24 @@ export default function AdminCustomers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={() => setStarEditId(null)}>
           <div className="bg-card border border-card-border rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold flex items-center gap-2">⭐ Assign Loyalty Stars</h3>
-            <p className="text-xs text-muted-foreground">Give customer loyalty stars (0 to 10 max). 5 stars per line when rendered for customer.</p>
+            <p className="text-xs text-muted-foreground">Give customer loyalty stars (0 to 5 max).</p>
             
             <div className="flex items-center justify-center gap-1.5 py-4 bg-secondary/50 rounded-xl">
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setStarEditVal(i + 1)}
-                      className={`text-2xl transition-transform hover:scale-125 ${i < starEditVal ? "text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]" : "text-muted-foreground/30"}`}
-                    >★</button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <button
-                      key={i + 5}
-                      type="button"
-                      onClick={() => setStarEditVal(i + 6)}
-                      className={`text-2xl transition-transform hover:scale-125 ${i + 5 < starEditVal ? "text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]" : "text-muted-foreground/30"}`}
-                    >★</button>
-                  ))}
-                </div>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setStarEditVal(i + 1)}
+                    className={`text-2xl transition-transform hover:scale-125 ${i < starEditVal ? "text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]" : "text-muted-foreground/30"}`}
+                  >★</button>
+                ))}
               </div>
             </div>
 
             <div className="flex items-center justify-between text-xs px-1">
               <span className="text-muted-foreground">Selected Stars:</span>
-              <span className="font-bold text-blue-400 text-sm">{starEditVal} / 10 Stars</span>
+              <span className="font-bold text-blue-400 text-sm">{starEditVal} / 5 Stars</span>
             </div>
 
             <div className="flex gap-2 pt-2">

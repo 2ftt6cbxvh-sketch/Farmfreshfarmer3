@@ -89,7 +89,7 @@ export default function AdminUsers() {
           <div className="bg-card rounded-2xl p-6 w-80 shadow-2xl border border-card-border" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-lg mb-4">🌟 Set Loyalty Stars</h3>
             <div className="flex items-center justify-center gap-2 mb-6">
-              {Array.from({ length: 10 }, (_, i) => (
+              {Array.from({ length: 5 }, (_, i) => (
                 <button
                   key={i}
                   onClick={() => setStarEditValue(i + 1)}
@@ -101,7 +101,7 @@ export default function AdminUsers() {
                 </button>
               ))}
             </div>
-            <div className="text-center text-sm text-muted-foreground mb-4">{starEditValue} / 10 loyalty stars</div>
+            <div className="text-center text-sm text-muted-foreground mb-4">{starEditValue} / 5 loyalty stars</div>
             <div className="flex gap-2">
               <button
                 onClick={() => setStarEditOpen(null)}

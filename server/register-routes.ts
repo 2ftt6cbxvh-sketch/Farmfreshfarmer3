@@ -25,7 +25,10 @@ import multer from "multer";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+// Automatically cap any existing customer stars to maximum of 5 in DB
+db.execute(sql`UPDATE users SET customer_stars = 5 WHERE customer_stars > 5`).catch(() => {});
 import { ensureSeeded } from "./seed-runner";
 import {
   insertProductSchema, insertCouponSchema, insertReviewSchema, users,
@@ -948,8 +951,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.patch("/api/users/:id/customer-stars", requireAdmin, h(async (req, res) => {
     const userId = Number(req.params.id);
     const stars = Number(req.body.customerStars);
-    if (isNaN(stars) || stars < 0 || stars > 10) {
-      return res.status(400).json({ message: "customerStars must be 0–10" });
+    if (isNaN(stars) || stars < 0 || stars > 5) {
+      return res.status(400).json({ message: "customerStars must be 0–5" });
     }
     const [updated] = await db.update(users).set({ customerStars: stars, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
     if (!updated) return res.status(404).json({ message: "User not found" });
