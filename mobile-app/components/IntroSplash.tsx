@@ -14,6 +14,7 @@ export function IntroSplash() {
   const translateAnim = useRef(new Animated.Value(12)).current;
   const textOpacityAnim = useRef(new Animated.Value(0)).current;
   const textTranslateAnim = useRef(new Animated.Value(8)).current;
+  const shimmerAnim = useRef(new Animated.Value(-120)).current;
 
   useEffect(() => {
     if (!visible) return;
@@ -26,7 +27,7 @@ export function IntroSplash() {
       }
     }).catch(() => {});
 
-    // Sleek Spring Entrance (Official Logo)
+    // Sleek Spring Entrance (Official Logo) — Exactly matching Web
     Animated.parallel([
       Animated.timing(opacityAnim, {
         toValue: 1,
@@ -42,6 +43,16 @@ export function IntroSplash() {
       Animated.timing(translateAnim, {
         toValue: 0,
         duration: 450,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Shimmer Flare Gliding Across Logo
+    Animated.sequence([
+      Animated.delay(220),
+      Animated.timing(shimmerAnim, {
+        toValue: 120,
+        duration: 650,
         useNativeDriver: true,
       }),
     ]).start();
@@ -91,11 +102,11 @@ export function IntroSplash() {
       style={StyleSheet.absoluteFillObject}
     >
       <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-        {/* Soft Ambient Emerald Glow */}
+        {/* Ambient Emerald Halo Glow */}
         <View style={styles.emeraldGlow} />
 
         <View style={styles.content}>
-          {/* Exact Official Mobile Logo Asset */}
+          {/* Official Mobile Logo Emblem with Diagonal Light Sheen */}
           <Animated.View
             style={[
               styles.iconWrapper,
@@ -108,6 +119,14 @@ export function IntroSplash() {
               source={require('../assets/icon.png')}
               style={styles.logoImg}
               resizeMode="contain"
+            />
+
+            {/* Shimmer Light Sweep Overlay */}
+            <Animated.View
+              style={[
+                styles.shimmerBar,
+                { transform: [{ translateX: shimmerAnim }, { rotate: '25deg' }] },
+              ]}
             />
           </Animated.View>
 
@@ -150,7 +169,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
   },
   content: {
     alignItems: 'center',
@@ -163,10 +182,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+    borderRadius: 20,
   },
   logoImg: {
     width: '100%',
     height: '100%',
+  },
+  shimmerBar: {
+    position: 'absolute',
+    top: -20,
+    bottom: -20,
+    width: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   textContainer: {
     alignItems: 'center',
