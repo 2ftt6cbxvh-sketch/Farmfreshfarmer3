@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { imgUrl } from "@/lib/queryClient";
 
-// Module-level singleton: guarantees the intro executes strictly ONCE per browser session
-let hasPlayedSessionIntro = false;
-
 export function IntroLoader() {
   const [visible, setVisible] = useState(() => {
-    if (hasPlayedSessionIntro) return false;
     // Check prefers-reduced-motion accessibility setting
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      hasPlayedSessionIntro = true;
       return false;
+    }
+    
+    // Check if intro was played in the last 5 minutes of session
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      const lastPlayed = sessionStorage.getItem("last_logo_intro_time");
+      if (lastPlayed && Date.now() - Number(lastPlayed) < 5 * 60 * 1000) {
+        return false;
+      }
     }
     return true;
   });
@@ -20,6 +23,10 @@ export function IntroLoader() {
   useEffect(() => {
     if (!visible) return;
 
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      sessionStorage.setItem("last_logo_intro_time", String(Date.now()));
+    }
+
     // Fast, crisp timing: ~1.1s hold then fade out (slick & non-boring for returning customers)
     const holdTimer = setTimeout(() => {
       setFadeOut(true);
@@ -27,7 +34,6 @@ export function IntroLoader() {
 
     // Unmount timer: remove overlay completely after 300ms fade-out
     const unmountTimer = setTimeout(() => {
-      hasPlayedSessionIntro = true;
       setVisible(false);
     }, 1400);
 
@@ -38,7 +44,9 @@ export function IntroLoader() {
   }, [visible]);
 
   const handleSkip = () => {
-    hasPlayedSessionIntro = true;
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      sessionStorage.setItem("last_logo_intro_time", String(Date.now()));
+    }
     setFadeOut(true);
     setTimeout(() => {
       setVisible(false);
