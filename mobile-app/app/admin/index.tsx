@@ -134,7 +134,7 @@ export default function AdminDashboardScreen() {
     { id: 'warehouses', label: '🏢 Warehouses' },
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '🏷️ Categories' },
-    { id: 'approvals', label: '✅ Approvals' },
+    { id: 'approvals', label: isSuperAdmin ? '✅ Approvals' : '↩️ My Reconsiderations' },
     { id: 'inventory', label: '🌾 Inventory' },
     { id: 'orders', label: '🧾 Orders' },
     { id: 'subscriptions', label: '🔁 Subscriptions' },
@@ -453,7 +453,6 @@ export default function AdminDashboardScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-      </View>
 
       {meLoading && !isSuperAdmin && (
         <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>
