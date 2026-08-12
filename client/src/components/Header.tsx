@@ -250,13 +250,13 @@ export function Header() {
                     </div>
                     <span className="sm:hidden text-amber-400 font-extrabold text-xs">🛡️ {user.starRating || 5}★</span>
                   </div>
-                ) : (user.customerStars ?? 0) > 0 ? (
-                  <div className="flex items-center gap-1 shrink-0 px-2 py-1 sm:px-2.5 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 font-extrabold text-xs shadow-[0_0_8px_rgba(59,130,246,0.3)]" title={`${user.customerStars} Loyalty Stars`}>
-                    <span className="text-blue-400">★</span>
-                    <span className="hidden sm:inline">{user.customerStars} Stars</span>
-                    <span className="sm:hidden">{user.customerStars}</span>
+                ) : (
+                  <div className="flex items-center gap-1 shrink-0 px-2 py-1 sm:px-2.5 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-400 font-extrabold text-xs shadow-[0_0_10px_rgba(59,130,246,0.35)]" title={`Loyalty Rating — ${user.customerStars || 0} Stars`}>
+                    <span className="text-blue-400 text-sm">★</span>
+                    <span className="hidden sm:inline">{user.customerStars || 0} Star{(user.customerStars || 0) === 1 ? '' : 's'}</span>
+                    <span className="sm:hidden">{user.customerStars || 0}★</span>
                   </div>
-                ) : null}
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">

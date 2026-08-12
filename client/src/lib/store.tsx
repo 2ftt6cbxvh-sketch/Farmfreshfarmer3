@@ -3,6 +3,8 @@ import { apiRequest, queryClient } from "./queryClient";
 import type { AuthUser, CartItem, Product } from "./types";
 import { effectivePrice } from "./types";
 
+import { StarPromotionOverlay } from "@/components/StarPromotionOverlay";
+
 /* ----------------------------- Auth ------------------------------ */
 interface AuthContextType {
   user: AuthUser | null;
@@ -19,14 +21,29 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [promotedStars, setPromotedStars] = useState<number | null>(null);
 
   async function refresh() {
     try {
       const res = await apiRequest("GET", "/api/me");
       const data = await res.json();
-      setUser(data.user || null);
-      if (data.user && data.user.role !== "customer") {
-        localStorage.setItem("adminUser", JSON.stringify(data.user));
+      const newUser = data.user || null;
+
+      if (newUser && newUser.role === "customer") {
+        const newStars = newUser.customerStars ?? 0;
+        const storedKey = `seen_star_level_${newUser.id}`;
+        const prevStars = Number(localStorage.getItem(storedKey) ?? "-1");
+
+        // Trigger celebration overlay when customer star level increases
+        if (prevStars !== -1 && newStars > prevStars && newStars > 0) {
+          setPromotedStars(newStars);
+        }
+        localStorage.setItem(storedKey, String(newStars));
+      }
+
+      setUser(newUser);
+      if (newUser && newUser.role !== "customer") {
+        localStorage.setItem("adminUser", JSON.stringify(newUser));
       }
     } catch {
       setUser(null);
@@ -37,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+    const interval = setInterval(refresh, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   async function login(email: string, password: string) {
@@ -84,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser }}>
+      {promotedStars !== null && (
+        <StarPromotionOverlay stars={promotedStars} onClose={() => setPromotedStars(null)} />
+      )}
       {children}
     </AuthContext.Provider>
   );
