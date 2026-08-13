@@ -59,7 +59,7 @@ export function TermsPage() {
         2. This document is published in accordance with the provisions of Rule 3 (1) of the Information Technology (Intermediaries guidelines) Rules, 2011 that require publishing the rules and regulations, privacy policy and Terms of Use for access or usage of domain name https://www.farmfreshfarmer.com/#/privacy ('Website'), including the related mobile site and mobile application (hereinafter referred to as 'Platform').
       </p>
       <p>
-        3. The Platform is owned by 9866399514, a company incorporated under the Companies Act, 1956 with its registered office at Vijayawada , Andhra Pradesh (hereinafter referred to as ‘Platform Owner’, 'we', 'us', 'our')..
+        3. The Platform is owned by FarmFreshFarmer, a company incorporated under the Companies Act, 1956 with its registered office at Vijayawada , Andhra Pradesh (hereinafter referred to as ‘Platform Owner’, 'we', 'us', 'our')..
       </p>
       <p>
         4. Your use of the Platform and services and tools are governed by the following terms and conditions (“Terms of Use”) as applicable to the Platform including the applicable policies which are incorporated herein by way of reference. If You transact on the Platform, You shall be subject to the policies that are applicable to the Platform for such transaction. By mere use of the Platform, You shall be contracting with the Platform Owner and these terms and conditions including the policies constitute Your binding obligations, with Platform Owner. These Terms of Use relate to your use of our website, goods (as applicable) or services (as applicable) (collectively, 'Services'). Any terms and conditions proposed by You which are in addition to or which conflict with these Terms of Use are expressly rejected by the Platform Owner and shall be of no force or effect. These Terms of Use can be modified at any time without assigning any reason. It is your responsibility to periodically review these Terms of Use to stay informed of updates..
@@ -129,11 +129,11 @@ export function PrivacyPage() {
     <PolicyShell title="Privacy Policy">
       <h2 className="font-bold text-base text-foreground pt-1">Introduction</h2>
       <p>
-        This Privacy Policy describes how 9866399514 and its affiliates (collectively "9866399514, we, our, us") collect, use, share, protect or otherwise process your information/ personal data through our website https://www.farmfreshfarmer.com/#/privacy (hereinafter referred to as Platform). Please note that you may be able to browse certain sections of the Platform without registering with us.We do not offer any product/service under this Platform outside India and your personal data will primarily be stored and processed in India. By visiting this Platform, providing your information or availing any product/service offered on the Platform, you expressly agree to be bound by the terms and conditions of this Privacy Policy, the Terms of Use and the applicable service/product terms and conditions, and agree to be governed by the laws of India including but not limited to the laws applicable to data protection and privacy. If you do not agree please do not use or access our Platform.
+        This Privacy Policy describes how FarmFreshFarmer and its affiliates (collectively "FarmFreshFarmer, we, our, us") collect, use, share, protect or otherwise process your information/ personal data through our website https://www.farmfreshfarmer.com/#/privacy (hereinafter referred to as Platform). Please note that you may be able to browse certain sections of the Platform without registering with us.We do not offer any product/service under this Platform outside India and your personal data will primarily be stored and processed in India. By visiting this Platform, providing your information or availing any product/service offered on the Platform, you expressly agree to be bound by the terms and conditions of this Privacy Policy, the Terms of Use and the applicable service/product terms and conditions, and agree to be governed by the laws of India including but not limited to the laws applicable to data protection and privacy. If you do not agree please do not use or access our Platform.
       </p>
 
       <p>
-        <strong>Collection-</strong> We collect your personal data when you use our Platform, services or otherwise interact with us during the course of our relationship.and related information provided from time to time. Some of the information that we may collect includes but is not limited to personal data / information provided to us during sign-up/registering or using our Platform such as name, date of birth, address, telephone/mobile number, email IDand/or any such information shared as proof of identity or address. Some of the sensitive personal data may be collected with your consent, such as your bank account or credit or debit card or other payment instrument information or biometric information such as your facial features or physiological information (in order to enable use of certain features when opted for, available on the Platform) etc all of the above being in accordance with applicable law(s) You always have the option to not provide information, by choosing not to use a particular service or feature on the Platform. We may track your behaviour, preferences, and other information that you choose to provide on our Platform. This information is compiled and analysed on an aggregated basis. We will also collect your information related to your transactions on Platform and such third-party business partner platforms. When such a third-party business partner collects your personal data directly from you, you will be governed by their privacy policies. We shall not be responsible for the third-party business partner’s privacy practices or the content of their privacy policies, and we request you to read their privacy policies prior to disclosing any information. If you receive an email, a call from a person/association claiming to be 9866399514 seeking any personal data like debit/credit card PIN, net-banking or mobile banking password, we request you to never provide such information. If you have already revealed such information, report it immediately to an appropriate law enforcement agency.
+        <strong>Collection-</strong> We collect your personal data when you use our Platform, services or otherwise interact with us during the course of our relationship.and related information provided from time to time. Some of the information that we may collect includes but is not limited to personal data / information provided to us during sign-up/registering or using our Platform such as name, date of birth, address, telephone/mobile number, email IDand/or any such information shared as proof of identity or address. Some of the sensitive personal data may be collected with your consent, such as your bank account or credit or debit card or other payment instrument information or biometric information such as your facial features or physiological information (in order to enable use of certain features when opted for, available on the Platform) etc all of the above being in accordance with applicable law(s) You always have the option to not provide information, by choosing not to use a particular service or feature on the Platform. We may track your behaviour, preferences, and other information that you choose to provide on our Platform. This information is compiled and analysed on an aggregated basis. We will also collect your information related to your transactions on Platform and such third-party business partner platforms. When such a third-party business partner collects your personal data directly from you, you will be governed by their privacy policies. We shall not be responsible for the third-party business partner’s privacy practices or the content of their privacy policies, and we request you to read their privacy policies prior to disclosing any information. If you receive an email, a call from a person/association claiming to be FarmFreshFarmer seeking any personal data like debit/credit card PIN, net-banking or mobile banking password, we request you to never provide such information. If you have already revealed such information, report it immediately to an appropriate law enforcement agency.
       </p>
 
       <p>
@@ -168,9 +168,9 @@ export function PrivacyPage() {
         <h3 className="font-bold text-foreground text-base">Grievance Officer</h3>
         <p>Insert Name of the Office:</p>
         <p>Designation:</p>
-        <p>Insert Name and Address of the Company:</p>
+        <p>Insert Name and Address of the Company: FarmFreshFarmer, Vijayawada , Andhra Pradesh</p>
         <p className="pt-2">Contact us:</p>
-        <p>Phone: 9866399514 Time: Monday - Friday(9:00 - 18:00)</p>
+        <p>Phone: Time: Monday - Friday(9:00 - 18:00)</p>
       </div>
     </PolicyShell>
   );
@@ -191,7 +191,7 @@ export function RefundPage() {
           1. Cancellations will only be considered if the request is made 2 days of placing the order. However, cancellation requests may not be entertained if the orders have been communicated to such sellers / merchant(s) listed on the Platform and they have initiated the process of shipping them, or the product is out for delivery. In such an event, you may choose to reject the product at the doorstep.
         </p>
         <p>
-          2. 9866399514 does not accept cancellation requests for perishable items like flowers, eatables, etc. However, the refund / replacement can be made if the user establishes that the quality of the product delivered is not good.
+          2. FarmFreshFarmer does not accept cancellation requests for perishable items like flowers, eatables, etc. However, the refund / replacement can be made if the user establishes that the quality of the product delivered is not good.
         </p>
         <p>
           3. In case of receipt of damaged or defective items, please report to our customer service team. The request would be entertained once the seller/ merchant listed on the Platform, has checked and determined the same at its own end. This should be reported within 2 days of receipt of products. In case you feel that the product received is not as shown on the site or as per your expectations, you must bring it to the notice of our customer service within 2 days of receiving the product. The customer service team after looking into your complaint will take an appropriate decision.
@@ -200,7 +200,7 @@ export function RefundPage() {
           4. In case of complaints regarding the products that come with a warranty from the manufacturers, please refer the issue to them.
         </p>
         <p>
-          5. In case of any refunds approved by 9866399514, it will take 7 days for the refund to be processed to you.
+          5. In case of any refunds approved by FarmFreshFarmer, it will take 7 days for the refund to be processed to you.
         </p>
       </div>
     </PolicyShell>
@@ -246,10 +246,12 @@ export function GrievancePage() {
         <h3 className="font-bold text-foreground text-base">Grievance Officer</h3>
         <p>Insert Name of the Office:</p>
         <p>Designation:</p>
-        <p>Insert Name and Address of the Company: 9866399514, Vijayawada , Andhra Pradesh</p>
+        <p>Insert Name and Address of the Company: FarmFreshFarmer, Vijayawada , Andhra Pradesh</p>
         <p className="pt-2">Contact us:</p>
-        <p>Phone: 9866399514 Time: Monday - Friday(9:00 - 18:00)</p>
+        <p>Phone: Time: Monday - Friday(9:00 - 18:00)</p>
       </div>
     </PolicyShell>
   );
 }
+
+
