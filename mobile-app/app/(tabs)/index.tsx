@@ -206,6 +206,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
 
 // ─── Main Home Screen ───────────────────────────────────────────────────────────
 export default function HomeScreen() {
+  const { user } = useAuth();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
