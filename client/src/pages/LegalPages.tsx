@@ -117,6 +117,24 @@ export function TermsPage() {
           14. All concerns or communications relating to these Terms must be communicated to us using the contact information provided on this website
         </p>
       </div>
+
+      {/* ── 🛡️ SEPARATE SUPPLEMENTAL COMPANY POLICIES & AI GOVERNANCE ──────── */}
+      <div className="border-t border-card-border/80 pt-6 mt-8 space-y-4">
+        <h2 className="font-serif text-lg font-bold text-foreground flex items-center gap-2">
+          🛡️ FarmFreshFarmer Supplemental Platform Governance & All Rights Reserved Policy
+        </h2>
+        <div className="rounded-xl border border-emerald-500/30 bg-card/60 p-5 space-y-3 text-sm">
+          <p>
+            <strong>1. Service Modifications & Rights Reserved:</strong> FarmFreshFarmer reserves all rights to alter, upgrade, pause, or update product catalog offerings, instant delivery operational zones, pricing structures, discount rules, and subscription schedules at its sole discretion at any time without prior notice.
+          </p>
+          <p>
+            <strong>2. Account Profile & User Data Authorization:</strong> By registering or transacting on FarmFreshFarmer, you explicitly authorize the Platform to process your registered profile name, contact phone number, delivery address, and order transaction history solely for order fulfillment, dispatch verification, official invoice generation, and customer support communications.
+          </p>
+          <p>
+            <strong>3. Lakshmi AI Assistant & Conversational Support Governance:</strong> When logged into the Platform, our Lakshmi AI Assistant accesses your registered profile full name solely to address you warmly and personalize conversational support in live chat interactions. Lakshmi AI utilizes Google Gemini AI models to generate dynamic responses.
+          </p>
+        </div>
+      </div>
     </PolicyShell>
   );
 }
@@ -172,6 +190,24 @@ export function PrivacyPage() {
         <p className="pt-2">Contact us:</p>
         <p>Phone: Time: Monday - Friday(9:00 - 18:00)</p>
       </div>
+
+      {/* ── 🤖 SEPARATE LAKSHMI AI & PROFILE DATA PRIVACY SECTION ────────── */}
+      <div className="border-t border-card-border/80 pt-6 mt-8 space-y-4">
+        <h2 className="font-serif text-lg font-bold text-foreground flex items-center gap-2">
+          🤖 Lakshmi AI Assistant, Profile Name & Data Privacy Policy
+        </h2>
+        <div className="rounded-xl border border-emerald-500/30 bg-card/60 p-5 space-y-3 text-sm">
+          <p>
+            <strong>1. Profile Name & Personalization:</strong> When you log in to FarmFreshFarmer, Lakshmi AI Assistant reads your registered full name from your account profile details solely to personalize live chat greetings (e.g. <i>"Hello, Ramesh!"</i>) and tailor customer support assistance.
+          </p>
+          <p>
+            <strong>2. Gemini AI Integration & Strict Contact Privacy:</strong> Lakshmi AI uses Google Gemini AI models to generate intelligent support responses. Your registered mobile number, payment details, and full delivery addresses are strictly kept private and used exclusively for delivery dispatch updates and authentication. They are NEVER shared with public AI models or displayed publicly.
+          </p>
+          <p>
+            <strong>3. Anonymized Interaction Analytics & Human Support Escalation:</strong> Anonymized interaction logs are evaluated internally to improve conversational AI response quality. If a live support query is escalated to a human customer representative or Grievance Officer, only authorized staff members have access to the ticket history.
+          </p>
+        </div>
+      </div>
     </PolicyShell>
   );
 }
@@ -202,6 +238,21 @@ export function RefundPage() {
         <p>
           5. In case of any refunds approved by FarmFreshFarmer, it will take 7 days for the refund to be processed to you.
         </p>
+      </div>
+
+      {/* ── 📸 SEPARATE DAMAGE PHOTO PROOF & SUPPORT GUIDELINES ────────────── */}
+      <div className="border-t border-card-border/80 pt-6 mt-8 space-y-4">
+        <h2 className="font-serif text-lg font-bold text-foreground flex items-center gap-2">
+          📸 FarmFreshFarmer Damage Proof & Return Submission Guidelines
+        </h2>
+        <div className="rounded-xl border border-emerald-500/30 bg-card/60 p-5 space-y-3 text-sm">
+          <p>
+            <strong>1. Mandatory Photo Proof for Perishable Produce Claims:</strong> To request a replacement or refund for damaged, defective, or spoiled fresh produce, customers must navigate to <strong>My Orders</strong> on the FarmFreshFarmer app or website, tap <strong>Request Refund</strong>, and upload a clear photo of the damaged product.
+          </p>
+          <p>
+            <strong>2. Immediate Verification & Redelivery:</strong> Claims verified with photo proof are processed immediately by our customer care team for free instant redelivery or a 100% wallet/bank refund.
+          </p>
+        </div>
       </div>
     </PolicyShell>
   );
