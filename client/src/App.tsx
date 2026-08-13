@@ -73,22 +73,6 @@ function AppRouter() {
 
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/category/:slug" component={Category} />
-      <Route path="/search" component={SearchPage} />
-      <Route path="/product/:id" component={ProductDetail} />
-      <Route path="/cart" component={Cart} />
-      <Route path="/login" component={Login} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/orders" component={Orders} />
-      <Route path="/payment/simulate" component={PaymentSimulate} />
-      <Route path="/payment/callback" component={PaymentCallback} />
-      <Route path="/payment/success/:merchantOrderId" component={PaymentSuccess} />
-      <Route path="/payment/failure/:merchantOrderId" component={PaymentFailure} />
-      <Route path="/account/subscriptions" component={MySubscriptions} />
-      <Route path="/account/referrals" component={MyReferrals} />
-      <Route path="/account" component={Account} />
-
       {/* Legal & Policy Pages for Merchant Onboarding & Public Access */}
       <Route path="/terms" component={TermsPage} />
       <Route path="/terms/" component={TermsPage} />
@@ -121,6 +105,24 @@ function AppRouter() {
       <Route path="/grievance-policy" component={GrievancePage} />
       <Route path="/contact" component={GrievancePage} />
       <Route path="/contact-us" component={GrievancePage} />
+
+      {/* App & Store Feature Routes */}
+      <Route path="/category/:slug" component={Category} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/product/:id" component={ProductDetail} />
+      <Route path="/cart" component={Cart} />
+      <Route path="/login" component={Login} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/orders" component={Orders} />
+      <Route path="/payment/simulate" component={PaymentSimulate} />
+      <Route path="/payment/callback" component={PaymentCallback} />
+      <Route path="/payment/success/:merchantOrderId" component={PaymentSuccess} />
+      <Route path="/payment/failure/:merchantOrderId" component={PaymentFailure} />
+      <Route path="/account/subscriptions" component={MySubscriptions} />
+      <Route path="/account/referrals" component={MyReferrals} />
+      <Route path="/account" component={Account} />
+
+      {/* Admin & Partner Portal Routes */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/live-chat" component={AdminLiveChat} />
@@ -148,6 +150,11 @@ function AppRouter() {
       <Route path="/admin/gst" component={AdminGST} />
       <Route path="/partner-portal" component={DeliveryPartnerPortal} />
       <Route path="/admin/settings" component={AdminSettings} />
+
+      {/* Root Home Route */}
+      <Route path="/" component={Home} />
+
+      {/* Fallback 404 Route */}
       <Route component={NotFound} />
     </Switch>
   );
