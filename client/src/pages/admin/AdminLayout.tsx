@@ -422,21 +422,23 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           </button>
         </header>
 
-        <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-3 border-b border-card-border">
-            <h1 className="font-serif text-xl font-bold">{title}</h1>
-            <a
-              href="/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 self-start sm:self-auto bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm transition-all"
-              data-testid="btn-view-live-store-header"
-            >
-              <Store size={14} className="text-emerald-500" />
-              <span>View Live Store 🛍️</span>
-              <ExternalLink size={12} className="opacity-70" />
-            </a>
-          </div>
+        <main key={location} className="flex-1 p-3 sm:p-6 overflow-x-hidden">
+          {title ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-card-border">
+              <h1 className="font-serif text-xl font-bold">{title}</h1>
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 self-start sm:self-auto bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm transition-all"
+                data-testid="btn-view-live-store-header"
+              >
+                <Store size={14} className="text-emerald-500" />
+                <span>View Live Store 🛍️</span>
+                <ExternalLink size={12} className="opacity-70" />
+              </a>
+            </div>
+          ) : null}
           {children}
         </main>
       </div>

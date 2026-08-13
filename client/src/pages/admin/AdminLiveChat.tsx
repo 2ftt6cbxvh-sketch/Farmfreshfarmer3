@@ -171,7 +171,7 @@ export function AdminLiveChat() {
         </div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-220px)] min-h-[560px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 lg:h-[calc(100vh-220px)] lg:min-h-[560px] h-auto">
           {/* Left Sidebar: Session List (4 cols) */}
           <div className="lg:col-span-4 flex flex-col rounded-xl border border-card-border bg-card shadow-sm overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
@@ -307,7 +307,7 @@ export function AdminLiveChat() {
           {/* Right Panel: Chat Room (8 cols) */}
           <div className="lg:col-span-8 flex flex-col rounded-xl border border-card-border bg-card shadow-sm overflow-hidden">
             {!selectedToken ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
+              <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 text-primary">
                   <MessageSquare size={32} />
                 </div>
