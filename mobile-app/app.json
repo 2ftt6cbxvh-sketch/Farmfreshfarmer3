@@ -2,7 +2,7 @@
   "expo": {
     "name": "FarmFreshFarmer",
     "slug": "farmfreshfarmer",
-    "version": "8.7.5",
+    "version": "8.7.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "backgroundColor": "#06060c"
       },
       "package": "com.farmfreshfarmer.app",
-      "versionCode": 110,
+      "versionCode": 111,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",

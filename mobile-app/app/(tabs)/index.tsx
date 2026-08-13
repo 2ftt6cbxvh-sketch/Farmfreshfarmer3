@@ -14,6 +14,7 @@ import { useCartStore } from '../../lib/cart';
 import { useDelivery } from '../../hooks/useDelivery';
 import { useAuth } from '../../lib/store';
 import { AnimatedFreeDeliveryBar } from '../../components/FreeDeliveryBar';
+import { AnimatedSideMenu } from '../../components/AnimatedSideMenu';
 
 const { width } = Dimensions.get('window');
 
@@ -802,92 +803,30 @@ export default function HomeScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── 7. Category Drawer / Menu Modal (3-Lines Hamburger) ─────────── */}
-      <Modal visible={categoriesDrawerOpen} transparent animationType="slide">
-        <View style={styles.drawerOverlay}>
-          <View style={[styles.drawerCard, isDark ? styles.drawerCardDark : styles.drawerCardLight]}>
-            <View style={styles.drawerHeaderRow}>
-              <TouchableOpacity style={styles.drawerCloseBtn} onPress={() => setCategoriesDrawerOpen(false)}>
-                <Text style={{ fontSize: 20, color: isDark ? '#fff' : '#0f172a', fontWeight: '800' }}>✕</Text>
-              </TouchableOpacity>
-
-              <View style={styles.brandTitleContainer}>
-                <Text style={styles.brandLeaf}>🌿</Text>
-                <Text style={[styles.brandTextPrimary, isDark ? { color: '#34d399' } : { color: '#059669' }]}>
-                  FarmFresh<Text style={styles.brandTextAccent}>Farmer</Text>
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.navCircleBtn, isDark ? styles.navCircleBtnDark : styles.navCircleBtnLight]}
-                  onPress={handleToggleTheme}
-                >
-                  <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.cartIconBtn,
-                    isDark ? styles.cartIconBtnDark : styles.cartIconBtnLight,
-                    cartCount > 0 && styles.cartIconBtnActive,
-                  ]}
-                  onPress={() => {
-                    setCategoriesDrawerOpen(false);
-                    router.push('/(tabs)/basket');
-                  }}
-                >
-                  <Text style={{ fontSize: 16 }}>🛒</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-              <View style={styles.categoryPillsGrid}>
-                <TouchableOpacity
-                  style={[
-                    styles.categoryPillItem,
-                    isDark ? styles.categoryPillItemDark : styles.categoryPillItemLight,
-                    !selectedCategory && (isDark ? styles.categoryPillItemActiveDark : styles.categoryPillItemActiveLight),
-                  ]}
-                  onPress={() => {
-                    setSelectedCategory(null);
-                    setSearchQuery('');
-                    setCategoriesDrawerOpen(false);
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollTo({ y: productsLayoutY.current, animated: true });
-                    }, 100);
-                  }}
-                >
-                  <Text style={[styles.categoryPillText, isDark ? styles.textWhite : styles.textDark]}>All Harvest</Text>
-                  <Text style={{ fontSize: 12 }}>🌿</Text>
-                </TouchableOpacity>
-
-                {categories.map((cat) => {
-                  const isCatVeg = cat.dietTag !== 'nonveg';
-                  const isSelected = selectedCategory === cat.slug;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryPillItem,
-                        isDark ? styles.categoryPillItemDark : styles.categoryPillItemLight,
-                        isSelected && (isDark ? styles.categoryPillItemActiveDark : styles.categoryPillItemActiveLight),
-                      ]}
-                      onPress={() => {
-                        handleCategoryPress(cat.slug);
-                        setCategoriesDrawerOpen(false);
-                      }}
-                    >
-                      <Text style={[styles.categoryPillText, isDark ? styles.textWhite : styles.textDark]}>{cat.name}</Text>
-                      <Text style={{ fontSize: 12 }}>{isCatVeg ? '🟢' : '🔴'}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* ── 7. Category Drawer / Menu Modal (Smooth Animated Side Drawer) ─────────── */}
+      <AnimatedSideMenu
+        visible={categoriesDrawerOpen}
+        onClose={() => setCategoriesDrawerOpen(false)}
+        isDark={isDark}
+        user={user}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onSelectCategory={(slug) => {
+          if (!slug) {
+            setSelectedCategory(null);
+            setSearchQuery('');
+            setTimeout(() => {
+              scrollViewRef.current?.scrollTo({ y: productsLayoutY.current, animated: true });
+            }, 100);
+          } else {
+            handleCategoryPress(slug);
+          }
+        }}
+        onOpenPincodeModal={() => setPincodeModal(true)}
+        onToggleTheme={handleToggleTheme}
+        router={router}
+        cartCount={cartCount}
+      />
 
       {/* ── 8. PIN Code Modal ────────────────────────────────────────────── */}
       <Modal visible={pincodeModal} transparent animationType="slide">

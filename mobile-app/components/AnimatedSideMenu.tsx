@@ -1,0 +1,438 @@
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  Modal,
+  Dimensions,
+  TouchableWithoutFeedback,
+} from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.84, 340);
+
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+  dietTag?: string;
+}
+
+interface AnimatedSideMenuProps {
+  visible: boolean;
+  onClose: () => void;
+  isDark: boolean;
+  user: any;
+  categories: Category[];
+  selectedCategory: string | null;
+  onSelectCategory: (slug: string | null) => void;
+  onOpenPincodeModal: () => void;
+  onToggleTheme: () => void;
+  router: any;
+  cartCount: number;
+}
+
+export function AnimatedSideMenu({
+  visible,
+  onClose,
+  isDark,
+  user,
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  onOpenPincodeModal,
+  onToggleTheme,
+  router,
+  cartCount,
+}: AnimatedSideMenuProps) {
+  const [modalRendered, setModalRendered] = useState(false);
+
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const panelTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const panelScale = useRef(new Animated.Value(0.95)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setModalRendered(true);
+      // Spring Entrance Animation
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.spring(panelTranslateX, {
+          toValue: 0,
+          friction: 8,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.spring(panelScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (modalRendered) {
+      // Smooth Exit Animation
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(panelTranslateX, {
+          toValue: -DRAWER_WIDTH,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(panelScale, {
+          toValue: 0.95,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalRendered(false);
+      });
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(panelTranslateX, {
+        toValue: -DRAWER_WIDTH,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(panelScale, {
+        toValue: 0.95,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalRendered(false);
+      onClose();
+    });
+  };
+
+  if (!modalRendered) return null;
+
+  const cardBg = isDark ? '#080d0a' : '#ffffff';
+  const textColor = isDark ? '#f8fafc' : '#0f172a';
+  const mutedColor = isDark ? '#94a3b8' : '#64748b';
+  const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
+
+  const userStars = user?.starRating || user?.stars || 5;
+  const isAdminOrStaff = user?.role === 'admin' || user?.isPrimaryAdmin;
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={handleClose}>
+      <View style={StyleSheet.absoluteFillObject}>
+        {/* Backdrop Fade */}
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Animated.View
+            style={[
+              styles.backdrop,
+              { opacity: backdropOpacity },
+            ]}
+          />
+        </TouchableWithoutFeedback>
+
+        {/* Sliding Side Drawer Panel */}
+        <Animated.View
+          style={[
+            styles.drawerPanel,
+            {
+              backgroundColor: cardBg,
+              borderColor: borderCol,
+              transform: [{ translateX: panelTranslateX }, { scale: panelScale }],
+            },
+          ]}
+        >
+          {/* Header Row */}
+          <View style={[styles.headerRow, { borderBottomColor: borderCol }]}>
+            <View style={styles.brandGroup}>
+              <Text style={styles.brandLeaf}>🌿</Text>
+              <Text style={[styles.brandTitle, { color: textColor }]}>
+                FarmFresh<Text style={{ color: '#10b981' }}>Farmer</Text>
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
+              <Text style={[styles.closeBtnText, { color: textColor }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            {/* User Profile & Loyalty Badge */}
+            {user ? (
+              <View style={[styles.userCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+                <Text style={{ fontSize: 20 }}>{isAdminOrStaff ? '🛡️' : '👑'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.userName, { color: textColor }]}>{user.name || 'Valued Customer'}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#10b981' }}>
+                    {isAdminOrStaff ? `${user.customTitle || 'Sub-Admin Staff'}` : `⭐ ${Math.min(userStars, 5)} Loyalty Star Member`}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.loginBanner, { backgroundColor: '#10b981' }]}
+                onPress={() => {
+                  handleClose();
+                  router.push('/(auth)/login');
+                }}
+              >
+                <Text style={styles.loginBannerText}>🔑 Sign In for Exclusive Fresh Offers</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Quick Actions Grid */}
+            <Text style={[styles.sectionHeading, { color: mutedColor }]}>QUICK NAVIGATION</Text>
+            
+            <View style={styles.quickGrid}>
+              <TouchableOpacity
+                style={[styles.quickTile, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: borderCol }]}
+                onPress={() => {
+                  handleClose();
+                  router.push('/(tabs)/basket');
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>🛒</Text>
+                <Text style={[styles.quickTileText, { color: textColor }]}>Basket ({cartCount})</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickTile, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: borderCol }]}
+                onPress={() => {
+                  handleClose();
+                  onOpenPincodeModal();
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>📍</Text>
+                <Text style={[styles.quickTileText, { color: textColor }]}>PIN Location</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isAdminOrStaff && (
+              <TouchableOpacity
+                style={[styles.adminTile, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}
+                onPress={() => {
+                  handleClose();
+                  router.push('/admin');
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>🛡️</Text>
+                <Text style={{ color: '#f59e0b', fontWeight: '900', fontSize: 13, flex: 1 }}>
+                  {user?.isPrimaryAdmin ? 'Master Admin Control' : 'Sub-Admin Reconsiderations ↩️'}
+                </Text>
+                <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>→</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Harvest Categories Section */}
+            <Text style={[styles.sectionHeading, { color: mutedColor, marginTop: 18 }]}>EXPLORE HARVEST CATEGORIES</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.categoryRow,
+                { borderColor: borderCol },
+                !selectedCategory && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5', borderColor: '#10b981' },
+              ]}
+              onPress={() => {
+                onSelectCategory(null);
+                handleClose();
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>🌿</Text>
+              <Text style={[styles.categoryRowText, { color: textColor }, !selectedCategory && { fontWeight: '900', color: '#10b981' }]}>
+                All Harvest Products
+              </Text>
+              {!selectedCategory && <Text style={{ color: '#10b981', fontWeight: '900' }}>✓</Text>}
+            </TouchableOpacity>
+
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat.slug;
+              const isVeg = cat.dietTag !== 'nonveg';
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryRow,
+                    { borderColor: borderCol },
+                    isSelected && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5', borderColor: '#10b981' },
+                  ]}
+                  onPress={() => {
+                    onSelectCategory(cat.slug);
+                    handleClose();
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>{isVeg ? '🟢' : '🔴'}</Text>
+                  <Text style={[styles.categoryRowText, { color: textColor }, isSelected && { fontWeight: '900', color: '#10b981' }]}>
+                    {cat.name}
+                  </Text>
+                  {isSelected && <Text style={{ color: '#10b981', fontWeight: '900' }}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Dark Mode & Theme Toggle Footer */}
+            <View style={[styles.footerRow, { borderTopColor: borderCol }]}>
+              <TouchableOpacity style={styles.themeToggleBtn} onPress={onToggleTheme}>
+                <Text style={{ fontSize: 16 }}>{isDark ? '🌕 Dark Mode' : '☀️ Light Mode'}</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v8.7.5</Text>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  drawerPanel: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    borderRightWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+    paddingTop: 48,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  brandGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandLeaf: {
+    fontSize: 20,
+  },
+  brandTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  closeBtn: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  closeBtnText: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  loginBanner: {
+    padding: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  loginBannerText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  sectionHeading: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  quickTile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  quickTileText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  adminTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  categoryRowText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  footerRow: {
+    marginTop: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  themeToggleBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+});
