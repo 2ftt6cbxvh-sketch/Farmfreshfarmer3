@@ -50,6 +50,11 @@ export async function setupVite(server: Server, app: Express) {
     }
 
     try {
+      // Async non-blocking Telegram security bot notification for website visitor
+      import("./services/telegram")
+        .then(({ notifyWebsiteVisitor }) => notifyWebsiteVisitor(req))
+        .catch(() => {});
+
       const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       const page = await vite.transformIndexHtml(url, template);

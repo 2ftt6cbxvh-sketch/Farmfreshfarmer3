@@ -307,6 +307,119 @@ export async function sendTelegramSecurityAlert(message: string): Promise<boolea
 export const sendTelegramAlert = sendTelegramSecurityAlert;
 
 /* ====================================================================
+   3B. COMPACT WEBSITE VISITOR SECURITY ALERT (SECURITY BOT)
+   ==================================================================== */
+
+const visitorAlertCache = new Map<string, number>();
+const VISITOR_COOLDOWN_MS = 5 * 60 * 1000; // 5 minute anti-spam cooldown per IP
+
+function parseUserAgent(ua = ""): string {
+  if (!ua) return "Unknown Device";
+  if (/googlebot/i.test(ua)) return "🤖 Googlebot Crawler";
+  if (/bingbot/i.test(ua)) return "🤖 Bingbot Crawler";
+  if (/telegram/i.test(ua)) return "🤖 Telegram Bot Preview";
+  if (/phonepe/i.test(ua)) return "💳 PhonePe Verification Bot";
+  
+  let os = "Desktop";
+  if (/iphone/i.test(ua)) os = "iPhone";
+  else if (/ipad/i.test(ua)) os = "iPad";
+  else if (/android/i.test(ua)) os = "Android";
+  else if (/macintosh|mac os x/i.test(ua)) os = "Mac";
+  else if (/windows/i.test(ua)) os = "Windows";
+  else if (/linux/i.test(ua)) os = "Linux";
+
+  let browser = "";
+  if (/edg/i.test(ua)) browser = "Edge";
+  else if (/chrome/i.test(ua)) browser = "Chrome";
+  else if (/safari/i.test(ua)) browser = "Safari";
+  else if (/firefox/i.test(ua)) browser = "Firefox";
+
+  return `${os}${browser ? ` (${browser})` : ""}`;
+}
+
+export async function notifyWebsiteVisitor(req: any): Promise<boolean> {
+  try {
+    const rawIp =
+      (req.headers["cf-connecting-ip"] as string) ||
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+      (req.headers["x-real-ip"] as string) ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      "127.0.0.1";
+
+    const ip = rawIp.replace(/^::ffff:/, "").trim();
+
+    // Check cooldown per IP to keep alerts compact and un-spammed
+    const now = Date.now();
+    const lastNotified = visitorAlertCache.get(ip);
+    if (lastNotified && now - lastNotified < VISITOR_COOLDOWN_MS) {
+      return false;
+    }
+
+    // Clean up cache periodically if large
+    if (visitorAlertCache.size > 2000) {
+      for (const [k, v] of visitorAlertCache.entries()) {
+        if (now - v > VISITOR_COOLDOWN_MS) visitorAlertCache.delete(k);
+      }
+    }
+
+    visitorAlertCache.set(ip, now);
+
+    // Geolocation Resolution
+    let city = (req.headers["cf-ipcity"] as string) || "";
+    let region = (req.headers["cf-region-code"] as string) || (req.headers["cf-region"] as string) || "";
+    let country = (req.headers["cf-ipcountry"] as string) || "";
+    let isp = "";
+
+    // If Cloudflare headers not present and not local IP, resolve via ip-api.com
+    if ((!city || !country) && ip !== "127.0.0.1" && ip !== "::1" && !ip.startsWith("192.168.") && !ip.startsWith("10.")) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000); // 2s max
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo && geo.status === "success") {
+            city = geo.city || city;
+            region = geo.regionName || region;
+            country = `${geo.country || ""} (${geo.countryCode || ""})`.trim();
+            isp = geo.isp || "";
+          }
+        }
+      } catch {}
+    }
+
+    const locationStr = [city, region, country].filter(Boolean).join(", ") || (ip === "127.0.0.1" || ip === "::1" ? "Localhost Dev" : "Unknown Location");
+    const deviceStr = parseUserAgent(req.headers["user-agent"]);
+    const targetPath = req.originalUrl || req.url || "/";
+    const timeStr = new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " IST";
+
+    const compactMessage = 
+`🌐 <b>New Website Visitor</b>
+━━━━━━━━━━━━━━━━━━
+📍 <b>Location:</b> ${locationStr}
+🌐 <b>IP Address:</b> <code>${ip}</code>
+📱 <b>Device:</b> ${deviceStr}
+📄 <b>Page Opened:</b> <code>${targetPath}</code>
+${isp ? `🏢 <b>ISP:</b> ${isp}\n` : ""}⏱️ <b>Time:</b> ${timeStr}`;
+
+    const { botToken, chatIds } = await getTelegramSecurityCredentials();
+    if (!botToken || chatIds.length === 0) return false;
+
+    const results = await Promise.all(
+      chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, compactMessage))
+    );
+    return results.some((r) => r === true);
+  } catch (err) {
+    console.warn("[telegram visitor notify err]", err);
+    return false;
+  }
+}
+
+/* ====================================================================
    3B. FORMAL PRODUCT & CATEGORY APPROVAL NOTIFICATIONS (SECURITY BOT)
    ==================================================================== */
 

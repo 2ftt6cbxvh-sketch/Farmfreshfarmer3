@@ -18,6 +18,11 @@ export function serveStatic(app: Express) {
     if (req.originalUrl.startsWith("/api") || req.originalUrl.startsWith("/health")) {
       return next();
     }
+    // Async non-blocking Telegram security bot notification for website visitor
+    import("./services/telegram")
+      .then(({ notifyWebsiteVisitor }) => notifyWebsiteVisitor(req))
+      .catch(() => {});
+
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
