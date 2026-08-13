@@ -53,45 +53,24 @@ import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
 import DeliveryPartnerLogin from "@/pages/DeliveryPartnerLogin";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
-// Custom flexible location hook supporting both standard path URLs (/privacy) and hash URLs (/#/privacy)
-function useFlexibleLocation() {
-  const getPath = () => {
-    if (typeof window === "undefined") return "/";
-    const hash = window.location.hash;
-    if (hash && hash.startsWith("#/")) {
-      return hash.slice(1); // e.g. /privacy, /terms, /refund-policy
-    }
-    return window.location.pathname || "/";
-  };
-
-  const [path, setPath] = useState(getPath);
-
-  useEffect(() => {
-    const onChange = () => setPath(getPath());
-    window.addEventListener("popstate", onChange);
-    window.addEventListener("hashchange", onChange);
-    // Sync initial state on mount
-    onChange();
-    return () => {
-      window.removeEventListener("popstate", onChange);
-      window.removeEventListener("hashchange", onChange);
-    };
-  }, []);
-
-  const navigate = (to: string, { replace = false } = {}) => {
-    if (replace) {
-      window.history.replaceState(null, "", to);
-    } else {
-      window.history.pushState(null, "", to);
-    }
-    setPath(to);
-    window.scrollTo(0, 0);
-  };
-
-  return [path, navigate] as const;
-}
-
 function AppRouter() {
+  const [, setLocation] = useLocation();
+
+  // Instantly redirect legacy PhonePe hash URLs (e.g. https://farmfreshfarmer.com/#/privacy) to clean paths (/privacy)
+  useEffect(() => {
+    const syncHashRoute = () => {
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#/')) {
+        const cleanPath = hash.substring(1); // e.g. /privacy
+        window.history.replaceState(null, '', cleanPath);
+        setLocation(cleanPath);
+      }
+    };
+    syncHashRoute();
+    window.addEventListener('hashchange', syncHashRoute);
+    return () => window.removeEventListener('hashchange', syncHashRoute);
+  }, [setLocation]);
+
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -232,7 +211,7 @@ function AppContent() {
         <AuthProvider>
           <CartProvider>
             <Toaster />
-            <Router hook={useFlexibleLocation}>
+            <Router>
               <ScrollToTop />
               <AppRouter />
             </Router>
