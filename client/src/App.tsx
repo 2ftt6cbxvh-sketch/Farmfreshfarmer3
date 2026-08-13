@@ -119,8 +119,13 @@ function AppRouter() {
       <Route path="/payment/success/:merchantOrderId" component={PaymentSuccess} />
       <Route path="/payment/failure/:merchantOrderId" component={PaymentFailure} />
       <Route path="/account/subscriptions" component={MySubscriptions} />
+      <Route path="/subscriptions" component={MySubscriptions} />
       <Route path="/account/referrals" component={MyReferrals} />
+      <Route path="/referrals" component={MyReferrals} />
       <Route path="/account" component={Account} />
+      <Route path="/profile" component={Account} />
+      <Route path="/my-orders" component={Orders} />
+      <Route path="/help" component={GrievancePage} />
 
       {/* Admin & Partner Portal Routes */}
       <Route path="/admin/login" component={AdminLogin} />
