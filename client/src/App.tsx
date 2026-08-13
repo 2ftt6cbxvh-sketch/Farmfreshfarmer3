@@ -60,7 +60,7 @@ function AppRouter() {
   useEffect(() => {
     const syncHashRoute = () => {
       const hash = window.location.hash;
-      if (hash && hash.startsWith('#/')) {
+      if (hash && hash.startsWith('#/') && hash.length > 2) {
         const cleanPath = hash.substring(1); // e.g. /privacy
         window.history.replaceState(null, '', cleanPath);
         setLocation(cleanPath);

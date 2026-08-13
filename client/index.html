@@ -19,7 +19,7 @@
     />
     <script>
       (function() {
-        if (window.location.hash && window.location.hash.startsWith('#/')) {
+        if (window.location.hash && window.location.hash.startsWith('#/') && window.location.hash.length > 2) {
           var cleanPath = window.location.hash.substring(1);
           window.history.replaceState(null, '', cleanPath);
         }
