@@ -1,6 +1,6 @@
 {
   "name": "mobile-app",
-  "version": "8.7.7",
+  "version": "8.7.8",
   "type": "commonjs",
   "main": "expo-router/entry",
   "dependencies": {

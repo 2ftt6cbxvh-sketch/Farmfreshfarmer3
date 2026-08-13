@@ -35,6 +35,24 @@ interface AnimatedSideMenuProps {
   cartCount: number;
 }
 
+const getCategoryEmoji = (slug?: string, name?: string): string => {
+  const s = (slug || '').toLowerCase();
+  const n = (name || '').toLowerCase();
+  
+  if (s.includes('fruit') || n.includes('fruit')) return '🍎';
+  if (s.includes('veg') || n.includes('veg')) return '🥦';
+  if (s.includes('sweet') || n.includes('sweet')) return '🍬';
+  if (s.includes('namkeen') || s.includes('snack') || n.includes('namkeen')) return '🥨';
+  if (s.includes('pickle-nonveg') || n.includes('non-veg')) return '🍗';
+  if (s.includes('pickle') || n.includes('pickle')) return '🏺';
+  if (s.includes('millet') || n.includes('millet')) return '🌾';
+  if (s.includes('pulse') || s.includes('grain') || n.includes('pulse')) return '🫘';
+  if (s.includes('spice') || n.includes('spice')) return '🌶️';
+  if (s.includes('oil') || n.includes('oil')) return '🧴';
+  if (s.includes('dairy') || n.includes('dairy')) return '🥛';
+  return '🥬';
+};
+
 export function AnimatedSideMenu({
   visible,
   onClose,
@@ -262,7 +280,6 @@ export function AnimatedSideMenu({
 
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat.slug;
-              const isVeg = cat.dietTag !== 'nonveg';
               return (
                 <TouchableOpacity
                   key={cat.id}
@@ -276,7 +293,7 @@ export function AnimatedSideMenu({
                     handleClose();
                   }}
                 >
-                  <Text style={{ fontSize: 14 }}>{isVeg ? '🟢' : '🔴'}</Text>
+                  <Text style={{ fontSize: 16 }}>{getCategoryEmoji(cat.slug, cat.name)}</Text>
                   <Text style={[styles.categoryRowText, { color: textColor }, isSelected && { fontWeight: '900', color: '#10b981' }]}>
                     {cat.name}
                   </Text>
@@ -290,7 +307,7 @@ export function AnimatedSideMenu({
               <TouchableOpacity style={styles.themeToggleBtn} onPress={onToggleTheme}>
                 <Text style={{ fontSize: 16 }}>{isDark ? '🌕 Dark Mode' : '☀️ Light Mode'}</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v8.7.5</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v8.7.8</Text>
             </View>
           </ScrollView>
         </Animated.View>
