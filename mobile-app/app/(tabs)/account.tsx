@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, TextInput, ActivityIndicator, LayoutAnimation, Modal, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  ActivityIndicator,
+  LayoutAnimation,
+  Modal,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -8,25 +21,27 @@ import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { api } from '../../lib/api';
 
+const { width } = Dimensions.get('window');
+
 export default function AccountScreen() {
   const { user, setUser, logout } = useAuth();
   const { theme, toggleTheme } = useThemeStore();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
 
-  const glowAnim = useRef(new Animated.Value(0.45)).current;
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1400,
           useNativeDriver: true,
         }),
         Animated.timing(glowAnim, {
-          toValue: 0.45,
-          duration: 1200,
+          toValue: 0.5,
+          duration: 1400,
           useNativeDriver: true,
         }),
       ])
@@ -37,11 +52,13 @@ export default function AccountScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      api.get('/api/me').then(res => {
-        if (res.data?.user) {
-          setUser(res.data.user);
-        }
-      }).catch(() => {});
+      api.get('/api/me')
+        .then((res) => {
+          if (res.data?.user) {
+            setUser(res.data.user);
+          }
+        })
+        .catch(() => {});
     }, [setUser])
   );
 
@@ -57,10 +74,17 @@ export default function AccountScreen() {
 
   const { data: ticketsData, refetch: refetchTickets, isLoading: ticketsLoading } = useQuery<{ tickets: any[] }>({
     queryKey: ['my-support-tickets', user?.email],
-    queryFn: () => api.get(`/api/support-tickets/my?email=${encodeURIComponent(user?.email || '')}`).then(r => r.data),
+    queryFn: () => api.get(`/api/support-tickets/my?email=${encodeURIComponent(user?.email || '')}`).then((r) => r.data),
     enabled: !!user && showTicketsModal,
   });
   const myTickets = ticketsData?.tickets || [];
+
+  const { data: myOrdersData } = useQuery<{ orders: any[] }>({
+    queryKey: ['my-orders-count', user?.email],
+    queryFn: () => api.get('/api/orders/my').then((r) => r.data).catch(() => ({ orders: [] })),
+    enabled: !!user,
+  });
+  const myOrdersCount = myOrdersData?.orders?.length || 0;
 
   const handleRaiseTicket = async () => {
     if (!newTicketConcern.trim()) {
@@ -77,7 +101,10 @@ export default function AccountScreen() {
       });
       setNewTicketConcern('');
       refetchTickets();
-      Alert.alert('🎫 Ticket Submitted', res.data?.message || 'Support Ticket created successfully! Your Grievance Officer will address your concern shortly.');
+      Alert.alert(
+        '🎫 Ticket Submitted',
+        res.data?.message || 'Support Ticket created successfully! Our team will address your concern shortly.'
+      );
     } catch (err: any) {
       Alert.alert('Ticket Error', err?.response?.data?.message || 'Could not submit support ticket.');
     } finally {
@@ -90,15 +117,11 @@ export default function AccountScreen() {
     contact_email?: string;
     contact_address?: string;
     store_name?: string;
+    operating_hours?: string;
   }>({
     queryKey: ['public-settings'],
-    queryFn: () => api.get('/api/settings/public').then(r => r.data),
+    queryFn: () => api.get('/api/settings/public').then((r) => r.data).catch(() => ({})),
   });
-
-  const phone = publicSettings?.contact_phone || BRAND.phone;
-  const email = publicSettings?.contact_email || BRAND.email;
-  const address = publicSettings?.contact_address || 'Vijayawada, Andhra Pradesh';
-  const storeName = publicSettings?.store_name || BRAND.name;
 
   const handleToggleTheme = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -106,7 +129,7 @@ export default function AccountScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    Alert.alert('Sign Out', 'Are you sure you want to log out of FarmFreshFarmer?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
@@ -139,172 +162,269 @@ export default function AccountScreen() {
     }
   };
 
-  const bg = isDark ? '#000000' : '#f8fafc';
-  const cardBg = isDark ? '#0c121e' : '#ffffff';
-  const textColor = isDark ? '#f8fafc' : COLORS.text;
-  const mutedColor = isDark ? '#94a3b8' : COLORS.textMuted;
-  const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
-  const inputBg = isDark ? '#0f172a' : '#f8fafc';
+  const bg = isDark ? '#060a08' : '#f8fafc';
+  const cardBg = isDark ? '#0b1612' : '#ffffff';
+  const textColor = isDark ? '#f8fafc' : '#0f172a';
+  const mutedColor = isDark ? '#94a3b8' : '#64748b';
+  const borderCol = isDark ? 'rgba(16, 185, 129, 0.22)' : '#e2e8f0';
+  const inputBg = isDark ? '#0f241c' : '#f1f5f9';
 
-  // ── Not logged in ───────────────────────────────────────────────────────
+  const address = publicSettings?.contact_address || 'Main Harvest Hub, FarmFresh Street, AP, India';
+  const phone = publicSettings?.contact_phone || '+91 9849679092';
+  const email = publicSettings?.contact_email || 'support@farmfreshfarmer.com';
+  const storeName = publicSettings?.store_name || 'FarmFreshFarmer';
+
+  // ── Not Logged In View ───────────────────────────────────────────────────
   if (!user) {
     return (
-      <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-        <View style={styles.authPrompt}>
-          <Text style={styles.authIcon}>👨‍🌾</Text>
+      <ScrollView style={[styles.container, { backgroundColor: bg }]} contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 40 }}>
+        <View style={styles.authPromptCard}>
+          <Text style={{ fontSize: 54, marginBottom: 12 }}>👨‍🌾</Text>
           <Text style={[styles.authTitle, { color: textColor }]}>Welcome to {BRAND.name}</Text>
-          <Text style={[styles.authText, { color: mutedColor }]}>
-            Sign in to track orders, save delivery addresses, earn referral rewards, and manage your subscriptions.
+          <Text style={[styles.authSubText, { color: mutedColor }]}>
+            Sign in to track orders live, earn referral cash rewards, save addresses, and manage your weekly fresh harvest subscriptions.
           </Text>
-          <TouchableOpacity style={styles.signInBtn} onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.signInBtnText}>Sign In / Register</Text>
+
+          <TouchableOpacity style={styles.primaryAuthBtn} onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.primaryAuthBtnText}>Sign In / Create Account 🌿</Text>
           </TouchableOpacity>
-          <View style={styles.actionCardGrid}>
-            <TouchableOpacity style={[styles.actionCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/orders')}>
-              <Text style={styles.actionCardIcon}>📦</Text>
+
+          <View style={styles.guestQuickGrid}>
+            <TouchableOpacity style={[styles.guestTile, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/orders')}>
+              <Text style={{ fontSize: 24 }}>📦</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.actionCardTitle, { color: textColor }]}>Track Orders</Text>
-                <Text style={[styles.actionCardSub, { color: mutedColor }]}>View live ETA & past orders</Text>
+                <Text style={[styles.guestTileTitle, { color: textColor }]}>Track Orders</Text>
+                <Text style={[styles.guestTileSub, { color: mutedColor }]}>Live ETA & order updates</Text>
               </View>
               <Text style={styles.chevron}>→</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/referrals')}>
-              <Text style={styles.actionCardIcon}>🎁</Text>
+            <TouchableOpacity style={[styles.guestTile, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/referrals')}>
+              <Text style={{ fontSize: 24 }}>🎁</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.actionCardTitle, { color: textColor }]}>Earn Rewards</Text>
-                <Text style={[styles.actionCardSub, { color: mutedColor }]}>Give ₹50, Get 10% Cash</Text>
+                <Text style={[styles.guestTileTitle, { color: textColor }]}>Earn Rewards</Text>
+                <Text style={[styles.guestTileSub, { color: mutedColor }]}>Give ₹50, Get 10% Cash</Text>
               </View>
               <Text style={styles.chevron}>→</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/subscriptions')}>
-              <Text style={styles.actionCardIcon}>🔄</Text>
+            <TouchableOpacity style={[styles.guestTile, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/subscriptions')}>
+              <Text style={{ fontSize: 24 }}>🔄</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.actionCardTitle, { color: textColor }]}>Subscriptions</Text>
-                <Text style={[styles.actionCardSub, { color: mutedColor }]}>Weekly organic deliveries</Text>
+                <Text style={[styles.guestTileTitle, { color: textColor }]}>Subscriptions</Text>
+                <Text style={[styles.guestTileSub, { color: mutedColor }]}>Weekly farm deliveries</Text>
               </View>
               <Text style={styles.chevron}>→</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)')}>
-              <Text style={styles.actionCardIcon}>🏪</Text>
+            <TouchableOpacity style={[styles.guestTile, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)')}>
+              <Text style={{ fontSize: 24 }}>🌿</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.actionCardTitle, { color: textColor }]}>Explore Store</Text>
-                <Text style={[styles.actionCardSub, { color: mutedColor }]}>Shop fresh fruits & sweets</Text>
+                <Text style={[styles.guestTileTitle, { color: textColor }]}>Explore Store</Text>
+                <Text style={[styles.guestTileSub, { color: mutedColor }]}>Shop fresh fruits & sweets</Text>
               </View>
               <Text style={styles.chevron}>→</Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Preferences */}
-        <View style={styles.menuSection}>
-          <Text style={[styles.sectionTitle, { color: mutedColor }]}>Preferences</Text>
-          <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={handleToggleTheme}>
-            <Text style={{ fontSize: 20 }}>{isDark ? '🌙' : '☀️'}</Text>
-            <Text style={[styles.menuItemText, { color: textColor }]}>Theme: {isDark ? 'Pitch Black OLED' : 'Light Mode'}</Text>
+          {/* Theme Switcher Tile */}
+          <TouchableOpacity style={[styles.guestTile, { backgroundColor: cardBg, borderColor: borderCol, marginTop: 14 }]} onPress={handleToggleTheme}>
+            <Text style={{ fontSize: 22 }}>{isDark ? '🌕' : '☀️'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.guestTileTitle, { color: textColor }]}>App Theme</Text>
+              <Text style={[styles.guestTileSub, { color: mutedColor }]}>{isDark ? 'Dark Emerald OLED' : 'Light Harvest Mode'}</Text>
+            </View>
             <Text style={styles.chevron}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
         {activeModal && (
-          <LegalViewerModal
-            type={activeModal}
-            onClose={() => setActiveModal(null)}
-            isDark={isDark}
-          />
+          <LegalViewerModal type={activeModal} onClose={() => setActiveModal(null)} isDark={isDark} />
         )}
       </ScrollView>
     );
   }
 
-  const isAdmin = 
-    Boolean(user.isPrimaryAdmin) || 
-    Boolean(user.isSubAdmin) || 
+  // ── Logged In User View ──────────────────────────────────────────────────
+  const isAdmin =
+    Boolean(user.isPrimaryAdmin) ||
+    Boolean(user.isSubAdmin) ||
     Boolean(user.role && user.role !== 'customer') ||
-    (user.role ? ['admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin', 'customer_rep', 'local_grievance_officer', 'zonal_grievance_officer', 'chief_grievance_officer', 'delivery_partner', 'staff'].includes(user.role) : false) ||
+    (user.role
+      ? [
+          'admin',
+          'warehouse_admin',
+          'manager_admin',
+          'subadmin',
+          'custom_subadmin',
+          'customer_rep',
+          'local_grievance_officer',
+          'zonal_grievance_officer',
+          'chief_grievance_officer',
+          'delivery_partner',
+          'staff',
+        ].includes(user.role)
+      : false) ||
     Boolean(Array.isArray(user.permissions) && user.permissions.length > 0);
+
   const phoneMissing = !user.phone;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: bg }]}>
-      {/* Profile header */}
-      <View style={[styles.profileCard, { paddingTop: Math.max(insets.top + 16, 50) }]}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: bg }]} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+      {/* ── 1. Hero Profile Glass Banner ──────────────────────────────────── */}
+      <View style={[styles.heroHeaderContainer, { paddingTop: Math.max(insets.top + 16, 48) }]}>
+        {/* Glow Halo */}
+        <Animated.View
+          style={[
+            styles.avatarGlowCircle,
+            {
+              opacity: glowAnim,
+              transform: [{ scale: glowAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.96, 1.05] }) }],
+            },
+          ]}
+        />
+
+        <View style={styles.avatarWrapper}>
+          <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
+          <View style={styles.onlineDot} />
         </View>
-        <Text style={styles.userName}>{user.name}</Text>
-        {/* User Role Badge & Glowing Stars */}
-        {user && (() => {
+
+        <Text style={styles.heroNameText}>{user.name}</Text>
+        <Text style={styles.heroEmailText}>{user.email}</Text>
+
+        {/* User Role Badge & Star Rating */}
+        {(() => {
           const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
           const starCount = isSuperAdmin
             ? 6
-            : Math.min(5, Math.max(1, typeof user.starRating === 'number' ? user.starRating : (Number(user.starRating) || 5)));
+            : Math.min(5, Math.max(1, typeof user.starRating === 'number' ? user.starRating : Number(user.starRating) || 5));
 
           if (isSuperAdmin) {
             return (
-              <View style={{ marginVertical: 8, alignItems: 'center' }}>
-                <Animated.View style={{ opacity: glowAnim, flexDirection: 'row', gap: 4, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(245, 158, 11, 0.18)', borderWidth: 1.5, borderColor: 'rgba(245, 158, 11, 0.5)', shadowColor: '#f59e0b', shadowRadius: 10, shadowOpacity: 0.5 }}>
+              <View style={styles.roleBadgeWrapper}>
+                <View style={styles.superAdminStarsRow}>
                   {Array.from({ length: 6 }, (_, i) => (
-                    <Text key={i} style={{ color: '#fbbf24', fontSize: 18, fontWeight: 'bold' }}>★</Text>
+                    <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
                   ))}
-                </Animated.View>
-                <Text style={{ color: '#fcd34d', fontWeight: '900', fontSize: 11, marginTop: 4 }}>👑 Super Admin (6 Gold Stars)</Text>
+                </View>
+                <Text style={styles.roleBadgeLabelSuper}>👑 Super Admin (6 Gold Stars)</Text>
               </View>
             );
           }
 
           if (user.role !== 'customer') {
             return (
-              <View style={{ marginVertical: 8, alignItems: 'center' }}>
-                <Animated.View style={{ opacity: glowAnim, flexDirection: 'row', gap: 4, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14, backgroundColor: 'rgba(245, 158, 11, 0.18)', borderWidth: 1.5, borderColor: 'rgba(245, 158, 11, 0.45)', shadowColor: '#f59e0b', shadowRadius: 8, shadowOpacity: 0.4 }}>
+              <View style={styles.roleBadgeWrapper}>
+                <View style={styles.staffStarsRow}>
                   {Array.from({ length: starCount }, (_, i) => (
-                    <Text key={i} style={{ color: '#fbbf24', fontSize: 18, fontWeight: 'bold' }}>★</Text>
+                    <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
                   ))}
-                </Animated.View>
-                <Text style={{ color: '#6ee7b7', fontWeight: '800', fontSize: 11, marginTop: 4 }}>🛡️ Staff ({starCount} Gold Star{starCount !== 1 ? 's' : ''})</Text>
+                </View>
+                <Text style={styles.roleBadgeLabelStaff}>
+                  🛡️ {user.customTitle || 'Staff Member'} ({starCount} Gold Stars)
+                </Text>
               </View>
             );
           }
 
           return (
-            <View style={{ marginVertical: 6, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 14, backgroundColor: 'rgba(59,130,246,0.15)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.35)' }}>
-              <Text style={{ color: '#60a5fa', fontWeight: '900', fontSize: 14 }}>★ {user.customerStars || 0} Loyalty Star{(user.customerStars || 0) === 1 ? '' : 's'}</Text>
+            <View style={styles.customerStarsPill}>
+              <Text style={{ color: '#34d399', fontWeight: '900', fontSize: 13 }}>
+                ⭐ {user.customerStars || 5} VIP Loyalty Stars
+              </Text>
             </View>
           );
         })()}
-        {user.email ? <Text style={styles.userEmail}>{user.email}</Text> : null}
-        {user.phone ? <Text style={styles.userPhone}>📱 {user.phone}</Text> : (
-          <Text style={[styles.userPhone, { color: '#fbbf24' }]}>⚠️ No phone number — add one below</Text>
-        )}
+
+        {/* Phone Pill & Edit Launcher */}
+        <TouchableOpacity
+          style={styles.heroPhonePill}
+          onPress={() => {
+            setEditingPhone(true);
+            setNewPhone(user.phone || '');
+          }}
+        >
+          <Text style={styles.heroPhonePillText}>
+            {user.phone ? `📱 ${user.phone}` : '⚠️ Add Phone Number'}
+          </Text>
+          <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '800' }}>✏️ Edit</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Phone missing banner */}
+      {/* ── 2. Quick Activity Metrics Bar ───────────────────────────────── */}
+      <View style={styles.metricsBarGrid}>
+        <TouchableOpacity
+          style={[styles.metricTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/orders')}
+        >
+          <Text style={{ fontSize: 22 }}>📦</Text>
+          <Text style={[styles.metricNumber, { color: textColor }]}>{myOrdersCount}</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]}>My Orders</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.metricTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => setShowTicketsModal(true)}
+        >
+          <Text style={{ fontSize: 22 }}>🎫</Text>
+          <Text style={[styles.metricNumber, { color: textColor }]}>{myTickets.length}</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]}>Support Tickets</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.metricTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/referrals')}
+        >
+          <Text style={{ fontSize: 22 }}>🎁</Text>
+          <Text style={[styles.metricNumber, { color: '#10b981' }]}>₹50</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]}>Cash Rewards</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.metricTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/subscriptions')}
+        >
+          <Text style={{ fontSize: 22 }}>🔄</Text>
+          <Text style={[styles.metricNumber, { color: textColor }]}>Fresh</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]}>Subscriptions</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Phone Missing Alert Banner */}
       {phoneMissing && !editingPhone && (
         <TouchableOpacity
-          style={styles.warningBanner}
-          onPress={() => { setEditingPhone(true); setNewPhone(''); }}
+          style={styles.phoneWarningCard}
+          onPress={() => {
+            setEditingPhone(true);
+            setNewPhone('');
+          }}
         >
-          <Text style={styles.warningBannerText}>📱 Add your phone number to receive order updates →</Text>
+          <Text style={{ fontSize: 20 }}>📱</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fef3c7', fontWeight: '800', fontSize: 13 }}>Add Mobile Number</Text>
+            <Text style={{ color: '#fcd34d', fontSize: 11, marginTop: 2 }}>
+              Receive instant SMS dispatch tracking & WhatsApp delivery updates
+            </Text>
+          </View>
+          <Text style={{ color: '#fef3c7', fontWeight: '900' }}>Add →</Text>
         </TouchableOpacity>
       )}
 
-      {/* Phone edit form */}
+      {/* Phone Edit Form */}
       {editingPhone && (
-        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, margin: 16, marginTop: 0 }]}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>📱 Phone Number</Text>
+        <View style={[styles.phoneEditBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
+          <Text style={[styles.boxTitle, { color: textColor }]}>📱 Update Registered Phone Number</Text>
           <TextInput
             style={[styles.phoneInput, { backgroundColor: inputBg, borderColor: borderCol, color: textColor }]}
-            placeholder="10-digit mobile number"
+            placeholder="10-digit Indian mobile number"
             placeholderTextColor={mutedColor}
             value={newPhone}
             onChangeText={setNewPhone}
             keyboardType="phone-pad"
             maxLength={10}
           />
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <TouchableOpacity style={[styles.savePhoneBtn, { flex: 1 }]} onPress={handleSavePhone} disabled={phoneBusy}>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            <TouchableOpacity style={styles.savePhoneBtn} onPress={handleSavePhone} disabled={phoneBusy}>
               {phoneBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.savePhoneBtnText}>Save Phone</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={[styles.cancelPhoneBtn, { borderColor: borderCol }]} onPress={() => setEditingPhone(false)}>
@@ -314,336 +434,292 @@ export default function AccountScreen() {
         </View>
       )}
 
-      {/* My Activity */}
-      <View style={styles.menuSection}>
-        <Text style={[styles.sectionTitle, { color: mutedColor }]}>My Activity</Text>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/orders')}>
-          <Text style={{ fontSize: 20 }}>📦</Text>
-          <Text style={[styles.menuItemText, { color: textColor }]}>My Orders</Text>
-          <Text style={styles.chevron}>→</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/tickets')}>
-          <Text style={{ fontSize: 20 }}>🎫</Text>
-          <Text style={[styles.menuItemText, { color: textColor }]}>My Support Tickets</Text>
-          <Text style={styles.chevron}>→</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/referrals')}>
-          <Text style={{ fontSize: 20 }}>🎁</Text>
-          <Text style={[styles.menuItemText, { color: textColor }]}>Refer & Earn Rewards</Text>
-          <Text style={styles.chevron}>→</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => router.push('/(tabs)/subscriptions')}>
-          <Text style={{ fontSize: 20 }}>🔄</Text>
-          <Text style={[styles.menuItemText, { color: textColor }]}>My Subscriptions</Text>
-          <Text style={styles.chevron}>→</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Preferences */}
-      <View style={styles.menuSection}>
-        <Text style={[styles.sectionTitle, { color: mutedColor }]}>Preferences</Text>
-        <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={handleToggleTheme}>
-          <Text style={{ fontSize: 20 }}>{isDark ? '🌙' : '☀️'}</Text>
-          <Text style={[styles.menuItemText, { color: textColor }]}>Theme: {isDark ? 'Pitch Black OLED' : 'Light Mode'}</Text>
-          <Text style={styles.chevron}>⚙️</Text>
-        </TouchableOpacity>
-        {!editingPhone && (
-          <TouchableOpacity style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => { setEditingPhone(true); setNewPhone(user.phone || ''); }}>
-            <Text style={{ fontSize: 20 }}>📱</Text>
-            <Text style={[styles.menuItemText, { color: textColor }]}>Edit Phone Number</Text>
-            <Text style={styles.chevron}>→</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Admin Section */}
+      {/* ── 3. Staff & Admin Special Dashboard Card ─────────────────────── */}
       {isAdmin && (
-        <View style={styles.menuSection}>
-          <Text style={[styles.sectionTitle, { color: mutedColor }]}>Admin</Text>
-          <TouchableOpacity style={[styles.menuItem, { backgroundColor: '#022c22', borderColor: '#065f46' }]} onPress={() => router.push('/admin')}>
-            <Text style={{ fontSize: 20 }}>🛡️</Text>
-            <Text style={[styles.menuItemText, { color: '#34d399' }]}>Admin Control Dashboard</Text>
-            <Text style={[styles.chevron, { color: '#34d399' }]}>→</Text>
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionHeading, { color: mutedColor }]}>STAFF & ADMINISTRATIVE PORTAL</Text>
+          <TouchableOpacity
+            style={[styles.adminBannerTile, { backgroundColor: isDark ? '#1b1204' : '#fffbeb', borderColor: '#f59e0b' }]}
+            onPress={() => router.push('/admin')}
+          >
+            <Text style={{ fontSize: 26 }}>🛡️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#d97706', fontSize: 15, fontWeight: '900' }}>
+                {user?.isPrimaryAdmin ? 'Master Admin Control Panel' : 'Sub-Admin Staff Dashboard'}
+              </Text>
+              <Text style={{ color: '#b45309', fontSize: 12, marginTop: 2 }}>
+                {user?.isPrimaryAdmin
+                  ? 'Manage products, orders, delivery rules & staff permissions'
+                  : 'Manage sub-admin product reconsiderations, stock & orders'}
+              </Text>
+            </View>
+            <Text style={{ color: '#d97706', fontSize: 18, fontWeight: '900' }}>→</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Legal */}
-      <View style={styles.menuSection}>
-        <Text style={[styles.sectionTitle, { color: mutedColor }]}>Legal & Help</Text>
+      {/* ── 4. My Orders & Activity Section ─────────────────────────────── */}
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionHeading, { color: mutedColor }]}>MY HARVEST & ORDERS</Text>
+
+        <TouchableOpacity
+          style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/orders')}
+        >
+          <View style={styles.tileIconCircle}><Text style={{ fontSize: 18 }}>📦</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowTitle, { color: textColor }]}>My Orders & Order History</Text>
+            <Text style={[styles.menuRowSub, { color: mutedColor }]}>Track live delivery ETA & past invoices</Text>
+          </View>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/subscriptions')}
+        >
+          <View style={styles.tileIconCircle}><Text style={{ fontSize: 18 }}>🌾</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowTitle, { color: textColor }]}>My Fresh Subscriptions</Text>
+            <Text style={[styles.menuRowSub, { color: mutedColor }]}>Manage recurring fruit & vegetable baskets</Text>
+          </View>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => setShowTicketsModal(true)}
+        >
+          <View style={styles.tileIconCircle}><Text style={{ fontSize: 18 }}>🎫</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowTitle, { color: textColor }]}>Customer Support Tickets</Text>
+            <Text style={[styles.menuRowSub, { color: mutedColor }]}>Raise & track grievance officer responses</Text>
+          </View>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={() => router.push('/(tabs)/referrals')}
+        >
+          <View style={styles.tileIconCircle}><Text style={{ fontSize: 18 }}>🎁</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowTitle, { color: textColor }]}>Refer & Earn Rewards</Text>
+            <Text style={[styles.menuRowSub, { color: mutedColor }]}>Invite friends, give ₹50, earn cash bonuses</Text>
+          </View>
+          <Text style={styles.chevron}>→</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── 5. App Preferences & Customization ────────────────────────────── */}
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionHeading, { color: mutedColor }]}>PREFERENCES & CUSTOMIZATION</Text>
+
+        <TouchableOpacity
+          style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
+          onPress={handleToggleTheme}
+        >
+          <View style={styles.tileIconCircle}><Text style={{ fontSize: 18 }}>{isDark ? '🌕' : '☀️'}</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.menuRowTitle, { color: textColor }]}>App Theme</Text>
+            <Text style={[styles.menuRowSub, { color: mutedColor }]}>
+              Current: {isDark ? 'Dark Emerald OLED' : 'Light Harvest Mode'}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 13, fontWeight: '800', color: '#10b981' }}>Switch ⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── 6. Legal, Trust & Help Hub ──────────────────────────────────── */}
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionHeading, { color: mutedColor }]}>LEGAL & TRUST POLICIES</Text>
+
         {[
-          { key: 'shipping', label: '🚚 Shipping & Delivery Policy' },
-          { key: 'terms', label: '📋 Terms & Conditions' },
-          { key: 'privacy', label: '🔒 Privacy Policy' },
-          { key: 'refund', label: '↩️ Refund & Cancellation' },
-          { key: 'contact', label: '📞 Contact Us & Support' },
-        ].map(item => (
+          { key: 'shipping', icon: '🚚', label: 'Shipping & Instant Delivery Policy' },
+          { key: 'terms', icon: '📋', label: 'Terms & Conditions of Harvest' },
+          { key: 'privacy', icon: '🔒', label: 'Privacy Policy & Data Rights' },
+          { key: 'refund', icon: '↩️', label: 'Refund & Cancellation Policy' },
+          { key: 'contact', icon: '📞', label: 'Contact Us & Head Office' },
+        ].map((item) => (
           <TouchableOpacity
             key={item.key}
-            style={[styles.menuItem, { backgroundColor: cardBg, borderColor: borderCol }]}
+            style={[styles.menuRowTile, { backgroundColor: cardBg, borderColor: borderCol }]}
             onPress={() => setActiveModal(item.key as any)}
           >
-            <Text style={[styles.menuItemText, { color: textColor, flex: 1 }]}>{item.label}</Text>
+            <View style={styles.tileIconCircle}><Text style={{ fontSize: 16 }}>{item.icon}</Text></View>
+            <Text style={[styles.menuRowTitle, { color: textColor, flex: 1 }]}>{item.label}</Text>
             <Text style={styles.chevron}>→</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Contact Info Card */}
-      <TouchableOpacity style={[styles.contactCard, { backgroundColor: cardBg, borderColor: borderCol }]} onPress={() => setActiveModal('contact')}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>📞 Contact Us</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📍 {address}</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13, marginBottom: 4 }]}>📱 {phone}</Text>
-        <Text style={[{ color: mutedColor, fontSize: 13 }]}>✉️ {email}</Text>
+      {/* Contact Head Office Tile */}
+      <TouchableOpacity
+        style={[styles.contactHeadOfficeCard, { backgroundColor: cardBg, borderColor: borderCol }]}
+        onPress={() => setActiveModal('contact')}
+      >
+        <Text style={[styles.sectionHeading, { color: textColor, marginBottom: 8 }]}>📞 HEAD OFFICE CONTACT INFO</Text>
+        <Text style={{ color: mutedColor, fontSize: 12, marginBottom: 4 }}>📍 {address}</Text>
+        <Text style={{ color: mutedColor, fontSize: 12, marginBottom: 4 }}>📱 {phone}</Text>
+        <Text style={{ color: mutedColor, fontSize: 12 }}>✉️ {email}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutBtnText}>Sign Out</Text>
+      {/* Sign Out Button */}
+      <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
+        <Text style={styles.signOutBtnText}>Sign Out of FarmFreshFarmer</Text>
       </TouchableOpacity>
 
-      <View style={{ alignItems: 'center', marginVertical: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
-          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '800' }}>App Build v8.8.0</Text>
+      {/* App Build Version Pill */}
+      <View style={styles.versionBadgeRow}>
+        <View style={styles.versionBadgeInner}>
+          <View style={styles.versionBadgeDot} />
+          <Text style={styles.versionBadgeText}>App Build v8.8.1</Text>
         </View>
       </View>
-      <Text style={[styles.footer, { color: mutedColor }]}>{storeName} v8.8.0 · {email}</Text>
+      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v8.8.1 · {email}</Text>
 
       {/* Support Tickets Modal */}
       <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: isDark ? '#0b1320' : '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 28, padding: 20, maxHeight: '85%', borderWidth: 1, borderColor: borderCol }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingTop: Math.max(insets.top, 10) }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }}>🎫 My Support Tickets</Text>
-              <TouchableOpacity onPress={() => setShowTicketsModal(false)} style={{ padding: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 12 }}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContentCard, { backgroundColor: isDark ? '#091510' : '#ffffff', borderColor: borderCol }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalHeaderTitle, { color: textColor }]}>🎫 Customer Support Tickets</Text>
+              <TouchableOpacity onPress={() => setShowTicketsModal(false)} style={[styles.modalCloseBtn, { backgroundColor: inputBg }]}>
                 <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingBottom: 20 }}>
-              {/* Form to Raise Ticket */}
-              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: borderCol }}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: '#10b981', marginBottom: 6 }}>+ Raise New Support Ticket</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {/* Submit Ticket Form */}
+              <View style={[styles.ticketFormBox, { backgroundColor: inputBg, borderColor: borderCol }]}>
+                <Text style={[styles.formLabel, { color: textColor }]}>Submit a New Support Concern</Text>
                 <TextInput
-                  style={{ backgroundColor: inputBg, color: textColor, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: borderCol, fontSize: 12, height: 70, marginBottom: 10 }}
-                  placeholder="Describe your issue or grievance..."
+                  style={[styles.ticketInput, { backgroundColor: cardBg, borderColor: borderCol, color: textColor }]}
+                  placeholder="Describe your issue or order inquiry..."
                   placeholderTextColor={mutedColor}
-                  multiline
                   value={newTicketConcern}
                   onChangeText={setNewTicketConcern}
+                  multiline
+                  numberOfLines={3}
                 />
-                <TouchableOpacity style={{ backgroundColor: '#10b981', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }} onPress={handleRaiseTicket} disabled={raisingTicket}>
-                  {raisingTicket ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Submit Ticket to Grievance Team</Text>}
+                <TouchableOpacity style={styles.submitTicketBtn} onPress={handleRaiseTicket} disabled={raisingTicket}>
+                  {raisingTicket ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitTicketBtnText}>Submit Ticket 🚀</Text>}
                 </TouchableOpacity>
               </View>
 
-              {/* Tickets List */}
-              <Text style={{ fontSize: 13, fontWeight: '800', color: mutedColor, marginTop: 10 }}>Your Ticket History ({myTickets.length})</Text>
+              {/* My Existing Tickets */}
+              <Text style={[styles.sectionHeading, { color: mutedColor, marginTop: 14 }]}>MY SUBMITTED TICKETS ({myTickets.length})</Text>
               {ticketsLoading ? (
-                <ActivityIndicator size="small" color="#10b981" style={{ marginVertical: 16 }} />
+                <ActivityIndicator size="small" color="#10b981" style={{ marginVertical: 20 }} />
               ) : myTickets.length === 0 ? (
-                <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center', marginVertical: 16 }}>No support tickets raised yet.</Text>
+                <Text style={{ color: mutedColor, textAlign: 'center', marginVertical: 20, fontSize: 13 }}>No support tickets found.</Text>
               ) : (
-                myTickets.map((t: any) => {
-                  const statusColor = t.status === 'resolved' ? '#34d399' : t.status === 'in_progress' ? '#fbbf24' : '#60a5fa';
-                  const statusBg = t.status === 'resolved' ? 'rgba(52, 211, 153, 0.15)' : t.status === 'in_progress' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(96, 165, 250, 0.15)';
-                  return (
-                    <View key={t.id || t.ticketId} style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol, gap: 4 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: textColor }}>{t.ticketId || `TCK-${t.id}`}</Text>
-                        <View style={{ backgroundColor: statusBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
-                          <Text style={{ color: statusColor, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }}>
-                            {t.status === 'resolved' ? '🟢 Resolved' : t.status === 'in_progress' ? '🟡 In Progress' : '🔵 Open'}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ color: textColor, fontSize: 12, marginTop: 4 }}>{t.concern}</Text>
-                      {t.adminNotes && (
-                        <View style={{ backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#ecfdf5', padding: 8, borderRadius: 8, marginTop: 4 }}>
-                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: 'bold' }}>Resolution Note:</Text>
-                          <Text style={{ color: textColor, fontSize: 11 }}>{t.adminNotes}</Text>
-                        </View>
-                      )}
-                      <Text style={{ color: mutedColor, fontSize: 10, marginTop: 2 }}>Raised: {new Date(t.createdAt).toLocaleDateString()}</Text>
+                myTickets.map((t) => (
+                  <View key={t.id} style={[styles.ticketCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#10b981' }}>Ticket #{t.ticketId || t.id}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: t.status === 'resolved' ? '#10b981' : t.status === 'in_progress' ? '#f59e0b' : '#3b82f6' }}>
+                        {t.status === 'resolved' ? '🟢 Resolved' : t.status === 'in_progress' ? '🟡 In Progress' : '🔵 Open'}
+                      </Text>
                     </View>
-                  );
-                })
+                    <Text style={{ fontSize: 13, color: textColor, marginBottom: 6 }}>{t.concern}</Text>
+                    {t.adminResponse && (
+                      <View style={[styles.responseBox, { backgroundColor: inputBg }]}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#10b981' }}>Response from Grievance Officer:</Text>
+                        <Text style={{ fontSize: 12, color: textColor, marginTop: 2 }}>{t.adminResponse}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))
               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* Interactive Legal Policy Modal */}
+      {/* Legal viewer Modal */}
       {activeModal && (
-        <LegalViewerModal
-          type={activeModal}
-          onClose={() => setActiveModal(null)}
-          isDark={isDark}
-        />
+        <LegalViewerModal type={activeModal} onClose={() => setActiveModal(null)} isDark={isDark} />
       )}
     </ScrollView>
   );
 }
 
+// ─── Legal Viewer Modal Component ─────────────────────────────────────────────
 function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy' | 'refund' | 'shipping' | 'contact'; onClose: () => void; isDark: boolean }) {
-  const bg = isDark ? '#090d16' : '#ffffff';
+  const insets = useSafeAreaInsets();
+  const bg = isDark ? '#091510' : '#ffffff';
+  const cardBg = isDark ? '#0c221a' : '#f8fafc';
   const textColor = isDark ? '#f8fafc' : '#0f172a';
   const mutedColor = isDark ? '#94a3b8' : '#64748b';
-  const cardBg = isDark ? '#0f172a' : '#f1f5f9';
-  const borderCol = isDark ? 'rgba(16, 185, 129, 0.3)' : '#cbd5e1';
+  const borderCol = isDark ? 'rgba(52, 211, 153, 0.2)' : '#e2e8f0';
 
-  const { data: publicSettings } = useQuery<{
-    contact_phone?: string;
-    contact_email?: string;
-    contact_address?: string;
-    operating_hours?: string;
-    return_window_hours?: string;
-    shipping_policy_custom_notes?: string;
-    store_name?: string;
-  }>({
-    queryKey: ['public-settings'],
-    queryFn: () => api.get('/api/settings/public').then(r => r.data),
-  });
-
-  const phone = publicSettings?.contact_phone || BRAND.phone;
-  const email = publicSettings?.contact_email || BRAND.email;
-  const address = publicSettings?.contact_address || 'Vijayawada, Andhra Pradesh, India';
-  const hours = publicSettings?.operating_hours || 'Monday to Sunday: 6:00 AM – 10:00 PM IST';
-  const returnHours = publicSettings?.return_window_hours || '4';
-  const customNotes = publicSettings?.shipping_policy_custom_notes;
-  const storeName = publicSettings?.store_name || BRAND.name;
-
-  const titles: Record<string, string> = {
+  const titleMap = {
     shipping: '🚚 Shipping & Delivery Policy',
     terms: '📋 Terms & Conditions',
     privacy: '🔒 Privacy Policy',
-    refund: '↩️ Refund & Cancellation Policy',
-    contact: '📞 Contact Us & Customer Support',
+    refund: '↩️ Refund & Cancellation',
+    contact: '📞 Contact Us & Support',
   };
 
   return (
-    <Modal animationType="slide" transparent={false} visible={true} onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: bg, paddingTop: 48 }}>
-        {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: borderCol }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }}>{titles[type]}</Text>
-            <Text style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>Last updated: 07 July 2026 · {storeName}</Text>
-          </View>
-          <TouchableOpacity onPress={onClose} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: cardBg, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>✕</Text>
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Math.max(insets.top + 10, 44), paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: borderCol }}>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: textColor }}>{titleMap[type]}</Text>
+          <TouchableOpacity onPress={onClose} style={{ padding: 8, borderRadius: 20 }}>
+            <Text style={{ fontSize: 18, color: textColor, fontWeight: '800' }}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Content */}
-        <ScrollView style={{ flex: 1, padding: 20 }}>
+        <ScrollView style={{ flex: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
           {type === 'shipping' && (
-            <View style={{ gap: 16, paddingBottom: 40 }}>
+            <View style={{ gap: 14, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                {storeName} operates a hyper-local instant farm-to-home delivery network alongside national express courier shipping and international air freight.
+                At <Text style={{ fontWeight: '800', color: '#10b981' }}>FarmFreshFarmer</Text>, we ensure express delivery of farm fresh produce, homemade sweets, pickles, and spices.
               </Text>
-
               <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>1. Service Areas & Locations</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#10b981', marginBottom: 6 }}>1. Delivery Coverage</Text>
                 <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • <Text style={{ fontWeight: '700' }}>Local Instant Express Cities</Text>: 30-to-60 minute doorstep delivery across <Text style={{ fontWeight: '700', color: '#10b981' }}>Vijayawada, Guntur, Visakhapatnam, and Hyderabad</Text>.{"\n\n"}
-                  • <Text style={{ fontWeight: '700' }}>Pan-India Domestic Express Courier</Text>: Servicing 19,000+ PIN codes across all states in India for homemade pickles, sweets, spices, ghee, and namkeens via BlueDart / DTDC / Delhivery (2–4 business days).{"\n\n"}
-                  • <Text style={{ fontWeight: '700' }}>International Air Express</Text>: Worldwide shipping to USA, UK, Canada, UAE, Australia, Europe & worldwide via DHL / FedEx Express (4–7 business days).
+                  • Local Express Cities: 30-to-60 minute doorstep delivery across Vijayawada, Guntur, Visakhapatnam, and Hyderabad.{"\n"}
+                  • Pan-India Courier: 19,000+ PIN codes via BlueDart / DTDC (2–4 days).{"\n"}
+                  • International Air Courier: Worldwide shipping via DHL / FedEx Express (4–7 days).
                 </Text>
               </View>
-
-              <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>2. Deliverable Radius & Local Hubs</Text>
-                <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  Fresh produce is dispatched directly from neighborhood dark store hubs operating on dynamic deliverable radiuses of <Text style={{ fontWeight: '700' }}>8 km to 25 km</Text>.{"\n\n"}
-                  Real-time GPS location and 6-digit PIN code mapping auto-assigns your order to the nearest warehouse hub.
-                </Text>
-              </View>
-
-              <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>3. Estimated Delivery Timelines (ETAs)</Text>
-                <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • Local Express: <Text style={{ fontWeight: '700' }}>30 to 60 Minutes</Text>{"\n"}
-                  • Pan-India Courier: <Text style={{ fontWeight: '700' }}>2 to 4 Business Days</Text>{"\n"}
-                  • International Air Cargo: <Text style={{ fontWeight: '700' }}>4 to 7 Business Days</Text>{"\n"}
-                  • Weekly Subscriptions: Scheduled morning slots (7:00 AM – 10:00 AM)
-                </Text>
-              </View>
-
-              <View style={{ backgroundColor: cardBg, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 6 }}>4. Delivery Fee Structure</Text>
-                <Text style={{ fontSize: 13, color: textColor, lineHeight: 20 }}>
-                  • Local Base Delivery Fee: ₹30 – ₹50 per order (Vijayawada ₹30, Guntur ₹40, Vizag ₹45, Hyderabad ₹50).{"\n"}
-                  • <Text style={{ fontWeight: '700', color: '#10b981' }}>FREE Delivery Threshold</Text>: FREE delivery on local orders above ₹499.{"\n"}
-                  • Domestic Shipping Fee: Weight-tiered flat rate (Up to 1kg: ₹60 flat, 1kg–3kg: ₹90 flat, 3kg–5kg: ₹120 flat). FREE shipping on bulk orders above ₹1,499.{"\n"}
-                  • International Shipping Fee: Real-time air cargo rate calculated at checkout based on weight and country.
-                </Text>
-              </View>
-
-              {!!customNotes && (
-                <View style={{ backgroundColor: '#fffbeb', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#fef3c7' }}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#b45309', marginBottom: 4 }}>5. Special Operational Notes</Text>
-                  <Text style={{ fontSize: 13, color: '#92400e', lineHeight: 20 }}>{customNotes}</Text>
-                </View>
-              )}
             </View>
           )}
 
           {type === 'terms' && (
-            <View style={{ gap: 16, paddingBottom: 40 }}>
+            <View style={{ gap: 14, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                Welcome to {storeName}. By placing an order or using our mobile application, you agree to these Terms & Conditions.
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Products & Fresh Produce</Text>
-              <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                We deliver fresh farm produce, fruits, vegetables, sweets, namkeen, and spices. Seasonal availability and minor natural variations in size and weight may occur.
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>2. Secure Online Payments</Text>
-              <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                Online payments are processed securely via PhonePe / UPI / Cards / NetBanking. We do not store banking credentials on our servers.
+                By using our mobile application, you agree to these Terms & Conditions. All produce is sourced directly from certified organic farms.
               </Text>
             </View>
           )}
 
           {type === 'privacy' && (
-            <View style={{ gap: 16, paddingBottom: 40 }}>
+            <View style={{ gap: 14, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                {storeName} respects your privacy and is committed to protecting your personal information.
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Data Collection & Security</Text>
-              <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                We collect your delivery address, phone number, and order details strictly to fulfill your orders and provide live ETA updates. Your data is encrypted and never sold to third parties.
+                FarmFreshFarmer respects your data privacy. Personal information is encrypted and strictly used for order delivery.
               </Text>
             </View>
           )}
 
           {type === 'refund' && (
-            <View style={{ gap: 16, paddingBottom: 40 }}>
+            <View style={{ gap: 14, paddingBottom: 40 }}>
               <Text style={{ fontSize: 14, color: textColor, lineHeight: 22 }}>
-                Because fresh produce and homemade food items are perishable, returns are restricted to damaged or incorrect items reported within {returnHours} hours of delivery.
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>1. Reporting Issue Window</Text>
-              <Text style={{ fontSize: 13, color: mutedColor, lineHeight: 20 }}>
-                Damaged or wrong items must be reported with clear photo proof within {returnHours} hours of delivery to {email} or {phone}. Approved refunds are credited to the original payment method in 2–5 business days.
+                For perishable items, reported issues with photo proof within 24 hours of delivery are eligible for instant replacement or refund.
               </Text>
             </View>
           )}
 
           {type === 'contact' && (
-            <View style={{ gap: 16, paddingBottom: 40 }}>
+            <View style={{ gap: 14, paddingBottom: 40 }}>
               <View style={{ backgroundColor: cardBg, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: borderCol, gap: 10 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>📍 Main Operational Hub</Text>
-                <Text style={{ fontSize: 14, color: textColor }}>{storeName} Headquarters{"\n"}{address}</Text>
-
-                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>📱 Phone & WhatsApp Support</Text>
-                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>{phone}</Text>
-
-                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>✉️ Email Customer Service</Text>
-                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>{email}</Text>
-
-                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>⏱️ Customer Care Operating Hours</Text>
-                <Text style={{ fontSize: 13, color: mutedColor }}>{hours}</Text>
+                <Text style={{ fontSize: 14, color: textColor }}>FarmFreshFarmer Headquarters, AP, India</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, marginTop: 10 }}>📱 WhatsApp Support</Text>
+                <Text style={{ fontSize: 14, color: '#10b981', fontWeight: '700' }}>+91 9849679092</Text>
               </View>
             </View>
           )}
@@ -655,45 +731,436 @@ function LegalViewerModal({ type, onClose, isDark }: { type: 'terms' | 'privacy'
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  profileCard: { backgroundColor: COLORS.primaryDark, padding: 24, alignItems: 'center' },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' },
-  avatarText: { fontSize: 32, fontWeight: '800', color: '#ffffff' },
-  userName: { fontSize: 20, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
-  userEmail: { fontSize: 13, color: '#86efac', marginBottom: 2 },
-  userPhone: { fontSize: 12, color: '#6ee7b7' },
 
-  warningBanner: { backgroundColor: '#78350f', borderRadius: 0, padding: 12, borderBottomWidth: 1, borderColor: '#b45309' },
-  warningBannerText: { color: '#fde68a', fontSize: 13, textAlign: 'center', fontWeight: '600' },
+  // Auth Prompt Card for Guests
+  authPromptCard: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  authTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  authSubText: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  primaryAuthBtn: {
+    backgroundColor: '#10b981',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  primaryAuthBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  guestQuickGrid: {
+    width: '100%',
+    gap: 10,
+  },
+  guestTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  guestTileTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  guestTileSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
 
-  actionCardGrid: { width: '100%', gap: 10, marginTop: 20 },
-  actionCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, gap: 12 },
-  actionCardIcon: { fontSize: 24 },
-  actionCardTitle: { fontSize: 15, fontWeight: '700' },
-  actionCardSub: { fontSize: 12, marginTop: 2 },
+  // Hero Profile Header
+  heroHeaderContainer: {
+    backgroundColor: '#062319',
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    alignItems: 'center',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarGlowCircle: {
+    position: 'absolute',
+    top: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  avatarWrapper: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#34d399',
+    position: 'relative',
+    marginBottom: 10,
+  },
+  avatarInitial: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#22c55e',
+    borderWidth: 2,
+    borderColor: '#062319',
+  },
+  heroNameText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  heroEmailText: {
+    fontSize: 13,
+    color: '#a7f3d0',
+    marginBottom: 10,
+  },
+  roleBadgeWrapper: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  superAdminStarsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+  },
+  staffStarsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  roleBadgeLabelSuper: {
+    color: '#fcd34d',
+    fontWeight: '900',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  roleBadgeLabelStaff: {
+    color: '#6ee7b7',
+    fontWeight: '800',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  customerStarsPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    marginBottom: 10,
+  },
+  heroPhonePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  heroPhonePillText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
-  sectionCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
-  sectionTitle: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  phoneInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16, letterSpacing: 1 },
-  savePhoneBtn: { backgroundColor: COLORS.primary, borderRadius: 10, padding: 12, alignItems: 'center' },
-  savePhoneBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  cancelPhoneBtn: { borderWidth: 1, borderRadius: 10, padding: 12, paddingHorizontal: 16, alignItems: 'center' },
-  cancelPhoneBtnText: { fontWeight: '600', fontSize: 14 },
+  // Activity Metrics Bar Grid
+  metricsBarGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: -16,
+    marginBottom: 14,
+  },
+  metricTile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  metricNumber: {
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+  },
 
-  menuSection: { padding: 16, paddingBottom: 4 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, marginBottom: 8, borderWidth: 1 },
-  menuItemText: { fontSize: 15, fontWeight: '600', flex: 1 },
-  chevron: { fontSize: 18, color: COLORS.textMuted },
+  // Phone Warning & Edit
+  phoneWarningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#78350f',
+    marginHorizontal: 16,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#b45309',
+  },
+  phoneEditBox: {
+    marginHorizontal: 16,
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  boxTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  phoneInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 15,
+  },
+  savePhoneBtn: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  savePhoneBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  cancelPhoneBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  cancelPhoneBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
 
-  contactCard: { margin: 16, borderRadius: 16, padding: 16, borderWidth: 1 },
+  // Sections & Rows
+  sectionContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  sectionHeading: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  adminBannerTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  menuRowTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  tileIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuRowTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  menuRowSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: 16,
+    color: '#94a3b8',
+    fontWeight: 'bold',
+  },
+  contactHeadOfficeCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  signOutBtn: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#ef4444',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  signOutBtnText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  versionBadgeRow: {
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  versionBadgeInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  versionBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+    marginRight: 6,
+  },
+  versionBadgeText: {
+    color: '#10b981',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 11,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
 
-  logoutBtn: { margin: 16, marginTop: 8, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.error, padding: 14, alignItems: 'center' },
-  logoutBtnText: { color: COLORS.error, fontSize: 15, fontWeight: '700' },
-  footer: { textAlign: 'center', fontSize: 11, marginBottom: 32, paddingHorizontal: 16 },
-
-  authPrompt: { alignItems: 'center', justifyContent: 'center', padding: 20, paddingTop: 40 },
-  authIcon: { fontSize: 64, marginBottom: 16 },
-  authTitle: { fontSize: 22, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
-  authText: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
-  signInBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 14, width: '100%', alignItems: 'center', marginBottom: 10 },
-  signInBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justify: 'flex-end',
+  },
+  modalContentCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+    borderWidth: 1,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 12,
+  },
+  ticketFormBox: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  ticketInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 13,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    marginBottom: 10,
+  },
+  submitTicketBtn: {
+    backgroundColor: '#10b981',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  submitTicketBtnText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  ticketCard: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  responseBox: {
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 6,
+  },
 });
