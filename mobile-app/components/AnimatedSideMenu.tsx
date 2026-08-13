@@ -72,7 +72,6 @@ export function AnimatedSideMenu({
 
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const panelTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
-  const panelScale = useRef(new Animated.Value(0.96)).current;
 
   useEffect(() => {
     if (visible) {
@@ -81,19 +80,13 @@ export function AnimatedSideMenu({
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
-          duration: 250,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.spring(panelTranslateX, {
           toValue: 0,
-          friction: 8,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.spring(panelScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 50,
+          friction: 9,
+          tension: 60,
           useNativeDriver: true,
         }),
       ]).start();
@@ -102,17 +95,12 @@ export function AnimatedSideMenu({
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
         Animated.timing(panelTranslateX, {
           toValue: -DRAWER_WIDTH,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(panelScale, {
-          toValue: 0.96,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -130,11 +118,6 @@ export function AnimatedSideMenu({
       }),
       Animated.timing(panelTranslateX, {
         toValue: -DRAWER_WIDTH,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(panelScale, {
-        toValue: 0.96,
         duration: 180,
         useNativeDriver: true,
       }),
@@ -160,7 +143,7 @@ export function AnimatedSideMenu({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={handleClose}>
-      <View style={StyleSheet.absoluteFillObject}>
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
         {/* Backdrop Fade */}
         <TouchableWithoutFeedback onPress={handleClose}>
           <Animated.View
@@ -179,7 +162,7 @@ export function AnimatedSideMenu({
               backgroundColor: panelBg,
               borderRightColor: borderCol,
               paddingTop: Math.max(insets.top + 8, 44),
-              transform: [{ translateX: panelTranslateX }, { scale: panelScale }],
+              transform: [{ translateX: panelTranslateX }],
             },
           ]}
         >
@@ -325,7 +308,13 @@ export function AnimatedSideMenu({
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
   drawerPanel: {

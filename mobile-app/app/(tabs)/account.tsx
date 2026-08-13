@@ -86,6 +86,17 @@ export default function AccountScreen() {
   });
   const myOrdersCount = myOrdersData?.orders?.length || 0;
 
+  const { data: referralSummary } = useQuery<{
+    availableBalance: number;
+    totalReferrals: number;
+    successfulReferrals: number;
+  }>({
+    queryKey: ['referral-summary', user?.email],
+    queryFn: () => api.get('/api/referral/summary').then((r) => r.data).catch(() => ({ availableBalance: 0, totalReferrals: 0, successfulReferrals: 0 })),
+    enabled: !!user,
+  });
+  const availableRewardBalance = Number(referralSummary?.availableBalance ?? 0);
+
   const handleRaiseTicket = async () => {
     if (!newTicketConcern.trim()) {
       Alert.alert('Support Ticket', 'Please describe your concern before submitting.');
@@ -295,9 +306,10 @@ export default function AccountScreen() {
         {/* User Role Badge & Star Rating */}
         {(() => {
           const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
+          const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? 5;
           const starCount = isSuperAdmin
             ? 6
-            : Math.min(5, Math.max(1, typeof user.starRating === 'number' ? user.starRating : Number(user.starRating) || 5));
+            : Math.min(5, Math.max(1, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) || 5));
 
           if (isSuperAdmin) {
             return (
@@ -307,22 +319,7 @@ export default function AccountScreen() {
                     <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
                   ))}
                 </View>
-                <Text style={styles.roleBadgeLabelSuper}>👑 Super Admin (6 Gold Stars)</Text>
-              </View>
-            );
-          }
-
-          if (user.role !== 'customer') {
-            return (
-              <View style={styles.roleBadgeWrapper}>
-                <View style={styles.staffStarsRow}>
-                  {Array.from({ length: starCount }, (_, i) => (
-                    <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
-                  ))}
-                </View>
-                <Text style={styles.roleBadgeLabelStaff}>
-                  🛡️ {user.customTitle || 'Staff Member'} ({starCount} Gold Stars)
-                </Text>
+                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '900', marginTop: 4 }}>🛡️ Master Admin Control</Text>
               </View>
             );
           }
@@ -330,7 +327,7 @@ export default function AccountScreen() {
           return (
             <View style={styles.customerStarsPill}>
               <Text style={{ color: '#34d399', fontWeight: '900', fontSize: 13 }}>
-                ⭐ {user.customerStars || 5} VIP Loyalty Stars
+                ⭐ {(user as any).customerStars || (user as any).starRating || 5} VIP Loyalty Stars
               </Text>
             </View>
           );
@@ -376,7 +373,9 @@ export default function AccountScreen() {
           onPress={() => router.push('/(tabs)/referrals')}
         >
           <Text style={{ fontSize: 22 }}>🎁</Text>
-          <Text style={[styles.metricNumber, { color: '#10b981' }]}>₹50</Text>
+          <Text style={[styles.metricNumber, { color: '#10b981' }]}>
+            ₹{availableRewardBalance}
+          </Text>
           <Text style={[styles.metricLabel, { color: mutedColor }]}>Cash Rewards</Text>
         </TouchableOpacity>
 
@@ -1098,7 +1097,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justify: 'flex-end',
+    justifyContent: 'flex-end',
   },
   modalContentCard: {
     borderTopLeftRadius: 24,

@@ -404,9 +404,9 @@ export function AdminLiveChatView({
                           {m.senderName || (isCustomer ? 'Customer' : isSupport ? 'Support Rep' : 'Lakshmi Bot')}
                         </Text>
                         {isCustomer ? (
-                          (m.senderMeta?.customerStars ?? 0) > 0 && (
+                          ((m.senderMeta as any)?.customerStars ?? m.senderMeta?.starRating ?? 0) > 0 && (
                             <View style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-                              <Text style={{ color: '#60a5fa', fontSize: 9, fontWeight: '900' }}>★ {m.senderMeta?.customerStars} Stars</Text>
+                              <Text style={{ color: '#60a5fa', fontSize: 9, fontWeight: '900' }}>★ {(m.senderMeta as any)?.customerStars ?? m.senderMeta?.starRating} Stars</Text>
                             </View>
                           )
                         ) : (

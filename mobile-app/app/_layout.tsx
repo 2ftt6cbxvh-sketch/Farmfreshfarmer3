@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { LakshmiAiBot } from '../components/LaxshmiAiBot';
 import { IntroSplash } from '../components/IntroSplash';
+import { api } from '../lib/api';
 
 const queryClient = new QueryClient({
   defaultOptions: {

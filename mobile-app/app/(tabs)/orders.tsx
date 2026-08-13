@@ -47,6 +47,7 @@ function OrderCard({ order, isDark }: { order: Order; isDark: boolean }) {
   const [reason, setReason] = useState('Damaged or Spoiled Perishables');
   const [comments, setComments] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);

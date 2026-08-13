@@ -22,7 +22,7 @@ import { PaymentSuccess, PaymentFailure } from "@/pages/PaymentResult";
 import MySubscriptions from "@/pages/MySubscriptions";
 import MyReferrals from "@/pages/MyReferrals";
 import Account from "@/pages/Account";
-import { TermsPage, PrivacyPage, RefundPage, ShippingPage, GrievancePage } from "@/pages/LegalPages";
+import { TermsPage, PrivacyPage, RefundPage, ReturnPage, ShippingPage, GrievancePage } from "@/pages/LegalPages";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminCategories from "@/pages/admin/AdminCategories";
@@ -53,8 +53,25 @@ import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
 import DeliveryPartnerLogin from "@/pages/DeliveryPartnerLogin";
 import ForgotPassword from "@/pages/ForgotPassword";
 import NotFound from "@/pages/not-found";
+import { useEffect } from "react";
 
 function AppRouter() {
+  const [, setLocation] = useLocation();
+
+  // Support legacy hash links submitted to PhonePe like https://farmfreshfarmer.com/#/privacy or #/terms
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#/')) {
+        const cleanPath = hash.substring(1); // e.g. /privacy or /terms
+        setLocation(cleanPath);
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, [setLocation]);
+
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -72,11 +89,33 @@ function AppRouter() {
       <Route path="/account/subscriptions" component={MySubscriptions} />
       <Route path="/account/referrals" component={MyReferrals} />
       <Route path="/account" component={Account} />
+
+      {/* Legal & Policy Pages for Merchant Onboarding & Public Access */}
       <Route path="/terms" component={TermsPage} />
+      <Route path="/terms-and-conditions" component={TermsPage} />
+      <Route path="/terms-conditions" component={TermsPage} />
+
       <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/privacy-policy" component={PrivacyPage} />
+
       <Route path="/refund-policy" component={RefundPage} />
+      <Route path="/cancellation-refund-policy" component={RefundPage} />
+      <Route path="/cancellation-policy" component={RefundPage} />
+      <Route path="/refund" component={RefundPage} />
+
+      <Route path="/return-policy" component={ReturnPage} />
+      <Route path="/return_policy" component={ReturnPage} />
+      <Route path="/returns" component={ReturnPage} />
+
       <Route path="/shipping-policy" component={ShippingPage} />
+      <Route path="/shipping_policy" component={ShippingPage} />
+      <Route path="/shipping" component={ShippingPage} />
+      <Route path="/delivery-policy" component={ShippingPage} />
+
       <Route path="/grievance" component={GrievancePage} />
+      <Route path="/grievance-policy" component={GrievancePage} />
+      <Route path="/contact" component={GrievancePage} />
+      <Route path="/contact-us" component={GrievancePage} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/live-chat" component={AdminLiveChat} />

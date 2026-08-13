@@ -8,6 +8,7 @@ const LEGAL_NAV_ITEMS = [
   { href: "/terms", label: "📜 Terms & Conditions" },
   { href: "/privacy", label: "🔒 Privacy Policy" },
   { href: "/refund-policy", label: "💸 Refund & Cancellation" },
+  { href: "/return-policy", label: "📦 Return Policy" },
   { href: "/shipping-policy", label: "🚚 Shipping & Delivery" },
   { href: "/grievance", label: "⚖️ Grievance Redressal" },
 ];
@@ -206,6 +207,7 @@ export function PrivacyPage() {
     },
   });
 
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
   const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
   const complaintResolveDays = publicSettings?.complaint_resolve_days || "30";
 
@@ -312,6 +314,59 @@ export function RefundPage() {
         <li>Inherent natural variations in farm produce</li>
         <li>Claims reported after the {returnHours}-hour window OR without photographic proof.</li>
       </ul>
+    </PolicyShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Return Policy                                                   */
+/* ------------------------------------------------------------------ */
+export function ReturnPage() {
+  const { data: publicSettings } = useQuery<PublicSettings>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      return res.json();
+    },
+  });
+
+  const business = publicSettings?.store_name || "FarmFreshFarmer";
+  const returnHours = publicSettings?.return_window_hours || "4";
+  const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
+  const phone = publicSettings?.contact_phone || "+91 79897 93669";
+
+  return (
+    <PolicyShell title="Return Policy">
+      <p>
+        At {business}, we take utmost pride in delivering farm-fresh produce and artisanal groceries directly to your doorstep. Due to the perishable nature of fresh fruits, vegetables, and homemade perishables, our return policy is crafted to protect product safety and freshness.
+      </p>
+
+      <H2>1. Perishable Items (Fruits, Vegetables, Dairy, Sweets & Pickles)</H2>
+      <p>
+        Perishable goods cannot be returned once accepted at delivery due to health and safety standards. However, if you receive items that are damaged, spoiled, or incorrect:
+      </p>
+      <ul className="list-disc pl-6 space-y-1">
+        <li>Report the issue within <strong>{returnHours} hours</strong> of delivery.</li>
+        <li>Provide clear photographic proof of the damaged or defective item via WhatsApp ({phone}), app/web support, or email ({email}).</li>
+        <li>Once verified, we will immediately initiate a <strong>free replacement delivery</strong> or a <strong>100% refund</strong> for the affected item.</li>
+      </ul>
+
+      <H2>2. Non-Perishable Goods & Packaged Goods</H2>
+      <p>
+        Unopened, undamaged packaged goods (such as dry millets, pulses, spices, and sealed gourmet jars) can be returned within 48 hours of delivery if the original tamper-evident seal is intact.
+      </p>
+
+      <H2>3. How to Request a Return or Replacement</H2>
+      <ol className="list-decimal pl-6 space-y-1">
+        <li>Navigate to your <strong>My Orders</strong> section on the website or mobile app.</li>
+        <li>Select the order and tap <strong>Request Refund / Return</strong>.</li>
+        <li>Upload a photo proof of the damaged product and submit your request. Alternatively, contact support directly at {phone}.</li>
+      </ol>
+
+      <H2>4. Return Pickups</H2>
+      <p>
+        For approved returns of non-perishable goods, our delivery agent will collect the item from your registered address at zero additional cost.
+      </p>
     </PolicyShell>
   );
 }
