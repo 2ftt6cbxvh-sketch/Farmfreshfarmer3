@@ -40,12 +40,12 @@ const getCategoryEmoji = (slug?: string, name?: string): string => {
   const s = (slug || '').toLowerCase();
   const n = (name || '').toLowerCase();
   
+  if (s.includes('pickle-nonveg') || s.includes('non-veg') || n.includes('non-veg') || n.includes('non veg')) return '🍗';
+  if (s.includes('pickle') || n.includes('pickle')) return '🥒';
   if (s.includes('fruit') || n.includes('fruit')) return '🍎';
   if (s.includes('veg') || n.includes('veg')) return '🥦';
   if (s.includes('sweet') || n.includes('sweet')) return '🍬';
   if (s.includes('namkeen') || s.includes('snack') || n.includes('namkeen')) return '🥨';
-  if (s.includes('pickle-nonveg') || n.includes('non-veg')) return '🍗';
-  if (s.includes('pickle') || n.includes('pickle')) return '🏺';
   if (s.includes('millet') || n.includes('millet')) return '🌾';
   if (s.includes('pulse') || s.includes('grain') || n.includes('pulse')) return '🫘';
   if (s.includes('spice') || n.includes('spice')) return '🌶️';
