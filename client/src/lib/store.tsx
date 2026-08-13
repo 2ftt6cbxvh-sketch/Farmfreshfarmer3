@@ -73,8 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 4000);
-    return () => clearInterval(interval);
   }, []);
 
   async function login(email: string, password: string) {

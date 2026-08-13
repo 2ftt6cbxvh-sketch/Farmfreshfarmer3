@@ -33,8 +33,8 @@ export function Layout({ children }: { children: ReactNode }) {
       <DeliveryBanner />
       <Header />
       {showFreeDeliveryBar && <FreeDeliveryBar />}
-      {/* 3D Parallax Page Transition Wrapper */}
-      <main key={location} className="flex-1 animate-page-enter-3d">
+      {/* Smooth Page Content Container */}
+      <main key={location} className="flex-1 transition-opacity duration-200">
         {children}
       </main>
       <Footer />

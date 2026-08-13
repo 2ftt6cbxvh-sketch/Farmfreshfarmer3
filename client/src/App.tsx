@@ -184,7 +184,7 @@ function AppContent() {
       }
     };
     checkLockdown();
-    const interval = setInterval(checkLockdown, 5000); // poll every 5s for fast Telegram response
+    const interval = setInterval(checkLockdown, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -212,7 +212,7 @@ function AppContent() {
         <AuthProvider>
           <CartProvider>
             <Toaster />
-            <Router hook={useHashLocation}>
+            <Router>
               <ScrollToTop />
               <AppRouter />
             </Router>

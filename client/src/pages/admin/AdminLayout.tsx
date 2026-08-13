@@ -422,7 +422,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           </button>
         </header>
 
-        <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden animate-page-enter-3d">
+        <main key={location} className="flex-1 p-4 sm:p-6 overflow-x-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-3 border-b border-card-border">
             <h1 className="font-serif text-xl font-bold">{title}</h1>
             <a
