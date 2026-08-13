@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /terms
+Allow: /privacy
+Allow: /refund-policy
+Allow: /return-policy
+Allow: /shipping-policy
+Allow: /grievance
+
+Sitemap: https://www.farmfreshfarmer.com/sitemap.xml
