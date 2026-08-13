@@ -10,6 +10,7 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.84, 340);
@@ -66,11 +67,12 @@ export function AnimatedSideMenu({
   router,
   cartCount,
 }: AnimatedSideMenuProps) {
+  const insets = useSafeAreaInsets();
   const [modalRendered, setModalRendered] = useState(false);
 
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const panelTranslateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
-  const panelScale = useRef(new Animated.Value(0.95)).current;
+  const panelScale = useRef(new Animated.Value(0.96)).current;
 
   useEffect(() => {
     if (visible) {
@@ -100,17 +102,17 @@ export function AnimatedSideMenu({
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 220,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.timing(panelTranslateX, {
           toValue: -DRAWER_WIDTH,
-          duration: 220,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.timing(panelScale, {
-          toValue: 0.95,
-          duration: 220,
+          toValue: 0.96,
+          duration: 200,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -123,17 +125,17 @@ export function AnimatedSideMenu({
     Animated.parallel([
       Animated.timing(backdropOpacity, {
         toValue: 0,
-        duration: 200,
+        duration: 180,
         useNativeDriver: true,
       }),
       Animated.timing(panelTranslateX, {
         toValue: -DRAWER_WIDTH,
-        duration: 200,
+        duration: 180,
         useNativeDriver: true,
       }),
       Animated.timing(panelScale, {
-        toValue: 0.95,
-        duration: 200,
+        toValue: 0.96,
+        duration: 180,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -144,10 +146,14 @@ export function AnimatedSideMenu({
 
   if (!modalRendered) return null;
 
-  const cardBg = isDark ? '#080d0a' : '#ffffff';
+  // Solid, non-transparent theme tokens
+  const panelBg = isDark ? '#091510' : '#ffffff';
   const textColor = isDark ? '#f8fafc' : '#0f172a';
   const mutedColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
+  const borderCol = isDark ? 'rgba(52, 211, 153, 0.25)' : '#e2e8f0';
+
+  const tileBg = isDark ? '#0e221b' : '#f8fafc';
+  const activeTileBg = isDark ? '#14382c' : '#e6f4ea';
 
   const userStars = user?.starRating || user?.stars || 5;
   const isAdminOrStaff = user?.role === 'admin' || user?.isPrimaryAdmin;
@@ -165,13 +171,14 @@ export function AnimatedSideMenu({
           />
         </TouchableWithoutFeedback>
 
-        {/* Sliding Side Drawer Panel */}
+        {/* Solid Side Drawer Panel */}
         <Animated.View
           style={[
             styles.drawerPanel,
             {
-              backgroundColor: cardBg,
-              borderColor: borderCol,
+              backgroundColor: panelBg,
+              borderRightColor: borderCol,
+              paddingTop: Math.max(insets.top + 8, 44),
               transform: [{ translateX: panelTranslateX }, { scale: panelScale }],
             },
           ]}
@@ -190,10 +197,10 @@ export function AnimatedSideMenu({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 24, 32) }]}>
             {/* User Profile & Loyalty Badge */}
             {user ? (
-              <View style={[styles.userCard, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+              <View style={[styles.userCard, { backgroundColor: isDark ? '#0e2c22' : '#e6f4ea', borderColor: '#10b981' }]}>
                 <Text style={{ fontSize: 20 }}>{isAdminOrStaff ? '🛡️' : '👑'}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.userName, { color: textColor }]}>{user.name || 'Valued Customer'}</Text>
@@ -214,12 +221,12 @@ export function AnimatedSideMenu({
               </TouchableOpacity>
             )}
 
-            {/* Quick Actions Grid */}
+            {/* Quick Navigation Section */}
             <Text style={[styles.sectionHeading, { color: mutedColor }]}>QUICK NAVIGATION</Text>
             
             <View style={styles.quickGrid}>
               <TouchableOpacity
-                style={[styles.quickTile, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: borderCol }]}
+                style={[styles.quickTile, { backgroundColor: tileBg, borderColor: borderCol }]}
                 onPress={() => {
                   handleClose();
                   router.push('/(tabs)/basket');
@@ -230,7 +237,7 @@ export function AnimatedSideMenu({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickTile, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc', borderColor: borderCol }]}
+                style={[styles.quickTile, { backgroundColor: tileBg, borderColor: borderCol }]}
                 onPress={() => {
                   handleClose();
                   onOpenPincodeModal();
@@ -243,17 +250,17 @@ export function AnimatedSideMenu({
 
             {isAdminOrStaff && (
               <TouchableOpacity
-                style={[styles.adminTile, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)' }]}
+                style={[styles.adminTile, { backgroundColor: isDark ? '#271b05' : '#fef3c7', borderColor: '#f59e0b' }]}
                 onPress={() => {
                   handleClose();
                   router.push('/admin');
                 }}
               >
                 <Text style={{ fontSize: 18 }}>🛡️</Text>
-                <Text style={{ color: '#f59e0b', fontWeight: '900', fontSize: 13, flex: 1 }}>
+                <Text style={{ color: '#d97706', fontWeight: '900', fontSize: 13, flex: 1 }}>
                   {user?.isPrimaryAdmin ? 'Master Admin Control' : 'Sub-Admin Reconsiderations ↩️'}
                 </Text>
-                <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>→</Text>
+                <Text style={{ color: '#d97706', fontWeight: 'bold' }}>→</Text>
               </TouchableOpacity>
             )}
 
@@ -263,8 +270,7 @@ export function AnimatedSideMenu({
             <TouchableOpacity
               style={[
                 styles.categoryRow,
-                { borderColor: borderCol },
-                !selectedCategory && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5', borderColor: '#10b981' },
+                { backgroundColor: !selectedCategory ? activeTileBg : tileBg, borderColor: !selectedCategory ? '#10b981' : borderCol },
               ]}
               onPress={() => {
                 onSelectCategory(null);
@@ -285,8 +291,7 @@ export function AnimatedSideMenu({
                   key={cat.id}
                   style={[
                     styles.categoryRow,
-                    { borderColor: borderCol },
-                    isSelected && { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5', borderColor: '#10b981' },
+                    { backgroundColor: isSelected ? activeTileBg : tileBg, borderColor: isSelected ? '#10b981' : borderCol },
                   ]}
                   onPress={() => {
                     onSelectCategory(cat.slug);
@@ -305,9 +310,11 @@ export function AnimatedSideMenu({
             {/* Dark Mode & Theme Toggle Footer */}
             <View style={[styles.footerRow, { borderTopColor: borderCol }]}>
               <TouchableOpacity style={styles.themeToggleBtn} onPress={onToggleTheme}>
-                <Text style={{ fontSize: 16 }}>{isDark ? '🌕 Dark Mode' : '☀️ Light Mode'}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                  {isDark ? '🌕 Dark Mode' : '☀️ Light Mode'}
+                </Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v8.7.8</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v8.7.9</Text>
             </View>
           </ScrollView>
         </Animated.View>
@@ -329,11 +336,10 @@ const styles = StyleSheet.create({
     width: DRAWER_WIDTH,
     borderRightWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 12,
-    paddingTop: 48,
+    elevation: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -366,7 +372,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
   },
   userCard: {
     flexDirection: 'row',
