@@ -140,7 +140,7 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
     if (!ctx) return res.status(401).json({ message: "Authentication required" });
 
     const { partner } = ctx;
-    const orderId = parseInt(req.params.id, 10);
+    const orderId = parseInt(String(req.params.id), 10);
     if (isNaN(orderId)) return res.status(400).json({ message: "Invalid order ID" });
 
     try {
@@ -178,7 +178,7 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
     if (!ctx) return res.status(401).json({ message: "Authentication required" });
 
     const { partner } = ctx;
-    const orderId = parseInt(req.params.id, 10);
+    const orderId = parseInt(String(req.params.id), 10);
     const { status } = req.body || {}; // 'Packed' | 'Out for delivery' | 'Delivered'
 
     if (!["Packed", "Out for delivery", "Delivered"].includes(status)) {

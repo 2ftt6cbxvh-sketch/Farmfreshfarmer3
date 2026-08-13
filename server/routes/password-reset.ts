@@ -99,6 +99,8 @@ export function registerPasswordResetRoutes(app: Express) {
 
     await db.insert(otpCodes).values({
       userId: user.id,
+      phone: user.phone || user.email,
+      purpose: "reset",
       codeHash,
       expiresAt,
     });

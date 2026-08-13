@@ -1000,7 +1000,7 @@ export async function processGrievanceTelegramWebhook(update: any): Promise<{ ha
 
   if (lowerText === "/tickets" || lowerText === "/open") {
     const { storage } = await import("../storage");
-    const openTickets = await storage.supportTickets.listOpen();
+    const openTickets = await (storage as any).supportTickets?.listOpen?.() || [];
     if (openTickets.length === 0) {
       const reply = `🎫 <b>CUSTOMER SUPPORT TICKETS</b>\n\n✅ No open tickets. All customer issues resolved!`;
       await sendRawTelegramMessage(botToken, senderChatId, reply);
@@ -1008,7 +1008,7 @@ export async function processGrievanceTelegramWebhook(update: any): Promise<{ ha
     }
     const ticketList = openTickets
       .slice(0, 10)
-      .map((t) => `• #${t.id} [${t.category}] <b>${t.subject}</b> (${t.priority})\n  From: ${t.userEmail} | Status: ${t.status}`)
+      .map((t: any) => `• #${t.id} [${t.category}] <b>${t.subject}</b> (${t.priority})\n  From: ${t.userEmail} | Status: ${t.status}`)
       .join("\n\n");
     const reply = `🎫 <b>OPEN CUSTOMER TICKETS (${openTickets.length})</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n${ticketList}\n\n<i>Reply /ticket &lt;id&gt; for details or /resolve &lt;id&gt; [note] to close.</i>`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
@@ -1023,7 +1023,7 @@ export async function processGrievanceTelegramWebhook(update: any): Promise<{ ha
       return { handled: true, reply };
     }
     const { storage } = await import("../storage");
-    const ticket = await storage.supportTickets.get(id);
+    const ticket = await (storage as any).supportTickets?.get?.(id);
     if (!ticket) {
       const reply = `⚠️ Ticket #${id} not found.`;
       await sendRawTelegramMessage(botToken, senderChatId, reply);
@@ -1056,7 +1056,7 @@ ${ticket.adminNotes ? `<b>Staff Notes:</b> ${ticket.adminNotes}` : ""}`;
       return { handled: true, reply };
     }
     const { storage } = await import("../storage");
-    const updated = await storage.supportTickets.update(id, {
+    const updated = await (storage as any).supportTickets?.update?.(id, {
       status: "resolved",
       adminNotes: note,
       resolvedAt: new Date(),

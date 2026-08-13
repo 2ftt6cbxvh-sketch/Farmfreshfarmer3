@@ -222,8 +222,8 @@ export function registerTicketRoutes(app: Express) {
       const ticketNum = Math.floor(1000 + Math.random() * 9000);
       const ticketId = `RFD-${Date.now().toString().slice(-4)}${ticketNum}`;
       const nameToUse = String(customerName || order.customerName || 'Customer').trim();
-      const phoneToUse = String(customerPhone || order.customerPhone || '').trim();
-      const emailToUse = String(customerEmail || order.customerEmail || '').trim().toLowerCase();
+      const phoneToUse = String(customerPhone || order.phone || '').trim();
+      const emailToUse = String(customerEmail || (order as any).email || '').trim().toLowerCase();
       const amountToRefund = String(refundAmount || order.total || order.subtotal || '0.00');
 
       const [newTicket] = await db.insert(supportTickets).values({

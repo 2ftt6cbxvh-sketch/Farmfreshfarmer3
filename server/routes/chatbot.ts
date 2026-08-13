@@ -997,13 +997,13 @@ function resolveCartQty(
             : [];
           const productMap = new Map(allProductsList.map((p: any) => [p.id, p]));
 
-          function getGSTRate(categorySlug: string): number {
+          const getGSTRate = (categorySlug: string): number => {
             const slug = (categorySlug || '').toLowerCase();
             if (/pickle|avakaya|achar/.test(slug)) return 5;
             if (/sweet|laddu|halwa|mithai/.test(slug)) return 5;
             if (/namkeen|snack/.test(slug)) return 12;
             return 0;
-          }
+          };
 
           let subtotalBeforeGST = 0;
           let totalGST = 0;

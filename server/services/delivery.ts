@@ -221,7 +221,7 @@ export async function resolveByPincode(pincode: string | null | undefined, userI
   }
 
   const [pcRow] = await db.select().from(warehousePincodes)
-    .where(and(eq(warehousePincodes.pincode, pincode), eq(warehousePincodes.active, true))).limit(1);
+    .where(and(eq(warehousePincodes.pincode, cleanPin), eq(warehousePincodes.active, true))).limit(1);
 
   let warehouse;
   let packingTimeMinutes = 30;
@@ -230,8 +230,8 @@ export async function resolveByPincode(pincode: string | null | undefined, userI
     const [wh] = await db.select().from(warehouses)
       .where(and(eq(warehouses.id, pcRow.warehouseId), eq(warehouses.active, true))).limit(1);
     if (!wh) {
-      await logResolution({ userId, pincode, serviceable: false });
-      return { serviceable: false, fee: 0, etaMinutes: 0, pincode, locationArea: geo.areaName, reason: "Assigned warehouse is currently inactive" };
+      await logResolution({ userId, pincode: cleanPin, serviceable: false });
+      return { serviceable: false, fee: 0, etaMinutes: 0, pincode: cleanPin, locationArea: geo.areaName || undefined, reason: "Assigned warehouse is currently inactive" };
     }
     warehouse = wh;
     packingTimeMinutes = pcRow.packingTimeMinutes || 30;
@@ -251,14 +251,14 @@ export async function resolveByPincode(pincode: string | null | undefined, userI
   const whLng = parseFloat(warehouse.longitude);
   const distanceKm = haversineDistanceKm(whLat, whLng, geo.lat, geo.lng);
 
-  const maxRadiusKm = parseFloat(warehouse.maxRadiusKm || 30);
+  const maxRadiusKm = parseFloat(String(warehouse.maxRadiusKm || 30));
   if (distanceKm > maxRadiusKm) {
     return {
       serviceable: false,
       fee: 0,
       etaMinutes: 0,
-      pincode,
-      locationArea: geo.areaName,
+      pincode: cleanPin,
+      locationArea: geo.areaName || undefined,
       maxRadiusKm,
       reason: `Location is ${Math.round(distanceKm)}km away. Exceeds warehouse deliverable radius of ${maxRadiusKm}km`
     };
@@ -271,7 +271,7 @@ export async function resolveByPincode(pincode: string | null | undefined, userI
   const etaMinutes = Math.max(30, packingTimeMinutes + travelTimeMinutes);
   const { fee, freeDeliveryAbove } = await calculateFee(distanceKm, orderValue);
 
-  await logResolution({ userId, pincode, serviceable: true, resolvedWarehouseId: warehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
+  await logResolution({ userId, pincode: cleanPin, serviceable: true, resolvedWarehouseId: warehouse.id, calculatedFee: fee, calculatedTimeMinutes: etaMinutes });
 
   return {
     serviceable: true,
@@ -364,7 +364,7 @@ export async function resolveByCoords(lat: number, lng: number, userId?: number,
     if (d < minDistance) { minDistance = d; nearestWarehouse = wh; }
   }
 
-  const maxRange = parseFloat(nearestWarehouse.maxRadiusKm || 30);
+  const maxRange = parseFloat(String(nearestWarehouse.maxRadiusKm || 30));
   if (minDistance > maxRange) {
     const distanceKm = Math.round(minDistance * 10) / 10;
     await logResolution({ userId, latitude: lat, longitude: lng, serviceable: false, resolvedWarehouseId: nearestWarehouse.id });
