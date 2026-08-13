@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   similarCardLight: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
   similarCardDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
   cardTopAccent: { height: 3, width: '100%', backgroundColor: '#10b981' },
-  similarImageWrapper: { width: '100%', height: 110, position: 'relative', overflow: 'hidden', backgroundColor: '#f1f5f9' },
+  similarImageWrapper: { width: '100%', height: 110, position: 'relative', overflow: 'hidden', backgroundColor: '#091510' },
   similarImage: { width: '100%', height: 110 },
   discountBadge: {
     position: 'absolute',

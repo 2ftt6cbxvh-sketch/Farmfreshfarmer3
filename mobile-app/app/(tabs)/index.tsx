@@ -51,6 +51,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
   const removeItem = useCartStore((state) => state.removeItem);
 
   const [localQty, setLocalQty] = useState(1);
+  const [imgFailed, setImgFailed] = useState(false);
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent || '0');
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
@@ -105,12 +106,18 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
       >
         <View style={styles.cardTopAccent} />
 
-        <View style={styles.imageWrapper}>
-          {product.image ? (
-            <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.productImage} resizeMode="cover" />
+        <View style={[styles.imageWrapper, isDark && { backgroundColor: '#091510' }]}>
+          {product.image && !imgFailed ? (
+            <Image
+              source={{ uri: resolveImgUrl(product.image) }}
+              style={styles.productImage}
+              resizeMode="cover"
+              onError={() => setImgFailed(true)}
+            />
           ) : (
-            <View style={[styles.productImage, styles.productImagePlaceholder]}>
+            <View style={[styles.productImage, styles.productImagePlaceholder, isDark && { backgroundColor: '#091510' }]}>
               <Text style={{ fontSize: 32 }}>🌱</Text>
+              <Text style={{ fontSize: 9, fontWeight: '800', color: '#10b981', marginTop: 2 }}>Farm Fresh</Text>
             </View>
           )}
 
@@ -1271,9 +1278,9 @@ const styles = StyleSheet.create({
   productCardDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
   cardTopAccent: { height: 3, width: '100%', backgroundColor: '#10b981' },
 
-  imageWrapper: { width: '100%', height: 130, position: 'relative', overflow: 'hidden', backgroundColor: '#f1f5f9' },
+  imageWrapper: { width: '100%', height: 130, position: 'relative', overflow: 'hidden', backgroundColor: '#091510' },
   productImage: { width: '100%', height: 130 },
-  productImagePlaceholder: { backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
+  productImagePlaceholder: { backgroundColor: '#091510', alignItems: 'center', justifyContent: 'center' },
   discountBadge: {
     position: 'absolute',
     top: 8,
