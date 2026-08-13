@@ -14,16 +14,16 @@ function LegalSubNav() {
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 border-b border-card-border/80 no-scrollbar">
       {LEGAL_NAV_ITEMS.map((item) => (
-        <Link key={item.href} href={item.href}>
-          <a
-            className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-              location === item.href
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {item.label}
-          </a>
+        <Link
+          key={item.href}
+          href={item.href}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+            location === item.href
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {item.label}
         </Link>
       ))}
     </div>
