@@ -184,11 +184,11 @@ export function PrivacyPage() {
 
       <div className="border-t border-card-border pt-4 mt-6 space-y-2 text-sm">
         <h3 className="font-bold text-foreground text-base">Grievance Officer</h3>
-        <p>Insert Name of the Office:</p>
-        <p>Designation:</p>
-        <p>Insert Name and Address of the Company: FarmFreshFarmer, Vijayawada , Andhra Pradesh</p>
-        <p className="pt-2">Contact us:</p>
-        <p>Phone: Time: Monday - Friday(9:00 - 18:00)</p>
+        <p><strong>Name of the Officer:</strong> PTV Ramachandra Raju</p>
+        <p><strong>Designation:</strong> Grievance Officer</p>
+        <p><strong>Name and Address of the Company:</strong> FarmFreshFarmer, Vijayawada, Andhra Pradesh</p>
+        <p className="pt-2"><strong>Contact us:</strong></p>
+        <p><strong>Phone:</strong> +91 79 89 79 3669 &nbsp;|&nbsp; <strong>Time:</strong> Monday - Friday(9:00 - 18:00)</p>
       </div>
 
       {/* ── 🤖 SEPARATE LAKSHMI AI & PROFILE DATA PRIVACY SECTION ────────── */}
@@ -295,11 +295,11 @@ export function GrievancePage() {
     <PolicyShell title="Grievance Redressal">
       <div className="border border-card-border rounded-xl p-5 space-y-2">
         <h3 className="font-bold text-foreground text-base">Grievance Officer</h3>
-        <p>Insert Name of the Office:</p>
-        <p>Designation:</p>
-        <p>Insert Name and Address of the Company: FarmFreshFarmer, Vijayawada , Andhra Pradesh</p>
-        <p className="pt-2">Contact us:</p>
-        <p>Phone: Time: Monday - Friday(9:00 - 18:00)</p>
+        <p><strong>Name of the Officer:</strong> PTV Ramachandra Raju</p>
+        <p><strong>Designation:</strong> Grievance Officer</p>
+        <p><strong>Name and Address of the Company:</strong> FarmFreshFarmer, Vijayawada, Andhra Pradesh</p>
+        <p className="pt-2"><strong>Contact us:</strong></p>
+        <p><strong>Phone:</strong> +91 79 89 79 3669 &nbsp;|&nbsp; <strong>Time:</strong> Monday - Friday(9:00 - 18:00)</p>
       </div>
     </PolicyShell>
   );
