@@ -80,9 +80,9 @@ export const routesReadyPromise = (async () => {
     return res.status(status).json({ message });
   });
 
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL !== "1") {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL === "1") {
     serveStatic(app);
-  } else if (process.env.NODE_ENV !== "production") {
+  } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }

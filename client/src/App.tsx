@@ -91,27 +91,33 @@ function AppRouter() {
 
       {/* Legal & Policy Pages for Merchant Onboarding & Public Access */}
       <Route path="/terms" component={TermsPage} />
+      <Route path="/terms/" component={TermsPage} />
       <Route path="/terms-and-conditions" component={TermsPage} />
       <Route path="/terms-conditions" component={TermsPage} />
 
       <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/privacy/" component={PrivacyPage} />
       <Route path="/privacy-policy" component={PrivacyPage} />
 
       <Route path="/refund-policy" component={RefundPage} />
+      <Route path="/refund-policy/" component={RefundPage} />
       <Route path="/cancellation-refund-policy" component={RefundPage} />
       <Route path="/cancellation-policy" component={RefundPage} />
       <Route path="/refund" component={RefundPage} />
 
       <Route path="/return-policy" component={ReturnPage} />
+      <Route path="/return-policy/" component={ReturnPage} />
       <Route path="/return_policy" component={ReturnPage} />
       <Route path="/returns" component={ReturnPage} />
 
       <Route path="/shipping-policy" component={ShippingPage} />
+      <Route path="/shipping-policy/" component={ShippingPage} />
       <Route path="/shipping_policy" component={ShippingPage} />
       <Route path="/shipping" component={ShippingPage} />
       <Route path="/delivery-policy" component={ShippingPage} />
 
       <Route path="/grievance" component={GrievancePage} />
+      <Route path="/grievance/" component={GrievancePage} />
       <Route path="/grievance-policy" component={GrievancePage} />
       <Route path="/contact" component={GrievancePage} />
       <Route path="/contact-us" component={GrievancePage} />
