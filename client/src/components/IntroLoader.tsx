@@ -3,16 +3,26 @@ import { imgUrl } from "@/lib/queryClient";
 
 export function IntroLoader() {
   const [visible, setVisible] = useState(() => {
-    // Check prefers-reduced-motion accessibility setting
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return false;
-    }
-    
-    // Check if intro was played in the last 5 minutes of session
-    if (typeof window !== "undefined" && window.sessionStorage) {
-      const lastPlayed = sessionStorage.getItem("last_logo_intro_time");
-      if (lastPlayed && Date.now() - Number(lastPlayed) < 5 * 60 * 1000) {
+    if (typeof window !== "undefined") {
+      const path = (window.location.pathname + window.location.hash).toLowerCase();
+      if (
+        path.includes("terms") ||
+        path.includes("privacy") ||
+        path.includes("refund") ||
+        path.includes("return") ||
+        path.includes("shipping") ||
+        path.includes("grievance")
+      ) {
         return false;
+      }
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return false;
+      }
+      if (window.sessionStorage) {
+        const lastPlayed = sessionStorage.getItem("last_logo_intro_time");
+        if (lastPlayed && Date.now() - Number(lastPlayed) < 5 * 60 * 1000) {
+          return false;
+        }
       }
     }
     return true;

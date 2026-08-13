@@ -5,7 +5,7 @@
   "functions": {
     "api/index.ts": {
       "maxDuration": 60,
-      "includeFiles": "dist/index.cjs"
+      "includeFiles": "dist/**"
     }
   },
   "headers": [

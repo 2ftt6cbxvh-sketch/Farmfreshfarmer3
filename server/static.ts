@@ -4,16 +4,18 @@ import fs from "node:fs";
 import path from "node:path";
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
+  const possiblePaths = [
+    path.resolve(process.cwd(), "dist/public"),
+    path.resolve(__dirname, "public"),
+    path.resolve(__dirname, "../public"),
+    path.resolve(process.cwd(), "public"),
+  ];
+
+  let distPath = possiblePaths.find((p) => fs.existsSync(p)) || path.resolve(process.cwd(), "dist/public");
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
+  // fall through to index.html for all client-side SPA routes
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith("/api") || req.originalUrl.startsWith("/health")) {
       return next();
@@ -23,6 +25,10 @@ export function serveStatic(app: Express) {
       .then(({ notifyWebsiteVisitor }) => notifyWebsiteVisitor(req))
       .catch(() => {});
 
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
   });
 }
