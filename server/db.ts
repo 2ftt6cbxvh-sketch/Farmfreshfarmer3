@@ -75,7 +75,7 @@ export async function runAutoMigrations() {
     console.warn('[db] auto-migration warning:', e?.message);
   }
   try {
-    // Add permissions, is_primary_admin, custom_title, telegram_chat_id, is_verified, star_rating, experience_rank, customer_stars columns to users table if missing
+    // Add permissions, is_primary_admin, custom_title, telegram_chat_id, is_verified, star_rating, experience_rank, customer_stars, profile_photo columns to users table if missing
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)`);
@@ -84,6 +84,7 @@ export async function runAutoMigrations() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INTEGER NOT NULL DEFAULT 5`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) NOT NULL DEFAULT 'Specialist'`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_stars INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT`);
     console.log('[db] auto-migration: users columns ensured');
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);

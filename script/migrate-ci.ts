@@ -10,6 +10,18 @@ async function migrateCi() {
   await db.execute(sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS approval_note TEXT`);
   console.log("[migrate-ci] products table updated");
 
+  // Add columns to users table if missing
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INTEGER NOT NULL DEFAULT 5`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) NOT NULL DEFAULT 'Specialist'`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_stars INTEGER NOT NULL DEFAULT 0`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT`);
+  console.log("[migrate-ci] users table updated");
+
   // Add columns to categories if missing
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) NOT NULL DEFAULT 'approved'`);
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS submitted_by INTEGER`);

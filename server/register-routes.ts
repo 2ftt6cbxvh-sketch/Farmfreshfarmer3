@@ -24,7 +24,7 @@ import session from "express-session";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
-import { db } from "./db";
+import { db, runAutoMigrations } from "./db";
 import { eq, sql } from "drizzle-orm";
 
 // Automatically cap any existing customer stars to maximum of 5 in DB
@@ -135,6 +135,9 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  // Ensure database schema columns are migrated immediately on cold start
+  runAutoMigrations().catch((e) => console.error("[migration] error:", e?.message || e));
+
   // Ensure fresh database is seeded with categories, products & admin user on cold start
   // Seed runs in background — does NOT block route registration or first request
   ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
