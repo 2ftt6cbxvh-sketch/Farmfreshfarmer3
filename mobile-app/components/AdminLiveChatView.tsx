@@ -77,7 +77,7 @@ export function AdminLiveChatView({
   isDark,
 }: AdminLiveChatViewProps) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'waiting' | 'active' | 'missed'>('waiting');
+  const [activeTab, setActiveTab] = useState<'all' | 'waiting' | 'active' | 'closed' | 'missed'>('waiting');
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [replyInput, setReplyInput] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
@@ -85,10 +85,11 @@ export function AdminLiveChatView({
   // Poll live sessions every 3 seconds
   const { data: sessionsData, isLoading: loadingSessions, refetch: refetchSessions } = useQuery<{
     sessions: LiveSession[];
+    counts?: { all: number; waiting: number; active: number; closed: number; bot: number };
   }>({
-    queryKey: ['admin-live-sessions'],
+    queryKey: ['admin-live-sessions', activeTab],
     queryFn: async () => {
-      const res = await api.get('/api/admin/chatbot/live-sessions');
+      const res = await api.get(`/api/admin/chatbot/live-sessions?filter=${activeTab}`);
       return res.data;
     },
     refetchInterval: 3000,
@@ -97,6 +98,7 @@ export function AdminLiveChatView({
   const sessions = sessionsData?.sessions || [];
   const waitingSessions = sessions.filter((s) => s.status === 'waiting_for_agent');
   const activeSessions = sessions.filter((s) => s.status === 'agent_connected');
+  const closedSessions = sessions.filter((s) => s.status === 'closed');
 
   // Poll messages for selected session every 2 seconds
   const { data: messagesData, refetch: refetchMessages } = useQuery<{
@@ -176,11 +178,43 @@ export function AdminLiveChatView({
       return res.data;
     },
     onSuccess: () => {
-      Alert.alert('Session Closed', 'Live support session closed successfully.');
-      setSelectedToken(null);
+      Alert.alert('Session Closed', 'Live support session closed.');
       refetchSessions();
+      refetchMessages();
     },
   });
+
+  // Delete session permanently mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (token: string) => {
+      const res = await api.delete(`/api/admin/chatbot/session/${token}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      Alert.alert('Deleted', 'Chat conversation permanently removed from database.');
+      setSelectedToken(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-live-sessions'] });
+      refetchSessions();
+    },
+    onError: (err: any) => {
+      Alert.alert('Delete Failed', err?.response?.data?.message || 'Could not delete chat session.');
+    },
+  });
+
+  const confirmDelete = (token: string) => {
+    Alert.alert(
+      'Permanently Delete Chat?',
+      'This will remove the chat session and all messages permanently from the database.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(token),
+        },
+      ]
+    );
+  };
 
   const handleSend = () => {
     if (!selectedToken || !replyInput.trim()) return;
@@ -194,7 +228,7 @@ export function AdminLiveChatView({
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: textColor }]}>💬 Live Support Console</Text>
           <Text style={{ fontSize: 11, color: mutedColor }}>
-            Take over customer chats live from your mobile app.
+            Persistent chat history &amp; real-time customer takeover.
           </Text>
         </View>
         <TouchableOpacity
@@ -209,119 +243,60 @@ export function AdminLiveChatView({
       </View>
 
       {/* Segmented Tab Selector */}
-      <View style={[styles.tabBar, { backgroundColor: cardBg, borderColor: borderCol }]}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'waiting' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('waiting')}
-        >
-          <Text style={[styles.tabBtnText, activeTab === 'waiting' && styles.tabBtnTextActive]}>
-            Waiting ({waitingSessions.length})
-          </Text>
-          {waitingSessions.length > 0 && <View style={styles.badgeDot} />}
-        </TouchableOpacity>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+        <View style={[styles.tabBar, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', gap: 6, padding: 4 }]}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'all' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('all')}
+          >
+            <Text style={[styles.tabBtnText, activeTab === 'all' && styles.tabBtnTextActive]}>
+              All ({sessionsData?.counts?.all || sessions.length})
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('active')}
-        >
-          <Text style={[styles.tabBtnText, activeTab === 'active' && styles.tabBtnTextActive]}>
-            Active ({activeSessions.length})
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'waiting' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('waiting')}
+          >
+            <Text style={[styles.tabBtnText, activeTab === 'waiting' && styles.tabBtnTextActive]}>
+              Waiting ({sessionsData?.counts?.waiting ?? waitingSessions.length})
+            </Text>
+            {(sessionsData?.counts?.waiting ?? waitingSessions.length) > 0 && <View style={styles.badgeDot} />}
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'missed' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('missed')}
-        >
-          <Text style={[styles.tabBtnText, activeTab === 'missed' && styles.tabBtnTextActive]}>
-            Missed ({missedData?.queries?.length || 0})
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'active' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('active')}
+          >
+            <Text style={[styles.tabBtnText, activeTab === 'active' && styles.tabBtnTextActive]}>
+              Active ({sessionsData?.counts?.active ?? activeSessions.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'closed' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('closed')}
+          >
+            <Text style={[styles.tabBtnText, activeTab === 'closed' && styles.tabBtnTextActive]}>
+              Closed ({sessionsData?.counts?.closed ?? closedSessions.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'missed' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('missed')}
+          >
+            <Text style={[styles.tabBtnText, activeTab === 'missed' && styles.tabBtnTextActive]}>
+              Missed ({missedData?.queries?.length || 0})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* Content Area */}
       {loadingSessions ? (
         <ActivityIndicator size="large" color="#10b981" style={{ marginVertical: 30 }} />
-      ) : activeTab === 'waiting' ? (
-        waitingSessions.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, alignItems: 'center' }]}>
-            <Ionicons name="checkmark-circle-outline" size={36} color="#10b981" />
-            <Text style={[styles.cardTitle, { color: textColor, marginTop: 6 }]}>All Chats Resolved!</Text>
-            <Text style={{ fontSize: 12, color: mutedColor, textAlign: 'center' }}>
-              No customers currently waiting in the live support queue.
-            </Text>
-          </View>
-        ) : (
-          waitingSessions.map((s) => (
-            <TouchableOpacity
-              key={s.sessionToken}
-              style={[styles.sessionCard, { backgroundColor: cardBg, borderColor: borderCol }]}
-              onPress={() => setSelectedToken(s.sessionToken)}
-            >
-              <View style={styles.sessionHeader}>
-                <Text style={[styles.sessionTokenText, { color: textColor }]}>
-                  {s.sessionToken.substring(0, 16)}...
-                </Text>
-                <View style={styles.tagWaiting}>
-                  <Text style={styles.tagWaitingText}>WAITING</Text>
-                </View>
-              </View>
-
-              <Text style={[styles.messageSnippet, { color: mutedColor }]} numberOfLines={2}>
-                "{s.lastMessage || 'Customer requested live human agent'}"
-              </Text>
-
-              <View style={styles.sessionFooter}>
-                <Text style={{ fontSize: 10, color: mutedColor }}>
-                  Lang: {s.language.toUpperCase()} • {new Date(s.lastActivityAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <TouchableOpacity
-                  style={styles.claimBtn}
-                  onPress={() => claimMutation.mutate(s.sessionToken)}
-                >
-                  <Ionicons name="person-add" size={12} color="#ffffff" />
-                  <Text style={styles.claimBtnText}>Take Over Chat 🟢</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))
-        )
-      ) : activeTab === 'active' ? (
-        activeSessions.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, alignItems: 'center' }]}>
-            <Text style={{ fontSize: 24, marginBottom: 4 }}>💬</Text>
-            <Text style={[styles.cardTitle, { color: textColor }]}>No Active Chats</Text>
-            <Text style={{ fontSize: 12, color: mutedColor, textAlign: 'center' }}>
-              You have no ongoing claimed live sessions right now.
-            </Text>
-          </View>
-        ) : (
-          activeSessions.map((s) => (
-            <TouchableOpacity
-              key={s.sessionToken}
-              style={[styles.sessionCard, { backgroundColor: cardBg, borderColor: borderCol }]}
-              onPress={() => setSelectedToken(s.sessionToken)}
-            >
-              <View style={styles.sessionHeader}>
-                <Text style={[styles.sessionTokenText, { color: textColor }]}>
-                  {s.sessionToken.substring(0, 16)}...
-                </Text>
-                <View style={styles.tagActive}>
-                  <Text style={styles.tagActiveText}>ACTIVE</Text>
-                </View>
-              </View>
-
-              <Text style={[styles.messageSnippet, { color: mutedColor }]} numberOfLines={1}>
-                "{s.lastMessage}"
-              </Text>
-
-              <Text style={{ fontSize: 11, color: '#10b981', fontWeight: 'bold', marginTop: 4 }}>
-                👤 Assigned: {s.assignedAgentName || 'You'}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )
-      ) : (
+      ) : activeTab === 'missed' ? (
         missedData?.queries?.length === 0 ? (
           <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, alignItems: 'center' }]}>
             <Text style={{ fontSize: 24, marginBottom: 4 }}>✅</Text>
@@ -340,6 +315,57 @@ export function AdminLiveChatView({
             </View>
           ))
         )
+      ) : sessions.length === 0 ? (
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol, alignItems: 'center' }]}>
+          <Ionicons name="checkmark-circle-outline" size={36} color="#10b981" />
+          <Text style={[styles.cardTitle, { color: textColor, marginTop: 6 }]}>No Chats in {activeTab.toUpperCase()}</Text>
+          <Text style={{ fontSize: 12, color: mutedColor, textAlign: 'center' }}>
+            No chat sessions currently match this filter.
+          </Text>
+        </View>
+      ) : (
+        sessions.map((s) => (
+          <TouchableOpacity
+            key={s.sessionToken}
+            style={[styles.sessionCard, { backgroundColor: cardBg, borderColor: borderCol }]}
+            onPress={() => setSelectedToken(s.sessionToken)}
+          >
+            <View style={styles.sessionHeader}>
+              <Text style={[styles.sessionTokenText, { color: textColor }]}>
+                {s.customerName || `Customer #${s.sessionToken.substring(0, 10)}`}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={s.status === 'waiting_for_agent' ? styles.tagWaiting : s.status === 'agent_connected' ? styles.tagActive : styles.tagClosed || styles.tagWaiting}>
+                  <Text style={s.status === 'waiting_for_agent' ? styles.tagWaitingText : s.status === 'agent_connected' ? styles.tagActiveText : { color: '#64748b', fontSize: 9, fontWeight: 'bold' }}>
+                    {s.status.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => confirmDelete(s.sessionToken)} style={{ padding: 2 }}>
+                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={[styles.messageSnippet, { color: mutedColor }]} numberOfLines={2}>
+              "{s.lastMessage || 'Customer requested live human agent'}"
+            </Text>
+
+            <View style={styles.sessionFooter}>
+              <Text style={{ fontSize: 10, color: mutedColor }}>
+                Lang: {s.language?.toUpperCase() || 'EN'} • {new Date(s.lastActivityAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              {s.status === 'waiting_for_agent' && (
+                <TouchableOpacity
+                  style={styles.claimBtn}
+                  onPress={() => claimMutation.mutate(s.sessionToken)}
+                >
+                  <Ionicons name="person-add" size={12} color="#ffffff" />
+                  <Text style={styles.claimBtnText}>Take Over Chat 🟢</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))
       )}
 
       {/* ── LIVE CHAT MODAL ROOM ── */}
@@ -353,20 +379,30 @@ export function AdminLiveChatView({
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
                 <Text style={styles.roomTitle} numberOfLines={1}>
-                  Session #{selectedToken?.substring(0, 12)}
+                  {currentSession?.customerName || `Session #${selectedToken?.substring(0, 10)}`}
                 </Text>
                 <Text style={styles.roomSubtitle}>
                   Status: {currentSession?.status?.replace('_', ' ').toUpperCase() || 'LIVE'}
                 </Text>
               </View>
               {selectedToken && (
-                <TouchableOpacity
-                  style={styles.closeSessionBtn}
-                  onPress={() => closeMutation.mutate(selectedToken)}
-                >
-                  <Ionicons name="checkmark-circle" size={14} color="#ffffff" />
-                  <Text style={styles.closeSessionText}>Close 🏁</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {currentSession?.status === 'agent_connected' && (
+                    <TouchableOpacity
+                      style={styles.closeSessionBtn}
+                      onPress={() => closeMutation.mutate(selectedToken)}
+                    >
+                      <Ionicons name="checkmark-circle" size={14} color="#ffffff" />
+                      <Text style={styles.closeSessionText}>Close</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.closeSessionBtn, { backgroundColor: '#ef4444' }]}
+                    onPress={() => confirmDelete(selectedToken)}
+                  >
+                    <Ionicons name="trash" size={14} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
 

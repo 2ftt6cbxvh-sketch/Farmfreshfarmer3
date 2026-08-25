@@ -1027,6 +1027,28 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json({ user: publicUser(updated[0]) });
   }));
 
+  app.patch('/api/user/profile', requireAuth as any, h(async (req, res) => {
+    const { name, phone, address } = req.body || {};
+    const userId = extractUserId(req) || req.session.userId!;
+
+    const updates: Record<string, any> = {};
+    if (typeof name === 'string') updates.name = name.trim();
+    if (typeof phone === 'string' && phone.trim()) {
+      if (!/^[6-9][0-9]{9}$/.test(phone.replace(/\s/g, ''))) {
+        return res.status(400).json({ message: 'Please enter a valid 10-digit Indian mobile number' });
+      }
+      updates.phone = phone.trim();
+    }
+    if (typeof address === 'string') updates.address = address.trim();
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No profile updates provided' });
+    }
+
+    const updated = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
+    res.json({ user: publicUser(updated[0]) });
+  }));
+
   /* ============================= ORDERS ============================ */
   app.post("/api/orders", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];

@@ -1490,16 +1490,96 @@ function resolveCartQty(
     }
   });
 
+  // GET /api/chatbot/my-sessions — Customer's own previous chat sessions & transcripts
+  app.get('/api/chatbot/my-sessions', async (req: Request, res: Response) => {
+    try {
+      const userId = await resolveCustomerUserId(req);
+      if (!userId) {
+        return res.json({ sessions: [] });
+      }
+
+      const sessions = await db.select().from(chatbotSessions)
+        .where(eq(chatbotSessions.userId, userId))
+        .orderBy(desc(chatbotSessions.lastActivityAt))
+        .limit(30);
+
+      const result = [];
+      for (const s of sessions) {
+        const msgs = await db.select().from(liveChatMessages)
+          .where(eq(liveChatMessages.sessionToken, s.sessionToken))
+          .orderBy(liveChatMessages.createdAt);
+
+        result.push({
+          id: s.id,
+          sessionToken: s.sessionToken,
+          status: s.status,
+          assignedAgentName: s.assignedAgentName,
+          lastActivityAt: s.lastActivityAt,
+          createdAt: s.createdAt,
+          messageCount: msgs.length,
+          lastMessage: msgs[msgs.length - 1]?.message || 'No live messages recorded',
+          messages: msgs.map((m) => ({
+            id: String(m.id),
+            sender: m.sender,
+            senderName: m.senderName,
+            message: m.message,
+            createdAt: m.createdAt,
+          })),
+        });
+      }
+
+      return res.json({ sessions: result });
+    } catch (err) {
+      console.error('[chatbot] Error getting customer my-sessions:', err);
+      return res.status(500).json({ error: 'Failed to fetch my chat history' });
+    }
+  });
+
   /* ========================================================================= */
   /*  ADMIN & STAFF LIVE SUPPORT PORTAL ROUTES                                 */
   /* ========================================================================= */
 
-  // GET /api/admin/chatbot/live-sessions — List all active & waiting sessions
-  app.get('/api/admin/chatbot/live-sessions', requireStaffOrAdmin as any, async (_req: Request, res: Response) => {
+  // GET /api/admin/chatbot/live-sessions — List all sessions with filter, counts, and search
+  app.get('/api/admin/chatbot/live-sessions', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
     try {
-      const sessions = await db.select().from(chatbotSessions)
-        .where(inArray(chatbotSessions.status, ['waiting_for_agent', 'agent_connected']))
-        .orderBy(desc(chatbotSessions.lastActivityAt));
+      const filter = (req.query.filter as string) || 'all';
+      const search = (req.query.search as string || '').toLowerCase().trim();
+
+      // Counts across statuses
+      const allRaw = await db.select({
+        status: chatbotSessions.status,
+        count: sql<number>`count(*)`,
+      }).from(chatbotSessions).groupBy(chatbotSessions.status);
+
+      const counts = {
+        all: 0,
+        waiting: 0,
+        active: 0,
+        closed: 0,
+        bot: 0,
+      };
+
+      for (const r of allRaw) {
+        const c = Number(r.count || 0);
+        counts.all += c;
+        if (r.status === 'waiting_for_agent') counts.waiting += c;
+        else if (r.status === 'agent_connected') counts.active += c;
+        else if (r.status === 'closed') counts.closed += c;
+        else if (r.status === 'bot') counts.bot += c;
+      }
+
+      let query = db.select().from(chatbotSessions);
+      if (filter === 'waiting') {
+        query = query.where(eq(chatbotSessions.status, 'waiting_for_agent')) as any;
+      } else if (filter === 'active') {
+        query = query.where(eq(chatbotSessions.status, 'agent_connected')) as any;
+      } else if (filter === 'closed') {
+        query = query.where(eq(chatbotSessions.status, 'closed')) as any;
+      } else if (filter === 'bot') {
+        query = query.where(eq(chatbotSessions.status, 'bot')) as any;
+      }
+
+      const sessions = await query.orderBy(desc(chatbotSessions.lastActivityAt)).limit(250);
 
       const result = [];
       for (const s of sessions) {
@@ -1508,24 +1588,97 @@ function resolveCartQty(
           .orderBy(desc(liveChatMessages.createdAt))
           .limit(1);
 
-        let customerName = 'Guest';
+        const [msgCountRow] = await db.select({
+          count: sql<number>`count(*)`,
+        }).from(liveChatMessages).where(eq(liveChatMessages.sessionToken, s.sessionToken));
+
+        let customerName = 'Guest Visitor';
+        let customerPhone = '';
+        let customerEmail = '';
+
         if (s.userId) {
           const [u] = await db.select().from(users).where(eq(users.id, s.userId)).limit(1);
-          if (u) customerName = u.name || u.email || `Customer #${u.id}`;
+          if (u) {
+            customerName = u.name || u.email || `Customer #${u.id}`;
+            customerPhone = u.phone || '';
+            customerEmail = u.email || '';
+          }
+        }
+
+        if (search) {
+          const matches =
+            customerName.toLowerCase().includes(search) ||
+            customerEmail.toLowerCase().includes(search) ||
+            customerPhone.toLowerCase().includes(search) ||
+            s.sessionToken.toLowerCase().includes(search) ||
+            (msgs[0]?.message || '').toLowerCase().includes(search);
+          if (!matches) continue;
         }
 
         result.push({
           ...s,
           customerName,
+          customerPhone,
+          customerEmail,
+          totalMessages: Number(msgCountRow?.count || 0),
           lastMessage: msgs[0]?.message || 'No messages yet',
           lastMessageSender: msgs[0]?.sender || 'system',
         });
       }
 
-      return res.json({ sessions: result });
+      return res.json({ sessions: result, counts });
     } catch (err: any) {
       console.error('[admin chatbot] Error listing live sessions:', err);
       return res.status(500).json({ message: 'Failed to list live sessions' });
+    }
+  });
+
+  // DELETE /api/admin/chatbot/session/:sessionToken — Delete single chat session & messages permanently
+  app.delete('/api/admin/chatbot/session/:sessionToken', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const sessionToken = String(req.params.sessionToken);
+      await db.delete(liveChatMessages).where(eq(liveChatMessages.sessionToken, sessionToken));
+      await db.delete(chatbotMissedQueries).where(eq(chatbotMissedQueries.sessionToken, sessionToken));
+      await db.delete(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      return res.json({ success: true, message: 'Chat session deleted permanently from database' });
+    } catch (err: any) {
+      console.error('[admin chatbot] Error deleting session:', err);
+      return res.status(500).json({ message: 'Failed to delete chat session' });
+    }
+  });
+
+  // POST /api/admin/chatbot/purge-sessions — Bulk delete or purge closed sessions permanently
+  app.post('/api/admin/chatbot/purge-sessions', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { purgeType = 'closed', sessionTokens = [] } = req.body;
+
+      if (Array.isArray(sessionTokens) && sessionTokens.length > 0) {
+        await db.delete(liveChatMessages).where(inArray(liveChatMessages.sessionToken, sessionTokens));
+        await db.delete(chatbotMissedQueries).where(inArray(chatbotMissedQueries.sessionToken, sessionTokens));
+        await db.delete(chatbotSessions).where(inArray(chatbotSessions.sessionToken, sessionTokens));
+        return res.json({ success: true, deletedCount: sessionTokens.length, message: `Successfully deleted ${sessionTokens.length} sessions.` });
+      }
+
+      if (purgeType === 'closed') {
+        const closedSessions = await db.select({ token: chatbotSessions.sessionToken })
+          .from(chatbotSessions)
+          .where(eq(chatbotSessions.status, 'closed'));
+
+        const tokens = closedSessions.map((s) => s.token);
+        if (tokens.length > 0) {
+          await db.delete(liveChatMessages).where(inArray(liveChatMessages.sessionToken, tokens));
+          await db.delete(chatbotMissedQueries).where(inArray(chatbotMissedQueries.sessionToken, tokens));
+          await db.delete(chatbotSessions).where(inArray(chatbotSessions.sessionToken, tokens));
+        }
+
+        return res.json({ success: true, deletedCount: tokens.length, message: `Purged ${tokens.length} closed sessions permanently.` });
+      }
+
+      return res.status(400).json({ message: 'Invalid purge parameters' });
+    } catch (err: any) {
+      console.error('[admin chatbot] Error purging sessions:', err);
+      return res.status(500).json({ message: 'Failed to purge chat sessions' });
     }
   });
 

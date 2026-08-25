@@ -27,6 +27,8 @@ interface LiveSession {
   sessionToken: string;
   userId?: number | null;
   customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
   language: string;
   status: "bot" | "waiting_for_agent" | "agent_connected" | "closed";
   assignedAgentId?: number | null;
@@ -35,6 +37,7 @@ interface LiveSession {
   createdAt: string;
   lastMessage?: string;
   lastMessageSender?: string;
+  totalMessages?: number;
 }
 
 interface ChatMessage {
@@ -138,11 +141,18 @@ const QUICK_REPLIES = [
 export function AdminLiveChat() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const [selectedToken, setSelectedToken] = useState<string | null>(() => {
+    return localStorage.getItem("admin_selected_chat_token") || null;
+  });
   const [replyInput, setReplyInput] = useState("");
-  const [activeTab, setActiveTab] = useState("waiting");
+  const [filterStatus, setFilterStatus] = useState<"all" | "waiting" | "active" | "closed" | "bot" | "missed">("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [opsTab, setOpsTab] = useState<"profile" | "cart" | "orders">("profile");
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Deletion modals state
+  const [deleteConfirmToken, setDeleteConfirmToken] = useState<string | null>(null);
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
 
   // Modals state
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -164,16 +174,36 @@ export function AdminLiveChat() {
   const [permissionScope, setPermissionScope] = useState("all");
   const [permissionNote, setPermissionNote] = useState("");
 
+  useEffect(() => {
+    if (selectedToken) {
+      localStorage.setItem("admin_selected_chat_token", selectedToken);
+    }
+  }, [selectedToken]);
+
   // Poll live sessions every 3 seconds
-  const { data: sessionsData, isLoading: loadingSessions, refetch: refetchSessions } = useQuery<{ sessions: LiveSession[] }>({
-    queryKey: ["/api/admin/chatbot/live-sessions"],
-    queryFn: () => apiGet<{ sessions: LiveSession[] }>("/api/admin/chatbot/live-sessions"),
+  const { data: sessionsData, isLoading: loadingSessions, refetch: refetchSessions } = useQuery<{
+    sessions: LiveSession[];
+    counts?: { all: number; waiting: number; active: number; closed: number; bot: number };
+  }>({
+    queryKey: ["/api/admin/chatbot/live-sessions", filterStatus, searchTerm],
+    queryFn: () => apiGet<{ sessions: LiveSession[]; counts?: any }>(`/api/admin/chatbot/live-sessions?filter=${filterStatus}&search=${encodeURIComponent(searchTerm)}`),
     refetchInterval: 3000,
   });
 
   const sessions = sessionsData?.sessions || [];
+  const counts = sessionsData?.counts || { all: sessions.length, waiting: 0, active: 0, closed: 0, bot: 0 };
   const waitingSessions = sessions.filter((s) => s.status === "waiting_for_agent");
   const activeSessions = sessions.filter((s) => s.status === "agent_connected");
+
+  // Auto-select first session if none selected and sessions exist
+  useEffect(() => {
+    if (!selectedToken && sessions.length > 0) {
+      const firstWaiting = sessions.find((s) => s.status === "waiting_for_agent") || sessions[0];
+      if (firstWaiting) {
+        setSelectedToken(firstWaiting.sessionToken);
+      }
+    }
+  }, [selectedToken, sessions]);
 
   // Poll messages for selected session every 2 seconds
   const { data: messagesData, refetch: refetchMessages } = useQuery<{ session: LiveSession; messages: ChatMessage[] }>({
@@ -305,9 +335,44 @@ export function AdminLiveChat() {
       return apiRequest("POST", "/api/admin/chatbot/close-session", { sessionToken });
     },
     onSuccess: () => {
-      toast({ title: "🏁 Session Closed", description: "Chat support session closed successfully." });
-      setSelectedToken(null);
+      toast({ title: "🏁 Session Closed", description: "Chat support session marked as closed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/live-sessions"] });
       refetchSessions();
+      refetchMessages();
+    },
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (sessionToken: string) => {
+      return apiRequest("DELETE", `/api/admin/chatbot/session/${sessionToken}`);
+    },
+    onSuccess: (_, sessionToken) => {
+      toast({ title: "🗑️ Chat Deleted Permanently", description: "Chat conversation removed from database." });
+      setDeleteConfirmToken(null);
+      if (selectedToken === sessionToken) {
+        setSelectedToken(null);
+        localStorage.removeItem("admin_selected_chat_token");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/live-sessions"] });
+      refetchSessions();
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete Failed", description: err?.message || "Failed to delete chat", variant: "destructive" });
+    },
+  });
+
+  const purgeSessionsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/chatbot/purge-sessions", { purgeType: "closed" });
+    },
+    onSuccess: (res: any) => {
+      toast({ title: "🧹 Database Cleaned", description: "Closed chat history purged successfully." });
+      setPurgeConfirmOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/chatbot/live-sessions"] });
+      refetchSessions();
+    },
+    onError: (err: any) => {
+      toast({ title: "Purge Failed", description: err?.message || "Failed to purge chats", variant: "destructive" });
     },
   });
 
@@ -462,12 +527,23 @@ export function AdminLiveChat() {
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Live customer support takeover for Admins, Sub-Admins, Grievance Officers &amp; Customer Representatives.
+              Live customer support takeover &amp; persistent conversation history for Admins, Sub-Admins, Grievance Officers &amp; Staff.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => { refetchSessions(); refetchMissed(); if (selectedToken) refetchContext(); }} className="gap-2 self-start">
-            <RefreshCw size={14} className={loadingSessions ? "animate-spin" : ""} /> Refresh Queue
-          </Button>
+          <div className="flex items-center gap-2 self-start">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPurgeConfirmOpen(true)}
+              className="gap-1.5 text-xs text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-500/10"
+              title="Purge closed chat sessions permanently from DB"
+            >
+              <Trash2 size={13} /> Purge Closed Chats
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { refetchSessions(); refetchMissed(); if (selectedToken) refetchContext(); }} className="gap-2">
+              <RefreshCw size={14} className={loadingSessions ? "animate-spin" : ""} /> Refresh Queue
+            </Button>
+          </div>
         </div>
 
         {/* 3-Column Super-Console Layout */}
@@ -475,113 +551,49 @@ export function AdminLiveChat() {
           
           {/* Column 1: Sessions Queue (3 cols) */}
           <div className="lg:col-span-3 flex flex-col rounded-xl border border-card-border bg-card shadow-sm overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
-              <div className="p-2 border-b border-card-border bg-muted/20">
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="waiting" className="text-xs relative px-1">
-                    Waiting
-                    {waitingSessions.length > 0 && (
-                      <span className="ml-1 px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold">
-                        {waitingSessions.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="active" className="text-xs px-1">
-                    Active ({activeSessions.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="missed" className="text-xs px-1">
-                    Missed ({missedData?.queries?.length || 0})
-                  </TabsTrigger>
-                </TabsList>
+            {/* Search Input */}
+            <div className="p-2 border-b border-card-border bg-muted/10">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search customer, phone, token..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-8 pl-8 text-xs rounded-lg"
+                />
               </div>
+            </div>
 
-              {/* Waiting Sessions List */}
-              <TabsContent value="waiting" className="flex-1 overflow-y-auto p-2 space-y-2 m-0">
-                {waitingSessions.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground text-xs">
-                    <CheckCircle2 size={28} className="mx-auto text-emerald-500 mb-2 opacity-70" />
-                    No customers waiting right now!
-                  </div>
-                ) : (
-                  waitingSessions.map((s) => (
-                    <div
-                      key={s.sessionToken}
-                      onClick={() => setSelectedToken(s.sessionToken)}
-                      className={`p-2.5 rounded-lg border cursor-pointer transition ${
-                        selectedToken === s.sessionToken
-                          ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
-                          : "border-card-border hover:bg-muted/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs truncate max-w-[120px] text-foreground">
-                          {s.customerName || `Customer #${s.userId || s.sessionToken.substring(0, 8)}`}
-                        </span>
-                        <Badge variant="destructive" className="text-[9px] py-0 px-1.5">
-                          Waiting
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 italic">
-                        "{s.lastMessage}"
-                      </p>
-                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-card-border/50 text-[10px] text-muted-foreground">
-                        <span>{new Date(s.lastActivityAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        <Button
-                          size="sm"
-                          className="h-5 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedToken(s.sessionToken);
-                            claimMutation.mutate(s.sessionToken);
-                          }}
-                        >
-                          <UserCheck size={10} /> Take Over
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </TabsContent>
+            {/* Filter Tabs */}
+            <div className="p-1.5 border-b border-card-border bg-muted/20 overflow-x-auto">
+              <div className="flex items-center gap-1 min-w-max">
+                {[
+                  { id: "all", label: `All (${counts.all})` },
+                  { id: "waiting", label: `⏳ Waiting (${counts.waiting})`, alert: counts.waiting > 0 },
+                  { id: "active", label: `🟢 Active (${counts.active})` },
+                  { id: "closed", label: `📁 Closed (${counts.closed})` },
+                  { id: "bot", label: `🤖 Bot (${counts.bot})` },
+                  { id: "missed", label: `⚠️ Missed (${missedData?.queries?.length || 0})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFilterStatus(tab.id as any)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition whitespace-nowrap ${
+                      filterStatus === tab.id
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    } ${tab.alert ? "text-red-500 animate-pulse font-extrabold" : ""}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-              {/* Active Sessions List */}
-              <TabsContent value="active" className="flex-1 overflow-y-auto p-2 space-y-2 m-0">
-                {activeSessions.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground text-xs">
-                    No ongoing active live chats.
-                  </div>
-                ) : (
-                  activeSessions.map((s) => (
-                    <div
-                      key={s.sessionToken}
-                      onClick={() => setSelectedToken(s.sessionToken)}
-                      className={`p-2.5 rounded-lg border cursor-pointer transition ${
-                        selectedToken === s.sessionToken
-                          ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
-                          : "border-card-border hover:bg-muted/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs truncate max-w-[120px] text-foreground">
-                          {s.customerName || `Customer #${s.userId || s.sessionToken.substring(0, 8)}`}
-                        </span>
-                        <Badge className="bg-emerald-500 text-white text-[9px] py-0 px-1.5">
-                          Active
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1 italic">
-                        "{s.lastMessage}"
-                      </p>
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
-                        👤 Rep: {s.assignedAgentName || "Assigned"}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </TabsContent>
-
-              {/* Missed Queries */}
-              <TabsContent value="missed" className="flex-1 overflow-y-auto p-2 space-y-2 m-0">
-                {missedData?.queries?.length === 0 ? (
+            {/* Sessions List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {filterStatus === "missed" ? (
+                missedData?.queries?.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground text-xs">
                     No unhandled missed queries.
                   </div>
@@ -595,9 +607,111 @@ export function AdminLiveChat() {
                       </div>
                     </div>
                   ))
-                )}
-              </TabsContent>
-            </Tabs>
+                )
+              ) : sessions.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground text-xs space-y-1">
+                  <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-1 opacity-70" />
+                  <p className="font-bold">No chat sessions found</p>
+                  <p className="text-[11px]">No matching chats in "{filterStatus}" filter.</p>
+                </div>
+              ) : (
+                sessions.map((s) => {
+                  const isSelected = selectedToken === s.sessionToken;
+                  const isWaiting = s.status === "waiting_for_agent";
+                  const isActive = s.status === "agent_connected";
+                  const isClosed = s.status === "closed";
+                  return (
+                    <div
+                      key={s.sessionToken}
+                      onClick={() => setSelectedToken(s.sessionToken)}
+                      className={`p-2.5 rounded-lg border cursor-pointer transition relative group ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs"
+                          : "border-card-border hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs truncate text-foreground">
+                              {s.customerName || `Customer #${s.userId || s.sessionToken.substring(0, 8)}`}
+                            </span>
+                            {s.totalMessages !== undefined && s.totalMessages > 0 && (
+                              <span className="px-1 py-0.2 rounded text-[9px] bg-muted font-mono text-muted-foreground">
+                                {s.totalMessages} msgs
+                              </span>
+                            )}
+                          </div>
+                          {s.customerPhone && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">📞 {s.customerPhone}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isWaiting && (
+                            <Badge variant="destructive" className="text-[9px] py-0 px-1.5 animate-pulse">
+                              Waiting
+                            </Badge>
+                          )}
+                          {isActive && (
+                            <Badge className="bg-emerald-500 text-white text-[9px] py-0 px-1.5">
+                              Active
+                            </Badge>
+                          )}
+                          {isClosed && (
+                            <Badge variant="secondary" className="text-[9px] py-0 px-1.5 opacity-75">
+                              Closed
+                            </Badge>
+                          )}
+                          {s.status === "bot" && (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                              AI Bot
+                            </Badge>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirmToken(s.sessionToken);
+                            }}
+                            className="text-muted-foreground hover:text-red-500 p-0.5 rounded opacity-50 hover:opacity-100 transition"
+                            title="Delete session from DB"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1 italic">
+                        "{s.lastMessage}"
+                      </p>
+
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-card-border/50 text-[10px] text-muted-foreground">
+                        <span>{new Date(s.lastActivityAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        {isWaiting && (
+                          <Button
+                            size="sm"
+                            className="h-5 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedToken(s.sessionToken);
+                              claimMutation.mutate(s.sessionToken);
+                            }}
+                          >
+                            <UserCheck size={10} /> Take Over
+                          </Button>
+                        )}
+                        {isActive && s.assignedAgentName && (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate max-w-[100px]">
+                            👤 {s.assignedAgentName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Column 2: Chat Conversation Panel (5 cols) */}
@@ -609,7 +723,7 @@ export function AdminLiveChat() {
                 </div>
                 <h3 className="font-bold text-base text-foreground">No Chat Selected</h3>
                 <p className="text-xs max-w-xs mt-1">
-                  Select a pending customer from the waiting queue on the left to inspect conversation history and assist them.
+                  Select any chat session from the list on the left to inspect full conversation history or respond live.
                 </p>
               </div>
             ) : (
@@ -621,8 +735,8 @@ export function AdminLiveChat() {
                       <h3 className="font-bold text-xs sm:text-sm text-foreground">
                         {customer?.name || currentSession?.customerName || "Customer Chat"}
                       </h3>
-                      <Badge variant={currentSession?.status === "waiting_for_agent" ? "destructive" : "default"} className="text-[10px]">
-                        {currentSession?.status === "waiting_for_agent" ? "⏳ Waiting" : "🟢 Live"}
+                      <Badge variant={currentSession?.status === "waiting_for_agent" ? "destructive" : currentSession?.status === "agent_connected" ? "default" : "secondary"} className="text-[10px]">
+                        {currentSession?.status === "waiting_for_agent" ? "⏳ Waiting" : currentSession?.status === "agent_connected" ? "🟢 Live" : currentSession?.status === "closed" ? "📁 Closed" : "🤖 Bot"}
                       </Badge>
                     </div>
                     {currentSession?.assignedAgentName && (
@@ -647,12 +761,21 @@ export function AdminLiveChat() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-500 border-red-200 hover:bg-red-50 gap-1 text-xs h-7 px-2"
+                        className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 text-xs h-7 px-2"
                         onClick={() => closeMutation.mutate(selectedToken)}
                       >
-                        <XCircle size={12} /> Close
+                        <XCircle size={12} /> End Session
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-500 border-red-200 hover:bg-red-50 gap-1 text-xs h-7 px-2"
+                      onClick={() => setDeleteConfirmToken(selectedToken)}
+                      title="Permanently delete this chat from DB"
+                    >
+                      <Trash2 size={12} /> Delete
+                    </Button>
                   </div>
                 </div>
 
@@ -1426,6 +1549,75 @@ export function AdminLiveChat() {
             >
               <Send size={12} />
               {requestPermissionMutation.isPending ? "Sending Request..." : "Send Authorization Prompt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL 6: DELETE CHAT SESSION CONFIRMATION ─── */}
+      <Dialog open={!!deleteConfirmToken} onOpenChange={(o) => !o && setDeleteConfirmToken(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-red-600">
+              <Trash2 size={18} />
+              Permanently Delete Chat Session?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <p className="text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete this chat session (<code>{deleteConfirmToken}</code>) and all related messages from the database?
+            </p>
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-600 dark:text-red-400 font-semibold">
+              ⚠️ Warning: This action cannot be undone. All message logs and context for this session will be permanently erased.
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmToken(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="font-bold gap-1.5"
+              onClick={() => deleteConfirmToken && deleteSessionMutation.mutate(deleteConfirmToken)}
+              disabled={deleteSessionMutation.isPending}
+            >
+              <Trash2 size={13} />
+              {deleteSessionMutation.isPending ? "Deleting..." : "Permanently Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── MODAL 7: PURGE ALL CLOSED SESSIONS CONFIRMATION ─── */}
+      <Dialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-amber-600 dark:text-amber-400">
+              <Trash2 size={18} />
+              Purge All Closed Sessions From Database?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <p className="text-muted-foreground leading-relaxed">
+              This will permanently delete all closed/resolved chat support sessions and their associated message logs from the database to save space.
+            </p>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-300 font-semibold">
+              ℹ️ Active live sessions and waiting customer requests will NOT be deleted.
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPurgeConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5"
+              onClick={() => purgeSessionsMutation.mutate()}
+              disabled={purgeSessionsMutation.isPending}
+            >
+              <Trash2 size={13} />
+              {purgeSessionsMutation.isPending ? "Purging Database..." : "Confirm Purge"}
             </Button>
           </DialogFooter>
         </DialogContent>
