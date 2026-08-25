@@ -142,7 +142,7 @@ export function AdminLiveChat() {
   const [replyInput, setReplyInput] = useState("");
   const [activeTab, setActiveTab] = useState("waiting");
   const [opsTab, setOpsTab] = useState<"profile" | "cart" | "orders">("profile");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Modals state
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -207,8 +207,13 @@ export function AdminLiveChat() {
   const catalogProducts = contextData?.catalogProducts || [];
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages.length, selectedToken]);
 
   // Pre-fill profile edit data
   useEffect(() => {
@@ -652,7 +657,7 @@ export function AdminLiveChat() {
                 </div>
 
                 {/* Messages Container */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-muted/5 max-h-[380px] lg:max-h-none">
+                <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-muted/5 max-h-[380px] lg:max-h-none">
                   {messages.length === 0 ? (
                     <div className="text-center text-xs text-muted-foreground py-8">
                       Loading conversation history...
@@ -703,7 +708,6 @@ export function AdminLiveChat() {
                       </div>
                     ))
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Canned Quick Replies */}

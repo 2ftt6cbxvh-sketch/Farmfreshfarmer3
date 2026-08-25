@@ -138,6 +138,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const [ticketStep, setTicketStep] = useState<"name" | "phone" | "email" | "concern" | null>(null);
   const [ticketData, setTicketData] = useState({ name: "", phone: "", email: "", concern: "" });
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -393,15 +394,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   }, [isOpen, hasOpened, language, user]);
 
   useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg) return;
-    
-    if (lastMsg.role === 'user') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      setTimeout(() => {
-        lastAssistantMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [messages]);
 
@@ -917,7 +914,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.map((msg, index) => (
               <div key={msg.id} ref={index === messages.length - 1 && msg.role === 'model' ? lastAssistantMessageRef : null} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "model" && (
