@@ -97,14 +97,28 @@ const HUMAN_CONNECT_MESSAGES: Record<Language, string> = {
   te: "✅ మా కస్టమర్ సపోర్ట్ టీమ్‌కు నోటిఫై చేయబడింది! ఒక ప్రతినిధి త్వరలో మీతో సంప్రదిస్తారు.",
 };
 
-function getSessionToken(): string {
-  const key = "lakshmi_session";
-  let token = sessionStorage.getItem(key);
+function getSessionToken(userId?: number | null): string {
+  if (userId) {
+    const key = `lakshmi_user_session_${userId}`;
+    let token = localStorage.getItem(key);
+    if (!token) {
+      token = `sess_u${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      localStorage.setItem(key, token);
+    }
+    return token;
+  }
+  const guestKey = "lakshmi_guest_session";
+  let token = sessionStorage.getItem(guestKey) || localStorage.getItem(guestKey);
   if (!token) {
-    token = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    sessionStorage.setItem(key, token);
+    token = `sess_g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    sessionStorage.setItem(guestKey, token);
+    localStorage.setItem(guestKey, token);
   }
   return token;
+}
+
+function getStorageHistoryKey(userId?: number | null): string {
+  return userId ? `fff_chat_history_user_${userId}` : "fff_chat_history_guest";
 }
 
 export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } = {}) {
@@ -113,7 +127,31 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const { add, items, subtotal } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const sessionToken = useMemo(() => getSessionToken(user?.id), [user?.id]);
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      let uId: number | null = null;
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        if (u && u.id) uId = u.id;
+      }
+      const historyKey = getStorageHistoryKey(uId);
+      const saved = localStorage.getItem(historyKey) || sessionStorage.getItem(historyKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp || Date.now()),
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  });
+
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState<Language>("en");
   const [isListening, setIsListening] = useState(false);
@@ -143,7 +181,6 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
-  const sessionToken = getSessionToken();
   const strings = UI_STRINGS[language];
 
   const { data: authMethods } = useQuery<{ emailEnabled: boolean; googleEnabled: boolean }>({
@@ -390,9 +427,41 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     },
   });
 
-  /* Initialize welcome message on first open */
+  // Load saved chat history when user changes or logs in
   useEffect(() => {
-    if (isOpen && !hasOpened) {
+    const historyKey = getStorageHistoryKey(user?.id);
+    const saved = localStorage.getItem(historyKey) || sessionStorage.getItem(historyKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp || Date.now()),
+          })));
+          setHasOpened(true);
+          return;
+        }
+      } catch {}
+    }
+  }, [user?.id]);
+
+  // Persist messages whenever messages state updates
+  useEffect(() => {
+    if (messages.length > 0) {
+      const historyKey = getStorageHistoryKey(user?.id);
+      try {
+        localStorage.setItem(historyKey, JSON.stringify(messages.slice(-100)));
+        if (!user?.id) {
+          sessionStorage.setItem(historyKey, JSON.stringify(messages.slice(-100)));
+        }
+      } catch {}
+    }
+  }, [messages, user?.id]);
+
+  /* Initialize welcome message on first open if no history exists */
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
       setHasOpened(true);
       const nameGreeting = user?.name ? `🙏 Namaste ${user.name}! ` : "🙏 Namaste! ";
       const personalizedWelcome: Record<Language, string> = {
@@ -402,7 +471,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       };
       setMessages([{ id: "welcome", role: "model", content: personalizedWelcome[language], timestamp: new Date() }]);
     }
-  }, [isOpen, hasOpened, language, user]);
+  }, [isOpen, messages.length, language, user]);
 
   useEffect(() => {
     if (messagesContainerRef.current) {

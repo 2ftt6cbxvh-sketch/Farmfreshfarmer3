@@ -139,14 +139,37 @@ export function registerChatbotRoutes(app: Express, storage: any) {
   app.get('/api/chatbot/live-session/:sessionToken', async (req, res) => {
     try {
       const { sessionToken } = req.params;
-      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      let [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+
+      const userId = await resolveCustomerUserId(req);
+
+      // If session not found by token, check if logged-in customer has an existing active session
+      if (!session && userId) {
+        const [activeUserSession] = await db.select().from(chatbotSessions)
+          .where(and(
+            eq(chatbotSessions.userId, userId),
+            inArray(chatbotSessions.status, ['waiting_for_agent', 'agent_connected'])
+          ))
+          .orderBy(desc(chatbotSessions.lastActivityAt))
+          .limit(1);
+        if (activeUserSession) {
+          session = activeUserSession;
+        }
+      }
 
       if (!session) {
         return res.json({ status: 'bot', assignedAgentName: null, messages: [] });
       }
 
+      // If user is authenticated and session doesn't have userId attached yet, link them
+      if (userId && !session.userId) {
+        await db.update(chatbotSessions).set({ userId }).where(eq(chatbotSessions.id, session.id));
+        session.userId = userId;
+      }
+
+      const activeToken = session.sessionToken;
       const msgs = await db.select().from(liveChatMessages)
-        .where(eq(liveChatMessages.sessionToken, sessionToken))
+        .where(eq(liveChatMessages.sessionToken, activeToken))
         .orderBy(liveChatMessages.createdAt);
 
       const senderIds = [...new Set(msgs.map(m => m.senderId).filter(Boolean))] as number[];
