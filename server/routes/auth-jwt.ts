@@ -191,25 +191,30 @@ export function registerAuthJwtRoutes(app: Express) {
           const ticket = await client.verifyIdToken({
             idToken,
             audience: [
-              "983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com",
               "983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com",
+              "983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com",
               process.env.GOOGLE_CLIENT_ID || "",
             ].filter(Boolean),
           });
           const payload = ticket.getPayload();
           if (payload?.email) {
             email = payload.email.toLowerCase();
-            googleName = payload.name || email.split("@")[0];
+            googleName = payload.name || payload.given_name || email.split("@")[0];
             googleUserId = payload.sub;
           }
-        } catch (tokenErr) {
-          // Fallback: decode JWT payload if Google verification network fails
-          const jwt = (await import("jsonwebtoken")).default;
-          const decoded = jwt.decode(idToken) as any;
-          if (decoded?.email) {
-            email = decoded.email.toLowerCase();
-            googleName = decoded.name || email.split("@")[0];
-            googleUserId = decoded.sub || "google_jwt";
+        } catch (tokenErr: any) {
+          console.warn("[auth/google] verifyIdToken library note:", tokenErr?.message);
+          // Fallback: decode JWT payload directly
+          try {
+            const jwt = (await import("jsonwebtoken")).default;
+            const decoded = jwt.decode(idToken) as any;
+            if (decoded?.email) {
+              email = String(decoded.email).toLowerCase();
+              googleName = decoded.name || decoded.given_name || email.split("@")[0];
+              googleUserId = decoded.sub || `google_${Date.now()}`;
+            }
+          } catch (jwtErr: any) {
+            console.error("[auth/google] jwt.decode fallback error:", jwtErr?.message);
           }
         }
       }
@@ -221,15 +226,17 @@ export function registerAuthJwtRoutes(app: Express) {
           });
           const info = await userInfoRes.json();
           if (info?.email) {
-            email = info.email.toLowerCase();
-            googleName = info.name || email.split("@")[0];
-            googleUserId = info.sub;
+            email = String(info.email).toLowerCase();
+            googleName = info.name || info.given_name || email.split("@")[0];
+            googleUserId = info.sub || `google_${Date.now()}`;
           }
-        } catch {}
+        } catch (fetchErr: any) {
+          console.warn("[auth/google] userinfo fetch error:", fetchErr?.message);
+        }
       }
 
       if (!email) {
-        return res.status(400).json({ message: "Invalid Google credentials" });
+        return res.status(400).json({ message: "Unable to extract email from Google Sign-In credentials." });
       }
 
       let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
@@ -238,14 +245,25 @@ export function registerAuthJwtRoutes(app: Express) {
         const [newUser] = await db.insert(users).values({
           name: googleName, email, username, password: "", role: "customer", status: "active",
         }).returning();
-        await db.insert(customerProfiles).values({ userId: newUser.id });
+        try {
+          await db.insert(customerProfiles).values({ userId: newUser.id }).onConflictDoNothing();
+        } catch {}
         await ensureReferralCode(newUser.id).catch(() => {});
         user = newUser;
       }
 
-      if (user.status === "blocked") return res.status(403).json({ message: "Account is blocked." });
+      if (user.status === "blocked") return res.status(403).json({ message: "Account is blocked. Please contact support." });
 
-      await db.insert(oauthAccounts).values({ userId: user.id, provider: "google", providerUserId: googleUserId, providerEmail: email }).onConflictDoNothing();
+      try {
+        await db.insert(oauthAccounts).values({
+          userId: user.id,
+          provider: "google",
+          providerUserId: googleUserId || `google_${user.id}`,
+          providerEmail: email,
+        }).onConflictDoNothing();
+      } catch (oauthErr: any) {
+        console.warn("[auth/google] oauthAccount link note:", oauthErr?.message);
+      }
 
       if (req.session?.userId && req.session.userId !== user.id) {
         await db.update(orders).set({ userId: user.id }).where(eq(orders.userId, req.session.userId)).catch(() => {});
@@ -264,16 +282,19 @@ export function registerAuthJwtRoutes(app: Express) {
           requiresPhone: true,
           userId: user.id,
           tempToken: tokens.accessToken,
-          user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+          user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, profilePhoto: user.profilePhoto },
           ...tokens
         });
       }
 
       await auditLog("google_login", { userId: user.id, req, action: `Google Sign-In via ${platform || "web"}` });
-      return res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }, ...tokens });
+      return res.json({
+        user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, profilePhoto: user.profilePhoto },
+        ...tokens,
+      });
     } catch (err: any) {
-      console.error("[auth/google]", err?.message);
-      return res.status(400).json({ message: "Google Sign-In failed. Please try again." });
+      console.error("[auth/google] unhandled error:", err?.stack || err?.message);
+      return res.status(400).json({ message: err?.message || "Google Sign-In failed. Please try again." });
     }
   });
 
