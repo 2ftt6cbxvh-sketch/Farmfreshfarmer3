@@ -141,9 +141,7 @@ const QUICK_REPLIES = [
 export function AdminLiveChat() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedToken, setSelectedToken] = useState<string | null>(() => {
-    return localStorage.getItem("admin_selected_chat_token") || null;
-  });
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [replyInput, setReplyInput] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "waiting" | "active" | "closed" | "bot" | "missed">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -174,12 +172,6 @@ export function AdminLiveChat() {
   const [permissionScope, setPermissionScope] = useState("all");
   const [permissionNote, setPermissionNote] = useState("");
 
-  useEffect(() => {
-    if (selectedToken) {
-      localStorage.setItem("admin_selected_chat_token", selectedToken);
-    }
-  }, [selectedToken]);
-
   // Poll live sessions every 3 seconds
   const { data: sessionsData, isLoading: loadingSessions, refetch: refetchSessions } = useQuery<{
     sessions: LiveSession[];
@@ -195,15 +187,22 @@ export function AdminLiveChat() {
   const waitingSessions = sessions.filter((s) => s.status === "waiting_for_agent");
   const activeSessions = sessions.filter((s) => s.status === "agent_connected");
 
-  // Auto-select first session if none selected and sessions exist
+  // Keep selectedToken synchronized with available sessions
   useEffect(() => {
-    if (!selectedToken && sessions.length > 0) {
-      const firstWaiting = sessions.find((s) => s.status === "waiting_for_agent") || sessions[0];
-      if (firstWaiting) {
-        setSelectedToken(firstWaiting.sessionToken);
+    if (sessions.length === 0) {
+      if (selectedToken !== null) {
+        setSelectedToken(null);
       }
+      return;
     }
-  }, [selectedToken, sessions]);
+
+    // If current selectedToken is not in active sessions, pick first available
+    const exists = sessions.some((s) => s.sessionToken === selectedToken);
+    if (!exists) {
+      const firstWaiting = sessions.find((s) => s.status === "waiting_for_agent") || sessions[0];
+      setSelectedToken(firstWaiting?.sessionToken || null);
+    }
+  }, [sessions, selectedToken]);
 
   // Poll messages for selected session every 2 seconds
   const { data: messagesData, isLoading: loadingMessages, refetch: refetchMessages } = useQuery<{ session: LiveSession; messages: ChatMessage[] }>({
