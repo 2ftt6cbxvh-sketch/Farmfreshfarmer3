@@ -206,7 +206,7 @@ export function AdminLiveChat() {
   }, [selectedToken, sessions]);
 
   // Poll messages for selected session every 2 seconds
-  const { data: messagesData, refetch: refetchMessages } = useQuery<{ session: LiveSession; messages: ChatMessage[] }>({
+  const { data: messagesData, isLoading: loadingMessages, refetch: refetchMessages } = useQuery<{ session: LiveSession; messages: ChatMessage[] }>({
     queryKey: ["/api/admin/chatbot/messages", selectedToken],
     queryFn: () => apiGet<{ session: LiveSession; messages: ChatMessage[] }>(`/api/admin/chatbot/messages/${selectedToken}`),
     enabled: !!selectedToken,
@@ -221,8 +221,6 @@ export function AdminLiveChat() {
     refetchInterval: 3000,
   });
 
-  const isPermissionGranted = Boolean(contextData?.customerPermissionGranted);
-
   // Fetch missed queries
   const { data: missedData, refetch: refetchMissed } = useQuery<{ queries: MissedQuery[] }>({
     queryKey: ["/api/admin/chatbot/missed"],
@@ -230,6 +228,9 @@ export function AdminLiveChat() {
   });
 
   const currentSession = messagesData?.session || sessions.find((s) => s.sessionToken === selectedToken);
+  const isSessionClosed = currentSession?.status === "closed";
+  const isPermissionGranted = Boolean(contextData?.customerPermissionGranted);
+  const isEditable = isPermissionGranted && !isSessionClosed;
   const messages = messagesData?.messages || [];
   const customer = contextData?.customer;
   const cart = contextData?.cart || { id: null, items: [], total: 0 };
@@ -781,9 +782,14 @@ export function AdminLiveChat() {
 
                 {/* Messages Container */}
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-muted/5 max-h-[380px] lg:max-h-none">
-                  {messages.length === 0 ? (
+                  {loadingMessages && !messagesData ? (
                     <div className="text-center text-xs text-muted-foreground py-8">
                       Loading conversation history...
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center text-xs text-muted-foreground py-8 space-y-1">
+                      <p className="font-semibold text-foreground/80">No conversation messages yet</p>
+                      <p className="text-[11px]">Type a response below to start assisting the customer.</p>
                     </div>
                   ) : (
                     messages.map((m) => (
@@ -902,7 +908,12 @@ export function AdminLiveChat() {
                   </div>
 
                   {/* Customer Permission / Consent Status Banner */}
-                  {isPermissionGranted ? (
+                  {isSessionClosed ? (
+                    <div className="mb-2 p-2 bg-muted/40 border border-card-border rounded-lg flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                      <Lock size={13} className="text-muted-foreground shrink-0" />
+                      <span>Session Closed: Customer operations and modifications are disabled.</span>
+                    </div>
+                  ) : isPermissionGranted ? (
                     <div className="mb-2 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 font-bold">
                         <ShieldCheck size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -980,7 +991,7 @@ export function AdminLiveChat() {
                                 <h4 className="font-bold text-sm text-foreground">{customer.name || "Customer"}</h4>
                                 <span className="text-[10px] text-muted-foreground capitalize">{customer.role}</span>
                               </div>
-                              {isPermissionGranted ? (
+                              {isEditable ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -989,6 +1000,8 @@ export function AdminLiveChat() {
                                 >
                                   <Edit3 size={11} /> Edit Details
                                 </Button>
+                              ) : isSessionClosed ? (
+                                <span className="text-[10px] text-muted-foreground italic">Session closed</span>
                               ) : (
                                 <Button
                                   size="sm"
@@ -1043,7 +1056,7 @@ export function AdminLiveChat() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-foreground">Active Cart Items</span>
-                        {isPermissionGranted ? (
+                        {isEditable ? (
                           <Button
                             size="sm"
                             className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-2.5 font-bold"
@@ -1052,6 +1065,8 @@ export function AdminLiveChat() {
                           >
                             <Plus size={12} /> Add Item to Cart
                           </Button>
+                        ) : isSessionClosed ? (
+                          <span className="text-[10px] text-muted-foreground italic">Session closed</span>
                         ) : (
                           <Button
                             size="sm"
@@ -1071,7 +1086,9 @@ export function AdminLiveChat() {
                           <ShoppingCart size={24} className="mx-auto opacity-40 mb-1" />
                           <p className="font-medium">Customer's cart is empty.</p>
                           <p className="text-[10px]">
-                            {isPermissionGranted
+                            {isSessionClosed
+                              ? "Session is closed."
+                              : isPermissionGranted
                               ? "Click '+ Add Item to Cart' above to put items into their cart live."
                               : "Request permission to add items into the customer's cart on their behalf."}
                           </p>
@@ -1102,28 +1119,28 @@ export function AdminLiveChat() {
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <div className="flex items-center border border-card-border rounded-lg bg-background overflow-hidden">
                                   <button
-                                    disabled={!isPermissionGranted}
-                                    onClick={() => isPermissionGranted ? updateCartQtyMutation.mutate({ cartItemId: item.id, qty: item.qty - 1 }) : setRequestPermissionOpen(true)}
+                                    disabled={!isEditable}
+                                    onClick={() => isEditable ? updateCartQtyMutation.mutate({ cartItemId: item.id, qty: item.qty - 1 }) : setRequestPermissionOpen(true)}
                                     className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title={!isPermissionGranted ? "Customer permission required" : ""}
+                                    title={!isEditable ? (isSessionClosed ? "Session is closed" : "Customer permission required") : ""}
                                   >
                                     <Minus size={11} />
                                   </button>
                                   <span className="px-1.5 text-xs font-bold font-mono">{item.qty}</span>
                                   <button
-                                    disabled={!isPermissionGranted}
-                                    onClick={() => isPermissionGranted ? updateCartQtyMutation.mutate({ cartItemId: item.id, qty: item.qty + 1 }) : setRequestPermissionOpen(true)}
+                                    disabled={!isEditable}
+                                    onClick={() => isEditable ? updateCartQtyMutation.mutate({ cartItemId: item.id, qty: item.qty + 1 }) : setRequestPermissionOpen(true)}
                                     className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title={!isPermissionGranted ? "Customer permission required" : ""}
+                                    title={!isEditable ? (isSessionClosed ? "Session is closed" : "Customer permission required") : ""}
                                   >
                                     <Plus size={11} />
                                   </button>
                                 </div>
                                 <button
-                                  disabled={!isPermissionGranted}
-                                  onClick={() => isPermissionGranted ? removeCartItemMutation.mutate(item.id) : setRequestPermissionOpen(true)}
+                                  disabled={!isEditable}
+                                  onClick={() => isEditable ? removeCartItemMutation.mutate(item.id) : setRequestPermissionOpen(true)}
                                   className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded disabled:opacity-40 disabled:cursor-not-allowed"
-                                  title={!isPermissionGranted ? "Customer permission required" : ""}
+                                  title={!isEditable ? (isSessionClosed ? "Session is closed" : "Customer permission required") : ""}
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -1182,7 +1199,7 @@ export function AdminLiveChat() {
 
                                 {/* Order Action Buttons for Rep */}
                                 <div className="flex items-center gap-1.5 pt-1 border-t border-card-border/60">
-                                  {isPermissionGranted ? (
+                                  {isEditable ? (
                                     <>
                                       <Button
                                         size="sm"
@@ -1220,17 +1237,19 @@ export function AdminLiveChat() {
                                         </Button>
                                       )}
                                     </>
+                                  ) : isSessionClosed ? (
+                                    <span className="text-[10px] text-muted-foreground italic">Session closed</span>
                                   ) : (
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="h-6 text-[10px] text-amber-600 border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1 px-2 font-semibold"
+                                      className="h-6 text-[10px] text-amber-600 border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/40 gap-1 px-2 font-semibold"
                                       onClick={() => {
                                         setPermissionScope("orders");
                                         setRequestPermissionOpen(true);
                                       }}
                                     >
-                                      <Lock size={10} /> Request Order Edit Permission
+                                      <Lock size={10} /> Request Order Permission
                                     </Button>
                                   )}
                                 </div>

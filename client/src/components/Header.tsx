@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { imgUrl } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles, Truck, Ticket } from "lucide-react";
+import { Search, ShoppingCart, User as UserIcon, Menu, X, LogOut, Shield, PackageCheck, Gift, TrendingUp, Sparkles, Truck, Ticket, UserCircle2 } from "lucide-react";
 import { Logo } from "./Logo";
 import { DietDot } from "./DietDot";
 import { useAuth, useCart } from "@/lib/store";
@@ -265,6 +265,9 @@ export function Header() {
                     </Button>
                   </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-2xl border border-emerald-500/30 bg-card/95 backdrop-blur-xl p-2 shadow-2xl z-50">
+                  <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl font-medium" data-testid="menu-profile">
+                    <UserCircle2 size={15} className="mr-2 text-sky-400" /> My Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/orders")} className="rounded-xl font-medium" data-testid="menu-orders">
                     My Orders
                   </DropdownMenuItem>

@@ -65,6 +65,23 @@ export default function AccountScreen() {
   const [editingPhone, setEditingPhone] = useState(false);
   const [newPhone, setNewPhone] = useState(user?.phone || '');
   const [phoneBusy, setPhoneBusy] = useState(false);
+
+  // Full Profile Edit Modal State
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [editAddress, setEditAddress] = useState(user?.address || '');
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditAddress(user.address || '');
+      setNewPhone(user.phone || '');
+    }
+  }, [user]);
+
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'refund' | 'shipping' | 'contact' | null>(null);
 
   // Support Tickets State & Query
@@ -170,6 +187,35 @@ export default function AccountScreen() {
       Alert.alert('Update Failed', err?.response?.data?.message || 'Could not update phone number.');
     } finally {
       setPhoneBusy(false);
+    }
+  };
+
+  const handleSaveFullProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Validation Error', 'Please enter your full name.');
+      return;
+    }
+    if (editPhone.trim() && !/^[6-9][0-9]{9}$/.test(editPhone.replace(/\s/g, ''))) {
+      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      const res = await api.patch('/api/user/profile', {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        address: editAddress.trim(),
+      });
+      if (res.data?.user) {
+        useAuth.getState().setUser(res.data.user);
+      }
+      setShowEditProfileModal(false);
+      Alert.alert('✅ Profile Updated', 'Your profile details have been saved successfully.');
+    } catch (err: any) {
+      Alert.alert('Update Failed', err?.response?.data?.message || 'Could not update profile.');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -333,19 +379,28 @@ export default function AccountScreen() {
           );
         })()}
 
-        {/* Phone Pill & Edit Launcher */}
-        <TouchableOpacity
-          style={styles.heroPhonePill}
-          onPress={() => {
-            setEditingPhone(true);
-            setNewPhone(user.phone || '');
-          }}
-        >
-          <Text style={styles.heroPhonePillText}>
-            {user.phone ? `📱 ${user.phone}` : '⚠️ Add Phone Number'}
-          </Text>
-          <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '800' }}>✏️ Edit</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 12 }}>
+          {/* Phone Pill */}
+          <TouchableOpacity
+            style={[styles.heroPhonePill, { marginTop: 0 }]}
+            onPress={() => {
+              setEditingPhone(true);
+              setNewPhone(user.phone || '');
+            }}
+          >
+            <Text style={styles.heroPhonePillText}>
+              {user.phone ? `📱 ${user.phone}` : '⚠️ Add Phone'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Edit Full Profile Button */}
+          <TouchableOpacity
+            style={styles.heroEditProfileBtn}
+            onPress={() => setShowEditProfileModal(true)}
+          >
+            <Text style={{ color: '#064e3b', fontSize: 12, fontWeight: '800' }}>✏️ Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── 2. Quick Activity Metrics Bar ───────────────────────────────── */}
@@ -572,10 +627,86 @@ export default function AccountScreen() {
       <View style={styles.versionBadgeRow}>
         <View style={styles.versionBadgeInner}>
           <View style={styles.versionBadgeDot} />
-          <Text style={styles.versionBadgeText}>App Build v9.0.0</Text>
+          <Text style={styles.versionBadgeText}>App Build v9.1.0</Text>
         </View>
       </View>
-      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.0.0 · {email}</Text>
+      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.1.0 · {email}</Text>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={showEditProfileModal} transparent animationType="slide" onRequestClose={() => setShowEditProfileModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContentCard, { backgroundColor: isDark ? '#091510' : '#ffffff', borderColor: borderCol }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalHeaderTitle, { color: textColor }]}>👤 Edit Profile Details</Text>
+              <TouchableOpacity onPress={() => setShowEditProfileModal(false)} style={[styles.modalCloseBtn, { backgroundColor: inputBg }]}>
+                <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              <View style={{ gap: 14, paddingVertical: 8 }}>
+                <View>
+                  <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Full Name</Text>
+                  <TextInput
+                    style={[styles.ticketInput, { backgroundColor: inputBg, borderColor: borderCol, color: textColor }]}
+                    placeholder="Your Full Name"
+                    placeholderTextColor={mutedColor}
+                    value={editName}
+                    onChangeText={setEditName}
+                  />
+                </View>
+
+                <View>
+                  <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Email Address (Read-only)</Text>
+                  <TextInput
+                    style={[styles.ticketInput, { backgroundColor: isDark ? '#08110d' : '#f1f5f9', borderColor: borderCol, color: mutedColor }]}
+                    value={user?.email || ''}
+                    editable={false}
+                  />
+                </View>
+
+                <View>
+                  <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Mobile Phone Number</Text>
+                  <TextInput
+                    style={[styles.ticketInput, { backgroundColor: inputBg, borderColor: borderCol, color: textColor }]}
+                    placeholder="10-digit Indian Mobile Number"
+                    placeholderTextColor={mutedColor}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                </View>
+
+                <View>
+                  <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Delivery Street Address</Text>
+                  <TextInput
+                    style={[styles.ticketInput, { backgroundColor: inputBg, borderColor: borderCol, color: textColor, minHeight: 65 }]}
+                    placeholder="Flat / House No, Street name, Area, City, Pincode"
+                    placeholderTextColor={mutedColor}
+                    value={editAddress}
+                    onChangeText={setEditAddress}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.submitTicketBtn, { marginTop: 8 }]}
+                  onPress={handleSaveFullProfile}
+                  disabled={profileSaving}
+                >
+                  {profileSaving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitTicketBtnText}>Save Profile Changes 💾</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Support Tickets Modal */}
       <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>
@@ -901,6 +1032,16 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  heroEditProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#34d399',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#6ee7b7',
   },
 
   // Activity Metrics Bar Grid

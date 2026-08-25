@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
-import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
+import { sql, eq, desc, and, or, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders } from '@shared/schema';
 import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
@@ -793,13 +793,6 @@ function resolveCartQty(
       const lang = ['en', 'hi', 'te'].includes(language) ? language : 'en';
       const token = sessionToken || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-      // Find or create session
-      let [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, token)).limit(1);
-      if (!session) {
-        const [created] = await db.insert(chatbotSessions).values({ sessionToken: token, language: lang, status: 'bot' }).returning();
-        session = created;
-      }
-
       // Resolve logged-in customer userId & customerName from req.body / session / auth token / cookies
       let userId: number | null = req.body.userId ? Number(req.body.userId) : null;
       if (!userId && (req.session as any)?.userId) {
@@ -819,6 +812,13 @@ function resolveCartQty(
         }
       }
 
+      // Find or create session (only persist for authenticated users; guest bot chats remain ephemeral)
+      let [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, token)).limit(1);
+      if (!session && userId) {
+        const [created] = await db.insert(chatbotSessions).values({ sessionToken: token, userId, language: lang, status: 'bot' }).returning();
+        session = created;
+      }
+
       let customerName: string | null = req.body.customerName || null;
       if (userId && !customerName) {
         try {
@@ -829,14 +829,16 @@ function resolveCartQty(
         }
       }
 
-      // Update session lastActivityAt and userId
-      await db.update(chatbotSessions).set({
-        lastActivityAt: new Date(),
-        ...(userId && !session.userId ? { userId } : {}),
-      }).where(eq(chatbotSessions.id, session.id));
+      // Update session lastActivityAt and userId if session exists
+      if (session) {
+        await db.update(chatbotSessions).set({
+          lastActivityAt: new Date(),
+          ...(userId && !session.userId ? { userId } : {}),
+        }).where(eq(chatbotSessions.id, session.id));
+      }
 
       // IF Session is ALREADY connected to a live agent or waiting for one:
-      if (session.status === 'agent_connected' || session.status === 'waiting_for_agent') {
+      if (session && (session.status === 'agent_connected' || session.status === 'waiting_for_agent')) {
         // Save customer message to liveChatMessages
         const [savedMsg] = await db.insert(liveChatMessages).values({
           sessionToken: token,
@@ -1547,17 +1549,24 @@ function resolveCartQty(
   /*  ADMIN & STAFF LIVE SUPPORT PORTAL ROUTES                                 */
   /* ========================================================================= */
 
-  // GET /api/admin/chatbot/live-sessions — List all sessions with filter, counts, and search
+  // GET /api/admin/chatbot/live-sessions — List active/escalated sessions (excludes empty bot chats & guest visitor chats)
   app.get('/api/admin/chatbot/live-sessions', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
     try {
       const filter = (req.query.filter as string) || 'all';
       const search = (req.query.search as string || '').toLowerCase().trim();
 
-      // Counts across statuses
+      // Counts across statuses - only counting sessions with actual user escalation / connected or authenticated customers
       const allRaw = await db.select({
         status: chatbotSessions.status,
         count: sql<number>`count(*)`,
-      }).from(chatbotSessions).groupBy(chatbotSessions.status);
+      }).from(chatbotSessions)
+        .where(
+          and(
+            isNotNull(chatbotSessions.userId),
+            inArray(chatbotSessions.status, ['waiting_for_agent', 'agent_connected', 'closed'])
+          )
+        )
+        .groupBy(chatbotSessions.status);
 
       const counts = {
         all: 0,
@@ -1576,15 +1585,27 @@ function resolveCartQty(
         else if (r.status === 'bot') counts.bot += c;
       }
 
-      let query = db.select().from(chatbotSessions);
+      // Filter: Only include sessions that are authenticated users and active/escalated/closed (no empty/guest bot sessions)
+      let query = db.select().from(chatbotSessions)
+        .where(
+          and(
+            isNotNull(chatbotSessions.userId),
+            inArray(chatbotSessions.status, ['waiting_for_agent', 'agent_connected', 'closed'])
+          )
+        );
+
       if (filter === 'waiting') {
-        query = query.where(eq(chatbotSessions.status, 'waiting_for_agent')) as any;
+        query = db.select().from(chatbotSessions)
+          .where(and(isNotNull(chatbotSessions.userId), eq(chatbotSessions.status, 'waiting_for_agent'))) as any;
       } else if (filter === 'active') {
-        query = query.where(eq(chatbotSessions.status, 'agent_connected')) as any;
+        query = db.select().from(chatbotSessions)
+          .where(and(isNotNull(chatbotSessions.userId), eq(chatbotSessions.status, 'agent_connected'))) as any;
       } else if (filter === 'closed') {
-        query = query.where(eq(chatbotSessions.status, 'closed')) as any;
+        query = db.select().from(chatbotSessions)
+          .where(and(isNotNull(chatbotSessions.userId), eq(chatbotSessions.status, 'closed'))) as any;
       } else if (filter === 'bot') {
-        query = query.where(eq(chatbotSessions.status, 'bot')) as any;
+        query = db.select().from(chatbotSessions)
+          .where(and(isNotNull(chatbotSessions.userId), eq(chatbotSessions.status, 'bot'))) as any;
       }
 
       const sessions = await query.orderBy(desc(chatbotSessions.lastActivityAt)).limit(250);
@@ -1600,7 +1621,14 @@ function resolveCartQty(
           count: sql<number>`count(*)`,
         }).from(liveChatMessages).where(eq(liveChatMessages.sessionToken, s.sessionToken));
 
-        let customerName = 'Guest Visitor';
+        const totalMessages = Number(msgCountRow?.count || 0);
+
+        // Skip recording/showing empty chats with 0 messages
+        if (totalMessages === 0 && s.status !== 'waiting_for_agent') {
+          continue;
+        }
+
+        let customerName = 'Customer';
         let customerPhone = '';
         let customerEmail = '';
 
@@ -1628,7 +1656,7 @@ function resolveCartQty(
           customerName,
           customerPhone,
           customerEmail,
-          totalMessages: Number(msgCountRow?.count || 0),
+          totalMessages,
           lastMessage: msgs[0]?.message || 'No messages yet',
           lastMessageSender: msgs[0]?.sender || 'system',
         });
@@ -1656,7 +1684,7 @@ function resolveCartQty(
     }
   });
 
-  // POST /api/admin/chatbot/purge-sessions — Bulk delete or purge closed sessions permanently
+  // POST /api/admin/chatbot/purge-sessions — Bulk delete or purge closed/guest/empty sessions permanently
   app.post('/api/admin/chatbot/purge-sessions', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
     try {
       const { purgeType = 'closed', sessionTokens = [] } = req.body;
@@ -1681,6 +1709,21 @@ function resolveCartQty(
         }
 
         return res.json({ success: true, deletedCount: tokens.length, message: `Purged ${tokens.length} closed sessions permanently.` });
+      }
+
+      if (purgeType === 'guest_or_empty' || purgeType === 'all_bot') {
+        const botSessions = await db.select({ token: chatbotSessions.sessionToken })
+          .from(chatbotSessions)
+          .where(or(isNull(chatbotSessions.userId), eq(chatbotSessions.status, 'bot')));
+
+        const tokens = botSessions.map((s) => s.token);
+        if (tokens.length > 0) {
+          await db.delete(liveChatMessages).where(inArray(liveChatMessages.sessionToken, tokens));
+          await db.delete(chatbotMissedQueries).where(inArray(chatbotMissedQueries.sessionToken, tokens));
+          await db.delete(chatbotSessions).where(inArray(chatbotSessions.sessionToken, tokens));
+        }
+
+        return res.json({ success: true, deletedCount: tokens.length, message: `Purged ${tokens.length} guest & bot sessions permanently.` });
       }
 
       return res.status(400).json({ message: 'Invalid purge parameters' });

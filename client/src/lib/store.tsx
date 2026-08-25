@@ -73,6 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+
+    // Poll /api/me periodically (every 4s) so that real-time CR / support edits to profile/stars reflect instantly
+    const interval = setInterval(() => {
+      if (localStorage.getItem("accessToken") || localStorage.getItem("token")) {
+        refresh();
+      }
+    }, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   async function login(email: string, password: string) {
@@ -194,7 +202,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     syncCartOnLogin();
-    return () => { cancelled = true; };
+
+    // Poll /api/cart every 4s for logged-in user to reflect support CR additions/qty modifications live
+    const interval = setInterval(async () => {
+      if (user && !cancelled) {
+        try {
+          const res = await apiRequest("GET", "/api/cart");
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.items)) {
+            setItems(data.items);
+          }
+        } catch {}
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [user?.id]);
 
   // Helper to sync changes to DB for logged in user
