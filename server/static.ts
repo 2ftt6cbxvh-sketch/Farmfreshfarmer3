@@ -13,13 +13,29 @@ export function serveStatic(app: Express) {
 
   let distPath = possiblePaths.find((p) => fs.existsSync(p)) || path.resolve(process.cwd(), "dist/public");
 
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    maxAge: "1y",
+    immutable: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("index.html") || filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      }
+    }
+  }));
 
-  // fall through to index.html for all client-side SPA routes
+  // Fall through to index.html for client-side SPA routes ONLY
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith("/api") || req.originalUrl.startsWith("/health")) {
       return next();
     }
+
+    // Do NOT serve index.html for missing asset or static file requests
+    if (req.path.startsWith("/assets/") || /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|json)$/i.test(req.path)) {
+      return res.status(404).type("text/plain").send("Asset not found");
+    }
+
     // Async non-blocking Telegram security bot notification for website visitor
     import("./services/telegram")
       .then(({ notifyWebsiteVisitor }) => notifyWebsiteVisitor(req))
@@ -27,6 +43,9 @@ export function serveStatic(app: Express) {
 
     const indexPath = path.resolve(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       return res.sendFile(indexPath);
     }
     next();

@@ -19,14 +19,35 @@
     />
     <script>
       (function() {
+        // Hash router backward compatibility
         if (window.location.hash && window.location.hash.startsWith('#/') && window.location.hash.length > 2) {
           var cleanPath = window.location.hash.substring(1);
           window.history.replaceState(null, '', cleanPath);
         }
+
+        // Auto-recover from stale chunks/MIME type errors when a new build is deployed
+        window.addEventListener('error', function(e) {
+          var msg = (e && e.message) ? String(e.message) : '';
+          var targetSrc = (e && e.target && e.target.src) ? String(e.target.src) : '';
+          var isChunkErr = msg.indexOf('MIME type') !== -1 || 
+                           msg.indexOf('dynamically imported module') !== -1 || 
+                           msg.indexOf('Loading chunk') !== -1 ||
+                           msg.indexOf('Failed to fetch') !== -1 ||
+                           (e.target && e.target.tagName === 'SCRIPT' && targetSrc.indexOf('/assets/') !== -1);
+          
+          if (isChunkErr) {
+            var reloadKey = 'fff_chunk_reload_ts';
+            var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+            if (Date.now() - lastReload > 6000) {
+              sessionStorage.setItem(reloadKey, String(Date.now()));
+              window.location.reload();
+            }
+          }
+        }, true);
       })();
     </script>
   </head>
-  <body>
+  <body class="bg-background text-foreground antialiased min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
