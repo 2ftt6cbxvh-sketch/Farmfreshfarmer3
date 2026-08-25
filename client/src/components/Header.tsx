@@ -260,7 +260,11 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">
-                      <UserIcon size={16} className="text-primary" />
+                      {user.profilePhoto ? (
+                        <img src={user.profilePhoto} alt={user.name} className="w-5 h-5 rounded-full object-cover border border-emerald-500" />
+                      ) : (
+                        <UserIcon size={16} className="text-primary" />
+                      )}
                       <span className="hidden sm:inline max-w-[100px] truncate">{user.name}</span>
                     </Button>
                   </DropdownMenuTrigger>

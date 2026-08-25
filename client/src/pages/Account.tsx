@@ -54,6 +54,8 @@ export default function Account() {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "");
+  const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || "");
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState<ChatSessionHistory | null>(null);
 
@@ -78,19 +80,57 @@ export default function Account() {
     refetchInterval: 5000,
   });
 
+  async function handlePhotoUpload(file: File) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Photo Too Large", description: "Please upload an image smaller than 5MB.", variant: "destructive" });
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const uploadRes = await fetch("/api/upload/customer-photo", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.message || "Failed to upload photo");
+      }
+      const photoUrl = uploadData.url;
+      setProfilePhoto(photoUrl);
+
+      // Save directly to user profile
+      const saveRes = await apiRequest("PATCH", "/api/user/profile", {
+        name,
+        phone,
+        address,
+        profilePhoto: photoUrl,
+      });
+      const saveData = await saveRes.json();
+      setUser(saveData.user || { ...user, profilePhoto: photoUrl });
+      toast({ title: "Profile Photo Updated!", description: "Your new avatar has been saved." });
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await apiRequest("PATCH", "/api/user/profile", { name, phone, address });
+      const res = await apiRequest("PATCH", "/api/user/profile", { name, phone, address, profilePhoto });
       const data = await res.json();
-      setUser(data.user || { ...user, name, phone, address });
+      setUser(data.user || { ...user, name, phone, address, profilePhoto });
       toast({ title: "Profile Updated Successfully!" });
     } catch (err: any) {
       try {
         const phoneRes = await apiRequest("PATCH", "/api/user/phone", { phone });
         const phoneData = await phoneRes.json();
-        setUser(phoneData.user || { ...user, phone });
+        setUser(phoneData.user || { ...user, phone, profilePhoto });
         toast({ title: "Phone number updated successfully!" });
       } catch (innerErr: any) {
         toast({ title: "Failed to update profile", description: err.message, variant: "destructive" });
@@ -121,19 +161,31 @@ export default function Account() {
 
   const myTickets = ticketData?.tickets || [];
   const myChats = chatHistoryData?.sessions || [];
-  const starsCount = user.customerStars ?? 0;
 
-  // Calculate VIP Tier based on customer stars
-  const starTier =
-    starsCount >= 100
-      ? { name: "Diamond VIP", badge: "💎 Diamond", discount: "10% Extra OFF", color: "from-cyan-500 to-blue-600" }
-      : starsCount >= 50
-      ? { name: "Platinum VIP", badge: "🏆 Platinum", discount: "7% Extra OFF", color: "from-purple-500 to-indigo-600" }
-      : starsCount >= 20
-      ? { name: "Gold VIP", badge: "🥇 Gold", discount: "5% Extra OFF", color: "from-amber-400 to-yellow-600" }
-      : starsCount >= 5
-      ? { name: "Silver Member", badge: "🥈 Silver", discount: "3% Extra OFF", color: "from-slate-400 to-gray-600" }
-      : { name: "Bronze Member", badge: "🥉 Bronze", discount: "Standard Loyalty", color: "from-orange-400 to-amber-700" };
+  // Determine loyalty stars and display based on role
+  const isSuperAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.id === 1);
+  const isStaffRole = !isSuperAdmin && user.role !== "customer";
+  
+  const starsCount = isSuperAdmin
+    ? 6
+    : isStaffRole
+    ? Math.max(1, Number(user.starRating) || 5)
+    : Number(user.customerStars || 0);
+
+  // Calculate VIP Tier based on stars & role
+  const starTier = isSuperAdmin
+    ? { name: "Master Admin", badge: "👑 Super Admin", discount: "Executive Staff Tier", color: "from-amber-400 via-orange-500 to-yellow-600" }
+    : isStaffRole
+    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: "Staff Discount Tier", color: "from-emerald-400 to-teal-600" }
+    : starsCount >= 100
+    ? { name: "Diamond VIP", badge: "💎 Diamond", discount: "10% Extra OFF", color: "from-cyan-500 to-blue-600" }
+    : starsCount >= 50
+    ? { name: "Platinum VIP", badge: "🏆 Platinum", discount: "7% Extra OFF", color: "from-purple-500 to-indigo-600" }
+    : starsCount >= 20
+    ? { name: "Gold VIP", badge: "🥇 Gold", discount: "5% Extra OFF", color: "from-amber-400 to-yellow-600" }
+    : starsCount >= 5
+    ? { name: "Silver Member", badge: "🥈 Silver", discount: "3% Extra OFF", color: "from-slate-400 to-gray-600" }
+    : { name: "Bronze Member", badge: "🥉 Bronze", discount: "Standard Loyalty", color: "from-orange-400 to-amber-700" };
 
   return (
     <Layout>
@@ -145,9 +197,33 @@ export default function Account() {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 flex items-center justify-center text-white font-extrabold text-2xl shadow-md shrink-0">
-                {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+              <div className="relative group/avatar">
+                {user.profilePhoto || profilePhoto ? (
+                  <img
+                    src={user.profilePhoto || profilePhoto}
+                    alt={user.name}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-md shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 flex items-center justify-center text-white font-extrabold text-2xl shadow-md shrink-0">
+                    {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                )}
+                <label className="absolute -bottom-1 -right-1 bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-full shadow-md cursor-pointer transition-transform hover:scale-110">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handlePhotoUpload(f);
+                    }}
+                    disabled={photoUploading}
+                  />
+                  <Sparkles size={11} className={photoUploading ? "animate-spin" : ""} />
+                </label>
               </div>
+
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="font-serif text-xl sm:text-2xl font-black text-foreground">
@@ -404,6 +480,57 @@ export default function Account() {
               </div>
 
               <form onSubmit={handleSaveProfile} className="space-y-4">
+                {/* Profile Photo Uploader */}
+                <div className="flex items-center gap-4 p-3 bg-muted/20 border border-card-border rounded-2xl">
+                  {profilePhoto || user.profilePhoto ? (
+                    <img
+                      src={profilePhoto || user.profilePhoto!}
+                      alt="Avatar"
+                      className="w-14 h-14 rounded-xl object-cover border border-emerald-500 shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                      {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold block">Profile Avatar Photo</Label>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-xs font-bold cursor-pointer transition-colors border border-primary/30">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handlePhotoUpload(f);
+                          }}
+                          disabled={photoUploading}
+                        />
+                        {photoUploading ? "Uploading..." : "📷 Upload New Photo"}
+                      </label>
+                      {(profilePhoto || user.profilePhoto) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-red-500 hover:text-red-600"
+                          onClick={() => {
+                            setProfilePhoto("");
+                            apiRequest("PATCH", "/api/user/profile", { name, phone, address, profilePhoto: "" }).then(() => {
+                              setUser({ ...user, profilePhoto: null });
+                              toast({ title: "Avatar Removed" });
+                            });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">PNG, JPG, or WebP up to 5MB</p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="fullName" className="text-xs font-bold">Full Name</Label>

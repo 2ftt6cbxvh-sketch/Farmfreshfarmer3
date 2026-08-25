@@ -48,6 +48,7 @@ export const users = pgTable("users", {
   starRating: integer("star_rating").notNull().default(5),
   experienceRank: varchar("experience_rank", { length: 64 }).notNull().default("Specialist"),
   customerStars: integer("customer_stars").notNull().default(0),
+  profilePhoto: text("profile_photo"),
   status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

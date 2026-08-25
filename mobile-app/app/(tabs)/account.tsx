@@ -12,6 +12,7 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -342,7 +343,14 @@ export default function AccountScreen() {
         />
 
         <View style={styles.avatarWrapper}>
-          <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
+          {(user as any).profilePhoto ? (
+            <Image
+              source={{ uri: (user as any).profilePhoto }}
+              style={{ width: '100%', height: '100%', borderRadius: 38 }}
+            />
+          ) : (
+            <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
+          )}
           <View style={styles.onlineDot} />
         </View>
 

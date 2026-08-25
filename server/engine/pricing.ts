@@ -409,7 +409,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     }
   }
 
-  // ── Customer Loyalty Stars Discount ──────────────────────────────────
+  // ── Loyalty & Staff Stars Discount ──────────────────────────────────
   let starDiscountAmount = 0;
   let starDiscountPercent = 0;
   if (req.userId) {
@@ -418,23 +418,53 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
       const { eq } = await import("drizzle-orm");
       const { users } = await import("@shared/schema");
       
-      const [user] = await db.select({ customerStars: users.customerStars })
+      const [user] = await db.select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        isPrimaryAdmin: users.isPrimaryAdmin,
+        starRating: users.starRating,
+        customerStars: users.customerStars,
+      })
         .from(users)
         .where(eq(users.id, req.userId))
         .limit(1);
-      const stars = user?.customerStars ?? 0;
-      if (stars > 0) {
-        const rule = await storage.starDiscountRules.getActiveForStars(stars, 'customer');
-        if (rule) {
-          starDiscountPercent = parseFloat(String(rule.discountPercent)) || 0;
-          starDiscountAmount = round2((subtotal * starDiscountPercent) / 100);
-          if (starDiscountAmount > 0) {
-            breakdown.push({ ruleType: "star_discount", label: `Customer Loyalty Stars Discount (${starDiscountPercent}%)`, amount: starDiscountAmount });
+
+      if (user) {
+        const isPrimary = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.id === 1);
+        const isStaff = isPrimary || user.role !== "customer";
+
+        // Determine effective stars: for staff/admins, use their starRating (6 for Primary Admin, min 1-5 for staff)
+        let effectiveStars = isPrimary
+          ? 6
+          : isStaff
+          ? Math.max(1, Number(user.starRating) || 5)
+          : Number(user.customerStars || 0);
+
+        if (effectiveStars > 0) {
+          // Check staff rule first if staff, then fallback to customer rule
+          let rule = isStaff
+            ? await storage.starDiscountRules.getActiveForStars(effectiveStars, 'staff')
+            : await storage.starDiscountRules.getActiveForStars(effectiveStars, 'customer');
+
+          if (!rule && isStaff) {
+            rule = await storage.starDiscountRules.getActiveForStars(effectiveStars, 'customer');
+          }
+
+          if (rule) {
+            starDiscountPercent = parseFloat(String(rule.discountPercent)) || 0;
+            starDiscountAmount = round2((subtotal * starDiscountPercent) / 100);
+            if (starDiscountAmount > 0) {
+              const label = isStaff
+                ? `Staff & Admin Loyalty Stars Discount (${starDiscountPercent}%)`
+                : `Customer Loyalty Stars Discount (${starDiscountPercent}%)`;
+              breakdown.push({ ruleType: "star_discount", label, amount: starDiscountAmount });
+            }
           }
         }
       }
     } catch (e) {
-      // Non-critical: star discount silently skipped on error
+      console.warn("[pricing engine] Star discount calculation error:", e);
     }
   }
 

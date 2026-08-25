@@ -118,6 +118,7 @@ function publicUser(u: any) {
     starRating: isPrimary ? 6 : Math.min(5, Math.max(1, Number(u.starRating) || 5)),
     experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
     customerStars: u.customerStars ?? 0,
+    profilePhoto: u.profilePhoto || null,
     phone: u.phone,
     address: u.address,
   };
@@ -1028,7 +1029,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   }));
 
   app.patch('/api/user/profile', requireAuth as any, h(async (req, res) => {
-    const { name, phone, address } = req.body || {};
+    const { name, phone, address, profilePhoto } = req.body || {};
     const userId = extractUserId(req) || req.session.userId!;
 
     const updates: Record<string, any> = {};
@@ -1040,6 +1041,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       updates.phone = phone.trim();
     }
     if (typeof address === 'string') updates.address = address.trim();
+    if (typeof profilePhoto === 'string') updates.profilePhoto = profilePhoto;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: 'No profile updates provided' });

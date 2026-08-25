@@ -24,6 +24,7 @@ export interface AuthUser {
   role: string;
   phone?: string | null;
   address?: string | null;
+  profilePhoto?: string | null;
   customerStars?: number | null;
   isPrimaryAdmin?: boolean;
   starRating?: number;
