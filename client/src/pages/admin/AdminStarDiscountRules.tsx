@@ -18,15 +18,15 @@ interface StarDiscountRule {
 }
 
 const DEFAULT_CUSTOMER_RULES = [
-  { ruleType: "customer" as const, starFrom: 1, starTo: 2, discountPercent: "2", description: "Bronze tier (1-2 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 3, starTo: 4, discountPercent: "5", description: "Silver tier (3-4 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 5, starTo: 6, discountPercent: "8", description: "Gold tier (5-6 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 7, starTo: 8, discountPercent: "12", description: "Platinum tier (7-8 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 9, starTo: 10, discountPercent: "15", description: "Diamond tier (9-10 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "3", description: "Bronze tier (1 star)", active: true },
+  { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "7", description: "Gold tier (3 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "10", description: "Platinum tier (4 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 stars)", active: true },
 ];
 
 function StarRow({ count, color = "blue" }: { count: number; color?: "blue" | "gold" }) {
-  const filled = Math.min(count, 10);
+  const filled = Math.min(count, 5);
   const colorClass = color === "blue"
     ? "text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]"
     : "text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]";
@@ -35,7 +35,7 @@ function StarRow({ count, color = "blue" }: { count: number; color?: "blue" | "g
       {Array.from({ length: filled }, (_, i) => (
         <Star key={i} size={13} fill="currentColor" className={colorClass} />
       ))}
-      {Array.from({ length: Math.max(0, 10 - filled) }, (_, i) => (
+      {Array.from({ length: Math.max(0, 5 - filled) }, (_, i) => (
         <Star key={`e-${i}`} size={13} className="text-muted-foreground opacity-30" />
       ))}
     </span>
@@ -168,15 +168,15 @@ export default function AdminStarDiscountRules() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Star From</label>
-                <input type="number" min={0} max={10} value={addForm.starFrom}
+                <label className="text-xs text-muted-foreground mb-1 block">Star From (1–5)</label>
+                <input type="number" min={1} max={6} value={addForm.starFrom}
                   onChange={e => setAddForm(f => ({ ...f, starFrom: Number(e.target.value) }))}
                   className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Star To</label>
-                <input type="number" min={0} max={10} value={addForm.starTo}
+                <label className="text-xs text-muted-foreground mb-1 block">Star To (1–5)</label>
+                <input type="number" min={1} max={6} value={addForm.starTo}
                   onChange={e => setAddForm(f => ({ ...f, starTo: Number(e.target.value) }))}
                   className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
                 />
@@ -192,7 +192,7 @@ export default function AdminStarDiscountRules() {
                 <label className="text-xs text-muted-foreground mb-1 block">Description (optional)</label>
                 <input type="text" value={addForm.description}
                   onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="e.g. Gold tier (5-6 stars)"
+                  placeholder="e.g. Diamond tier (5 stars)"
                   className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
                 />
               </div>
@@ -222,11 +222,11 @@ export default function AdminStarDiscountRules() {
               <div key={rule.id} className="rounded-xl border border-card-border bg-card p-4 flex flex-wrap items-center gap-4">
                 {editingId === rule.id ? (
                   <>
-                    <input type="number" min={0} max={10} value={editForm.starFrom ?? rule.starFrom}
+                    <input type="number" min={1} max={6} value={editForm.starFrom ?? rule.starFrom}
                       onChange={e => setEditForm(f => ({ ...f, starFrom: Number(e.target.value) }))}
                       className="w-16 rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
                     <span className="text-muted-foreground">to</span>
-                    <input type="number" min={0} max={10} value={editForm.starTo ?? rule.starTo}
+                    <input type="number" min={1} max={6} value={editForm.starTo ?? rule.starTo}
                       onChange={e => setEditForm(f => ({ ...f, starTo: Number(e.target.value) }))}
                       className="w-16 rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
                     <input type="number" min={0} max={100} step={0.5} value={editForm.discountPercent ?? rule.discountPercent}

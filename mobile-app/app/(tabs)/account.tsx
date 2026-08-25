@@ -378,10 +378,11 @@ export default function AccountScreen() {
             );
           }
 
+          const isStaffRole = user.role && user.role !== 'customer';
           return (
             <View style={styles.customerStarsPill}>
               <Text style={{ color: '#34d399', fontWeight: '900', fontSize: 13 }}>
-                ⭐ {(user as any).customerStars || (user as any).starRating || 5} VIP Loyalty Stars
+                ⭐ {starCount} {isStaffRole ? 'Staff Star Rating' : 'VIP Loyalty Stars'}
               </Text>
             </View>
           );

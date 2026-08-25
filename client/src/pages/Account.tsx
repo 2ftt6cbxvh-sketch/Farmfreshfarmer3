@@ -172,20 +172,22 @@ export default function Account() {
     ? Math.max(1, Number(user.starRating) || 5)
     : Number(user.customerStars || 0);
 
-  // Calculate VIP Tier based on stars & role
+  // Calculate VIP Tier based on stars & role (1 to 5 Stars scale, 6 Stars for Master Admin)
   const starTier = isSuperAdmin
-    ? { name: "Master Admin", badge: "👑 Super Admin", discount: "Executive Staff Tier", color: "from-amber-400 via-orange-500 to-yellow-600" }
+    ? { name: "Master Admin", badge: "👑 Super Admin", discount: "Executive 6★ Staff Tier", color: "from-amber-400 via-orange-500 to-yellow-600" }
     : isStaffRole
-    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: "Staff Discount Tier", color: "from-emerald-400 to-teal-600" }
-    : starsCount >= 100
-    ? { name: "Diamond VIP", badge: "💎 Diamond", discount: "10% Extra OFF", color: "from-cyan-500 to-blue-600" }
-    : starsCount >= 50
-    ? { name: "Platinum VIP", badge: "🏆 Platinum", discount: "7% Extra OFF", color: "from-purple-500 to-indigo-600" }
-    : starsCount >= 20
-    ? { name: "Gold VIP", badge: "🥇 Gold", discount: "5% Extra OFF", color: "from-amber-400 to-yellow-600" }
+    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: `Staff ${starsCount}★ Tier`, color: "from-emerald-400 to-teal-600" }
     : starsCount >= 5
-    ? { name: "Silver Member", badge: "🥈 Silver", discount: "3% Extra OFF", color: "from-slate-400 to-gray-600" }
-    : { name: "Bronze Member", badge: "🥉 Bronze", discount: "Standard Loyalty", color: "from-orange-400 to-amber-700" };
+    ? { name: "Diamond VIP", badge: "💎 5★ Diamond", discount: "15% Extra OFF", color: "from-cyan-500 to-blue-600" }
+    : starsCount >= 4
+    ? { name: "Platinum VIP", badge: "🏆 4★ Platinum", discount: "10% Extra OFF", color: "from-purple-500 to-indigo-600" }
+    : starsCount >= 3
+    ? { name: "Gold VIP", badge: "🥇 3★ Gold", discount: "7% Extra OFF", color: "from-amber-400 to-yellow-600" }
+    : starsCount >= 2
+    ? { name: "Silver Member", badge: "🥈 2★ Silver", discount: "5% Extra OFF", color: "from-slate-400 to-gray-600" }
+    : starsCount >= 1
+    ? { name: "Bronze Member", badge: "🥉 1★ Bronze", discount: "3% Extra OFF", color: "from-orange-400 to-amber-700" }
+    : { name: "Standard Member", badge: "🌿 0★ Member", discount: "Standard Loyalty", color: "from-gray-500 to-slate-700" };
 
   return (
     <Layout>
@@ -430,26 +432,31 @@ export default function Account() {
                 </div>
               </div>
 
-              {/* VIP Tiers Table */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                <div className={`p-4 rounded-2xl border ${starsCount >= 100 ? "border-cyan-500 bg-cyan-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-cyan-500">💎 Diamond VIP</p>
-                  <p className="text-foreground font-bold mt-1">100+ Stars</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">10% Extra OFF + Priority Express Dispatch</p>
+              {/* VIP Tiers Table (1-5 Stars Scale) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                <div className={`p-3.5 rounded-2xl border ${starsCount >= 5 ? "border-cyan-500 bg-cyan-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
+                  <p className="font-black text-cyan-500">💎 Diamond</p>
+                  <p className="text-foreground font-bold mt-1">5 Stars ★★★★★</p>
+                  <p className="text-muted-foreground text-[11px] mt-1">15% Extra OFF + VIP Dispatch</p>
                 </div>
-                <div className={`p-4 rounded-2xl border ${starsCount >= 50 && starsCount < 100 ? "border-purple-500 bg-purple-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-purple-500">🏆 Platinum VIP</p>
-                  <p className="text-foreground font-bold mt-1">50 - 99 Stars</p>
+                <div className={`p-3.5 rounded-2xl border ${starsCount === 4 ? "border-purple-500 bg-purple-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
+                  <p className="font-black text-purple-500">🏆 Platinum</p>
+                  <p className="text-foreground font-bold mt-1">4 Stars ★★★★☆</p>
+                  <p className="text-muted-foreground text-[11px] mt-1">10% Extra OFF on all orders</p>
+                </div>
+                <div className={`p-3.5 rounded-2xl border ${starsCount === 3 ? "border-amber-500 bg-amber-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
+                  <p className="font-black text-amber-500">🥇 Gold</p>
+                  <p className="text-foreground font-bold mt-1">3 Stars ★★★☆☆</p>
                   <p className="text-muted-foreground text-[11px] mt-1">7% Extra OFF on all orders</p>
                 </div>
-                <div className={`p-4 rounded-2xl border ${starsCount >= 20 && starsCount < 50 ? "border-amber-500 bg-amber-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-amber-500">🥇 Gold VIP</p>
-                  <p className="text-foreground font-bold mt-1">20 - 49 Stars</p>
+                <div className={`p-3.5 rounded-2xl border ${starsCount === 2 ? "border-slate-400 bg-slate-400/10 font-bold" : "border-card-border bg-muted/20"}`}>
+                  <p className="font-black text-slate-400">🥈 Silver</p>
+                  <p className="text-foreground font-bold mt-1">2 Stars ★★☆☆☆</p>
                   <p className="text-muted-foreground text-[11px] mt-1">5% Extra OFF on all orders</p>
                 </div>
-                <div className={`p-4 rounded-2xl border ${starsCount >= 5 && starsCount < 20 ? "border-emerald-500 bg-emerald-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-emerald-500">🥈 Silver Member</p>
-                  <p className="text-foreground font-bold mt-1">5 - 19 Stars</p>
+                <div className={`p-3.5 rounded-2xl border ${starsCount === 1 ? "border-orange-500 bg-orange-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
+                  <p className="font-black text-orange-500">🥉 Bronze</p>
+                  <p className="text-foreground font-bold mt-1">1 Star ★☆☆☆☆</p>
                   <p className="text-muted-foreground text-[11px] mt-1">3% Extra OFF on all orders</p>
                 </div>
               </div>
