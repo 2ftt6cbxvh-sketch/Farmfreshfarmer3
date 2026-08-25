@@ -246,7 +246,7 @@ export function registerStaffRoutes(app: Express) {
   /** PATCH /api/admin/staff/:id — Edit sub-admin role, status, or permissions (Primary Admin only) */
   app.patch("/api/admin/staff/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const staffId = parseInt(req.params.id, 10);
+      const staffId = parseInt(String(req.params.id), 10);
       if (isNaN(staffId)) return res.status(400).json({ message: "Invalid staff ID" });
 
       const [target] = await db.select().from(users).where(eq(users.id, staffId)).limit(1);
@@ -313,7 +313,7 @@ export function registerStaffRoutes(app: Express) {
   /** DELETE /api/admin/staff/:id — Delete sub-admin account (Primary Admin only) */
   app.delete("/api/admin/staff/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const staffId = parseInt(req.params.id, 10);
+      const staffId = parseInt(String(req.params.id), 10);
       if (isNaN(staffId)) return res.status(400).json({ message: "Invalid staff ID" });
 
       const currentUserId = (req as any).currentUser?.id || (req.session as any)?.userId;

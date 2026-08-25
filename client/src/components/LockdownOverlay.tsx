@@ -391,7 +391,9 @@ function SecretPassageModal({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-emerald-400">🔑 6-Digit Authenticator TOTP Code *</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-emerald-400">🔑 6-Digit Authenticator TOTP or Telegram Code *</label>
+              </div>
               <input
                 type="text"
                 required
@@ -401,6 +403,9 @@ function SecretPassageModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="w-full mt-1 px-3 py-2 rounded-xl bg-gray-900 border border-emerald-500/50 text-emerald-400 text-center font-mono text-base font-bold tracking-widest focus:outline-none"
               />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Enter your Google/Apple Authenticator 6-digit code, OR the 6-digit Telegram override token.
+              </p>
             </div>
 
             <button

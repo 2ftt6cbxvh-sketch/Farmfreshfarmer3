@@ -293,14 +293,37 @@ async function sendRawTelegramMessage(botToken: string, chatId: string, text: st
    3. SECURITY BOT ALERT DISPATCHER (SUPER ADMIN & SUB-SUPER-ADMINS)
    ==================================================================== */
 
+const securityAlertCache = new Map<string, number>();
+const SECURITY_ALERT_COOLDOWN_MS = 30 * 1000; // 30-second anti-spam deduplication cooldown
+
 export async function sendTelegramSecurityAlert(message: string): Promise<boolean> {
   const { botToken, chatIds } = await getTelegramSecurityCredentials();
   if (!botToken || chatIds.length === 0) return false;
+
+  // Rate-limiting deduplication: prevent spamming duplicate alert texts
+  const now = Date.now();
+  const cacheKey = message.substring(0, 100);
+  const lastSent = securityAlertCache.get(cacheKey);
+  if (lastSent && now - lastSent < SECURITY_ALERT_COOLDOWN_MS) {
+    return true; // Suppressed duplicate
+  }
+  securityAlertCache.set(cacheKey, now);
+
   const formatted = `🚨 [FarmFreshFarmer Security]\n${message}`;
   const results = await Promise.all(
     chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, formatted))
   );
   return results.some((r) => r === true);
+}
+
+export async function sendTelegramSecurityAlertThrottled(key: string, message: string, cooldownMs = 30000): Promise<boolean> {
+  const now = Date.now();
+  const lastSent = securityAlertCache.get(key);
+  if (lastSent && now - lastSent < cooldownMs) {
+    return true;
+  }
+  securityAlertCache.set(key, now);
+  return sendTelegramSecurityAlert(message);
 }
 
 // Alias for backwards compatibility across existing security imports
@@ -311,7 +334,7 @@ export const sendTelegramAlert = sendTelegramSecurityAlert;
    ==================================================================== */
 
 const visitorAlertCache = new Map<string, number>();
-const VISITOR_COOLDOWN_MS = 5 * 60 * 1000; // 5 minute anti-spam cooldown per IP
+const VISITOR_COOLDOWN_MS = 10 * 60 * 1000; // 10 minute anti-spam cooldown per IP
 
 function parseUserAgent(ua = ""): string {
   if (!ua) return "Unknown Device";
@@ -339,6 +362,16 @@ function parseUserAgent(ua = ""): string {
 
 export async function notifyWebsiteVisitor(req: any): Promise<boolean> {
   try {
+    // Only send visitor alerts if explicitly enabled in settings
+    const { storage } = await import("../storage");
+    const enabled = await storage.settings.get("telegram_visitor_alerts_enabled");
+    if (enabled !== "true") return false;
+
+    // Check lockdown status: do not alert during lockdown
+    const { getLockdownStatus } = await import("./lockdown");
+    const lockdown = await getLockdownStatus();
+    if (lockdown.active) return false;
+
     const rawIp =
       (req.headers["cf-connecting-ip"] as string) ||
       (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
@@ -728,23 +761,37 @@ export function createTelegramUnlockToken(deviceInfo: string): string {
   return token;
 }
 
-export function checkTelegramUnlockToken(token: string): boolean {
-  const data = telegramUnlockTokens[token];
+export function isTelegramUnlockTokenValid(token: string): boolean {
+  if (!token) return false;
+  const cleanToken = token.trim();
+  const data = telegramUnlockTokens[cleanToken];
   if (!data) return false;
   if (Date.now() - data.createdAt > 5 * 60 * 1000) {
-    delete telegramUnlockTokens[token];
+    delete telegramUnlockTokens[cleanToken];
+    return false;
+  }
+  return true;
+}
+
+export function checkTelegramUnlockToken(token: string): boolean {
+  const cleanToken = (token || "").trim();
+  const data = telegramUnlockTokens[cleanToken];
+  if (!data) return false;
+  if (Date.now() - data.createdAt > 5 * 60 * 1000) {
+    delete telegramUnlockTokens[cleanToken];
     return false;
   }
   if (data.status === "approved") {
-    delete telegramUnlockTokens[token];
+    delete telegramUnlockTokens[cleanToken];
     return true;
   }
   return false;
 }
 
 export function approveTelegramUnlockToken(token: string): boolean {
-  if (telegramUnlockTokens[token]) {
-    telegramUnlockTokens[token].status = "approved";
+  const cleanToken = (token || "").trim();
+  if (telegramUnlockTokens[cleanToken]) {
+    telegramUnlockTokens[cleanToken].status = "approved";
     return true;
   }
   return false;
@@ -777,6 +824,8 @@ export async function sendTelegramUnlockRequest(token: string, deviceInfo: strin
    6. SECURITY BOT WEBHOOK HANDLER (/api/telegram/security/webhook)
    ==================================================================== */
 
+const unauthorizedAlertCache = new Map<string, number>();
+
 export async function processSecurityTelegramWebhook(update: any): Promise<{ handled: boolean; reply?: string }> {
   const { botToken, chatIds: expectedChatIds, chatId: primaryChatId } = await getTelegramSecurityCredentials();
   if (!botToken) return { handled: false, reply: "Security Bot token not configured" };
@@ -784,19 +833,22 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   // Handle Inline Keyboard Button Taps
   if (update?.callback_query) {
     const cb = update.callback_query;
-    const cbChatId = String(cb.message?.chat?.id);
-    if (expectedChatIds.includes(cbChatId)) {
+    const cbChatId = String(cb.message?.chat?.id || "").trim();
+    const cbFromId = String(cb.from?.id || "").trim();
+    const isAuthorized = expectedChatIds.some((id) => id === cbChatId || id === cbFromId);
+
+    if (isAuthorized) {
       const data = String(cb.data || "");
       if (data.startsWith("approve_")) {
         const token = data.replace("approve_", "");
         approveTelegramUnlockToken(token);
         const reply = `✅ <b>SUPER ADMIN OVERRIDE SESSION APPROVED!</b>\nToken: <code>${token}</code>\nSuper Admin session authorized. Global platform lockdown remains ACTIVE for all other users.`;
-        await sendRawTelegramMessage(botToken, cbChatId, reply);
+        await sendRawTelegramMessage(botToken, cbChatId || primaryChatId, reply);
         return { handled: true, reply };
       } else if (data.startsWith("reject_")) {
         const token = data.replace("reject_", "");
         const reply = `🚫 <b>SUPER ADMIN EMERGENCY UNLOCK REJECTED!</b>\nToken: <code>${token}</code>\nSession request was rejected by Super Admin.`;
-        await sendRawTelegramMessage(botToken, cbChatId, reply);
+        await sendRawTelegramMessage(botToken, cbChatId || primaryChatId, reply);
         return { handled: true, reply };
       }
     }
@@ -805,13 +857,18 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   const message = update?.message;
   if (!message || !message.text) return { handled: false };
 
-  const senderChatId = String(message.chat?.id);
+  const senderChatId = String(message.chat?.id || "").trim();
+  const senderFromId = String(message.from?.id || "").trim();
   const text = message.text.trim();
 
   // Strict Chat ID check: allow only authorized Super Admins & Sub-Super-Admins
-  if (!expectedChatIds.includes(senderChatId)) {
+  const isAuthorized = expectedChatIds.some((id) => id === senderChatId || id === senderFromId);
+  if (!isAuthorized) {
     console.warn(`[telegram security] Unauthorized command attempt on Security Bot from chat ID: ${senderChatId}`);
-    if (primaryChatId) {
+    const now = Date.now();
+    const lastSent = unauthorizedAlertCache.get(senderChatId) || 0;
+    if (primaryChatId && now - lastSent > 60000) {
+      unauthorizedAlertCache.set(senderChatId, now);
       await sendRawTelegramMessage(
         botToken,
         primaryChatId,

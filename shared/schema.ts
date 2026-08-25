@@ -841,6 +841,10 @@ export const chatbotSessions = pgTable("chatbot_sessions", {
   status: varchar("status", { length: 32 }).notNull().default("bot"), // bot | waiting_for_agent | agent_connected | closed
   assignedAgentId: integer("assigned_agent_id"),
   assignedAgentName: text("assigned_agent_name"),
+  customerPermissionGranted: boolean("customer_permission_granted").notNull().default(false),
+  permissionGrantedAt: timestamp("permission_granted_at", { withTimezone: true }),
+  permissionRequestedAt: timestamp("permission_requested_at", { withTimezone: true }),
+  permissionScope: varchar("permission_scope", { length: 64 }), // 'all' | 'profile' | 'cart' | 'orders'
   lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
@@ -857,6 +861,8 @@ export const liveChatMessages = pgTable("live_chat_messages", {
   senderName: text("sender_name"),
   senderId: integer("sender_id"),
   message: text("message").notNull(),
+  messageType: varchar("message_type", { length: 32 }).notNull().default("text"), // 'text' | 'permission_request' | 'permission_response'
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   sessionIdx: index("live_chat_messages_session_idx").on(t.sessionToken),

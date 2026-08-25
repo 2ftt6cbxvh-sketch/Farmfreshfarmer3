@@ -501,8 +501,10 @@ export function registerAdminSecurityRoutes(app: Express) {
         return res.status(400).json({ message: "6-Digit Authenticator TOTP 2FA code is required." });
       }
 
-      // 1. Verify 6-digit TOTP
+      // 1. Verify 6-digit TOTP or Telegram Override Token
+      const cleanCode = String(totpCode).trim();
       const { verifyTotpCode, generateTotpSecret } = await import("../../services/totp");
+      const { isTelegramUnlockTokenValid, checkTelegramUnlockToken, sendTelegramSecurityAlertThrottled } = await import("../../services/telegram");
       const { storage } = await import("../../storage");
       let secret = await storage.settings.get("admin_totp_secret");
       if (!secret) {
@@ -510,11 +512,20 @@ export function registerAdminSecurityRoutes(app: Express) {
         await storage.settings.set("admin_totp_secret", secret);
       }
 
-      const isTotpValid = verifyTotpCode(secret, String(totpCode).trim());
+      let isTotpValid = verifyTotpCode(secret, cleanCode);
       if (!isTotpValid) {
-        const { sendTelegramAlert } = await import("../../services/telegram");
-        await sendTelegramAlert(`⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid TOTP)\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`);
-        return res.status(400).json({ message: "Invalid 6-digit TOTP code. Check Apple Passwords or Authenticator App." });
+        // Also check if code matches an active or approved Telegram session token
+        if (isTelegramUnlockTokenValid(cleanCode) || checkTelegramUnlockToken(cleanCode)) {
+          isTotpValid = true;
+        }
+      }
+
+      if (!isTotpValid) {
+        await sendTelegramSecurityAlertThrottled(
+          `totp_fail_${req.ip}`,
+          `⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid TOTP / Code)\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`
+        );
+        return res.status(400).json({ message: "Invalid 6-digit code. Enter your Authenticator TOTP or Telegram Override Token." });
       }
 
       // 2. Fetch Super Admin User
@@ -583,7 +594,7 @@ export function registerAdminSecurityRoutes(app: Express) {
       const { token: sessionToken } = req.params;
       const { checkTelegramUnlockToken } = await import("../../services/telegram");
 
-      const isApproved = checkTelegramUnlockToken(sessionToken);
+      const isApproved = checkTelegramUnlockToken(String(sessionToken));
       if (!isApproved) {
         return res.json({ approved: false });
       }

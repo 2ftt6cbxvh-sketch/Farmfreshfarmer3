@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
-import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products } from '@shared/schema';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders } from '@shared/schema';
 import { sendTelegramGrievanceAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -165,6 +165,8 @@ export function registerChatbotRoutes(app: Express, storage: any) {
       return res.json({
         status: session.status,
         assignedAgentName: session.assignedAgentName,
+        customerPermissionGranted: Boolean(session.customerPermissionGranted),
+        permissionScope: session.permissionScope,
         messages: msgs.map(m => {
           const userObj = m.senderId ? userMap.get(m.senderId) : (m.sender === 'customer' && session.userId ? userMap.get(session.userId) : null);
           const isPrimary = Boolean(userObj?.isPrimaryAdmin || userObj?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || userObj?.id === 1);
@@ -173,6 +175,8 @@ export function registerChatbotRoutes(app: Express, storage: any) {
             sender: m.sender,
             senderName: m.senderName || (m.sender === 'customer' ? (userObj?.name || 'Customer') : 'Support Rep'),
             message: m.message,
+            messageType: m.messageType || 'text',
+            metadata: m.metadata || null,
             createdAt: m.createdAt,
             senderMeta: userObj ? {
               isPrimaryAdmin: isPrimary,
@@ -1366,30 +1370,80 @@ function resolveCartQty(
     }
   });
 
-  // POST /api/chatbot/missed — Human Support Escalation Request
+  // Helper to resolve authenticated customer userId
+  async function resolveCustomerUserId(req: Request): Promise<number | null> {
+    if ((req.session as any)?.userId) {
+      return (req.session as any).userId;
+    }
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : (req.cookies?.accessToken || req.cookies?.token || req.body?.sessionToken);
+
+    if (token) {
+      try {
+        const jwt = (await import('jsonwebtoken')).default;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+        if (decoded && (decoded.userId || decoded.sub)) {
+          return typeof decoded.userId === 'string' ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
+        }
+      } catch {}
+    }
+
+    if (req.body?.userId) {
+      const p = parseInt(String(req.body.userId), 10);
+      if (!isNaN(p) && p > 0) return p;
+    }
+
+    return null;
+  }
+
+  // POST /api/chatbot/missed — Human Support Escalation Request (Requires Login)
   app.post('/api/chatbot/missed', async (req, res) => {
     try {
       const { query, sessionToken, language = 'en', triggerType = 'human_request', chatHistory = '' } = req.body;
-      const token = sessionToken || `guest_${Date.now()}`;
+      const token = sessionToken || `sess_${Date.now()}`;
+      const userId = await resolveCustomerUserId(req);
 
-      // Update session status to waiting_for_agent
-      await db.insert(chatbotSessions).values({ sessionToken: token, language, status: 'waiting_for_agent' })
-        .onConflictDoUpdate({ target: chatbotSessions.sessionToken, set: { status: 'waiting_for_agent', lastActivityAt: new Date() } });
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          requiresLogin: true,
+          message: 'Please log in to connect with a Live Customer Representative.',
+        });
+      }
+
+      const [cust] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const customerName = cust?.name || cust?.username || 'Customer';
+
+      // Update session status to waiting_for_agent and link customer userId
+      await db.insert(chatbotSessions).values({ sessionToken: token, userId, language, status: 'waiting_for_agent' })
+        .onConflictDoUpdate({
+          target: chatbotSessions.sessionToken,
+          set: { status: 'waiting_for_agent', userId, lastActivityAt: new Date() }
+        });
 
       // Save initial customer query to liveChatMessages
       if (query) {
         await db.insert(liveChatMessages).values({
           sessionToken: token,
           sender: 'customer',
-          senderName: 'Customer',
+          senderName: customerName,
+          senderId: userId,
           message: query,
         });
       }
 
-      // Dispatch Telegram alert
-      await triggerHumanEscalationAlert(token, query || 'Customer requested live human support takeover', language);
+      // Dispatch Telegram alert to Grievance/Support group
+      const alertMsg = `A customer needs live human assistance!\n\n` +
+        `<b>Customer:</b> ${customerName} (ID: #${userId})\n` +
+        `<b>Phone:</b> ${cust?.phone || 'N/A'} | <b>Email:</b> ${cust?.email || 'N/A'}\n` +
+        `<b>Session ID:</b> <code>${token}</code>\n` +
+        `<b>Language:</b> ${language}\n` +
+        `<b>Message:</b> "${query || 'Customer requested live support'}"`;
+      await sendTelegramGrievanceAlert(alertMsg);
 
-      return res.json({ success: true, status: 'waiting_for_agent' });
+      return res.json({ success: true, status: 'waiting_for_agent', customer: { id: userId, name: customerName } });
     } catch (err) {
       console.error('[chatbot] Error handling missed query escalation:', err);
       return res.status(500).json({ success: false, error: 'Escalation failed' });
@@ -1414,8 +1468,15 @@ function resolveCartQty(
           .orderBy(desc(liveChatMessages.createdAt))
           .limit(1);
 
+        let customerName = 'Guest';
+        if (s.userId) {
+          const [u] = await db.select().from(users).where(eq(users.id, s.userId)).limit(1);
+          if (u) customerName = u.name || u.email || `Customer #${u.id}`;
+        }
+
         result.push({
           ...s,
+          customerName,
           lastMessage: msgs[0]?.message || 'No messages yet',
           lastMessageSender: msgs[0]?.sender || 'system',
         });
@@ -1425,6 +1486,520 @@ function resolveCartQty(
     } catch (err: any) {
       console.error('[admin chatbot] Error listing live sessions:', err);
       return res.status(500).json({ message: 'Failed to list live sessions' });
+    }
+  });
+
+  // GET /api/admin/chatbot/customer-context/:sessionToken — Customer 360, Cart, and Orders
+  app.get('/api/admin/chatbot/customer-context/:sessionToken', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const sessionToken = String(req.params.sessionToken);
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      if (!session) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
+
+      let customer = null;
+      let cartData = { id: null as number | null, items: [] as any[], total: 0 };
+      let customerOrders: any[] = [];
+
+      if (session.userId) {
+        const [u] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+        if (u) {
+          const [orderStats] = await db.select({
+            orderCount: sql<number>`count(${orders.id})`,
+            totalSpent: sql<string>`coalesce(sum(${orders.total}), 0)`,
+          }).from(orders).where(eq(orders.userId, u.id));
+
+          customer = {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone,
+            address: u.address,
+            customerStars: u.customerStars ?? 0,
+            role: u.role,
+            createdAt: u.createdAt,
+            orderCount: Number(orderStats?.orderCount || 0),
+            totalSpent: Number(orderStats?.totalSpent || 0),
+          };
+
+          // Fetch active cart
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, u.id)).limit(1);
+          if (userCart) {
+            cartData.id = userCart.id;
+            const dbItems = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
+            if (dbItems.length > 0) {
+              const productIds = dbItems.map(i => i.productId);
+              const productList = await db.select().from(products).where(inArray(products.id, productIds));
+              const productMap = new Map(productList.map(p => [p.id, p]));
+
+              let subtotal = 0;
+              cartData.items = dbItems.map(i => {
+                const p = productMap.get(i.productId);
+                if (!p) return null;
+                const effectivePrice = Number(p.price) * (1 - Number(p.discountPercent || 0) / 100);
+                const lineTotal = effectivePrice * i.qty;
+                subtotal += lineTotal;
+                return {
+                  id: i.id,
+                  productId: p.id,
+                  name: p.name,
+                  image: p.image,
+                  unit: p.unit,
+                  price: effectivePrice,
+                  originalPrice: Number(p.price),
+                  qty: i.qty,
+                  lineTotal,
+                };
+              }).filter(Boolean);
+              cartData.total = subtotal;
+            }
+          }
+
+          // Fetch orders
+          customerOrders = await db.select().from(orders)
+            .where(eq(orders.userId, u.id))
+            .orderBy(desc(orders.createdAt))
+            .limit(20);
+        }
+      }
+
+      // Catalog products for quick search & add
+      const catalogProducts = await db.select({
+        id: products.id,
+        name: products.name,
+        price: products.price,
+        unit: products.unit,
+        image: products.image,
+        stock: products.stock,
+        discountPercent: products.discountPercent,
+      }).from(products).where(eq(products.active, true)).limit(60);
+
+      return res.json({
+        session,
+        customer,
+        cart: cartData,
+        orders: customerOrders,
+        catalogProducts,
+        customerPermissionGranted: Boolean(session.customerPermissionGranted),
+        permissionScope: session.permissionScope,
+        permissionGrantedAt: session.permissionGrantedAt,
+      });
+    } catch (err: any) {
+      console.error('[admin chatbot] Customer context error:', err);
+      return res.status(500).json({ message: 'Failed to fetch customer context' });
+    }
+  });
+
+  // Helper: Verify customer consent
+  async function checkCustomerPermission(sessionToken?: string): Promise<boolean> {
+    if (!sessionToken) return false;
+    const [sess] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+    return Boolean(sess?.customerPermissionGranted);
+  }
+
+  // POST /api/admin/chatbot/request-permission — CR prompts customer in live chat for edit consent
+  app.post('/api/admin/chatbot/request-permission', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sessionToken, scope = 'all', requestNote } = req.body;
+      const user = (req as any).user || {};
+
+      if (!sessionToken) {
+        return res.status(400).json({ message: 'sessionToken is required' });
+      }
+
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      if (!session) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
+
+      const scopeName = scope === 'cart' ? 'Live Cart' : scope === 'profile' ? 'Profile Details' : scope === 'orders' ? 'Orders' : 'Account & Orders';
+
+      await db.update(chatbotSessions)
+        .set({
+          permissionRequestedAt: new Date(),
+          permissionScope: scope,
+          customerPermissionGranted: false,
+          lastActivityAt: new Date(),
+        })
+        .where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      const [msg] = await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'system',
+        senderName: 'System',
+        message: `🛡️ PERMISSION REQUEST: Support Representative ${user.name || 'Staff'} is requesting your authorization to modify your ${scopeName} on your behalf to assist you.`,
+        messageType: 'permission_request',
+        metadata: {
+          scope,
+          scopeName,
+          status: 'pending',
+          agentId: user.id || null,
+          agentName: user.name || 'Support Representative',
+          requestNote: requestNote || 'Representative needs your consent to make modifications on your account.',
+        },
+      }).returning();
+
+      return res.json({ success: true, message: msg });
+    } catch (err: any) {
+      console.error('[admin chatbot] Request permission error:', err);
+      return res.status(500).json({ message: 'Failed to dispatch permission request' });
+    }
+  });
+
+  // POST /api/chatbot/respond-permission — Customer clicks "Proceed & Authorize" or "Decline"
+  app.post('/api/chatbot/respond-permission', async (req: Request, res: Response) => {
+    try {
+      const { sessionToken, granted } = req.body;
+      if (!sessionToken) {
+        return res.status(400).json({ message: 'sessionToken is required' });
+      }
+
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      if (!session) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
+
+      const isGranted = Boolean(granted);
+
+      await db.update(chatbotSessions)
+        .set({
+          customerPermissionGranted: isGranted,
+          permissionGrantedAt: isGranted ? new Date() : null,
+          lastActivityAt: new Date(),
+        })
+        .where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      const responseText = isGranted
+        ? `✅ PERMISSION GRANTED: Customer authorized Support Representative to make modifications during this session.`
+        : `⛔ PERMISSION DECLINED: Customer declined modification access. Representative remains in Read-Only mode.`;
+
+      await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'system',
+        senderName: 'System',
+        message: responseText,
+        messageType: 'permission_response',
+        metadata: {
+          status: isGranted ? 'granted' : 'declined',
+          scope: session.permissionScope || 'all',
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      return res.json({ success: true, customerPermissionGranted: isGranted });
+    } catch (err: any) {
+      console.error('[chatbot] Respond permission error:', err);
+      return res.status(500).json({ message: 'Failed to process permission response' });
+    }
+  });
+
+  // POST /api/admin/chatbot/revoke-permission — CR manually resets/locks permission back to Read-Only
+  app.post('/api/admin/chatbot/revoke-permission', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { sessionToken } = req.body;
+      if (!sessionToken) {
+        return res.status(400).json({ message: 'sessionToken is required' });
+      }
+
+      await db.update(chatbotSessions)
+        .set({
+          customerPermissionGranted: false,
+          permissionGrantedAt: null,
+          lastActivityAt: new Date(),
+        })
+        .where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      await db.insert(liveChatMessages).values({
+        sessionToken,
+        sender: 'system',
+        senderName: 'System',
+        message: `🔒 Modification session closed by Support Representative. Returned to Read-Only mode.`,
+        messageType: 'permission_response',
+        metadata: { status: 'revoked', timestamp: new Date().toISOString() },
+      });
+
+      return res.json({ success: true, customerPermissionGranted: false });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to revoke permission' });
+    }
+  });
+
+  // PUT /api/admin/chatbot/customer/:userId — Update Customer Profile details (Requires Customer Consent)
+  app.put('/api/admin/chatbot/customer/:userId', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(String(req.params.userId), 10);
+      const { name, phone, address, email, sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      const updateFields: any = {};
+      if (name !== undefined) updateFields.name = String(name).trim();
+      if (phone !== undefined) updateFields.phone = String(phone).trim();
+      if (address !== undefined) updateFields.address = String(address).trim();
+      if (email !== undefined) updateFields.email = String(email).trim().toLowerCase();
+
+      const [updatedUser] = await db.update(users)
+        .set(updateFields)
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `📝 Customer profile details updated by Support Representative (${user.name || 'Staff'}).`,
+        });
+      }
+
+      return res.json({ success: true, customer: updatedUser });
+    } catch (err: any) {
+      console.error('[admin chatbot] Update customer error:', err);
+      return res.status(500).json({ message: 'Failed to update customer details' });
+    }
+  });
+
+  // POST /api/admin/chatbot/cart/add-item — Add product to customer cart (Requires Customer Consent)
+  app.post('/api/admin/chatbot/cart/add-item', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { userId, productId, qty = 1, sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      if (!userId || !productId) {
+        return res.status(400).json({ message: 'userId and productId are required' });
+      }
+
+      const [product] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+      if (!product) return res.status(404).json({ message: 'Product not found' });
+
+      let [userCart] = await db.select().from(carts).where(eq(carts.userId, Number(userId))).limit(1);
+      if (!userCart) {
+        const [inserted] = await db.insert(carts).values({ userId: Number(userId) }).returning();
+        userCart = inserted;
+      }
+
+      const [existingItem] = await db.select().from(cartItems)
+        .where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, Number(productId))))
+        .limit(1);
+
+      if (existingItem) {
+        await db.update(cartItems)
+          .set({ qty: existingItem.qty + Number(qty) })
+          .where(eq(cartItems.id, existingItem.id));
+      } else {
+        await db.insert(cartItems).values({
+          cartId: userCart.id,
+          productId: Number(productId),
+          qty: Number(qty),
+        });
+      }
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `🛒 ${user.name || 'Support Representative'} added "${product.name}" (${Number(qty)} ${product.unit || 'unit'}) to customer's cart.`,
+        });
+      }
+
+      return res.json({ success: true, message: `Added ${product.name} to cart` });
+    } catch (err: any) {
+      console.error('[admin chatbot] Add to cart error:', err);
+      return res.status(500).json({ message: 'Failed to add item to cart' });
+    }
+  });
+
+  // POST /api/admin/chatbot/cart/update-qty — Update item quantity in customer cart (Requires Customer Consent)
+  app.post('/api/admin/chatbot/cart/update-qty', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const { cartItemId, qty, sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      if (!cartItemId || qty === undefined) {
+        return res.status(400).json({ message: 'cartItemId and qty are required' });
+      }
+
+      const numQty = Number(qty);
+      if (numQty <= 0) {
+        await db.delete(cartItems).where(eq(cartItems.id, Number(cartItemId)));
+      } else {
+        await db.update(cartItems).set({ qty: numQty }).where(eq(cartItems.id, Number(cartItemId)));
+      }
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `🛒 Cart item quantity updated to ${numQty} by Support Representative.`,
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to update cart item quantity' });
+    }
+  });
+
+  // DELETE /api/admin/chatbot/cart/remove-item — Remove item from customer cart (Requires Customer Consent)
+  app.delete('/api/admin/chatbot/cart/remove-item/:cartItemId', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const cartItemId = parseInt(String(req.params.cartItemId), 10);
+      const sessionToken = req.query.sessionToken as string;
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      await db.delete(cartItems).where(eq(cartItems.id, cartItemId));
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `🛒 Item removed from cart by Support Representative.`,
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: 'Failed to remove item from cart' });
+    }
+  });
+
+  // PUT /api/admin/chatbot/orders/:orderId — Update Order details (Requires Customer Consent)
+  app.put('/api/admin/chatbot/orders/:orderId', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(String(req.params.orderId), 10);
+      const { address, phone, status, sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      const updateData: any = { updatedAt: new Date() };
+      if (address !== undefined) updateData.address = String(address).trim();
+      if (phone !== undefined) updateData.phone = String(phone).trim();
+      if (status !== undefined) updateData.status = String(status).trim();
+
+      const [updatedOrder] = await db.update(orders)
+        .set(updateData)
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `📦 Order #${orderId} details updated by Support Representative (${user.name || 'Staff'}).`,
+        });
+      }
+
+      return res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      console.error('[admin chatbot] Update order error:', err);
+      return res.status(500).json({ message: 'Failed to update order' });
+    }
+  });
+
+  // POST /api/admin/chatbot/orders/:orderId/cancel — Cancel Order (Requires Customer Consent)
+  app.post('/api/admin/chatbot/orders/:orderId/cancel', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(String(req.params.orderId), 10);
+      const { reason = 'Cancelled upon customer request via Live Support', sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      const [updatedOrder] = await db.update(orders)
+        .set({ status: 'Cancelled', updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `❌ Order #${orderId} was cancelled by Support Representative (${user.name || 'Staff'}). Reason: "${reason}".`,
+        });
+      }
+
+      return res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      console.error('[admin chatbot] Cancel order error:', err);
+      return res.status(500).json({ message: 'Failed to cancel order' });
+    }
+  });
+
+  // POST /api/admin/chatbot/orders/:orderId/revert-cancel — Revert Order Cancellation (Requires Customer Consent)
+  app.post('/api/admin/chatbot/orders/:orderId/revert-cancel', requireStaffOrAdmin as any, async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(String(req.params.orderId), 10);
+      const { targetStatus = 'Placed', sessionToken } = req.body;
+      const user = (req as any).user || {};
+
+      const isPermitted = await checkCustomerPermission(sessionToken);
+      if (!isPermitted) {
+        return res.status(403).json({
+          message: "Action Blocked: Customer authorization required. Please send a Permission Request prompt in chat and wait for the customer to click 'Proceed & Authorize'."
+        });
+      }
+
+      const [updatedOrder] = await db.update(orders)
+        .set({ status: targetStatus, updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      if (sessionToken) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: `🔄 Cancellation for Order #${orderId} was reverted to '${targetStatus}' by Support Representative (${user.name || 'Staff'}).`,
+        });
+      }
+
+      return res.json({ success: true, order: updatedOrder });
+    } catch (err: any) {
+      console.error('[admin chatbot] Revert cancel error:', err);
+      return res.status(500).json({ message: 'Failed to revert order cancellation' });
     }
   });
 

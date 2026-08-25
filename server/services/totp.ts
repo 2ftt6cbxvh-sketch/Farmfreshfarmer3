@@ -84,7 +84,7 @@ export function verifyTotpCode(secret: string, code: string): boolean {
     const timeStep = 30;
     const currentCounter = Math.floor(Date.now() / 1000 / timeStep);
 
-    for (let window = -1; window <= 1; window++) {
+    for (let window = -2; window <= 2; window++) {
       const generated = generateHotp(secretBuffer, currentCounter + window);
       if (generated === cleanCode) {
         return true;

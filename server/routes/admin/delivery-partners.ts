@@ -205,7 +205,7 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
   /** PATCH /api/admin/delivery-partners/:id — Modify delivery partner details or credentials (Superadmin only) */
   app.patch("/api/admin/delivery-partners/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const partnerId = parseInt(req.params.id, 10);
+      const partnerId = parseInt(String(req.params.id), 10);
       if (isNaN(partnerId)) return res.status(400).json({ message: "Invalid partner ID" });
 
       const [partner] = await db.select().from(deliveryPartners).where(eq(deliveryPartners.id, partnerId)).limit(1);
@@ -258,7 +258,7 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
   /** DELETE /api/admin/delivery-partners/:id — Delete delivery partner account (Superadmin only) */
   app.delete("/api/admin/delivery-partners/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const partnerId = parseInt(req.params.id, 10);
+      const partnerId = parseInt(String(req.params.id), 10);
       if (isNaN(partnerId)) return res.status(400).json({ message: "Invalid partner ID" });
 
       const [partner] = await db.select().from(deliveryPartners).where(eq(deliveryPartners.id, partnerId)).limit(1);
@@ -277,7 +277,7 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
   /** POST /api/admin/delivery-partners/:id/override-availability — Superadmin manual availability toggle */
   app.post("/api/admin/delivery-partners/:id/override-availability", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const partnerId = parseInt(req.params.id, 10);
+      const partnerId = parseInt(String(req.params.id), 10);
       const { availabilityStatus, isBlockedByAdmin } = req.body || {};
 
       const [partner] = await db.select().from(deliveryPartners).where(eq(deliveryPartners.id, partnerId)).limit(1);

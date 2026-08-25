@@ -572,10 +572,10 @@ export default function AccountScreen() {
       <View style={styles.versionBadgeRow}>
         <View style={styles.versionBadgeInner}>
           <View style={styles.versionBadgeDot} />
-          <Text style={styles.versionBadgeText}>App Build v8.8.1</Text>
+          <Text style={styles.versionBadgeText}>App Build v8.9.0</Text>
         </View>
       </View>
-      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v8.8.1 · {email}</Text>
+      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v8.9.0 · {email}</Text>
 
       {/* Support Tickets Modal */}
       <Modal visible={showTicketsModal} transparent animationType="slide" onRequestClose={() => setShowTicketsModal(false)}>

@@ -198,4 +198,16 @@ export async function runAutoMigrations() {
   } catch (e: any) {
     console.warn('[db] auto-migration warning:', e?.message);
   }
+  try {
+    // Ensure chatbot permission and metadata columns
+    await pool.query(`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS customer_permission_granted BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS permission_granted_at TIMESTAMP WITH TIME ZONE`);
+    await pool.query(`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS permission_requested_at TIMESTAMP WITH TIME ZONE`);
+    await pool.query(`ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS permission_scope VARCHAR(64)`);
+    await pool.query(`ALTER TABLE live_chat_messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(32) NOT NULL DEFAULT 'text'`);
+    await pool.query(`ALTER TABLE live_chat_messages ADD COLUMN IF NOT EXISTS metadata JSONB`);
+    console.log('[db] auto-migration: chatbot permission & metadata columns ensured');
+  } catch (e: any) {
+    console.warn('[db] auto-migration warning:', e?.message);
+  }
 }

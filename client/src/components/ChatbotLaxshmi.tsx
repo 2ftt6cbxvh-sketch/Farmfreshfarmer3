@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2 } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ interface ChatMessage {
   needsHuman?: boolean;
   requiresLocation?: boolean;
   showSignInBox?: boolean;
+  messageType?: string;
+  metadata?: any;
   products?: Array<{
     id: number;
     name: string;
@@ -177,14 +179,18 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   });
 
   // Poll live chat session status and messages every 2 seconds when chat is open
-  const { data: liveSessionData } = useQuery<{
+  const { data: liveSessionData, refetch: refetchLiveSession } = useQuery<{
     status: "bot" | "waiting_for_agent" | "agent_connected" | "closed";
     assignedAgentName?: string | null;
+    customerPermissionGranted?: boolean;
+    permissionScope?: string;
     messages: Array<{
       id: string;
       sender: string;
       senderName?: string;
       message: string;
+      messageType?: string;
+      metadata?: any;
       createdAt: string;
       senderMeta?: {
         isPrimaryAdmin?: boolean;
@@ -205,6 +211,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     refetchInterval: 2000,
   });
 
+  // Customer grants/declines permission mutation
+  const respondPermissionMutation = useMutation({
+    mutationFn: async (granted: boolean) => {
+      const res = await fetch("/api/chatbot/respond-permission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken, granted }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchLiveSession();
+    },
+  });
+
   // Sync live messages from support agent into chat stream
   useEffect(() => {
     if (liveSessionData?.messages && liveSessionData.messages.length > 0) {
@@ -216,6 +237,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
             id: lm.id,
             role: lm.sender === "customer" ? ("user" as const) : ("model" as const),
             content: lm.message,
+            messageType: lm.messageType || "text",
+            metadata: lm.metadata || null,
             senderName: lm.senderName,
             senderMeta: lm.senderMeta || null,
             timestamp: new Date(lm.createdAt),
@@ -660,13 +683,27 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
   /* Connect to human */
   const handleConnectHuman = useCallback(async () => {
+    if (!user) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `login_req_${Date.now()}`,
+          role: "model",
+          content: "🔒 **Sign In Required for Live Chat**\n\nPlease sign in to connect with a Live Customer Representative. This enables our team to inspect your active cart, manage your orders, and update details directly.",
+          showSignInBox: true,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     const lastMsg = [...messages].reverse().find((m) => m.role === "user");
     await humanMutation.mutateAsync(lastMsg?.content || "Customer requested human support");
     const replyContent = HUMAN_CONNECT_MESSAGES[language]
       + (publicSettings?.contact_phone ? `\n📞 ${publicSettings.contact_phone}` : "")
       + (publicSettings?.contact_email ? `\n✉️ ${publicSettings.contact_email}` : "");
     setMessages((prev) => [...prev, { id: `h_${Date.now()}`, role: "model", content: replyContent, timestamp: new Date() }]);
-  }, [messages, language, humanMutation, publicSettings]);
+  }, [messages, language, humanMutation, publicSettings, user]);
 
   /* Action handler */
   const handleAction = useCallback((action: string, actionData: any) => {
@@ -1058,6 +1095,50 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       </div>
                     </GoogleOAuthProvider>
                   )}
+
+                  {/* Customer Permission Request Card */}
+                  {msg.messageType === "permission_request" && (
+                    <div className="mt-2.5 p-3.5 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 rounded-2xl shadow-md text-foreground space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        <ShieldAlert size={15} /> Customer Authorization Request
+                      </div>
+                      <p className="text-[11px] text-foreground/90 leading-relaxed">
+                        Representative <strong>{msg.metadata?.agentName || "Support Representative"}</strong> is requesting your permission to modify your <strong>{msg.metadata?.scopeName || "Account & Orders"}</strong> on your behalf.
+                      </p>
+                      {msg.metadata?.requestNote && (
+                        <p className="text-[10px] text-muted-foreground italic bg-background/60 p-1.5 rounded-lg border border-border">
+                          &ldquo;{msg.metadata.requestNote}&rdquo;
+                        </p>
+                      )}
+                      
+                      {liveSessionData?.customerPermissionGranted ? (
+                        <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-xl">
+                          <CheckCircle2 size={13} /> You authorized modification access for this session.
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            disabled={respondPermissionMutation.isPending}
+                            onClick={() => respondPermissionMutation.mutate(true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 flex-1 gap-1 shadow-sm"
+                          >
+                            <CheckCircle2 size={13} /> Proceed &amp; Authorize
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={respondPermissionMutation.isPending}
+                            onClick={() => respondPermissionMutation.mutate(false)}
+                            className="text-xs h-8 flex-1 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 font-semibold gap-1"
+                          >
+                            <XCircle size={13} /> Decline
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Action buttons */}
                   {msg.action === "GO_TO_CHECKOUT" && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
