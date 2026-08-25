@@ -800,39 +800,6 @@ function resolveCartQty(
         session = created;
       }
 
-      // Update session lastActivityAt
-      await db.update(chatbotSessions).set({ lastActivityAt: new Date() }).where(eq(chatbotSessions.id, session.id));
-
-      // IF Session is ALREADY connected to a live agent or waiting for one:
-      if (session.status === 'agent_connected' || session.status === 'waiting_for_agent') {
-        // Save customer message to liveChatMessages
-        await db.insert(liveChatMessages).values({
-          sessionToken: token,
-          sender: 'customer',
-          senderName: 'Customer',
-          message: message,
-        });
-
-        if (session.status === 'waiting_for_agent') {
-          // Re-alert Telegram
-          await triggerHumanEscalationAlert(token, message, lang);
-          return res.json({
-            reply: '⏳ Please hold on! I have alerted our live customer representative & grievance team via Telegram. Someone will take over this chat shortly.',
-            needsHuman: true,
-            status: 'waiting_for_agent',
-            sessionToken: token,
-          });
-        }
-
-        return res.json({
-          reply: `Message sent to ${session.assignedAgentName || 'Support Agent'}. Please wait for their reply.`,
-          needsHuman: true,
-          status: 'agent_connected',
-          assignedAgentName: session.assignedAgentName,
-          sessionToken: token,
-        });
-      }
-
       // Resolve logged-in customer userId & customerName from req.body / session / auth token / cookies
       let userId: number | null = req.body.userId ? Number(req.body.userId) : null;
       if (!userId && (req.session as any)?.userId) {
@@ -860,6 +827,47 @@ function resolveCartQty(
         } catch (e) {
           console.warn('[chatbot] Failed to fetch customer name for user:', userId, e);
         }
+      }
+
+      // Update session lastActivityAt and userId
+      await db.update(chatbotSessions).set({
+        lastActivityAt: new Date(),
+        ...(userId && !session.userId ? { userId } : {}),
+      }).where(eq(chatbotSessions.id, session.id));
+
+      // IF Session is ALREADY connected to a live agent or waiting for one:
+      if (session.status === 'agent_connected' || session.status === 'waiting_for_agent') {
+        // Save customer message to liveChatMessages
+        const [savedMsg] = await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'customer',
+          senderName: customerName || 'Customer',
+          senderId: userId || null,
+          message: message,
+        }).returning();
+
+        if (session.status === 'waiting_for_agent') {
+          // Re-alert Telegram
+          await triggerHumanEscalationAlert(token, message, lang);
+          return res.json({
+            reply: '⏳ Please hold on! I have alerted our live customer representative & grievance team via Telegram. Someone will take over this chat shortly.',
+            needsHuman: true,
+            status: 'waiting_for_agent',
+            sessionToken: token,
+            messageId: savedMsg?.id,
+          });
+        }
+
+        // When CR has already taken over (agent_connected): NO automated bot reply!
+        return res.json({
+          success: true,
+          reply: null,
+          needsHuman: true,
+          status: 'agent_connected',
+          assignedAgentName: session.assignedAgentName,
+          sessionToken: token,
+          messageId: savedMsg?.id,
+        });
       }
 
       // Read ALL settings from DB first

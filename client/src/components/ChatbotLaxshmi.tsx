@@ -264,25 +264,53 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     },
   });
 
-  // Sync live messages from support agent into chat stream
+  // Sync live messages from support agent into chat stream without duplication
   useEffect(() => {
     if (liveSessionData?.messages && liveSessionData.messages.length > 0) {
       setMessages((prev) => {
-        const existingIds = new Set(prev.map((m) => m.id));
-        const newLive = liveSessionData.messages
-          .filter((lm) => !existingIds.has(lm.id))
-          .map((lm) => ({
-            id: lm.id,
-            role: lm.sender === "customer" ? ("user" as const) : ("model" as const),
+        let updated = [...prev];
+        let hasChanged = false;
+
+        for (const lm of liveSessionData.messages) {
+          const stringId = String(lm.id);
+          const existsById = updated.some((m) => String(m.id) === stringId);
+          if (existsById) continue;
+
+          // Check if this live message matches an optimistic user message
+          if (lm.sender === "customer") {
+            const optIdx = updated.findIndex(
+              (m) =>
+                m.role === "user" &&
+                m.content.trim() === lm.message.trim() &&
+                (String(m.id).startsWith("u_") || String(m.id).startsWith("opt_"))
+            );
+            if (optIdx !== -1) {
+              // Upgrade the optimistic ID to the DB ID
+              updated[optIdx] = {
+                ...updated[optIdx],
+                id: stringId,
+                timestamp: new Date(lm.createdAt),
+              };
+              hasChanged = true;
+              continue;
+            }
+          }
+
+          // Otherwise append new message (support rep reply or system announcement)
+          updated.push({
+            id: stringId,
+            role: lm.sender === "customer" ? "user" : "model",
             content: lm.message,
             messageType: lm.messageType || "text",
             metadata: lm.metadata || null,
             senderName: lm.senderName,
             senderMeta: lm.senderMeta || null,
             timestamp: new Date(lm.createdAt),
-          }));
-        if (newLive.length === 0) return prev;
-        return [...prev, ...newLive];
+          });
+          hasChanged = true;
+        }
+
+        return hasChanged ? updated : prev;
       });
     }
   }, [liveSessionData]);
@@ -356,10 +384,17 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       return r.json();
     },
     onSuccess: (data) => {
+      // If live CR is connected, server returns status === 'agent_connected' and reply: null
+      // DO NOT add an automated bot reply when CR has taken over the chat!
+      if (data?.status === 'agent_connected' || !data?.reply) {
+        refetchLiveSession();
+        return;
+      }
+
       const reply: ChatMessage = {
         id: `m_${Date.now()}`,
         role: "model",
-        content: data.reply || "I'm here to help!",
+        content: data.reply,
         timestamp: new Date(),
         action: data.action,
         actionData: data.actionData,
@@ -762,11 +797,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const handleConnectHuman = useCallback(async () => {
     const lastMsg = [...messages].reverse().find((m) => m.role === "user");
     await humanMutation.mutateAsync(lastMsg?.content || "Customer requested live support assistance");
-    const replyContent = HUMAN_CONNECT_MESSAGES[language]
-      + (publicSettings?.contact_phone ? `\n📞 ${publicSettings.contact_phone}` : "")
-      + (publicSettings?.contact_email ? `\n✉️ ${publicSettings.contact_email}` : "");
-    setMessages((prev) => [...prev, { id: `h_${Date.now()}`, role: "model", content: replyContent, timestamp: new Date() }]);
-  }, [messages, language, humanMutation, publicSettings]);
+  }, [messages, humanMutation]);
 
   /* Action handler */
   const handleAction = useCallback((action: string, actionData: any) => {
