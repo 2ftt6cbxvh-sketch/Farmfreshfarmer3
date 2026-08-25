@@ -208,9 +208,9 @@ function AppContent() {
   // Strictly verify Super Admin session during lockdown
   const isSuperAdminUser = (() => {
     try {
-      const user = JSON.parse(localStorage.getItem("user") || "null");
-      const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
-      return !!(token && user && (user.email === "admin@farmfreshfarmer.com" || user.role === "superadmin"));
+      const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "null");
+      const token = localStorage.getItem("accessToken") || localStorage.getItem("admin_token") || localStorage.getItem("token");
+      return !!(token && user && (user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.role === "admin" || user.role === "superadmin" || user.isPrimaryAdmin));
     } catch {
       return false;
     }
