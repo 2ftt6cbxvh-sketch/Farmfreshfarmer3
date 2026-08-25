@@ -82,12 +82,21 @@ export async function getTelegramGrievanceCredentials(): Promise<{ botToken: str
     rawChatIds = (await storage.settings.get("telegram_grievance_chat_ids")) || (await storage.settings.get("telegram_support_chat_ids")) || (await storage.settings.get("telegram_grievance_chat_id")) || "";
   }
 
-  const chatIds = rawChatIds
+  let chatIds = rawChatIds
     ? rawChatIds
         .split(/[\n,;]+/)
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
     : [];
+
+  // Robust Fallback: if Grievance bot is not separately configured, fallback to the primary Telegram Bot
+  if (!botToken || chatIds.length === 0) {
+    const sec = await getTelegramSecurityCredentials();
+    if (sec.botToken && sec.chatIds.length > 0) {
+      botToken = botToken || sec.botToken;
+      chatIds = chatIds.length > 0 ? chatIds : sec.chatIds;
+    }
+  }
 
   return { botToken, chatIds };
 }

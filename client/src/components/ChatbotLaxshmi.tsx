@@ -362,11 +362,22 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       const r = await fetch("/api/chatbot/missed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, sessionToken, language, triggerType: "human_request", chatHistory: history }),
+        body: JSON.stringify({
+          query,
+          sessionToken,
+          language,
+          triggerType: "human_request",
+          chatHistory: history,
+          userId: user?.id || null,
+          customerName: user?.name || undefined,
+          phone: user?.phone || undefined,
+          email: user?.email || undefined,
+        }),
       });
       return r.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/chatbot/live-session/${sessionToken}`] });
       setMessages((prev) => [
         ...prev,
         {
@@ -680,27 +691,13 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
   /* Connect to human */
   const handleConnectHuman = useCallback(async () => {
-    if (!user) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `login_req_${Date.now()}`,
-          role: "model",
-          content: "🔒 **Sign In Required for Live Chat**\n\nPlease sign in to connect with a Live Customer Representative. This enables our team to inspect your active cart, manage your orders, and update details directly.",
-          showSignInBox: true,
-          timestamp: new Date(),
-        },
-      ]);
-      return;
-    }
-
     const lastMsg = [...messages].reverse().find((m) => m.role === "user");
-    await humanMutation.mutateAsync(lastMsg?.content || "Customer requested human support");
+    await humanMutation.mutateAsync(lastMsg?.content || "Customer requested live support assistance");
     const replyContent = HUMAN_CONNECT_MESSAGES[language]
       + (publicSettings?.contact_phone ? `\n📞 ${publicSettings.contact_phone}` : "")
       + (publicSettings?.contact_email ? `\n✉️ ${publicSettings.contact_email}` : "");
     setMessages((prev) => [...prev, { id: `h_${Date.now()}`, role: "model", content: replyContent, timestamp: new Date() }]);
-  }, [messages, language, humanMutation, publicSettings, user]);
+  }, [messages, language, humanMutation, publicSettings]);
 
   /* Action handler */
   const handleAction = useCallback((action: string, actionData: any) => {

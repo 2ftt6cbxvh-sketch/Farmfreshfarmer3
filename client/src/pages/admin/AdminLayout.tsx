@@ -236,6 +236,15 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     retry: false,
   });
 
+  const { data: liveSessionsData } = useQuery<{ sessions: any[] }>({
+    queryKey: ["/api/admin/chatbot/live-sessions"],
+    queryFn: () => apiGet<{ sessions: any[] }>("/api/admin/chatbot/live-sessions"),
+    enabled: !!adminUser && isStaffOrAdmin,
+    refetchInterval: 3000,
+  });
+
+  const waitingChatCount = liveSessionsData?.sessions?.filter((s) => s.status === "waiting_for_agent").length || 0;
+
 
   if (!adminUser || !isStaffOrAdmin) {
     if (location !== "/admin/login" && location !== "/admin") {
@@ -359,10 +368,18 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
                     <Link
                       key={n.href}
                       href={n.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover-elevate"}`}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover-elevate"}`}
                       data-testid={`nav-${n.label.toLowerCase()}`}
                     >
-                      <Icon size={18} /> {n.label}
+                      <div className="flex items-center gap-3 truncate">
+                        <Icon size={18} className="shrink-0" />
+                        <span className="truncate">{n.label}</span>
+                      </div>
+                      {n.href === "/admin/live-chat" && waitingChatCount > 0 && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse shadow-sm shrink-0">
+                          {waitingChatCount} WAITING
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -409,8 +426,13 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             <Store size={13} /> Store 🛍️
           </a>
           {flatDisplayed.map((n) => (
-            <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold" : ""}`}>
-              {n.label}
+            <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded flex items-center gap-1.5 ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold" : ""}`}>
+              <span>{n.label}</span>
+              {n.href === "/admin/live-chat" && waitingChatCount > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-black bg-red-600 text-white animate-pulse">
+                  {waitingChatCount}
+                </span>
+              )}
             </Link>
           ))}
           <button

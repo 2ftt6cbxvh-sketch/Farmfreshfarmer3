@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray } from 'drizzle-orm';
 import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders } from '@shared/schema';
-import { sendTelegramGrievanceAlert } from '../services/telegram';
+import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -638,14 +638,20 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
 
   // Helper to trigger Telegram Alert for Human Support Escalation
   async function triggerHumanEscalationAlert(sessionToken: string, message: string, language: string) {
-    const alertText = `🚨 <b>[LIVE CHAT ESCALATION REQUIRED]</b>\n` +
-      `A customer needs live human assistance!\n\n` +
-      `<b>Session ID:</b> <code>${sessionToken}</code>\n` +
-      `<b>Language:</b> ${language}\n` +
-      `<b>Customer Message:</b> "${message}"\n\n` +
-      `👉 <b>Action Required:</b> Please log into your Staff Portal with your credentials and open <b>Live Support Chat</b> to claim and assist the customer. (Direct links omitted for security)`;
+    const timeStr = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST';
+    const alertText =
+      `🚨 <b>[URGENT: LIVE CHAT ESCALATION REQUIRED]</b>\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `💬 <b>Customer Message:</b> "${message}"\n` +
+      `🌐 <b>Language:</b> ${language.toUpperCase()}\n` +
+      `🆔 <b>Session Token:</b> <code>${sessionToken}</code>\n` +
+      `⏱️ <b>Time:</b> ${timeStr}\n\n` +
+      `👉 <b>Action Required:</b> Open Admin Console → <b>Live Support Chat</b> to Claim & Assist!`;
 
-    await sendTelegramGrievanceAlert(alertText);
+    await Promise.allSettled([
+      sendTelegramGrievanceAlert(alertText),
+      sendTelegramSecurityAlert(alertText),
+    ]);
   }
 
 function detectETAIntent(message: string): boolean {
@@ -1398,29 +1404,30 @@ function resolveCartQty(
     return null;
   }
 
-  // POST /api/chatbot/missed — Human Support Escalation Request (Requires Login)
+  // POST /api/chatbot/missed — Human Support Escalation Request
   app.post('/api/chatbot/missed', async (req, res) => {
     try {
       const { query, sessionToken, language = 'en', triggerType = 'human_request', chatHistory = '' } = req.body;
       const token = sessionToken || `sess_${Date.now()}`;
       const userId = await resolveCustomerUserId(req);
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          requiresLogin: true,
-          message: 'Please log in to connect with a Live Customer Representative.',
-        });
+      let cust = null;
+      let customerName = 'Guest Visitor';
+      if (userId) {
+        const [found] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (found) {
+          cust = found;
+          customerName = cust.name || cust.username || cust.email || `Customer #${cust.id}`;
+        }
+      } else if (req.body?.customerName) {
+        customerName = String(req.body.customerName);
       }
 
-      const [cust] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      const customerName = cust?.name || cust?.username || 'Customer';
-
-      // Update session status to waiting_for_agent and link customer userId
-      await db.insert(chatbotSessions).values({ sessionToken: token, userId, language, status: 'waiting_for_agent' })
+      // Update session status to waiting_for_agent and link customer userId (or null for guest)
+      await db.insert(chatbotSessions).values({ sessionToken: token, userId: userId || null, language, status: 'waiting_for_agent' })
         .onConflictDoUpdate({
           target: chatbotSessions.sessionToken,
-          set: { status: 'waiting_for_agent', userId, lastActivityAt: new Date() }
+          set: { status: 'waiting_for_agent', userId: userId || null, lastActivityAt: new Date() }
         });
 
       // Save initial customer query to liveChatMessages
@@ -1429,19 +1436,29 @@ function resolveCartQty(
           sessionToken: token,
           sender: 'customer',
           senderName: customerName,
-          senderId: userId,
+          senderId: userId || null,
           message: query,
         });
       }
 
-      // Dispatch Telegram alert to Grievance/Support group
-      const alertMsg = `A customer needs live human assistance!\n\n` +
-        `<b>Customer:</b> ${customerName} (ID: #${userId})\n` +
-        `<b>Phone:</b> ${cust?.phone || 'N/A'} | <b>Email:</b> ${cust?.email || 'N/A'}\n` +
-        `<b>Session ID:</b> <code>${token}</code>\n` +
-        `<b>Language:</b> ${language}\n` +
-        `<b>Message:</b> "${query || 'Customer requested live support'}"`;
-      await sendTelegramGrievanceAlert(alertMsg);
+      const timeStr = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST';
+      // Dispatch Telegram alert to Grievance/Support group & Super Admin
+      const alertMsg =
+        `🚨 <b>[LIVE CHAT REQUEST — IMMEDIATE ATTENTION]</b>\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `👤 <b>Customer:</b> ${customerName} ${userId ? `(ID: #${userId})` : '(Guest Visitor)'}\n` +
+        `📱 <b>Phone:</b> ${cust?.phone || req.body?.phone || 'Not logged in'}\n` +
+        `📧 <b>Email:</b> ${cust?.email || req.body?.email || 'N/A'}\n` +
+        `💬 <b>Query:</b> "${query || 'Customer requested live human support'}"\n` +
+        `🌐 <b>Language:</b> ${language.toUpperCase()}\n` +
+        `🆔 <b>Session Token:</b> <code>${token}</code>\n` +
+        `⏱️ <b>Time:</b> ${timeStr}\n\n` +
+        `👉 <b>Action:</b> Open Admin Console → <b>Live Support Chat</b> to Claim & Respond live!`;
+
+      await Promise.allSettled([
+        sendTelegramGrievanceAlert(alertMsg),
+        sendTelegramSecurityAlert(alertMsg),
+      ]);
 
       return res.json({ success: true, status: 'waiting_for_agent', customer: { id: userId, name: customerName } });
     } catch (err) {
