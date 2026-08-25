@@ -24,6 +24,11 @@ export interface AuthUser {
   role: string;
   phone?: string | null;
   address?: string | null;
+  customerStars?: number | null;
+  isPrimaryAdmin?: boolean;
+  starRating?: number;
+  experienceRank?: string;
+  customTitle?: string;
 }
 
 // Effective price after the product's own discount
