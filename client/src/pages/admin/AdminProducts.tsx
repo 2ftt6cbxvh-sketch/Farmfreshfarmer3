@@ -28,6 +28,7 @@ interface Form {
   categorySlug: string;
   price: string;
   discountPercent: string;
+  gstPercent: string;
   unit: string;
   image: string;
   stock: string;
@@ -38,7 +39,7 @@ interface Form {
 }
 
 const EMPTY: Form = {
-  name: "", description: "", categorySlug: "", price: "", discountPercent: "0",
+  name: "", description: "", categorySlug: "", price: "", discountPercent: "0", gstPercent: "",
   unit: "250 Grams", image: "", stock: "50", dietTag: "none", featured: false, featuredInHero: false,
   allowInternationalShipping: true,
 };
@@ -82,6 +83,7 @@ export default function AdminProducts() {
         categorySlug: selectedSlug,
         price: parseFloat(form.price) || 0,
         discountPercent: parseFloat(form.discountPercent) || 0,
+        gstPercent: form.gstPercent === "" ? null : (parseFloat(form.gstPercent) ?? null),
         unit: form.unit.trim() || "250 Grams",
         image: form.image.trim(),
         stock: parseInt(form.stock) || 0,
@@ -213,8 +215,9 @@ export default function AdminProducts() {
   function openEdit(p: Product) {
     setForm({
       id: p.id, name: p.name, description: p.description, categorySlug: p.categorySlug,
-      price: String(p.price), discountPercent: String(p.discountPercent), unit: p.unit,
-      image: p.image, stock: String(p.stock), dietTag: p.dietTag, featured: p.featured,
+      price: String(p.price), discountPercent: String(p.discountPercent),
+      gstPercent: p.gstPercent != null ? String(p.gstPercent) : "",
+      unit: p.unit, image: p.image, stock: String(p.stock), dietTag: p.dietTag, featured: p.featured,
       featuredInHero: (p as any).featuredInHero ?? false,
       allowInternationalShipping: (p as any).allowInternationalShipping !== false,
     });
@@ -445,7 +448,7 @@ export default function AdminProducts() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <Label>Price (₹)</Label>
                 <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} data-testid="input-price" />
@@ -453,6 +456,10 @@ export default function AdminProducts() {
               <div>
                 <Label>Discount %</Label>
                 <Input type="number" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} data-testid="input-discount" />
+              </div>
+              <div>
+                <Label>GST Rate (%)</Label>
+                <Input type="number" step="0.1" min="0" max="100" placeholder="Default" value={form.gstPercent} onChange={(e) => setForm({ ...form, gstPercent: e.target.value })} data-testid="input-gst" />
               </div>
               <div>
                 <Label>Stock</Label>

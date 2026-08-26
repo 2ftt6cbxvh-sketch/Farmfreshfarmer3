@@ -479,7 +479,8 @@ export function TaxInvoiceModal({ orderId, open, onOpenChange, isAdmin = false }
     const totalTax = newCgst + newSgst;
     const newSubtotal = taxableSubtotal + totalTax;
     const disc = parseFloat(editForm.summary.discount) || 0;
-    const grand = Math.max(0, newSubtotal - disc);
+    const delFee = parseFloat(editForm.summary.deliveryFee || "0") || 0;
+    const grand = Math.max(0, newSubtotal - disc + delFee);
 
     setEditForm({
       ...editForm,
