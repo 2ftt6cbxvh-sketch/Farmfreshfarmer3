@@ -471,84 +471,101 @@ export default function Account() {
             )}
           </TabsContent>
 
-          {/* ─── TAB 3: LOYALTY STARS & REWARDS ─── */}
+          {/* ─── TAB 3: LOYALTY STARS & REWARDS / STAFF AUTHORIZATION ─── */}
           <TabsContent value="stars" className="space-y-4 m-0">
             <div className="rounded-3xl border border-card-border bg-card p-6 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-card-border pb-4">
-                <div>
-                  <h2 className="text-base font-extrabold text-foreground flex items-center gap-2">
-                    <Star size={18} className="text-amber-500 fill-amber-400" /> FarmFresh Loyalty Rewards
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Earn Stars on every purchase and unlock automatic discounts on every order.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-black text-amber-500">★ {starsCount}</span>
-                  <p className="text-[10px] text-muted-foreground font-bold">Current Stars</p>
-                </div>
-              </div>
-
-              {/* VIP Tiers Table (Dynamic from Admin Panel Star Discount Rules) */}
               {(() => {
-                const customerRules = starRules
-                  .filter((r) => r.ruleType === "customer" && r.active)
+                const isStaffRole = isSuperAdmin || (user?.role && user.role !== "customer");
+                const targetRuleType = isStaffRole ? "staff" : "customer";
+
+                const relevantRules = starRules
+                  .filter((r) => r.ruleType === targetRuleType && r.active)
                   .sort((a, b) => a.starFrom - b.starFrom);
 
-                const displayRules = customerRules.length > 0
-                  ? customerRules
-                  : [
-                      { id: 1, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)" },
-                      { id: 2, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)" },
-                      { id: 3, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)" },
-                      { id: 4, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)" },
-                      { id: 5, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)" },
-                    ];
+                const displayRules = relevantRules.length > 0
+                  ? relevantRules
+                  : (isStaffRole
+                      ? [
+                          { id: 1, starFrom: 1, starTo: 1, discountPercent: "5", description: "Staff Level 1" },
+                          { id: 2, starFrom: 2, starTo: 2, discountPercent: "10", description: "Staff Level 2" },
+                          { id: 3, starFrom: 3, starTo: 3, discountPercent: "15", description: "Staff Level 3" },
+                          { id: 4, starFrom: 4, starTo: 4, discountPercent: "20", description: "Staff Level 4" },
+                          { id: 5, starFrom: 5, starTo: 5, discountPercent: "25", description: "Staff Executive Level 5" },
+                          { id: 6, starFrom: 6, starTo: 6, discountPercent: "30", description: "Master Admin Executive Level 6" },
+                        ]
+                      : [
+                          { id: 1, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)" },
+                          { id: 2, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)" },
+                          { id: 3, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)" },
+                          { id: 4, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)" },
+                          { id: 5, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)" },
+                        ]);
 
                 const gridColsClass = displayRules.length <= 4 ? "md:grid-cols-4" : displayRules.length === 5 ? "md:grid-cols-5" : "md:grid-cols-6";
 
                 return (
-                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridColsClass} gap-3 text-xs`}>
-                    {displayRules.map((r: any) => {
-                      const isActiveTier = starsCount >= r.starFrom && starsCount <= r.starTo;
-                      const starsRangeText = `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`;
+                  <>
+                    <div className="flex items-center justify-between border-b border-card-border pb-4">
+                      <div>
+                        <h2 className="text-base font-extrabold text-foreground flex items-center gap-2">
+                          <Star size={18} className="text-amber-500 fill-amber-400" />
+                          {isStaffRole ? "🛡️ Staff Authorization Tiers" : "FarmFresh Loyalty Rewards"}
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {isStaffRole
+                            ? "Authorized staff discount levels applied automatically on checkout based on your star rating."
+                            : "Earn Stars on every purchase and unlock automatic discounts on every order."}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-2xl font-black text-amber-500">★ {starsCount}</span>
+                        <p className="text-[10px] text-muted-foreground font-bold">
+                          {isStaffRole ? "Staff Rating" : "Current Stars"}
+                        </p>
+                      </div>
+                    </div>
 
-                      const filledStars = Math.min(r.starTo, 5);
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridColsClass} gap-3 text-xs`}>
+                      {displayRules.map((r: any) => {
+                        const isActiveTier = starsCount === r.starTo || (starsCount >= r.starFrom && starsCount <= r.starTo);
+                        const starsRangeText = `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`;
+                        const filledStars = Math.min(r.starTo, 6);
 
-                      return (
-                        <div
-                          key={r.id || `${r.starFrom}-${r.starTo}`}
-                          className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
-                            isActiveTier
-                              ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30 font-bold shadow-md"
-                              : "border-card-border bg-muted/20 hover:border-card-border/80"
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-1 mb-1">
-                              <span className="font-extrabold text-foreground capitalize truncate text-xs">
-                                {r.description || `Tier (${r.starFrom}-${r.starTo}★)`}
-                              </span>
-                              {isActiveTier && (
-                                <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black shrink-0">
-                                  ACTIVE
+                        return (
+                          <div
+                            key={r.id || `${r.starFrom}-${r.starTo}`}
+                            className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                              isActiveTier
+                                ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30 font-bold shadow-md"
+                                : "border-card-border bg-muted/20 hover:border-card-border/80"
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="font-extrabold text-foreground capitalize truncate text-xs">
+                                  {r.description || `Level ${r.starTo}`}
                                 </span>
-                              )}
+                                {isActiveTier && (
+                                  <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black shrink-0">
+                                    ACTIVE
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-foreground font-bold mt-1 text-[11px] flex items-center gap-1">
+                                <span>{starsRangeText}</span>
+                                <span className="text-amber-400 font-mono">{'★'.repeat(filledStars)}</span>
+                              </p>
                             </div>
-                            <p className="text-foreground font-bold mt-1 text-[11px] flex items-center gap-1">
-                              <span>{starsRangeText}</span>
-                              <span className="text-amber-400 font-mono">{'★'.repeat(filledStars)}</span>
-                            </p>
+                            <div className="mt-3 pt-2 border-t border-card-border/40">
+                              <p className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
+                                {parseFloat(r.discountPercent)}% Extra OFF
+                              </p>
+                            </div>
                           </div>
-                          <div className="mt-3 pt-2 border-t border-card-border/40">
-                            <p className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
-                              {parseFloat(r.discountPercent)}% Extra OFF
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 );
               })()}
 
