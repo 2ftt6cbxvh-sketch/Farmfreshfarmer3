@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2 } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
+import { getStarTheme } from "@/lib/starTheme";
 import { Button } from "@/components/ui/button";
 
 /* ─── Types ───────────────────────────────────────────────────── */
@@ -1123,45 +1124,44 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                           🏅 {msg.senderMeta?.experienceRank || msg.senderMeta?.customTitle || "Specialist"}
                         </span>
                       )}
-                      <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                        {[...Array(msg.senderMeta?.isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(msg.senderMeta?.starRating) || 5)))].map((_, i) => (
-                          <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0" />
-                        ))}
-                      </div>
+                      {(() => {
+                        const isPrimary = Boolean(msg.senderMeta?.isPrimaryAdmin);
+                        const starNum = isPrimary ? 6 : Math.max(0, Math.min(6, Number(msg.senderMeta?.starRating) ?? 5));
+                        const theme = getStarTheme(starNum, true);
+                        return (
+                          <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                            {[...Array(starNum)].map((_, i) => (
+                              <Star key={i} size={9} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${isPrimary ? 'animate-pulse' : ''}`} />
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
                   {/* Sender Name & Meta Header for Customer / User Messages */}
                   {msg.role === "user" && user && (
                     <div className="flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
-                      {user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ? (
-                        <>
-                          <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                            {[...Array(6)].map((_, i) => (
-                              <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0 animate-pulse" />
-                            ))}
-                          </div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-300 text-[9px] font-black shrink-0">
-                            <Crown size={10} className="fill-amber-400 text-amber-400 shrink-0" />
-                            <span>Super Admin</span>
-                          </span>
-                        </>
-                      ) : user.role !== "customer" ? (
-                        <>
-                          <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                            {[...Array(Math.min(5, Math.max(1, Number(user.starRating) || 5)))].map((_, i) => (
-                              <Star key={i} size={9} className="fill-amber-400 text-amber-400 shrink-0" />
-                            ))}
-                          </div>
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-900/40 text-emerald-300 text-[9px] font-extrabold shrink-0">
-                            🛡️ Staff
-                          </span>
-                        </>
-                      ) : (user.customerStars ?? 0) > 0 ? (
-                        <span className="text-blue-300 font-extrabold text-[10px] bg-blue-500/20 px-2 py-0.5 rounded-md border border-blue-400/30 shrink-0">
-                          ★ {user.customerStars} Stars
-                        </span>
-                      ) : null}
+                      {(() => {
+                        const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+                        const isStaff = isSuperAdmin || user.role !== "customer";
+                        const starsCount = isSuperAdmin ? 6 : isStaff ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5)) : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
+                        const theme = getStarTheme(starsCount, true);
+
+                        return (
+                          <>
+                            <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                              {[...Array(starsCount)].map((_, i) => (
+                                <Star key={i} size={9} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${starsCount === 6 ? 'animate-pulse' : ''}`} />
+                              ))}
+                            </div>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 border ${theme.badgeClass}`}>
+                              {isSuperAdmin ? <Crown size={10} className="shrink-0" /> : null}
+                              <span>{isSuperAdmin ? "Super Admin" : isStaff ? "Staff" : `${starsCount}★ Tier`}</span>
+                            </span>
+                          </>
+                        );
+                      })()}
                       <span className="text-purple-300 font-extrabold">{user.name}</span>
                     </div>
                   )}

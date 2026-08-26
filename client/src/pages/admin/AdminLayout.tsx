@@ -11,6 +11,7 @@ import {
   ExternalLink, Crown, CheckCircle2
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
+import { getStarTheme } from "@/lib/starTheme";
 import AdminLogin from "./AdminLogin";
 import Forbidden403 from "../Forbidden403";
 import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
@@ -333,27 +334,33 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-sidebar-border/40">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <p className="text-xs font-extrabold text-foreground truncate">{adminUser?.name || "Admin Panel"}</p>
-              <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                {[...Array(isPrimaryAdmin ? 6 : Math.min(5, Math.max(1, Number(adminUser?.starRating) || 5)))].map((_, i) => (
-                  <Star key={i} size={10} className="fill-amber-400 text-amber-400 shrink-0" />
-                ))}
+          {(() => {
+            const adminStars = isPrimaryAdmin ? 6 : Math.max(0, Math.min(6, Number(adminUser?.starRating) ?? 5));
+            const theme = getStarTheme(adminStars, true);
+            return (
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-sidebar-border/40">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-xs font-extrabold text-foreground truncate">{adminUser?.name || "Admin Panel"}</p>
+                  <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+                    {[...Array(adminStars)].map((_, i) => (
+                      <Star key={i} size={10} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${isPrimaryAdmin ? 'animate-pulse' : ''}`} />
+                    ))}
+                  </div>
+                </div>
+                {isPrimaryAdmin ? (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide shadow-xs shrink-0 whitespace-nowrap border ${theme.badgeClass}`}>
+                    <Crown size={11} className="shrink-0" />
+                    <span>Executive Admin</span>
+                  </span>
+                ) : (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold capitalize shrink-0 whitespace-nowrap border ${theme.badgeClass}`}>
+                    {adminUser?.isVerified && <CheckCircle2 size={10} className="text-sky-400 fill-sky-400/20 shrink-0" />}
+                    <span>{adminUser?.role === "admin" ? "Main Admin" : adminUser?.role?.replace("_", " ")}</span>
+                  </span>
+                )}
               </div>
-            </div>
-            {isPrimaryAdmin ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-black tracking-wide shadow-xs shrink-0 whitespace-nowrap">
-                <Crown size={11} className="text-amber-400 fill-amber-400 shrink-0" />
-                <span>Super Admin</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-extrabold border border-primary/30 capitalize shrink-0 whitespace-nowrap">
-                {adminUser?.isVerified && <CheckCircle2 size={10} className="text-sky-400 fill-sky-400/20 shrink-0" />}
-                <span>{adminUser?.role === "admin" ? "Main Admin" : adminUser?.role?.replace("_", " ")}</span>
-              </span>
-            )}
-          </div>
+            );
+          })()}
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-4" data-testid="nav-sidebar">

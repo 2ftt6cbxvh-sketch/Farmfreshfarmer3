@@ -26,10 +26,8 @@ const { width } = Dimensions.get('window');
 
 function getMobileStarTheme(count: number) {
   const stars = Math.max(0, Math.min(6, count));
-  if (stars === 0) {
-    return { color: '#9ca3af', badgeBg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', label: '0 Stars' };
-  } else if (stars === 1 || stars === 2) {
-    return { color: '#22c55e', badgeBg: 'rgba(34,197,94,0.18)', border: '#22c55e', label: `${stars} Star Green` };
+  if (stars <= 2) {
+    return { color: '#22c55e', badgeBg: 'rgba(34,197,94,0.18)', border: '#22c55e', label: stars === 0 ? 'Green Tier (0 Stars)' : `${stars} Star Green` };
   } else if (stars === 3) {
     return { color: '#cd7f32', badgeBg: 'rgba(205,127,50,0.18)', border: '#cd7f32', label: '3 Star Bronze' };
   } else if (stars === 4) {

@@ -7,6 +7,7 @@ import { DietDot } from "@/components/DietDot";
 import { ProductCard } from "@/components/ProductCard";
 import type { Product, Review } from "@/lib/types";
 import { effectivePrice, formatINR } from "@/lib/types";
+import { getStarTheme } from "@/lib/starTheme";
 import { useCart, useAuth } from "@/lib/store";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -159,9 +160,22 @@ export default function ProductDetail() {
               )}
             </div>
 
-            <div className="flex items-baseline gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <span className="text-3xl font-serif font-black text-primary">{formatINR(price)}</span>
               {hasDiscount && <span className="text-lg text-muted-foreground line-through">{formatINR(Number(product.price))}</span>}
+              {user && (
+                (() => {
+                  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
+                  const isStaffRole = Boolean(!isSuperAdmin && user.role !== "customer");
+                  const starsCount = isSuperAdmin ? 6 : isStaffRole ? Math.max(0, Number(user?.starRating) ?? 5) : Number(user?.customerStars || 0);
+                  const theme = getStarTheme(starsCount, true);
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${theme.badgeClass}`}>
+                      <span className={`${theme.starColor} ${theme.glowClass}`}>★</span> {theme.label} Active
+                    </span>
+                  );
+                })()
+              )}
             </div>
 
             {product.stock > 0 ? (

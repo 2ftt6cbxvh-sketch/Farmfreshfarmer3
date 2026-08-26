@@ -228,27 +228,23 @@ export default function Account() {
     : starsCount >= 5 ? "15% Extra OFF" : starsCount >= 4 ? "10% Extra OFF" : starsCount >= 3 ? "8% Extra OFF" : starsCount >= 2 ? "5% Extra OFF" : starsCount >= 1 ? "2% Extra OFF" : "Standard Loyalty";
 
   const starTier = isSuperAdmin
-    ? { name: "Master Admin", badge: "👑 Super Admin", discount: "Executive 6★ Staff Tier", color: "from-amber-400 via-orange-500 to-yellow-600" }
+    ? { name: "Master Admin", badge: "👑 Executive Super Admin (6★)", discount: "Executive 6★ Staff Tier", color: "from-amber-400 via-yellow-500 to-amber-600" }
     : isStaffRole
-    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: `Staff ${starsCount}★ Tier (${dynamicDiscountLabel})`, color: "from-emerald-400 to-teal-600" }
+    ? { name: "Staff Specialist", badge: `🛡️ Staff (${starsCount}★)`, discount: `Staff ${starsCount}★ Tier (${dynamicDiscountLabel})`, color: starsCount >= 5 ? "from-blue-600 to-indigo-600" : starsCount === 4 ? "from-slate-400 to-zinc-500" : starsCount === 3 ? "from-[#cd7f32] to-[#804010]" : "from-emerald-500 to-teal-600" }
     : starsCount >= 5
-    ? { name: "Diamond VIP", badge: `💎 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-cyan-500 to-blue-600" }
-    : starsCount >= 4
-    ? { name: "Platinum VIP", badge: `🏆 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-purple-500 to-indigo-600" }
-    : starsCount >= 3
-    ? { name: "Gold VIP", badge: `🥇 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-amber-400 to-yellow-600" }
-    : starsCount >= 2
-    ? { name: "Silver Member", badge: `🥈 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-slate-400 to-gray-600" }
-    : starsCount >= 1
-    ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-orange-400 to-amber-700" }
-    : { name: "Standard Member", badge: "🌿 Member", discount: "Standard Loyalty", color: "from-gray-500 to-slate-700" };
+    ? { name: "Blue VIP Member", badge: `💎 ${starsCount}★ Blue Tier`, discount: dynamicDiscountLabel, color: "from-blue-600 via-sky-500 to-indigo-600" }
+    : starsCount === 4
+    ? { name: "Silver Member", badge: `🥈 ${starsCount}★ Silver Tier`, discount: dynamicDiscountLabel, color: "from-slate-400 via-slate-300 to-zinc-500" }
+    : starsCount === 3
+    ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Bronze Tier`, discount: dynamicDiscountLabel, color: "from-[#a66020] via-[#cd7f32] to-[#804010]" }
+    : { name: "Green Tier Member", badge: `🌿 ${starsCount}★ Green Tier`, discount: dynamicDiscountLabel, color: "from-emerald-500 to-teal-600" };
 
   return (
     <Layout>
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
         
-        {/* Profile Hero Banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
+        {/* Profile Hero Banner with Tier Themes */}
+        <div className={`relative overflow-hidden rounded-3xl border transition-all p-6 sm:p-8 shadow-sm ${currentUserTheme.borderClass} ${currentUserTheme.bgClass}`}>
           <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">

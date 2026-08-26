@@ -44,21 +44,8 @@ export function getStarTheme(count: number, enabled: boolean = true): StarTheme 
   }
 
   // Tier-based Star Color Themes (when enabled)
-  if (stars === 0) {
-    return {
-      starColor: "text-slate-400 dark:text-slate-500 opacity-60",
-      fillColor: "#9ca3af",
-      glowClass: "",
-      badgeClass: "bg-muted/40 border-muted-foreground/20 text-muted-foreground",
-      borderClass: "border-muted-foreground/30",
-      bgClass: "bg-muted/20",
-      label: "0 Stars (Standard)",
-      mobileColor: "#9ca3af",
-      mobileBadgeBg: "rgba(156,163,175,0.1)",
-      mobileBorder: "rgba(156,163,175,0.2)",
-    };
-  } else if (stars === 1 || stars === 2) {
-    // 1 & 2 Stars = Green
+  if (stars <= 2) {
+    // 0, 1 & 2 Stars = Green
     return {
       starColor: "text-emerald-500 dark:text-emerald-400",
       fillColor: "#22c55e",
@@ -66,7 +53,7 @@ export function getStarTheme(count: number, enabled: boolean = true): StarTheme 
       badgeClass: "bg-emerald-500/20 border-emerald-400/40 text-emerald-700 dark:text-emerald-300 font-extrabold",
       borderClass: "border-emerald-500/60 ring-2 ring-emerald-500/30",
       bgClass: "bg-emerald-500/15",
-      label: stars === 1 ? "1 Star (Green Tier)" : "2 Stars (Green Tier)",
+      label: stars === 0 ? "Green Tier (0 Stars)" : stars === 1 ? "1 Star (Green Tier)" : "2 Stars (Green Tier)",
       mobileColor: "#22c55e",
       mobileBadgeBg: "rgba(34,197,94,0.18)",
       mobileBorder: "rgba(34,197,94,0.45)",

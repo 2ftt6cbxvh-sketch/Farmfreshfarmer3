@@ -5,6 +5,7 @@ import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe,
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
+import { getStarTheme } from "@/lib/starTheme";
 import { apiRequest, apiGet, imgUrl, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,10 @@ type PaymentMethod = "COD" | "PHONEPE";
 export default function Cart() {
   const { items, setQty, remove, subtotal, clear } = useCart();
   const { user } = useAuth();
+  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
+  const isStaffRole = Boolean(user && !isSuperAdmin && user.role !== "customer");
+  const userStarsCount = isSuperAdmin ? 6 : isStaffRole ? Math.max(0, Number(user?.starRating) ?? 5) : Number(user?.customerStars || 0);
+  const cartStarTheme = getStarTheme(userStarsCount, true);
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -721,15 +726,28 @@ export default function Cart() {
                 )}
 
                 {quote ? (
-                  quote.breakdown.map((line, idx) => (
-                    <div key={idx} className="flex justify-between items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-0.5" data-testid={`breakdown-line-${idx}`}>
-                      <dt className="truncate flex items-center gap-1.5">
-                        <Tag size={13} className="text-emerald-500 shrink-0" />
-                        {line.label}
-                      </dt>
-                      <dd className="font-mono font-black shrink-0">−{formatINR(Number(line.amount))}</dd>
-                    </div>
-                  ))
+                  quote.breakdown.map((line, idx) => {
+                    const isStarLine = line.label.toLowerCase().includes("star") || line.label.toLowerCase().includes("loyalty") || line.label.toLowerCase().includes("staff");
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex justify-between items-center gap-2 font-bold py-0.5 ${
+                          isStarLine ? `${cartStarTheme.starColor} ${cartStarTheme.glowClass}` : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                        data-testid={`breakdown-line-${idx}`}
+                      >
+                        <dt className="truncate flex items-center gap-1.5">
+                          {isStarLine ? (
+                            <span className="text-sm">★</span>
+                          ) : (
+                            <Tag size={13} className="text-emerald-500 shrink-0" />
+                          )}
+                          {line.label}
+                        </dt>
+                        <dd className="font-mono font-black shrink-0">−{formatINR(Number(line.amount))}</dd>
+                      </div>
+                    );
+                  })
                 ) : (
                   coupon && (
                     <div className="flex justify-between items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold py-0.5">
