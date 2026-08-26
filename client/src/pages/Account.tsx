@@ -498,11 +498,11 @@ export default function Account() {
                 const displayRules = customerRules.length > 0
                   ? customerRules
                   : [
-                      { id: 1, starFrom: 1, starTo: 2, discountPercent: "2", description: "Bronze tier (1-2 stars)" },
-                      { id: 2, starFrom: 3, starTo: 4, discountPercent: "5", description: "Silver tier (3-4 stars)" },
-                      { id: 3, starFrom: 5, starTo: 6, discountPercent: "8", description: "Gold tier (5-6 stars)" },
-                      { id: 4, starFrom: 7, starTo: 8, discountPercent: "12", description: "Platinum tier (7-8 stars)" },
-                      { id: 5, starFrom: 9, starTo: 10, discountPercent: "15", description: "Diamond tier (9-10 stars)" },
+                      { id: 1, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)" },
+                      { id: 2, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)" },
+                      { id: 3, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)" },
+                      { id: 4, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)" },
+                      { id: 5, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)" },
                     ];
 
                 const gridColsClass = displayRules.length <= 4 ? "md:grid-cols-4" : displayRules.length === 5 ? "md:grid-cols-5" : "md:grid-cols-6";
@@ -511,9 +511,7 @@ export default function Account() {
                   <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridColsClass} gap-3 text-xs`}>
                     {displayRules.map((r: any) => {
                       const isActiveTier = starsCount >= r.starFrom && starsCount <= r.starTo;
-                      const starsRangeText = r.starFrom === r.starTo
-                        ? `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`
-                        : `${r.starFrom}–${r.starTo} Stars`;
+                      const starsRangeText = `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`;
 
                       const filledStars = Math.min(r.starTo, 5);
 

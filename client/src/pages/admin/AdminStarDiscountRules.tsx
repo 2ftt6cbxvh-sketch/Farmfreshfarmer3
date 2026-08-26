@@ -155,7 +155,7 @@ export default function AdminStarDiscountRules() {
             {filteredRules.filter(r => r.active).map(r => (
               <div key={r.id} className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-card to-card/50 border border-card-border px-4 py-3 min-w-[100px]">
                 <StarRow count={r.starTo} color={activeTab === 'customer' ? 'blue' : 'gold'} />
-                <span className="text-xs text-muted-foreground font-medium">{r.starFrom}–{r.starTo} ⭐</span>
+                <span className="text-xs text-muted-foreground font-medium">{r.starTo} Star{r.starTo === 1 ? '' : 's'}</span>
                 <span className="text-lg font-black text-primary">{r.discountPercent}%</span>
                 <span className="text-xs text-muted-foreground">off</span>
               </div>
@@ -258,7 +258,7 @@ export default function AdminStarDiscountRules() {
                   <>
                     <div className="flex items-center gap-2">
                       <StarRow count={rule.starTo} color={rule.ruleType === 'customer' ? 'blue' : 'gold'} />
-                      <span className="text-sm text-muted-foreground">{rule.starFrom}–{rule.starTo} stars</span>
+                      <span className="text-sm text-muted-foreground">{rule.starTo} Star{rule.starTo === 1 ? '' : 's'}</span>
                     </div>
                     <span className="text-2xl font-black text-primary">{rule.discountPercent}%</span>
                     <span className="text-sm text-muted-foreground flex-1">{rule.description}</span>

@@ -232,6 +232,12 @@ export default function AccountScreen() {
   const email = publicSettings?.contact_email || 'support@farmfreshfarmer.com';
   const storeName = publicSettings?.store_name || 'FarmFreshFarmer';
 
+  const { data: starRules = [] } = useQuery({
+    queryKey: ['star-discount-rules'],
+    queryFn: () => api.get('/api/star-discount-rules').then(r => r.data),
+    staleTime: 30000,
+  });
+
   // ── Not Logged In View ───────────────────────────────────────────────────
   if (!user) {
     return (
@@ -451,6 +457,64 @@ export default function AccountScreen() {
           <Text style={[styles.metricNumber, { color: textColor }]}>Fresh</Text>
           <Text style={[styles.metricLabel, { color: mutedColor }]}>Subscriptions</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* ── VIP Loyalty Rewards Tiers (1–5 Stars Dynamic Scale) ─────────── */}
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionHeading, { color: mutedColor }]}>VIP LOYALTY REWARDS (1–5 STARS)</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+          {(() => {
+            const customerRules = (starRules as any[])
+              .filter((r: any) => r.ruleType === 'customer' && r.active)
+              .sort((a: any, b: any) => a.starFrom - b.starFrom);
+
+            const displayRules = customerRules.length > 0
+              ? customerRules
+              : [
+                  { id: 1, starFrom: 1, starTo: 1, discountPercent: '2', description: 'Bronze tier (1 Star)' },
+                  { id: 2, starFrom: 2, starTo: 2, discountPercent: '5', description: 'Silver tier (2 Stars)' },
+                  { id: 3, starFrom: 3, starTo: 3, discountPercent: '8', description: 'Gold tier (3 Stars)' },
+                  { id: 4, starFrom: 4, starTo: 4, discountPercent: '12', description: 'Platinum tier (4 Stars)' },
+                  { id: 5, starFrom: 5, starTo: 5, discountPercent: '15', description: 'Diamond tier (5 Stars)' },
+                ];
+
+            const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? 5;
+            const currentStars = Math.min(5, Math.max(1, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) || 5));
+
+            return displayRules.map((r: any) => {
+              const isActiveTier = currentStars >= r.starFrom && currentStars <= r.starTo;
+              const starCountNum = Math.min(r.starTo, 5);
+              return (
+                <View
+                  key={r.id || `${r.starFrom}-${r.starTo}`}
+                  style={[
+                    styles.mobileStarTierCard,
+                    {
+                      backgroundColor: isActiveTier ? (isDark ? '#064e3b' : '#ecfdf5') : cardBg,
+                      borderColor: isActiveTier ? '#10b981' : borderCol,
+                      borderWidth: isActiveTier ? 2 : 1,
+                    },
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: isActiveTier ? '#10b981' : textColor, fontWeight: '800', fontSize: 11 }}>
+                      {r.description || `${starCountNum} Star`}
+                    </Text>
+                    {isActiveTier && (
+                      <Text style={{ color: '#10b981', fontWeight: '900', fontSize: 9, marginLeft: 6 }}>ACTIVE</Text>
+                    )}
+                  </View>
+                  <Text style={{ color: '#fbbf24', fontSize: 11, marginTop: 4, fontWeight: '900' }}>
+                    {'★'.repeat(starCountNum)} {starCountNum} Star{starCountNum === 1 ? '' : 's'}
+                  </Text>
+                  <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '900', marginTop: 6 }}>
+                    {parseFloat(r.discountPercent)}% OFF
+                  </Text>
+                </View>
+              );
+            });
+          })()}
+        </ScrollView>
       </View>
 
       {/* Phone Missing Alert Banner */}
@@ -1025,6 +1089,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.4)',
     marginBottom: 10,
+  },
+  mobileStarTierCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    minWidth: 135,
+    justifyContent: 'space-between',
   },
   heroPhonePill: {
     flexDirection: 'row',
