@@ -21,23 +21,9 @@ import { COLORS, BRAND } from '../../constants/config';
 import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { api } from '../../lib/api';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 const { width } = Dimensions.get('window');
-
-function getMobileStarTheme(count: number) {
-  const stars = Math.max(0, Math.min(6, count));
-  if (stars <= 2) {
-    return { color: '#22c55e', badgeBg: 'rgba(34,197,94,0.18)', border: '#22c55e', label: stars === 0 ? 'Green Tier (0 Stars)' : `${stars} Star Green` };
-  } else if (stars === 3) {
-    return { color: '#cd7f32', badgeBg: 'rgba(205,127,50,0.18)', border: '#cd7f32', label: '3 Star Bronze' };
-  } else if (stars === 4) {
-    return { color: '#c0c0c0', badgeBg: 'rgba(192,192,192,0.22)', border: '#c0c0c0', label: '4 Star Silver' };
-  } else if (stars === 5) {
-    return { color: '#3b82f6', badgeBg: 'rgba(59,130,246,0.2)', border: '#3b82f6', label: '5 Star Blue' };
-  } else {
-    return { color: '#fbbf24', badgeBg: 'rgba(251,191,36,0.22)', border: '#fbbf24', label: '6 Star Gold' };
-  }
-}
 
 export default function AccountScreen() {
   const { user, setUser, logout } = useAuth();
@@ -348,22 +334,41 @@ export default function AccountScreen() {
 
   const phoneMissing = !user.phone;
 
+  // Calculate active user tier theme
+  const isSuperAdminUser = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any).id === 1);
+  const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? (isSuperAdminUser ? 6 : 0);
+  const activeStarCount = isSuperAdminUser
+    ? 6
+    : Math.min(6, Math.max(0, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) ?? 0));
+  const activeTheme = getMobileStarTheme(activeStarCount);
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: bg }]} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
-      {/* ── 1. Hero Profile Glass Banner ──────────────────────────────────── */}
-      <View style={[styles.heroHeaderContainer, { paddingTop: Math.max(insets.top + 16, 48) }]}>
+      {/* ── 1. Hero Profile Glass Banner with Dynamic Tier Color ──────────────────── */}
+      <View
+        style={[
+          styles.heroHeaderContainer,
+          {
+            paddingTop: Math.max(insets.top + 16, 48),
+            backgroundColor: isDark ? activeTheme.heroBgDark : activeTheme.heroBgLight,
+            borderColor: activeTheme.border,
+            borderBottomWidth: 1.5,
+          },
+        ]}
+      >
         {/* Glow Halo */}
         <Animated.View
           style={[
             styles.avatarGlowCircle,
             {
+              backgroundColor: activeTheme.glowColor,
               opacity: glowAnim,
               transform: [{ scale: glowAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.96, 1.05] }) }],
             },
           ]}
         />
 
-        <View style={styles.avatarWrapper}>
+        <View style={[styles.avatarWrapper, { backgroundColor: activeTheme.avatarBg, borderColor: activeTheme.avatarBorder }]}>
           {(user as any).profilePhoto ? (
             <Image
               source={{ uri: (user as any).profilePhoto }}
@@ -372,44 +377,29 @@ export default function AccountScreen() {
           ) : (
             <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
           )}
-          <View style={styles.onlineDot} />
+          <View style={[styles.onlineDot, { borderColor: isDark ? activeTheme.heroBgDark : activeTheme.heroBgLight }]} />
         </View>
 
-        <Text style={styles.heroNameText}>{user.name}</Text>
-        <Text style={styles.heroEmailText}>{user.email}</Text>
+        <Text style={[styles.heroNameText, !isDark && { color: '#0f172a' }]}>{user.name}</Text>
+        <Text style={[styles.heroEmailText, !isDark && { color: '#475569' }]}>{user.email}</Text>
 
         {/* User Role Badge & Star Rating */}
-        {(() => {
-          const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
-          const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? 0;
-          const starCount = isSuperAdmin
-            ? 6
-            : Math.min(6, Math.max(0, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) ?? 0));
-
-          const mTheme = getMobileStarTheme(starCount);
-
-          if (isSuperAdmin) {
-            return (
-              <View style={styles.roleBadgeWrapper}>
-                <View style={styles.superAdminStarsRow}>
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
-                  ))}
-                </View>
-                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '900', marginTop: 4 }}>👑 Master Executive Admin (6★)</Text>
-              </View>
-            );
-          }
-
-          const isStaffRole = user.role && user.role !== 'customer';
-          return (
-            <View style={[styles.customerStarsPill, { backgroundColor: mTheme.badgeBg, borderColor: mTheme.border }]}>
-              <Text style={{ color: mTheme.color, fontWeight: '900', fontSize: 13 }}>
-                ⭐ {starCount} {isStaffRole ? 'Staff Star Rating' : 'VIP Loyalty Stars'}
-              </Text>
+        {isSuperAdminUser ? (
+          <View style={styles.roleBadgeWrapper}>
+            <View style={styles.superAdminStarsRow}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
+              ))}
             </View>
-          );
-        })()}
+            <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '900', marginTop: 4 }}>👑 Master Executive Admin (6★)</Text>
+          </View>
+        ) : (
+          <View style={[styles.customerStarsPill, { backgroundColor: activeTheme.badgeBg, borderColor: activeTheme.border }]}>
+            <Text style={{ color: activeTheme.color, fontWeight: '900', fontSize: 13 }}>
+              ⭐ {activeStarCount} {user.role && user.role !== 'customer' ? 'Staff Star Rating' : 'VIP Loyalty Stars'} ({activeTheme.label})
+            </Text>
+          </View>
+        )}
 
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 12 }}>
           {/* Phone Pill */}
@@ -425,12 +415,12 @@ export default function AccountScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Edit Full Profile Button */}
+          {/* Edit Full Profile Button with Active Tier Accent */}
           <TouchableOpacity
-            style={styles.heroEditProfileBtn}
+            style={[styles.heroEditProfileBtn, { backgroundColor: activeTheme.buttonBg, borderColor: activeTheme.border }]}
             onPress={() => setShowEditProfileModal(true)}
           >
-            <Text style={{ color: '#064e3b', fontSize: 12, fontWeight: '800' }}>✏️ Edit Profile</Text>
+            <Text style={{ color: activeTheme.buttonTextColor, fontSize: 12, fontWeight: '800' }}>✏️ Edit Profile</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -443,7 +433,7 @@ export default function AccountScreen() {
         >
           <Text style={{ fontSize: 22 }}>📦</Text>
           <Text style={[styles.metricNumber, { color: textColor }]}>{myOrdersCount}</Text>
-          <Text style={[styles.metricLabel, { color: mutedColor }]}>My Orders</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]} numberOfLines={1}>My Orders</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -452,7 +442,7 @@ export default function AccountScreen() {
         >
           <Text style={{ fontSize: 22 }}>🎫</Text>
           <Text style={[styles.metricNumber, { color: textColor }]}>{myTickets.length}</Text>
-          <Text style={[styles.metricLabel, { color: mutedColor }]}>Support Tickets</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]} numberOfLines={1}>Tickets</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -460,10 +450,10 @@ export default function AccountScreen() {
           onPress={() => router.push('/(tabs)/referrals')}
         >
           <Text style={{ fontSize: 22 }}>🎁</Text>
-          <Text style={[styles.metricNumber, { color: '#10b981' }]}>
+          <Text style={[styles.metricNumber, { color: activeTheme.color }]}>
             ₹{availableRewardBalance}
           </Text>
-          <Text style={[styles.metricLabel, { color: mutedColor }]}>Cash Rewards</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]} numberOfLines={1}>Rewards</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -472,15 +462,14 @@ export default function AccountScreen() {
         >
           <Text style={{ fontSize: 22 }}>🔄</Text>
           <Text style={[styles.metricNumber, { color: textColor }]}>Fresh</Text>
-          <Text style={[styles.metricLabel, { color: mutedColor }]}>Subscriptions</Text>
+          <Text style={[styles.metricLabel, { color: mutedColor }]} numberOfLines={1}>Subs</Text>
         </TouchableOpacity>
       </View>
 
       {/* ── Loyalty & Staff Authorization Tiers Section ─────────── */}
       <View style={styles.sectionContainer}>
         {(() => {
-          const isSuperAdmin = user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
-          const isStaffUser = isSuperAdmin || (user?.role && user.role !== 'customer');
+          const isStaffUser = isSuperAdminUser || (user?.role && user.role !== 'customer');
           const targetRuleType = isStaffUser ? 'staff' : 'customer';
 
           const activeRules = (starRules as any[])
@@ -499,15 +488,12 @@ export default function AccountScreen() {
                     { id: 6, starFrom: 6, starTo: 6, discountPercent: '30', description: 'Master Admin Executive Level 6' },
                   ]
                 : [
-                    { id: 1, starFrom: 1, starTo: 1, discountPercent: '2', description: 'Bronze tier (1 Star)' },
-                    { id: 2, starFrom: 2, starTo: 2, discountPercent: '5', description: 'Silver tier (2 Stars)' },
-                    { id: 3, starFrom: 3, starTo: 3, discountPercent: '8', description: 'Gold tier (3 Stars)' },
-                    { id: 4, starFrom: 4, starTo: 4, discountPercent: '12', description: 'Platinum tier (4 Stars)' },
-                    { id: 5, starFrom: 5, starTo: 5, discountPercent: '15', description: 'Diamond tier (5 Stars)' },
+                    { id: 1, starFrom: 1, starTo: 1, discountPercent: '2', description: 'Green tier (1 Star)' },
+                    { id: 2, starFrom: 2, starTo: 2, discountPercent: '5', description: 'Green tier (2 Stars)' },
+                    { id: 3, starFrom: 3, starTo: 3, discountPercent: '8', description: 'Bronze tier (3 Stars)' },
+                    { id: 4, starFrom: 4, starTo: 4, discountPercent: '12', description: 'Silver tier (4 Stars)' },
+                    { id: 5, starFrom: 5, starTo: 5, discountPercent: '15', description: 'Blue tier (5 Stars)' },
                   ]);
-
-          const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? (isSuperAdmin ? 6 : 5);
-          const currentStars = isSuperAdmin ? 6 : Math.min(6, Math.max(1, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) || 5));
 
           return (
             <>
@@ -516,32 +502,34 @@ export default function AccountScreen() {
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
                 {displayRules.map((r: any) => {
-                  const isActiveTier = currentStars === r.starTo || (currentStars >= r.starFrom && currentStars <= r.starTo);
+                  const isActiveTier = activeStarCount === r.starTo || (activeStarCount >= r.starFrom && activeStarCount <= r.starTo);
                   const starCountNum = Math.min(r.starTo, 6);
+                  const cardTheme = getMobileStarTheme(starCountNum);
+
                   return (
                     <View
                       key={r.id || `${r.starFrom}-${r.starTo}`}
                       style={[
                         styles.mobileStarTierCard,
                         {
-                          backgroundColor: isActiveTier ? (isDark ? '#064e3b' : '#ecfdf5') : cardBg,
-                          borderColor: isActiveTier ? '#10b981' : borderCol,
+                          backgroundColor: isActiveTier ? (isDark ? cardTheme.heroBgDark : cardTheme.heroBgLight) : cardBg,
+                          borderColor: isActiveTier ? cardTheme.border : borderCol,
                           borderWidth: isActiveTier ? 2 : 1,
                         },
                       ]}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: isActiveTier ? '#10b981' : textColor, fontWeight: '800', fontSize: 11 }}>
+                        <Text style={{ color: isActiveTier ? cardTheme.color : textColor, fontWeight: '800', fontSize: 11 }}>
                           {r.description || `Level ${starCountNum}`}
                         </Text>
                         {isActiveTier && (
-                          <Text style={{ color: '#10b981', fontWeight: '900', fontSize: 9, marginLeft: 6 }}>ACTIVE</Text>
+                          <Text style={{ color: cardTheme.color, fontWeight: '900', fontSize: 9, marginLeft: 6 }}>ACTIVE</Text>
                         )}
                       </View>
-                      <Text style={{ color: '#fbbf24', fontSize: 11, marginTop: 4, fontWeight: '900' }}>
+                      <Text style={{ color: cardTheme.color, fontSize: 11, marginTop: 4, fontWeight: '900' }}>
                         {'★'.repeat(starCountNum)} {starCountNum} Star{starCountNum === 1 ? '' : 's'}
                       </Text>
-                      <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '900', marginTop: 6 }}>
+                      <Text style={{ color: cardTheme.color, fontSize: 13, fontWeight: '900', marginTop: 6 }}>
                         {parseFloat(r.discountPercent)}% OFF
                       </Text>
                     </View>
@@ -602,21 +590,21 @@ export default function AccountScreen() {
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionHeading, { color: mutedColor }]}>STAFF & ADMINISTRATIVE PORTAL</Text>
           <TouchableOpacity
-            style={[styles.adminBannerTile, { backgroundColor: isDark ? '#1b1204' : '#fffbeb', borderColor: '#f59e0b' }]}
+            style={[styles.adminBannerTile, { backgroundColor: isDark ? activeTheme.heroBgDark : activeTheme.heroBgLight, borderColor: activeTheme.border }]}
             onPress={() => router.push('/admin')}
           >
-            <Text style={{ fontSize: 26 }}>🛡️</Text>
+            <Text style={{ fontSize: 26 }}>{isSuperAdminUser ? '👑' : '🛡️'}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#d97706', fontSize: 15, fontWeight: '900' }}>
+              <Text style={{ color: activeTheme.color, fontSize: 15, fontWeight: '900' }}>
                 {user?.isPrimaryAdmin ? 'Master Admin Control Panel' : 'Sub-Admin Staff Dashboard'}
               </Text>
-              <Text style={{ color: '#b45309', fontSize: 12, marginTop: 2 }}>
+              <Text style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: 12, marginTop: 2 }}>
                 {user?.isPrimaryAdmin
                   ? 'Manage products, orders, delivery rules & staff permissions'
                   : 'Manage sub-admin product reconsiderations, stock & orders'}
               </Text>
             </View>
-            <Text style={{ color: '#d97706', fontSize: 18, fontWeight: '900' }}>→</Text>
+            <Text style={{ color: activeTheme.color, fontSize: 18, fontWeight: '900' }}>→</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -736,10 +724,10 @@ export default function AccountScreen() {
       <View style={styles.versionBadgeRow}>
         <View style={styles.versionBadgeInner}>
           <View style={styles.versionBadgeDot} />
-          <Text style={styles.versionBadgeText}>App Build v9.3.2</Text>
+          <Text style={styles.versionBadgeText}>App Build v9.3.3</Text>
         </View>
       </View>
-      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.3.2 · {email}</Text>
+      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.3.3 · {email}</Text>
 
       {/* Edit Profile Modal */}
       <Modal visible={showEditProfileModal} transparent animationType="slide" onRequestClose={() => setShowEditProfileModal(false)}>

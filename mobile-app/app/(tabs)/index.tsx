@@ -15,6 +15,7 @@ import { useDelivery } from '../../hooks/useDelivery';
 import { useAuth } from '../../lib/store';
 import { AnimatedFreeDeliveryBar } from '../../components/FreeDeliveryBar';
 import { AnimatedSideMenu } from '../../components/AnimatedSideMenu';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -96,6 +97,15 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
     setLocalQty(1);
   };
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const cardStarsCount = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const cardTheme = getMobileStarTheme(user ? cardStarsCount : 0);
+
   return (
     <Animated.View style={[styles.productCardWrapper, { transform: [{ scale: scaleAnim }] }]}>
       <TouchableOpacity
@@ -105,7 +115,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
         style={[styles.productCard, isDark ? styles.productCardDark : styles.productCardLight]}
         onPress={() => router.push(`/product/${product.id}`)}
       >
-        <View style={styles.cardTopAccent} />
+        <View style={[styles.cardTopAccent, { backgroundColor: cardTheme.color }]} />
 
         <View style={[styles.imageWrapper, isDark && { backgroundColor: '#091510' }]}>
           {product.image && !imgFailed ? (
@@ -118,7 +128,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
           ) : (
             <View style={[styles.productImage, styles.productImagePlaceholder, isDark && { backgroundColor: '#091510' }]}>
               <Text style={{ fontSize: 32 }}>🌱</Text>
-              <Text style={{ fontSize: 9, fontWeight: '800', color: '#10b981', marginTop: 2 }}>Farm Fresh</Text>
+              <Text style={[styles.productImagePlaceholderText, { color: cardTheme.color }]}>Farm Fresh</Text>
             </View>
           )}
 
@@ -137,8 +147,8 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
           )}
 
           {isInCart && (
-            <View style={styles.inCartBadge}>
-              <Text style={styles.inCartText}>✓ {inCartQty} in Cart</Text>
+            <View style={[styles.inCartBadge, { backgroundColor: cardTheme.badgeBg, borderColor: cardTheme.border }]}>
+              <Text style={[styles.inCartText, { color: cardTheme.color }]}>✓ {inCartQty} in Cart</Text>
             </View>
           )}
         </View>
@@ -146,7 +156,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
         <View style={styles.productInfo}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
             <Text style={{ fontSize: 11 }}>{isVeg ? '🟢' : '🔴'}</Text>
-            <Text style={[styles.categoryTag, isDark ? { color: '#34d399' } : { color: '#059669' }]}>
+            <Text style={[styles.categoryTag, { color: cardTheme.color }]}>
               {product.categorySlug?.toUpperCase() || 'FRESH'}
             </Text>
           </View>
@@ -176,7 +186,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
                 </TouchableOpacity>
                 <Text style={[styles.stepQtyText, isDark ? styles.textWhite : styles.textDark]}>{inCartQty}</Text>
                 <TouchableOpacity style={styles.stepBtn} onPress={() => updateQty(product.id, inCartQty + 1)}>
-                  <Text style={[styles.stepBtnText, { color: '#10b981' }]}>+</Text>
+                  <Text style={[styles.stepBtnText, { color: cardTheme.color }]}>+</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -186,16 +196,20 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
                 </TouchableOpacity>
                 <Text style={[styles.stepQtyText, isDark ? styles.textWhite : styles.textDark]}>{localQty}</Text>
                 <TouchableOpacity style={styles.stepBtn} onPress={() => setLocalQty(localQty + 1)}>
-                  <Text style={[styles.stepBtnText, { color: '#10b981' }]}>+</Text>
+                  <Text style={[styles.stepBtnText, { color: cardTheme.color }]}>+</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             <TouchableOpacity
-              style={[styles.addBtn, isInCart && styles.addBtnInCart]}
+              style={[
+                styles.addBtn,
+                { backgroundColor: cardTheme.buttonBg },
+                isInCart && styles.addBtnInCart,
+              ]}
               onPress={isInCart ? () => router.push('/(tabs)/basket') : handleAddToCart}
             >
-              <Text style={styles.addBtnText}>{isInCart ? '🛒 Cart' : '🛒 Add'}</Text>
+              <Text style={[styles.addBtnText, { color: cardTheme.buttonTextColor }]}>{isInCart ? '🛒 Cart' : '🛒 Add'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -329,6 +343,16 @@ export default function HomeScreen() {
   const freeDeliveryThreshold = Number(resolution?.freeDeliveryAbove || deliveryRules?.freeAbove || 500);
   const isFreeDelivery = cartSubtotal >= freeDeliveryThreshold;
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const homeStarsCount = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+
+  const homeTheme = getMobileStarTheme(user ? homeStarsCount : 0);
+
   return (
     <View style={[styles.mainContainer, { backgroundColor: bg }]}>
       {/* ── 1. Top Delivery ETA Header Bar (Mirrored exactly from website) ─── */}
@@ -442,19 +466,19 @@ export default function HomeScreen() {
       </View>
 
       {/* ── 2. Sticky Navbar with 3-Lines Menu + Brand + Search + Cart ───── */}
-      <View style={[styles.navbar, isDark ? styles.navbarDark : styles.navbarLight]}>
+      <View style={[styles.navbar, isDark ? styles.navbarDark : styles.navbarLight, { borderBottomColor: homeTheme.border }]}>
         <View style={styles.navbarTopRow}>
           <TouchableOpacity
             style={[styles.navIconBtn, isDark ? styles.navIconBtnDark : styles.navIconBtnLight]}
             onPress={() => setCategoriesDrawerOpen(true)}
           >
-            <Text style={{ fontSize: 20, color: isDark ? '#fff' : '#0f172a' }}>☰</Text>
+            <Text style={{ fontSize: 18, color: isDark ? '#fff' : '#0f172a' }}>☰</Text>
           </TouchableOpacity>
 
           <View style={styles.brandTitleContainer}>
             <Text style={styles.brandLeaf}>🌿</Text>
-            <Text style={[styles.brandTextPrimary, isDark ? { color: '#34d399' } : { color: '#059669' }]}>
-              FarmFresh<Text style={styles.brandTextAccent}>Farmer</Text>
+            <Text style={[styles.brandTextPrimary, isDark ? { color: '#ffffff' } : { color: '#0f172a' }]}>
+              FarmFresh<Text style={{ color: homeTheme.color }}>Farmer</Text>
             </Text>
           </View>
 
@@ -463,58 +487,34 @@ export default function HomeScreen() {
               style={[styles.navCircleBtn, isDark ? styles.navCircleBtnDark : styles.navCircleBtnLight]}
               onPress={handleToggleTheme}
             >
-              <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
+              <Text style={{ fontSize: 15 }}>{isDark ? '🌕' : '☀️'}</Text>
             </TouchableOpacity>
 
-            {user && (
-              (() => {
-                const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
-                const isStaff = isSuperAdmin || user.role !== "customer";
-                const starsCount = isSuperAdmin
-                  ? 6
-                  : isStaff
-                  ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5))
-                  : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
-
-                const tierCol = starsCount <= 2
-                  ? { color: '#22c55e', bg: 'rgba(34,197,94,0.18)', border: 'rgba(34,197,94,0.45)' }
-                  : starsCount === 3
-                  ? { color: '#cd7f32', bg: 'rgba(205,127,50,0.18)', border: 'rgba(205,127,50,0.45)' }
-                  : starsCount === 4
-                  ? { color: '#c0c0c0', bg: 'rgba(192,192,192,0.22)', border: 'rgba(192,192,192,0.55)' }
-                  : starsCount === 5
-                  ? { color: '#3b82f6', bg: 'rgba(59,130,246,0.2)', border: 'rgba(59,130,246,0.45)' }
-                  : { color: '#fbbf24', bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.6)' };
-
-                return (
-                  <TouchableOpacity
-                    style={[styles.navCircleBtn, { backgroundColor: tierCol.bg, borderColor: tierCol.border, borderWidth: 1, paddingHorizontal: 7, width: 'auto' }]}
-                    onPress={() => router.push('/(tabs)/account')}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '900', color: tierCol.color }}>
-                      {isSuperAdmin ? '👑 6★' : `★ ${starsCount}`}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })()
-            )}
-
             <TouchableOpacity
-              style={[styles.navCircleBtn, isDark ? styles.navCircleBtnDark : styles.navCircleBtnLight]}
+              style={[
+                styles.navCircleBtn,
+                user ? { backgroundColor: homeTheme.badgeBg, borderColor: homeTheme.border, paddingHorizontal: 6, width: 'auto' } : (isDark ? styles.navCircleBtnDark : styles.navCircleBtnLight),
+              ]}
               onPress={() => router.push('/(tabs)/account')}
             >
-              <Text style={{ fontSize: 16 }}>👤</Text>
+              {user ? (
+                <Text style={{ fontSize: 11, fontWeight: '900', color: homeTheme.color }}>
+                  {isSuperAdminUser ? '👑 6★' : `👤 ${homeStarsCount}★`}
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 15 }}>👤</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.cartIconBtn,
-                isDark ? styles.cartIconBtnDark : styles.cartIconBtnLight,
+                { backgroundColor: homeTheme.buttonBg, borderColor: homeTheme.border },
                 cartCount > 0 && styles.cartIconBtnActive,
               ]}
               onPress={() => router.push('/(tabs)/basket')}
             >
-              <Text style={{ fontSize: 18 }}>🛒</Text>
+              <Text style={{ fontSize: 16 }}>🛒</Text>
               {cartCount > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>{cartCount}</Text>
@@ -525,7 +525,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Integrated Global Real-Time Search Bar */}
-        <View style={[styles.searchBarWrapper, isDark ? styles.searchBarWrapperDark : styles.searchBarWrapperLight]}>
+        <View style={[styles.searchBarWrapper, isDark ? styles.searchBarWrapperDark : styles.searchBarWrapperLight, { borderColor: homeTheme.border }]}>
           <TextInput
             style={[styles.searchBarInput, isDark ? styles.textWhite : styles.textDark]}
             placeholder="Search organic fruits, vegetables, pickles, sweets..."
@@ -544,8 +544,8 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 14, color: isDark ? '#94a3b8' : '#64748b' }}>✕</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={[styles.searchIconBtn, isDark ? styles.searchIconBtnDark : styles.searchIconBtnLight]}>
-            <Text style={{ fontSize: 15, color: '#ffffff' }}>🔍</Text>
+          <TouchableOpacity style={[styles.searchIconBtn, { backgroundColor: homeTheme.buttonBg }]}>
+            <Text style={{ fontSize: 14, color: homeTheme.buttonTextColor }}>🔍</Text>
           </TouchableOpacity>
         </View>
 
@@ -557,11 +557,11 @@ export default function HomeScreen() {
               style={[
                 styles.recChip,
                 isDark ? styles.recChipDark : styles.recChipLight,
-                searchQuery.toLowerCase() === rec.query && styles.recChipActive,
+                searchQuery.toLowerCase() === rec.query && { backgroundColor: homeTheme.badgeBg, borderColor: homeTheme.border },
               ]}
               onPress={() => handleRecommendationPress(rec.query)}
             >
-              <Text style={[styles.recChipText, isDark ? styles.textWhite : styles.textDark]}>
+              <Text style={[styles.recChipText, searchQuery.toLowerCase() === rec.query ? { color: homeTheme.color, fontWeight: '800' } : (isDark ? styles.textWhite : styles.textDark)]}>
                 {rec.label}
               </Text>
             </TouchableOpacity>
@@ -579,10 +579,10 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={COLORS.primary} />}
       >
-        {/* ── 3. Hero Landing Section ───────────────────────────────────── */}
+        {/* ── 3. Hero Landing Section with Dynamic Tier Colors ───────────────────────────────────── */}
         <View style={[styles.heroSection, isDark ? styles.heroSectionDark : styles.heroSectionLight]}>
-          <View style={[styles.heroBadgePill, isDark ? styles.heroBadgePillDark : styles.heroBadgePillLight]}>
-            <Text style={[styles.heroBadgePillText, isDark ? { color: '#34d399' } : { color: '#059669' }]}>
+          <View style={[styles.heroBadgePill, { backgroundColor: homeTheme.badgeBg, borderColor: homeTheme.border }]}>
+            <Text style={[styles.heroBadgePillText, { color: homeTheme.color }]}>
               ✨ {txt.hero_badge_text || "Vijayawada's #1 Instant Organic Farm Delivery"}
             </Text>
           </View>
@@ -597,11 +597,11 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.heroCtaRow}>
-            <TouchableOpacity style={styles.exploreCategoriesBtn} onPress={handleExploreCategoriesPress}>
-              <Text style={styles.exploreCategoriesBtnText}>Explore Categories →</Text>
+            <TouchableOpacity style={[styles.exploreCategoriesBtn, { backgroundColor: homeTheme.buttonBg }]} onPress={handleExploreCategoriesPress}>
+              <Text style={[styles.exploreCategoriesBtnText, { color: homeTheme.buttonTextColor }]}>Explore Categories →</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.referEarnHeroBtn} onPress={() => router.push('/(tabs)/referrals')}>
+            <TouchableOpacity style={[styles.referEarnHeroBtn, { borderColor: homeTheme.border }]} onPress={() => router.push('/(tabs)/referrals')}>
               <Text style={styles.referEarnHeroBtnText}>🎁 Refer & Earn Rewards</Text>
             </TouchableOpacity>
           </View>

@@ -1,6 +1,6 @@
 {
   "name": "farmfreshfarmer-mobile",
-  "version": "9.3.2",
+  "version": "9.3.3",
   "type": "commonjs",
   "main": "expo-router/entry",
   "dependencies": {

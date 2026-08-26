@@ -4,18 +4,31 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
+import { useAuth } from '../../lib/store';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 export default function TabLayout() {
   const { theme } = useThemeStore();
+  const { user } = useAuth();
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
   const cartItems = useCartStore((s) => s.items) || [];
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
 
-  const ACTIVE = '#10b981';
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const userStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+
+  const tierTheme = getMobileStarTheme(user ? userStars : 0);
+
+  const ACTIVE = tierTheme.color;
   const INACTIVE = isDark ? '#94a3b8' : '#6b7280';
   const BG = isDark ? '#0a0a0a' : '#ffffff';
-  const BORDER = isDark ? 'rgba(16,185,129,0.2)' : '#e5e7eb';
+  const BORDER = isDark ? tierTheme.border : '#e5e7eb';
 
   return (
     <Tabs
