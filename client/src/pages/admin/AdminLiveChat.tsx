@@ -859,18 +859,20 @@ export function AdminLiveChat() {
                     onChange={(e) => setReplyInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                     placeholder={
-                      currentSession?.status === "waiting_for_agent"
+                      isSessionClosed
+                        ? "Chat session is closed (read-only)."
+                        : currentSession?.status === "waiting_for_agent"
                         ? "Claim chat to respond..."
                         : "Type response to customer..."
                     }
-                    disabled={currentSession?.status === "waiting_for_agent" || sendMutation.isPending}
+                    disabled={isSessionClosed || currentSession?.status === "waiting_for_agent" || sendMutation.isPending}
                     className="flex-1 text-xs h-8"
                   />
                   <Button
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-3 font-bold h-8 text-xs"
                     onClick={handleSend}
-                    disabled={!replyInput.trim() || currentSession?.status === "waiting_for_agent" || sendMutation.isPending}
+                    disabled={isSessionClosed || !replyInput.trim() || currentSession?.status === "waiting_for_agent" || sendMutation.isPending}
                   >
                     <Send size={12} /> Send
                   </Button>
@@ -1065,7 +1067,7 @@ export function AdminLiveChat() {
                             <Plus size={12} /> Add Item to Cart
                           </Button>
                         ) : isSessionClosed ? (
-                          <span className="text-[10px] text-muted-foreground italic">Session closed</span>
+                          <span className="text-[10px] text-muted-foreground italic bg-muted px-2 py-0.5 rounded border border-card-border">🔒 Session closed</span>
                         ) : (
                           <Button
                             size="sm"
@@ -1080,14 +1082,20 @@ export function AdminLiveChat() {
                         )}
                       </div>
 
-                      {cart.items.length === 0 ? (
+                      {isSessionClosed ? (
+                        <div className="p-8 text-center border border-card-border bg-muted/10 rounded-2xl text-muted-foreground text-xs space-y-2">
+                          <Lock size={26} className="mx-auto text-muted-foreground/60" />
+                          <p className="font-bold text-foreground">Customer Cart Hidden</p>
+                          <p className="text-[11px] max-w-xs mx-auto">
+                            The support session has been closed. Cart items and rep modification actions are automatically protected and hidden.
+                          </p>
+                        </div>
+                      ) : cart.items.length === 0 ? (
                         <div className="p-6 text-center border border-dashed border-card-border rounded-xl text-muted-foreground text-xs space-y-1">
                           <ShoppingCart size={24} className="mx-auto opacity-40 mb-1" />
                           <p className="font-medium">Customer's cart is empty.</p>
                           <p className="text-[10px]">
-                            {isSessionClosed
-                              ? "Session is closed."
-                              : isPermissionGranted
+                            {isPermissionGranted
                               ? "Click '+ Add Item to Cart' above to put items into their cart live."
                               : "Request permission to add items into the customer's cart on their behalf."}
                           </p>

@@ -1334,7 +1334,11 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       let priceNum = parseFloat(it.price) || 0;
       const qtyNum = parseInt(String(it.qty || 1), 10) || 1;
 
-      // If product has a catalog discount (e.g. 5% off on Boondi Laddu), use effective discounted selling price
+      // Dynamic GST Rate Resolution: Product override -> Category/Name Fallback -> Store default
+      let hsn = "0709"; // Fresh vegetables (0% GST)
+      let gstRate = 0;
+      let prodGstOverride: number | null = null;
+
       if (it.productId) {
         try {
           const prod = await storage.products.get(Number(it.productId));
@@ -1344,13 +1348,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
             if (discPercent > 0) {
               priceNum = round2(rawPrice * (1 - discPercent / 100));
             }
+            if (prod.gstPercent != null) {
+              prodGstOverride = Number(prod.gstPercent);
+            }
           }
         } catch (e) {}
       }
       
-      // Assign appropriate HSN code based on item name
-      let hsn = "0709"; // Fresh vegetables (0% GST)
-      let gstRate = 0;
+      // Assign appropriate HSN code & fallback rate based on item name
       const lowerName = (it.name || "").toLowerCase();
       if (lowerName.includes("milk") || lowerName.includes("curd") || lowerName.includes("paneer")) {
         hsn = "0401";
@@ -1364,9 +1369,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       } else if (lowerName.includes("spice") || lowerName.includes("powder") || lowerName.includes("masala")) {
         hsn = "0910";
         gstRate = 5;
-      } else if (lowerName.includes("fruit") || lowerName.includes("mango") || lowerName.includes("apple")) {
+      } else if (lowerName.includes("fruit") || lowerName.includes("mango") || lowerName.includes("apple") || lowerName.includes("banana")) {
         hsn = "0804";
         gstRate = 0;
+      }
+
+      // If product has explicit GST override in Admin GST Matrix, prioritize it
+      if (prodGstOverride != null) {
+        gstRate = prodGstOverride;
       }
 
       // Unit Price and Taxable Value are identical for 1 unit (taxableValue = unitPrice * qty)

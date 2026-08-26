@@ -462,6 +462,31 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     },
   });
 
+  /* Customer End Session Mutation */
+  const endSessionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/chatbot/end-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/chatbot/live-session/${sessionToken}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/chatbot/my-sessions"] });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `closed_${Date.now()}`,
+          role: "model",
+          content: "🏁 You have ended this support session. Thank you for contacting FarmFreshFarmer! To start a new conversation, tap the Clear Chat icon.",
+          timestamp: new Date(),
+        },
+      ]);
+    },
+  });
+
   // Load saved chat history when user changes or logs in
   useEffect(() => {
     const historyKey = getStorageHistoryKey(user?.id);
@@ -1037,13 +1062,36 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           {liveSessionData?.status === "waiting_for_agent" && (
             <div className="bg-amber-500 text-white text-[11px] font-bold px-3 py-1.5 flex items-center justify-between animate-pulse flex-shrink-0">
               <span>⏳ Waiting for Live Representative...</span>
-              <span className="text-[9px] opacity-90 font-mono">Telegram Alert Sent</span>
+              <button
+                onClick={() => endSessionMutation.mutate()}
+                disabled={endSessionMutation.isPending}
+                className="text-[10px] bg-black/20 hover:bg-black/40 px-2 py-0.5 rounded transition text-white"
+              >
+                Cancel
+              </button>
             </div>
           )}
           {liveSessionData?.status === "agent_connected" && (
             <div className="bg-emerald-600 text-white text-[11px] font-bold px-3 py-1.5 flex items-center justify-between flex-shrink-0">
-              <span>🟢 Live Chat: {liveSessionData.assignedAgentName || "Support Representative"}</span>
-              <span className="text-[9px] opacity-90 font-mono font-normal">Active</span>
+              <span className="truncate">🟢 Live: {liveSessionData.assignedAgentName || "Representative"}</span>
+              <button
+                onClick={() => endSessionMutation.mutate()}
+                disabled={endSessionMutation.isPending}
+                className="text-[10px] bg-red-700/80 hover:bg-red-700 px-2 py-0.5 rounded text-white transition shrink-0 ml-2"
+              >
+                End Chat
+              </button>
+            </div>
+          )}
+          {liveSessionData?.status === "closed" && (
+            <div className="bg-slate-700 text-white text-[11px] font-semibold px-3 py-1.5 flex items-center justify-between flex-shrink-0">
+              <span>🔒 Support session closed</span>
+              <button
+                onClick={handleClearChat}
+                className="text-[10px] bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 rounded font-bold transition text-white"
+              >
+                New Chat 💬
+              </button>
             </div>
           )}
 
@@ -1348,27 +1396,39 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
           {/* Input bar */}
           <div className="px-3 pb-3 pt-0.5 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-purple-400 transition">
-              <input ref={inputRef} id="chatbot-input" type="text" value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder={strings.placeholder}
-                className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
-              />
-              {/* Mic button */}
-              <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
-                className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30"}`}
-                aria-label={isListening ? "Stop recording" : "Start voice input"}>
-                {isListening ? <MicOff size={14} /> : <Mic size={14} />}
-              </button>
-              {/* Send button */}
-              <button id="chatbot-send-btn" onClick={handleSend} disabled={!input.trim() || sendMutation.isPending}
-                className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' }}
-                aria-label="Send message">
-                <Send size={13} />
-              </button>
-            </div>
+            {liveSessionData?.status === "closed" ? (
+              <div className="flex items-center justify-between gap-2 bg-muted/40 dark:bg-zinc-800/80 rounded-2xl px-3.5 py-2.5 border border-card-border">
+                <span className="text-xs text-muted-foreground font-medium">Session closed.</span>
+                <button
+                  onClick={handleClearChat}
+                  className="text-xs font-bold px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition"
+                >
+                  Start New Chat 💬
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-purple-400 transition">
+                <input ref={inputRef} id="chatbot-input" type="text" value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  placeholder={strings.placeholder}
+                  className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
+                />
+                {/* Mic button */}
+                <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
+                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30"}`}
+                  aria-label={isListening ? "Stop recording" : "Start voice input"}>
+                  {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                </button>
+                {/* Send button */}
+                <button id="chatbot-send-btn" onClick={handleSend} disabled={!input.trim() || sendMutation.isPending}
+                  className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' }}
+                  aria-label="Send message">
+                  <Send size={13} />
+                </button>
+              </div>
+            )}
             <p className="text-center text-[9px] text-gray-400 mt-1">{strings.poweredBy}</p>
           </div>
         </div>

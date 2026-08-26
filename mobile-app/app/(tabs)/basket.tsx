@@ -134,11 +134,19 @@ export default function BasketScreen() {
     staleTime: 60000,
   });
 
-  // Calculate taxes and itemized financial breakdown
-  const taxableSubtotal = Math.round((subtotal / 1.05) * 100) / 100;
-  const totalGst = Math.round((subtotal - taxableSubtotal) * 100) / 100;
-  const cgst = Math.round((totalGst / 2) * 100) / 100;
-  const sgst = Math.round((totalGst - cgst) * 100) / 100;
+  // Calculate taxes and itemized financial breakdown using server quote (authoritative per product)
+  const taxableSubtotal = quote?.taxableSubtotal != null 
+    ? Number(quote.taxableSubtotal) 
+    : subtotal;
+  const totalGst = quote?.totalGst != null 
+    ? Number(quote.totalGst) 
+    : 0;
+  const cgst = quote?.cgst != null 
+    ? Number(quote.cgst) 
+    : Math.round((totalGst / 2) * 100) / 100;
+  const sgst = quote?.sgst != null 
+    ? Number(quote.sgst) 
+    : Math.round((totalGst - cgst) * 100) / 100;
 
   const isLocationUnserviceable = !isInternationalDelivery && resolution && resolution.serviceable === false;
   const freeDeliveryThreshold = Number(resolution?.freeDeliveryAbove || 500);

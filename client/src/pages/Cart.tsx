@@ -658,30 +658,24 @@ export default function Cart() {
                 <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-3 space-y-2.5 shadow-inner">
                   <div className="flex justify-between items-center text-xs font-black text-emerald-900 dark:text-emerald-300 border-b border-emerald-500/30 pb-2">
                     <span className="flex items-center gap-1.5">
-                      🧾 Itemized Order & GST Breakdown
+                      🧾 Itemized Order & Tax Breakdown
                     </span>
                     <span className="text-[10px] font-mono bg-emerald-700 text-white dark:bg-emerald-500/20 dark:text-emerald-400 px-2 py-0.5 rounded font-black border border-emerald-500/30">
-                      Taxable Base + GST
+                      Standard Pricing
                     </span>
                   </div>
                   <div className="space-y-2.5 divide-y divide-emerald-500/20">
                     {items.map((item, idx) => {
-                      const baseTotal = (Number(item.price) || 0) * item.qty;
-                      const cgstVal = baseTotal * 0.025;
-                      const sgstVal = baseTotal * 0.025;
-                      const itemTot = baseTotal + cgstVal + sgstVal;
+                      const lineTotal = (Number(item.price) || 0) * item.qty;
                       return (
                         <div key={idx} className="pt-2 first:pt-0 space-y-1">
                           <div className="flex justify-between items-center text-xs font-bold text-foreground">
                             <span>{item.name} ({item.unit}) × {item.qty}</span>
-                            <span className="font-mono text-emerald-700 dark:text-emerald-400 font-black">{formatINR(itemTot)}</span>
+                            <span className="font-mono text-emerald-700 dark:text-emerald-400 font-black">{formatINR(lineTotal)}</span>
                           </div>
                           <div className="flex flex-wrap justify-between items-center text-[11px] font-mono gap-1 text-slate-700 dark:text-slate-300">
                             <span>
-                              Base: {formatINR(Number(item.price) || 0)} × {item.qty} = <strong className="text-slate-900 dark:text-white font-black">{formatINR(baseTotal)}</strong>
-                            </span>
-                            <span className="text-emerald-800 dark:text-emerald-400 font-black">
-                              +5% GST ({formatINR(cgstVal + sgstVal)})
+                              Price: {formatINR(Number(item.price) || 0)} / {item.unit} × {item.qty}
                             </span>
                           </div>
                         </div>

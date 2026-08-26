@@ -837,6 +837,17 @@ function resolveCartQty(
         }).where(eq(chatbotSessions.id, session.id));
       }
 
+      // IF Session is CLOSED: Do not accept new messages into a closed session
+      if (session && session.status === 'closed') {
+        return res.status(400).json({
+          reply: '🏁 This support session has ended. To start a fresh conversation with Lakshmi AI, please tap the Clear Chat (trash) icon or start a new inquiry.',
+          needsHuman: false,
+          status: 'closed',
+          sessionToken: token,
+          isClosed: true,
+        });
+      }
+
       // IF Session is ALREADY connected to a live agent or waiting for one:
       if (session && (session.status === 'agent_connected' || session.status === 'waiting_for_agent')) {
         // Save customer message to liveChatMessages
@@ -1392,6 +1403,33 @@ function resolveCartQty(
 
   app.post('/api/chatbot/message', handleChatbotRequest);
   app.post('/api/chatbot', handleChatbotRequest);
+
+  // POST /api/chatbot/end-session — Customer ends the current live chat session
+  app.post('/api/chatbot/end-session', async (req: Request, res: Response) => {
+    try {
+      const { sessionToken } = req.body || {};
+      if (!sessionToken) return res.status(400).json({ error: 'Session token required' });
+
+      const [updated] = await db.update(chatbotSessions)
+        .set({ status: 'closed', lastActivityAt: new Date() })
+        .where(eq(chatbotSessions.sessionToken, sessionToken))
+        .returning();
+
+      if (updated) {
+        await db.insert(liveChatMessages).values({
+          sessionToken,
+          sender: 'system',
+          senderName: 'System',
+          message: '🏁 Customer ended the chat support session.',
+        }).catch(() => {});
+      }
+
+      return res.json({ success: true, message: 'Chat session ended successfully', session: updated });
+    } catch (err: any) {
+      console.error('[chatbot] Error ending customer session:', err?.message);
+      return res.status(500).json({ error: 'Failed to end chat session' });
+    }
+  });
 
   // DELETE /api/chatbot/my-sessions/:sessionToken — Delete customer's past chat session
   app.delete('/api/chatbot/my-sessions/:sessionToken', async (req: Request, res: Response) => {
