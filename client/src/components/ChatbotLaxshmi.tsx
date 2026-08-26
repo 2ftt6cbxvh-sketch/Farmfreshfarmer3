@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2 } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -579,6 +579,35 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
   const stopListening = useCallback(() => { recognitionRef.current?.stop(); setIsListening(false); }, []);
 
+  /* Clear Chat History */
+  const handleClearChat = useCallback(() => {
+    // 1. Reset messages in UI to new session
+    setMessages([]);
+    
+    // 2. Clear browser storage
+    const historyKey = getStorageHistoryKey(user?.id);
+    try {
+      localStorage.removeItem(historyKey);
+      sessionStorage.removeItem(historyKey);
+      
+      // Also generate a new session token so subsequent chats start as a new conversation session
+      if (user?.id) {
+        const key = `lakshmi_user_session_${user.id}`;
+        localStorage.removeItem(key);
+      } else {
+        const guestKey = "lakshmi_guest_session";
+        sessionStorage.removeItem(guestKey);
+        localStorage.removeItem(guestKey);
+      }
+    } catch {}
+
+    // 3. Refresh user's previous chats in profile tab query if mounted
+    queryClient.invalidateQueries({ queryKey: ["/api/chatbot/my-sessions"] });
+
+    // 4. Close any active speech
+    stopSpeaking();
+  }, [user?.id, stopSpeaking, queryClient]);
+
   /* Start Ticket Flow */
   const startTicketFlow = useCallback(() => {
     setTicketData({
@@ -984,8 +1013,16 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               )}
             </div>
             <button
+              onClick={handleClearChat}
+              title="Clear Current Chat"
+              aria-label="Clear chat"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button
               onClick={() => navigate('/account')}
-              title="View My Tickets"
+              title="View Previous Chats & Tickets"
               className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all"
             >
               <Ticket size={14} />

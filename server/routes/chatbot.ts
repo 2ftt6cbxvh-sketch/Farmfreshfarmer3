@@ -1284,6 +1284,18 @@ function resolveCartQty(
   ${customCreatorBio ? `\n- Additional Creator Notes / Resume Summary:\n${customCreatorBio}` : ''}
       `.trim();
 
+      // If user message is sent to AI (bot status):
+      // Persist customer message to liveChatMessages so user can see it in Profile history
+      if (session) {
+        await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'customer',
+          senderName: customerName || 'Customer',
+          senderId: userId || null,
+          message: message,
+        }).catch((err) => console.warn('[chatbot] Failed to log customer message:', err?.message));
+      }
+
       let reply: string | null = null;
       let needsHuman = false;
 
@@ -1327,6 +1339,16 @@ function resolveCartQty(
           .replace(/\*([^*]+)\*/g, '$1');      // *italic* -> italic
       }
 
+      // Persist AI response message to liveChatMessages so user can see full transcript in Profile
+      if (session && reply) {
+        await db.insert(liveChatMessages).values({
+          sessionToken: token,
+          sender: 'bot',
+          senderName: 'Lakshmi AI',
+          message: reply,
+        }).catch((err) => console.warn('[chatbot] Failed to log AI reply:', err?.message));
+      }
+
       // Also scan Gemini's response for product name mentions
       let responseProducts: any[] = [];
       if (reply && globalActiveProducts && globalActiveProducts.length > 0) {
@@ -1358,7 +1380,7 @@ function resolveCartQty(
       return res.json({
         reply,
         needsHuman,
-        status: session.status,
+        status: session?.status || 'bot',
         sessionToken: token,
         products: showProductCards ? finalProducts : undefined,
       });
@@ -1370,6 +1392,29 @@ function resolveCartQty(
 
   app.post('/api/chatbot/message', handleChatbotRequest);
   app.post('/api/chatbot', handleChatbotRequest);
+
+  // DELETE /api/chatbot/my-sessions/:sessionToken — Delete customer's past chat session
+  app.delete('/api/chatbot/my-sessions/:sessionToken', async (req: Request, res: Response) => {
+    try {
+      const userId = await resolveCustomerUserId(req);
+      const { sessionToken } = req.params;
+      if (!sessionToken) return res.status(400).json({ error: 'Session token required' });
+
+      // Verify session exists and belongs to user (or admin)
+      const [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken)).limit(1);
+      if (session && userId && session.userId !== userId && (req.session as any)?.role !== 'admin') {
+        return res.status(403).json({ error: 'Unauthorized to delete this chat session' });
+      }
+
+      await db.delete(liveChatMessages).where(eq(liveChatMessages.sessionToken, sessionToken));
+      await db.delete(chatbotSessions).where(eq(chatbotSessions.sessionToken, sessionToken));
+
+      return res.json({ success: true, message: 'Chat session removed successfully' });
+    } catch (err: any) {
+      console.error('[chatbot] Error deleting session:', err?.message);
+      return res.status(500).json({ error: 'Failed to delete chat session' });
+    }
+  });
 
   // POST /api/admin/gemini/test — Live test Gemini API key connection
   app.post('/api/admin/gemini/test', async (req, res) => {

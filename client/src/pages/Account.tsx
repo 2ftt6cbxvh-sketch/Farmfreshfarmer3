@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useQuery } from "@tanstack/react-query";
 import {
   Ticket, User, Phone, Mail, Clock, CheckCircle2, AlertCircle, MessageSquare,
-  Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar
+  Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar, Trash2
 } from "lucide-react";
 
 interface SupportTicket {
@@ -137,6 +137,22 @@ export default function Account() {
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDeleteChatSession(sessionToken: string, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this past chat transcript?")) return;
+    try {
+      const res = await fetch(`/api/chatbot/my-sessions/${sessionToken}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete chat session");
+      toast({ title: "Chat session deleted", description: "Transcript removed from your history." });
+      refetchChats();
+      if (selectedTranscript?.sessionToken === sessionToken) {
+        setSelectedTranscript(null);
+      }
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err?.message || "Could not delete session", variant: "destructive" });
     }
   }
 
@@ -396,6 +412,15 @@ export default function Account() {
                         >
                           <Eye size={12} /> View Transcript ({chat.messageCount})
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          title="Delete Transcript"
+                          onClick={(e) => handleDeleteChatSession(chat.sessionToken, e)}
+                        >
+                          <Trash2 size={13} />
+                        </Button>
                       </div>
                     </div>
 
@@ -629,7 +654,17 @@ export default function Account() {
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+              {selectedTranscript && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-1 text-xs"
+                  onClick={() => handleDeleteChatSession(selectedTranscript.sessionToken)}
+                >
+                  <Trash2 size={13} /> Delete Transcript
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={() => setSelectedTranscript(null)}>
                 Close Transcript
               </Button>
