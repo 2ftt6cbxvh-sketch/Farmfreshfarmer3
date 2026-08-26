@@ -175,6 +175,44 @@ function ScrollToTop() {
   return null;
 }
 
+function TierThemeSync() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      document.documentElement.setAttribute("data-tier", "green");
+      return;
+    }
+
+    const isSuperAdmin = Boolean(
+      user.isPrimaryAdmin ||
+      user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user.id === 1 ||
+      (user.role === "admin" && (user.id === 0 || user.isPrimaryAdmin))
+    );
+    const isStaff = Boolean(!isSuperAdmin && user.role !== "customer");
+    const starsCount = isSuperAdmin
+      ? 6
+      : isStaff
+      ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5))
+      : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
+
+    if (starsCount === 6) {
+      document.documentElement.setAttribute("data-tier", "gold");
+    } else if (starsCount === 5) {
+      document.documentElement.setAttribute("data-tier", "blue");
+    } else if (starsCount === 4) {
+      document.documentElement.setAttribute("data-tier", "silver");
+    } else if (starsCount === 3) {
+      document.documentElement.setAttribute("data-tier", "bronze");
+    } else {
+      document.documentElement.setAttribute("data-tier", "green");
+    }
+  }, [user]);
+
+  return null;
+}
+
 function AppContent() {
   const [lockdownActive, setLockdownActive] = useState(false);
   const [lockdownReason, setLockdownReason] = useState("");
@@ -227,6 +265,7 @@ function AppContent() {
       <IntroLoader />
       <TooltipProvider>
         <AuthProvider>
+          <TierThemeSync />
           <CartProvider>
             <Toaster />
             <Router>

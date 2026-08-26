@@ -141,6 +141,62 @@
   --ring: 142 70% 45%;
 }
 
+/* ─── DYNAMIC TIER THEME COLORS (0-2 Green, 3 Bronze, 4 Silver, 5 Blue, 6 Gold) ─── */
+html[data-tier="gold"], html[data-tier="gold"] body {
+  --primary: 42 90% 48%;
+  --sidebar-primary: 42 90% 48%;
+  --ring: 42 90% 48%;
+}
+html[data-tier="gold"].dark, html[data-tier="gold"] .dark {
+  --primary: 45 93% 50%;
+  --sidebar-primary: 45 93% 50%;
+  --ring: 45 93% 50%;
+}
+
+html[data-tier="blue"], html[data-tier="blue"] body {
+  --primary: 221 83% 53%;
+  --sidebar-primary: 221 83% 53%;
+  --ring: 221 83% 53%;
+}
+html[data-tier="blue"].dark, html[data-tier="blue"] .dark {
+  --primary: 217 91% 60%;
+  --sidebar-primary: 217 91% 60%;
+  --ring: 217 91% 60%;
+}
+
+html[data-tier="silver"], html[data-tier="silver"] body {
+  --primary: 210 20% 50%;
+  --sidebar-primary: 210 20% 50%;
+  --ring: 210 20% 50%;
+}
+html[data-tier="silver"].dark, html[data-tier="silver"] .dark {
+  --primary: 210 20% 75%;
+  --sidebar-primary: 210 20% 75%;
+  --ring: 210 20% 75%;
+}
+
+html[data-tier="bronze"], html[data-tier="bronze"] body {
+  --primary: 28 75% 42%;
+  --sidebar-primary: 28 75% 42%;
+  --ring: 28 75% 42%;
+}
+html[data-tier="bronze"].dark, html[data-tier="bronze"] .dark {
+  --primary: 28 65% 52%;
+  --sidebar-primary: 28 65% 52%;
+  --ring: 28 65% 52%;
+}
+
+html[data-tier="green"], html[data-tier="green"] body {
+  --primary: 152 75% 26%;
+  --sidebar-primary: 152 75% 26%;
+  --ring: 95 48% 32%;
+}
+html[data-tier="green"].dark, html[data-tier="green"] .dark {
+  --primary: 142 70% 45%;
+  --sidebar-primary: 142 70% 45%;
+  --ring: 142 70% 45%;
+}
+
 @layer base {
   * {
     @apply border-border;

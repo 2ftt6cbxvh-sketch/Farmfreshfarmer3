@@ -35,6 +35,16 @@ export function Header() {
   const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
 
+  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
+  const isStaff = Boolean(!isSuperAdmin && user && user.role !== "customer");
+  const headerStarsCount = isSuperAdmin
+    ? 6
+    : isStaff
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+
+  const currentHeaderStarTheme = getStarTheme(user ? headerStarsCount : 0, isStarThemeEnabled);
+
   // Live Search Predictions & Admin Recommendations Query
   const { data: suggestionsData } = useQuery({
     queryKey: ["/api/search/suggestions", search],
@@ -110,11 +120,11 @@ export function Header() {
       {/* Floating Glass Island Navigation Bar */}
       <div
         ref={headerRef}
-        className="w-full relative rounded-3xl border border-emerald-500/25 bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible transition-all duration-300 hover:border-emerald-500/40 group"
+        className={`w-full relative rounded-3xl border transition-all duration-300 ${currentHeaderStarTheme.borderClass} bg-card/90 backdrop-blur-2xl shadow-2xl overflow-visible group`}
       >
         {/* Ambient Subtle Glow */}
-        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/5 to-primary/10 opacity-30 overflow-hidden" />
-        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-amber-500/10 to-primary/10 opacity-30 md:hidden animate-pulse overflow-hidden" />
+        <div className={`pointer-events-none absolute inset-0 rounded-3xl ${currentHeaderStarTheme.ambientGlowClass} opacity-30 overflow-hidden`} />
+        <div className={`pointer-events-none absolute inset-0 rounded-3xl ${currentHeaderStarTheme.ambientGlowClass} opacity-40 md:hidden animate-pulse overflow-hidden`} />
 
         {/* Main Header Bar */}
         <div className="w-full px-3 py-2.5 sm:px-5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 relative z-10">
@@ -126,7 +136,7 @@ export function Header() {
               data-testid="button-mobile-menu"
             >
               <div className={`transition-transform duration-300 ${mobileOpen ? "rotate-90 scale-110" : "rotate-0 scale-100"}`}>
-                {mobileOpen ? <X size={20} className="text-emerald-400" /> : <Menu size={20} />}
+                {mobileOpen ? <X size={20} className={currentHeaderStarTheme.accentTextClass} /> : <Menu size={20} />}
               </div>
             </button>
 
@@ -149,7 +159,7 @@ export function Header() {
               />
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white p-2 shadow-md hover:scale-105 active:scale-95 transition-transform"
+                className={`absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full ${currentHeaderStarTheme.btnClass} p-2 shadow-md hover:scale-105 active:scale-95 transition-transform`}
                 aria-label="Search"
                 data-testid="button-search"
               >
@@ -317,7 +327,7 @@ export function Header() {
             {/* Cart Button */}
             <button
               onClick={() => navigate("/cart")}
-              className="relative flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white px-2 py-2 sm:px-4 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 group"
+              className={`relative flex items-center gap-2 rounded-2xl ${currentHeaderStarTheme.btnClass} px-2 py-2 sm:px-4 shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 group`}
               data-testid="button-cart"
             >
               <ShoppingCart size={18} className="group-hover:rotate-12 transition-transform" />
@@ -348,7 +358,7 @@ export function Header() {
             />
             <button
               type="submit"
-              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white p-1.5 shadow-md active:scale-95 transition-transform"
+              className={`absolute right-1 top-1/2 -translate-y-1/2 rounded-full ${currentHeaderStarTheme.btnClass} p-1.5 shadow-md active:scale-95 transition-transform`}
               aria-label="Search"
               data-testid="button-search-mobile"
             >

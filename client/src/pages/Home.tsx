@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet, imgUrl } from "@/lib/queryClient";
 import { ArrowRight, Star, ShieldCheck, Zap, Package, Sparkles, ChevronRight, Award, Truck, HeartHandshake, Leaf } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { useAuth } from "@/lib/store";
+import { getStarTheme } from "@/lib/starTheme";
 import { ProductCard } from "@/components/ProductCard";
 import { DietDot } from "@/components/DietDot";
 import { TiltCard } from "@/components/TiltCard";
@@ -62,19 +64,33 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [showcaseMode, featuredHeroList.length]);
 
+  const { user } = useAuth();
+  const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
+  const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
+
+  const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
+  const isStaff = Boolean(!isSuperAdmin && user && user.role !== "customer");
+  const homeStarsCount = isSuperAdmin
+    ? 6
+    : isStaff
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+
+  const homeTheme = getStarTheme(user ? homeStarsCount : 0, isStarThemeEnabled);
+
   return (
     <Layout>
-      {/* Smooth Ambient Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-emerald-500/10 via-background to-background py-16 sm:py-24 border-b border-emerald-500/15">
+      {/* Smooth Ambient Hero Section with Dynamic Tier Glow */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-primary/15 via-background to-background py-16 sm:py-24 border-b border-border">
         {/* Background Ambient Spheres */}
-        <div className="pointer-events-none absolute -top-32 -left-32 w-[30rem] h-[30rem] rounded-full bg-emerald-500/15 blur-[120px]" />
-        <div className="pointer-events-none absolute top-1/2 -right-32 w-[30rem] h-[30rem] rounded-full bg-amber-500/15 blur-[120px]" />
+        <div className={`pointer-events-none absolute -top-32 -left-32 w-[30rem] h-[30rem] rounded-full ${homeTheme.ambientGlowClass} blur-[120px]`} />
+        <div className={`pointer-events-none absolute top-1/2 -right-32 w-[30rem] h-[30rem] rounded-full ${homeTheme.ambientGlowClass} blur-[120px]`} />
 
         <div className="relative mx-auto max-w-7xl px-4 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Hero Left Content */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-black px-4 py-1.5 shadow-sm backdrop-blur-md">
-              <Sparkles size={14} className="text-amber-500 animate-pulse" />
+            <div className={`inline-flex items-center gap-2 rounded-full ${homeTheme.heroBadgeClass} text-xs font-black px-4 py-1.5 shadow-sm backdrop-blur-md`}>
+              <Sparkles size={14} className="animate-pulse" />
               <span>{txt.hero_badge_text || "Visakhapatnam's #1 Instant Organic Farm Delivery"}</span>
             </div>
 
@@ -93,7 +109,7 @@ export default function Home() {
                   e.preventDefault();
                   document.getElementById("categories-section")?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-700 via-primary to-green-600 text-white px-7 py-3.5 text-sm font-extrabold shadow-xl shadow-emerald-900/20 hover:shadow-emerald-500/30 hover:scale-105 transition-all duration-300 cursor-pointer"
+                className={`inline-flex items-center gap-2 rounded-full ${homeTheme.btnClass} px-7 py-3.5 text-sm font-extrabold shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer`}
                 data-testid="button-shop-now"
               >
                 Explore Categories <ArrowRight size={18} />
@@ -101,7 +117,7 @@ export default function Home() {
 
               <Link
                 href="/account/referrals"
-                className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-300 hover:bg-amber-500/25 px-5 py-3 text-xs font-black shadow-md hover:scale-105 transition-all duration-300 cursor-pointer"
+                className={`inline-flex items-center gap-1.5 rounded-full ${homeTheme.btnSecondaryClass} px-5 py-3 text-xs font-black shadow-md hover:scale-105 transition-all duration-300 cursor-pointer`}
                 data-testid="button-refer-earn"
               >
                 🎁 Refer & Earn Rewards
@@ -109,7 +125,7 @@ export default function Home() {
             </div>
 
             {/* Sleek Feature Bar */}
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6 p-4 rounded-2xl bg-card/60 border border-emerald-500/20 backdrop-blur-xl shadow-lg mt-6">
+            <div className={`flex flex-wrap items-center gap-4 sm:gap-6 p-4 rounded-2xl bg-card/60 border ${homeTheme.borderClass} backdrop-blur-xl shadow-lg mt-6`}>
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                 <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
                 <span>100% Naturally Grown</span>
