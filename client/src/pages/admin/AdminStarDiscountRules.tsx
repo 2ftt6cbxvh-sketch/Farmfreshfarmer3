@@ -46,7 +46,7 @@ export default function AdminStarDiscountRules() {
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<StarDiscountRule>>({});
-  const [addForm, setAddForm] = useState({ ruleType: "customer", starFrom: 1, starTo: 1, discountPercent: "2", description: "", active: true });
+  const [addForm, setAddForm] = useState({ ruleType: "customer", starRating: 1, discountPercent: "2", description: "", active: true });
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<"customer" | "staff">("customer");
 
@@ -62,20 +62,37 @@ export default function AdminStarDiscountRules() {
 
   const createMut = useMutation({
     mutationFn: async (data: typeof addForm) => {
-      const res = await apiRequest("POST", "/api/star-discount-rules", data);
+      const payload = {
+        ruleType: data.ruleType,
+        starRating: data.starRating,
+        starFrom: data.starRating,
+        starTo: data.starRating,
+        discountPercent: data.discountPercent,
+        description: data.description,
+        active: data.active !== false,
+      };
+      const res = await apiRequest("POST", "/api/star-discount-rules", payload);
       return res.json();
     },
     onSuccess: () => { invalidate(); setShowAdd(false); toast({ title: "Rule created! ✨" }); },
-    onError: () => toast({ title: "Failed to create rule", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Failed to create rule", description: err?.message || "Server error", variant: "destructive" }),
   });
 
   const updateMut = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<StarDiscountRule> }) => {
-      const res = await apiRequest("PATCH", `/api/star-discount-rules/${id}`, data);
+      const payload = {
+        starRating: data.starTo ?? data.starFrom,
+        starFrom: data.starTo ?? data.starFrom,
+        starTo: data.starTo ?? data.starFrom,
+        discountPercent: String(data.discountPercent ?? "0"),
+        description: data.description || "",
+        active: data.active !== false,
+      };
+      const res = await apiRequest("PATCH", `/api/star-discount-rules/${id}`, payload);
       return res.json();
     },
-    onSuccess: () => { invalidate(); setEditingId(null); toast({ title: "Rule updated!" }); },
-    onError: () => toast({ title: "Failed to update rule", variant: "destructive" }),
+    onSuccess: () => { invalidate(); setEditingId(null); toast({ title: "Rule updated! ✨" }); },
+    onError: (err: any) => toast({ title: "Failed to update rule", description: err?.message || "Server error", variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
@@ -170,41 +187,41 @@ export default function AdminStarDiscountRules() {
         {showAdd && (
           <div className="mb-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5">
             <h3 className="font-semibold mb-4">New Rule</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Type</label>
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">Rule Type</label>
                 <select
                   value={addForm.ruleType}
                   onChange={e => setAddForm(f => ({ ...f, ruleType: e.target.value }))}
-                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
+                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm font-semibold"
                 >
                   <option value="customer">Customer</option>
                   <option value="staff">Staff</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Star From (1–5)</label>
-                <input type="number" min={1} max={6} value={addForm.starFrom}
-                  onChange={e => setAddForm(f => ({ ...f, starFrom: Number(e.target.value) }))}
-                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
-                />
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">Star Level</label>
+                <select
+                  value={addForm.starRating}
+                  onChange={e => setAddForm(f => ({ ...f, starRating: Number(e.target.value) }))}
+                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm font-bold text-amber-500"
+                >
+                  <option value={1}>1 Star ★</option>
+                  <option value={2}>2 Stars ★★</option>
+                  <option value={3}>3 Stars ★★★</option>
+                  <option value={4}>4 Stars ★★★★</option>
+                  <option value={5}>5 Stars ★★★★★</option>
+                </select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Star To (1–5)</label>
-                <input type="number" min={1} max={6} value={addForm.starTo}
-                  onChange={e => setAddForm(f => ({ ...f, starTo: Number(e.target.value) }))}
-                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Discount %</label>
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">Discount %</label>
                 <input type="number" min={0} max={100} step={0.5} value={addForm.discountPercent}
                   onChange={e => setAddForm(f => ({ ...f, discountPercent: e.target.value }))}
-                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm"
+                  className="w-full rounded-xl bg-card border border-card-border px-3 py-2 text-sm font-bold font-mono"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-xs text-muted-foreground mb-1 block">Description (optional)</label>
+              <div className="sm:col-span-3">
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">Description (optional)</label>
                 <input type="text" value={addForm.description}
                   onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="e.g. Diamond tier (5 stars)"
@@ -236,29 +253,38 @@ export default function AdminStarDiscountRules() {
             {filteredRules.map(rule => (
               <div key={rule.id} className="rounded-xl border border-card-border bg-card p-4 flex flex-wrap items-center gap-4">
                 {editingId === rule.id ? (
-                  <>
-                    <input type="number" min={1} max={6} value={editForm.starFrom ?? rule.starFrom}
-                      onChange={e => setEditForm(f => ({ ...f, starFrom: Number(e.target.value) }))}
-                      className="w-16 rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
-                    <span className="text-muted-foreground">to</span>
-                    <input type="number" min={1} max={6} value={editForm.starTo ?? rule.starTo}
-                      onChange={e => setEditForm(f => ({ ...f, starTo: Number(e.target.value) }))}
-                      className="w-16 rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
-                    <input type="number" min={0} max={100} step={0.5} value={editForm.discountPercent ?? rule.discountPercent}
-                      onChange={e => setEditForm(f => ({ ...f, discountPercent: e.target.value }))}
-                      className="w-20 rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
-                    <span className="text-sm text-muted-foreground">%</span>
+                  <div className="flex flex-wrap items-center gap-3 w-full">
+                    <div>
+                      <select
+                        value={editForm.starTo ?? rule.starTo}
+                        onChange={e => setEditForm(f => ({ ...f, starFrom: Number(e.target.value), starTo: Number(e.target.value) }))}
+                        className="rounded-lg bg-card border border-card-border px-3 py-1.5 text-xs font-bold text-amber-500"
+                      >
+                        <option value={1}>1 Star ★</option>
+                        <option value={2}>2 Stars ★★</option>
+                        <option value={3}>3 Stars ★★★</option>
+                        <option value={4}>4 Stars ★★★★</option>
+                        <option value={5}>5 Stars ★★★★★</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input type="number" min={0} max={100} step={0.5} value={editForm.discountPercent ?? rule.discountPercent}
+                        onChange={e => setEditForm(f => ({ ...f, discountPercent: e.target.value }))}
+                        className="w-20 rounded-lg bg-card border border-card-border px-2 py-1 text-xs font-bold font-mono" />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
                     <input type="text" value={editForm.description ?? rule.description ?? ''}
                       onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                      className="flex-1 min-w-[120px] rounded-lg bg-card border border-card-border px-2 py-1 text-sm" />
-                    <button onClick={() => updateMut.mutate({ id: rule.id, data: editForm })} className="p-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"><Save size={14} /></button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg border border-card-border text-muted-foreground hover:text-foreground"><X size={14} /></button>
-                  </>
+                      placeholder="Description"
+                      className="flex-1 min-w-[140px] rounded-lg bg-card border border-card-border px-2.5 py-1 text-xs" />
+                    <button onClick={() => updateMut.mutate({ id: rule.id, data: editForm })} disabled={updateMut.isPending} className="p-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 flex items-center gap-1 text-xs"><Save size={14} /> {updateMut.isPending ? 'Saving...' : 'Save'}</button>
+                    <button onClick={() => setEditingId(null)} className="p-2 rounded-lg border border-card-border text-muted-foreground hover:text-foreground text-xs"><X size={14} /></button>
+                  </div>
                 ) : (
                   <>
                     <div className="flex items-center gap-2">
                       <StarRow count={rule.starTo} color={rule.ruleType === 'customer' ? 'blue' : 'gold'} />
-                      <span className="text-sm text-muted-foreground">{rule.starTo} Star{rule.starTo === 1 ? '' : 's'}</span>
+                      <span className="text-sm font-extrabold text-foreground">{rule.starTo} Star{rule.starTo === 1 ? '' : 's'}</span>
                     </div>
                     <span className="text-2xl font-black text-primary">{rule.discountPercent}%</span>
                     <span className="text-sm text-muted-foreground flex-1">{rule.description}</span>

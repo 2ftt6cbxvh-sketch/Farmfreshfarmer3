@@ -966,18 +966,35 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   // Create a new star discount rule (Super Admin only)
   app.post("/api/star-discount-rules", requireAdmin, h(async (req, res) => {
-    const { ruleType, starFrom, starTo, discountPercent, description, active } = req.body;
-    if (!ruleType || starFrom === undefined || starTo === undefined || discountPercent === undefined) {
-      return res.status(400).json({ message: "ruleType, starFrom, starTo, discountPercent are required" });
+    const { ruleType, starRating, starFrom, starTo, discountPercent, description, active } = req.body;
+    const starVal = Number(starRating ?? starTo ?? starFrom ?? 1);
+    if (!ruleType || discountPercent === undefined) {
+      return res.status(400).json({ message: "ruleType and discountPercent are required" });
     }
-    const rule = await storage.starDiscountRules.create({ ruleType, starFrom, starTo, discountPercent, description, active: active !== false });
+    const rule = await storage.starDiscountRules.create({
+      ruleType,
+      starFrom: starVal,
+      starTo: starVal,
+      discountPercent: String(discountPercent),
+      description,
+      active: active !== false,
+    });
     res.status(201).json(rule);
   }));
 
   // Update a star discount rule (Super Admin only)
   app.patch("/api/star-discount-rules/:id", requireAdmin, h(async (req, res) => {
     const id = Number(req.params.id);
-    const rule = await storage.starDiscountRules.update(id, req.body);
+    const { id: _id, createdAt, updatedAt, starRating, ...updateData } = req.body;
+    if (starRating !== undefined) {
+      updateData.starFrom = Number(starRating);
+      updateData.starTo = Number(starRating);
+    } else if (updateData.starFrom !== undefined || updateData.starTo !== undefined) {
+      const val = Number(updateData.starTo ?? updateData.starFrom ?? 1);
+      updateData.starFrom = val;
+      updateData.starTo = val;
+    }
+    const rule = await storage.starDiscountRules.update(id, updateData);
     if (!rule) return res.status(404).json({ message: "Rule not found" });
     res.json(rule);
   }));
