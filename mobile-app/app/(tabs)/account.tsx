@@ -724,10 +724,10 @@ export default function AccountScreen() {
       <View style={styles.versionBadgeRow}>
         <View style={styles.versionBadgeInner}>
           <View style={styles.versionBadgeDot} />
-          <Text style={styles.versionBadgeText}>App Build v9.3.3</Text>
+          <Text style={styles.versionBadgeText}>App Build v9.3.4</Text>
         </View>
       </View>
-      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.3.3 · {email}</Text>
+      <Text style={[styles.footerText, { color: mutedColor }]}>{storeName} v9.3.4 · {email}</Text>
 
       {/* Edit Profile Modal */}
       <Modal visible={showEditProfileModal} transparent animationType="slide" onRequestClose={() => setShowEditProfileModal(false)}>

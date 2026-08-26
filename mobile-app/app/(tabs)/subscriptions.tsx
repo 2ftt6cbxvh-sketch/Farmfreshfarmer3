@@ -139,13 +139,21 @@ export default function SubscriptionsScreen() {
           <View style={[styles.upcomingCard, { backgroundColor: isDark ? '#022c22' : '#f0fdf4', borderColor: isDark ? '#065f46' : '#bbf7d0' }]}>
             <Text style={[styles.sectionTitle, { color: isDark ? '#86efac' : '#15803d' }]}>📅 Upcoming Deliveries</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {upcomingDeliveries.slice(0, 4).map(d => (
-                <View key={d} style={[styles.dateBadge, { backgroundColor: isDark ? '#064e3b' : '#dcfce7' }]}>
-                  <Text style={{ color: isDark ? '#86efac' : '#15803d', fontWeight: '700', fontSize: 12 }}>
-                    {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' })}
-                  </Text>
-                </View>
-              ))}
+              {upcomingDeliveries.slice(0, 4).map((d: any, index: number) => {
+                const dateVal = typeof d === 'string' ? d : d?.date;
+                const parsedDate = dateVal ? new Date(dateVal) : null;
+                const key = typeof d === 'string' ? `date-${d}-${index}` : `date-${d?.date || index}-${d?.day || ''}-${index}`;
+                const isValidDate = parsedDate && !isNaN(parsedDate.getTime());
+                return (
+                  <View key={key} style={[styles.dateBadge, { backgroundColor: isDark ? '#064e3b' : '#dcfce7' }]}>
+                    <Text style={{ color: isDark ? '#86efac' : '#15803d', fontWeight: '700', fontSize: 12 }}>
+                      {isValidDate
+                        ? parsedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' })
+                        : String(dateVal || 'Scheduled')}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
