@@ -47,7 +47,7 @@
       "destination": "/api/index.ts"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|favicon\\.ico|.*\\.(?:js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|json)).*)",
       "destination": "/index.html"
     }
   ]

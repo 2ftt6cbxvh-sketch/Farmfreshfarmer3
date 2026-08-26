@@ -26,24 +26,40 @@
         }
 
         // Auto-recover from stale chunks/MIME type errors when a new build is deployed
-        window.addEventListener('error', function(e) {
+        function handleChunkError(e) {
           var msg = (e && e.message) ? String(e.message) : '';
-          var targetSrc = (e && e.target && e.target.src) ? String(e.target.src) : '';
+          var target = e && e.target;
+          var targetSrc = (target && target.src) ? String(target.src) : '';
+          var isScriptOrCss = target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK');
+          
           var isChunkErr = msg.indexOf('MIME type') !== -1 || 
                            msg.indexOf('dynamically imported module') !== -1 || 
                            msg.indexOf('Loading chunk') !== -1 ||
                            msg.indexOf('Failed to fetch') !== -1 ||
-                           (e.target && e.target.tagName === 'SCRIPT' && targetSrc.indexOf('/assets/') !== -1);
+                           (isScriptOrCss && targetSrc.indexOf('/assets/') !== -1);
           
           if (isChunkErr) {
             var reloadKey = 'fff_chunk_reload_ts';
             var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
-            if (Date.now() - lastReload > 6000) {
+            if (Date.now() - lastReload > 3000) {
               sessionStorage.setItem(reloadKey, String(Date.now()));
-              window.location.reload();
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  names.forEach(function(name) { caches.delete(name); });
+                }).finally(function() {
+                  window.location.reload();
+                });
+              } else {
+                window.location.reload();
+              }
             }
           }
-        }, true);
+        }
+
+        window.addEventListener('error', handleChunkError, true);
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e && e.reason) handleChunkError({ message: e.reason.message || String(e.reason) });
+        });
       })();
     </script>
   </head>
