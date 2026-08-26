@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { apiRequest, queryClient } from "./queryClient";
 import type { AuthUser, CartItem, Product } from "./types";
 import { effectivePrice } from "./types";

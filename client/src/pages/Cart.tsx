@@ -125,7 +125,7 @@ export default function Cart() {
         localStorage.setItem("deliveryResolution", JSON.stringify(data));
         window.dispatchEvent(new CustomEvent("deliveryResolutionUpdated", { detail: data }));
         if (data.locationArea) {
-          setAddress(data.locationArea);
+          setCityArea(data.locationArea);
         }
         toast({ title: "📍 Location & Delivery Fee Updated", description: `${data.locationArea || data.pincode} — Fee: ${data.fee > 0 ? "₹" + data.fee : "Free"}` });
       }
