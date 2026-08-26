@@ -55,7 +55,10 @@ export default function AdminStarDiscountRules() {
     queryFn: () => apiGet<StarDiscountRule[]>("/api/star-discount-rules"),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/star-discount-rules"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/star-discount-rules"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/price/quote"] });
+  };
 
   const createMut = useMutation({
     mutationFn: async (data: typeof addForm) => {

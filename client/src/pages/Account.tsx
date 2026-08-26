@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, apiGet } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,16 @@ import {
   Ticket, User, Phone, Mail, Clock, CheckCircle2, AlertCircle, MessageSquare,
   Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar, Trash2
 } from "lucide-react";
+
+interface StarDiscountRule {
+  id: number;
+  ruleType: "customer" | "staff";
+  starFrom: number;
+  starTo: number;
+  discountPercent: string;
+  description: string | null;
+  active: boolean;
+}
 
 interface SupportTicket {
   id: number;
@@ -77,6 +87,12 @@ export default function Account() {
       return res.json();
     },
     enabled: !!user,
+    refetchInterval: 5000,
+  });
+
+  const { data: starRules = [] } = useQuery<StarDiscountRule[]>({
+    queryKey: ["/api/star-discount-rules"],
+    queryFn: () => apiGet<StarDiscountRule[]>("/api/star-discount-rules"),
     refetchInterval: 5000,
   });
 
@@ -188,22 +204,38 @@ export default function Account() {
     ? Math.max(1, Number(user.starRating) || 5)
     : Number(user.customerStars || 0);
 
-  // Calculate VIP Tier based on stars & role (1 to 5 Stars scale, 6 Stars for Master Admin)
+  // Calculate VIP Tier & Discount based on dynamic admin panel star discount rules
+  const currentMatchingRule = starRules.find(r => 
+    r.active && 
+    r.ruleType === (isStaffRole ? "staff" : "customer") && 
+    starsCount >= r.starFrom && 
+    starsCount <= r.starTo
+  ) || starRules.find(r => 
+    r.active && 
+    r.ruleType === "customer" && 
+    starsCount >= r.starFrom && 
+    starsCount <= r.starTo
+  );
+
+  const dynamicDiscountLabel = currentMatchingRule
+    ? `${parseFloat(currentMatchingRule.discountPercent)}% Extra OFF`
+    : starsCount >= 5 ? "15% Extra OFF" : starsCount >= 4 ? "10% Extra OFF" : starsCount >= 3 ? "8% Extra OFF" : starsCount >= 2 ? "5% Extra OFF" : starsCount >= 1 ? "2% Extra OFF" : "Standard Loyalty";
+
   const starTier = isSuperAdmin
     ? { name: "Master Admin", badge: "👑 Super Admin", discount: "Executive 6★ Staff Tier", color: "from-amber-400 via-orange-500 to-yellow-600" }
     : isStaffRole
-    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: `Staff ${starsCount}★ Tier`, color: "from-emerald-400 to-teal-600" }
+    ? { name: "Staff Specialist", badge: "🛡️ Staff Member", discount: `Staff ${starsCount}★ Tier (${dynamicDiscountLabel})`, color: "from-emerald-400 to-teal-600" }
     : starsCount >= 5
-    ? { name: "Diamond VIP", badge: "💎 5★ Diamond", discount: "15% Extra OFF", color: "from-cyan-500 to-blue-600" }
+    ? { name: "Diamond VIP", badge: `💎 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-cyan-500 to-blue-600" }
     : starsCount >= 4
-    ? { name: "Platinum VIP", badge: "🏆 4★ Platinum", discount: "10% Extra OFF", color: "from-purple-500 to-indigo-600" }
+    ? { name: "Platinum VIP", badge: `🏆 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-purple-500 to-indigo-600" }
     : starsCount >= 3
-    ? { name: "Gold VIP", badge: "🥇 3★ Gold", discount: "7% Extra OFF", color: "from-amber-400 to-yellow-600" }
+    ? { name: "Gold VIP", badge: `🥇 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-amber-400 to-yellow-600" }
     : starsCount >= 2
-    ? { name: "Silver Member", badge: "🥈 2★ Silver", discount: "5% Extra OFF", color: "from-slate-400 to-gray-600" }
+    ? { name: "Silver Member", badge: `🥈 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-slate-400 to-gray-600" }
     : starsCount >= 1
-    ? { name: "Bronze Member", badge: "🥉 1★ Bronze", discount: "3% Extra OFF", color: "from-orange-400 to-amber-700" }
-    : { name: "Standard Member", badge: "🌿 0★ Member", discount: "Standard Loyalty", color: "from-gray-500 to-slate-700" };
+    ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Tier`, discount: dynamicDiscountLabel, color: "from-orange-400 to-amber-700" }
+    : { name: "Standard Member", badge: "🌿 Member", discount: "Standard Loyalty", color: "from-gray-500 to-slate-700" };
 
   return (
     <Layout>
@@ -457,34 +489,70 @@ export default function Account() {
                 </div>
               </div>
 
-              {/* VIP Tiers Table (1-5 Stars Scale) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                <div className={`p-3.5 rounded-2xl border ${starsCount >= 5 ? "border-cyan-500 bg-cyan-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-cyan-500">💎 Diamond</p>
-                  <p className="text-foreground font-bold mt-1">5 Stars ★★★★★</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">15% Extra OFF + VIP Dispatch</p>
-                </div>
-                <div className={`p-3.5 rounded-2xl border ${starsCount === 4 ? "border-purple-500 bg-purple-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-purple-500">🏆 Platinum</p>
-                  <p className="text-foreground font-bold mt-1">4 Stars ★★★★☆</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">10% Extra OFF on all orders</p>
-                </div>
-                <div className={`p-3.5 rounded-2xl border ${starsCount === 3 ? "border-amber-500 bg-amber-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-amber-500">🥇 Gold</p>
-                  <p className="text-foreground font-bold mt-1">3 Stars ★★★☆☆</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">7% Extra OFF on all orders</p>
-                </div>
-                <div className={`p-3.5 rounded-2xl border ${starsCount === 2 ? "border-slate-400 bg-slate-400/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-slate-400">🥈 Silver</p>
-                  <p className="text-foreground font-bold mt-1">2 Stars ★★☆☆☆</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">5% Extra OFF on all orders</p>
-                </div>
-                <div className={`p-3.5 rounded-2xl border ${starsCount === 1 ? "border-orange-500 bg-orange-500/10 font-bold" : "border-card-border bg-muted/20"}`}>
-                  <p className="font-black text-orange-500">🥉 Bronze</p>
-                  <p className="text-foreground font-bold mt-1">1 Star ★☆☆☆☆</p>
-                  <p className="text-muted-foreground text-[11px] mt-1">3% Extra OFF on all orders</p>
-                </div>
-              </div>
+              {/* VIP Tiers Table (Dynamic from Admin Panel Star Discount Rules) */}
+              {(() => {
+                const customerRules = starRules
+                  .filter((r) => r.ruleType === "customer" && r.active)
+                  .sort((a, b) => a.starFrom - b.starFrom);
+
+                const displayRules = customerRules.length > 0
+                  ? customerRules
+                  : [
+                      { id: 1, starFrom: 1, starTo: 2, discountPercent: "2", description: "Bronze tier (1-2 stars)" },
+                      { id: 2, starFrom: 3, starTo: 4, discountPercent: "5", description: "Silver tier (3-4 stars)" },
+                      { id: 3, starFrom: 5, starTo: 6, discountPercent: "8", description: "Gold tier (5-6 stars)" },
+                      { id: 4, starFrom: 7, starTo: 8, discountPercent: "12", description: "Platinum tier (7-8 stars)" },
+                      { id: 5, starFrom: 9, starTo: 10, discountPercent: "15", description: "Diamond tier (9-10 stars)" },
+                    ];
+
+                const gridColsClass = displayRules.length <= 4 ? "md:grid-cols-4" : displayRules.length === 5 ? "md:grid-cols-5" : "md:grid-cols-6";
+
+                return (
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridColsClass} gap-3 text-xs`}>
+                    {displayRules.map((r: any) => {
+                      const isActiveTier = starsCount >= r.starFrom && starsCount <= r.starTo;
+                      const starsRangeText = r.starFrom === r.starTo
+                        ? `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`
+                        : `${r.starFrom}–${r.starTo} Stars`;
+
+                      const filledStars = Math.min(r.starTo, 5);
+
+                      return (
+                        <div
+                          key={r.id || `${r.starFrom}-${r.starTo}`}
+                          className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                            isActiveTier
+                              ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30 font-bold shadow-md"
+                              : "border-card-border bg-muted/20 hover:border-card-border/80"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="font-extrabold text-foreground capitalize truncate text-xs">
+                                {r.description || `Tier (${r.starFrom}-${r.starTo}★)`}
+                              </span>
+                              {isActiveTier && (
+                                <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black shrink-0">
+                                  ACTIVE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-foreground font-bold mt-1 text-[11px] flex items-center gap-1">
+                              <span>{starsRangeText}</span>
+                              <span className="text-amber-400 font-mono">{'★'.repeat(filledStars)}</span>
+                            </p>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-card-border/40">
+                            <p className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
+                              {parseFloat(r.discountPercent)}% Extra OFF
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               <div className="bg-muted/15 p-4 rounded-2xl border border-card-border text-xs space-y-2">
                 <h4 className="font-bold text-foreground flex items-center gap-1.5">
