@@ -34,19 +34,19 @@ const DEFAULT_STAFF_RULES = [
   { ruleType: "staff" as const, starFrom: 6, starTo: 6, discountPercent: "30", description: "Master Admin Executive Level 6", active: true },
 ];
 
-function StarRow({ count, color = "blue" }: { count: number; color?: "blue" | "gold" }) {
+import { getStarTheme } from "@/lib/starTheme";
+
+function StarRow({ count, themeEnabled = true }: { count: number; themeEnabled?: boolean }) {
+  const theme = getStarTheme(count, themeEnabled);
   const totalStars = count > 5 ? 6 : 5;
   const filled = Math.min(count, totalStars);
-  const colorClass = color === "blue"
-    ? "text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]"
-    : "text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]";
   return (
     <span className="flex items-center gap-0.5">
       {Array.from({ length: filled }, (_, i) => (
-        <Star key={i} size={13} fill="currentColor" className={colorClass} />
+        <Star key={i} size={13} fill="currentColor" className={`${theme.starColor} ${theme.glowClass}`} />
       ))}
       {Array.from({ length: Math.max(0, totalStars - filled) }, (_, i) => (
-        <Star key={`e-${i}`} size={13} className="text-muted-foreground opacity-30" />
+        <Star key={`e-${i}`} size={13} className="text-muted-foreground opacity-20" />
       ))}
     </span>
   );
@@ -131,6 +131,27 @@ export default function AdminStarDiscountRules() {
     toast({ title: `Default ${activeTab} rules seeded! 🌟` });
   };
 
+  const { data: publicSettings } = useQuery<any>({
+    queryKey: ["/api/settings/public"],
+    queryFn: () => apiGet("/api/settings/public"),
+  });
+
+  const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
+
+  const toggleStarThemeMut = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await apiRequest("POST", "/api/admin/settings", {
+        enable_star_tier_colors: enabled ? "true" : "false",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/public"] });
+      toast({ title: `Star color themes ${!isStarThemeEnabled ? "enabled" : "disabled"}! 🎨` });
+    },
+    onError: () => toast({ title: "Failed to update star theme setting", variant: "destructive" }),
+  });
+
   const filteredRules = rules.filter(r => r.ruleType === activeTab);
 
   return (
@@ -159,6 +180,32 @@ export default function AdminStarDiscountRules() {
           </div>
         </div>
 
+        {/* Tier-Based Star Color Themes Banner */}
+        <div className="mb-6 rounded-2xl border border-card-border bg-card p-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-500 font-black">🎨</div>
+            <div>
+              <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                Tier-Based Star Theme Colors & Glow Effects
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                1–2★ <span className="text-emerald-500 font-bold">Green</span>, 3★ <span className="text-[#cd7f32] font-bold">Bronze</span>, 4★ <span className="text-slate-300 font-bold">Silver</span>, 5★ <span className="text-blue-500 font-bold">Blue</span>, 6★ <span className="text-amber-400 font-bold">Gold & Yellow Glow</span>.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => toggleStarThemeMut.mutate(!isStarThemeEnabled)}
+            disabled={toggleStarThemeMut.isPending}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all shrink-0 ${
+              isStarThemeEnabled
+                ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-600/20"
+                : "bg-muted text-muted-foreground hover:text-foreground border border-card-border"
+            }`}
+          >
+            {isStarThemeEnabled ? "ON (Custom Theme Active)" : "OFF (Standard Amber Colors)"}
+          </button>
+        </div>
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {(["customer", "staff"] as const).map(tab => (
@@ -182,7 +229,7 @@ export default function AdminStarDiscountRules() {
           <div className="flex flex-wrap gap-3">
             {filteredRules.filter(r => r.active).map(r => (
               <div key={r.id} className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-card to-card/50 border border-card-border px-4 py-3 min-w-[100px]">
-                <StarRow count={r.starTo} color={activeTab === 'customer' ? 'blue' : 'gold'} />
+                <StarRow count={r.starTo} themeEnabled={isStarThemeEnabled} />
                 <span className="text-xs text-muted-foreground font-medium">{r.starTo} Star{r.starTo === 1 ? '' : 's'}</span>
                 <span className="text-lg font-black text-primary">{r.discountPercent}%</span>
                 <span className="text-xs text-muted-foreground">off</span>

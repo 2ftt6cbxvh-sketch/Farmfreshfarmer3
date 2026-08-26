@@ -24,6 +24,23 @@ import { api } from '../../lib/api';
 
 const { width } = Dimensions.get('window');
 
+function getMobileStarTheme(count: number) {
+  const stars = Math.max(0, Math.min(6, count));
+  if (stars === 0) {
+    return { color: '#9ca3af', badgeBg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', label: '0 Stars' };
+  } else if (stars === 1 || stars === 2) {
+    return { color: '#22c55e', badgeBg: 'rgba(34,197,94,0.18)', border: '#22c55e', label: `${stars} Star Green` };
+  } else if (stars === 3) {
+    return { color: '#cd7f32', badgeBg: 'rgba(205,127,50,0.18)', border: '#cd7f32', label: '3 Star Bronze' };
+  } else if (stars === 4) {
+    return { color: '#c0c0c0', badgeBg: 'rgba(192,192,192,0.22)', border: '#c0c0c0', label: '4 Star Silver' };
+  } else if (stars === 5) {
+    return { color: '#3b82f6', badgeBg: 'rgba(59,130,246,0.2)', border: '#3b82f6', label: '5 Star Blue' };
+  } else {
+    return { color: '#fbbf24', badgeBg: 'rgba(251,191,36,0.22)', border: '#fbbf24', label: '6 Star Gold' };
+  }
+}
+
 export default function AccountScreen() {
   const { user, setUser, logout } = useAuth();
   const { theme, toggleTheme } = useThemeStore();
@@ -366,10 +383,12 @@ export default function AccountScreen() {
         {/* User Role Badge & Star Rating */}
         {(() => {
           const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === 'admin@farmfreshfarmer.com';
-          const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? 5;
+          const userStarsVal = (user as any).starRating ?? (user as any).customerStars ?? 0;
           const starCount = isSuperAdmin
             ? 6
-            : Math.min(5, Math.max(1, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) || 5));
+            : Math.min(6, Math.max(0, typeof userStarsVal === 'number' ? userStarsVal : Number(userStarsVal) ?? 0));
+
+          const mTheme = getMobileStarTheme(starCount);
 
           if (isSuperAdmin) {
             return (
@@ -379,15 +398,15 @@ export default function AccountScreen() {
                     <Text key={i} style={{ color: '#fbbf24', fontSize: 16 }}>★</Text>
                   ))}
                 </View>
-                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '900', marginTop: 4 }}>🛡️ Master Admin Control</Text>
+                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '900', marginTop: 4 }}>👑 Master Executive Admin (6★)</Text>
               </View>
             );
           }
 
           const isStaffRole = user.role && user.role !== 'customer';
           return (
-            <View style={styles.customerStarsPill}>
-              <Text style={{ color: '#34d399', fontWeight: '900', fontSize: 13 }}>
+            <View style={[styles.customerStarsPill, { backgroundColor: mTheme.badgeBg, borderColor: mTheme.border }]}>
+              <Text style={{ color: mTheme.color, fontWeight: '900', fontSize: 13 }}>
                 ⭐ {starCount} {isStaffRole ? 'Staff Star Rating' : 'VIP Loyalty Stars'}
               </Text>
             </View>

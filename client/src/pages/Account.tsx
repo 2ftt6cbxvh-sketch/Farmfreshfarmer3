@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
+import { getStarTheme } from "@/lib/starTheme";
 import { apiRequest, apiGet } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -198,11 +199,16 @@ export default function Account() {
   const isSuperAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.id === 1);
   const isStaffRole = !isSuperAdmin && user.role !== "customer";
   
+  const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
+  const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
+
   const starsCount = isSuperAdmin
     ? 6
     : isStaffRole
-    ? Math.max(1, Number(user.starRating) || 5)
+    ? Math.max(0, Number(user.starRating) ?? 5)
     : Number(user.customerStars || 0);
+
+  const currentUserTheme = getStarTheme(starsCount, isStarThemeEnabled);
 
   // Calculate VIP Tier & Discount based on dynamic admin panel star discount rules
   const currentMatchingRule = starRules.find(r => 
@@ -518,9 +524,9 @@ export default function Account() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-black text-amber-500">★ {starsCount}</span>
+                        <span className={`text-2xl font-black ${currentUserTheme.starColor} ${currentUserTheme.glowClass}`}>★ {starsCount}</span>
                         <p className="text-[10px] text-muted-foreground font-bold">
-                          {isStaffRole ? "Staff Rating" : "Current Stars"}
+                          {isStaffRole ? "Staff Rating" : "Current Stars"} ({currentUserTheme.label})
                         </p>
                       </div>
                     </div>
@@ -530,13 +536,14 @@ export default function Account() {
                         const isActiveTier = starsCount === r.starTo || (starsCount >= r.starFrom && starsCount <= r.starTo);
                         const starsRangeText = `${r.starTo} Star${r.starTo === 1 ? '' : 's'}`;
                         const filledStars = Math.min(r.starTo, 6);
+                        const tierTheme = getStarTheme(r.starTo, isStarThemeEnabled);
 
                         return (
                           <div
                             key={r.id || `${r.starFrom}-${r.starTo}`}
                             className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
                               isActiveTier
-                                ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30 font-bold shadow-md"
+                                ? `${tierTheme.borderClass} ${tierTheme.bgClass} font-bold shadow-md`
                                 : "border-card-border bg-muted/20 hover:border-card-border/80"
                             }`}
                           >
@@ -546,14 +553,14 @@ export default function Account() {
                                   {r.description || `Level ${r.starTo}`}
                                 </span>
                                 {isActiveTier && (
-                                  <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black shrink-0">
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${tierTheme.badgeClass}`}>
                                     ACTIVE
                                   </span>
                                 )}
                               </div>
                               <p className="text-foreground font-bold mt-1 text-[11px] flex items-center gap-1">
                                 <span>{starsRangeText}</span>
-                                <span className="text-amber-400 font-mono">{'★'.repeat(filledStars)}</span>
+                                <span className={`${tierTheme.starColor} ${tierTheme.glowClass} font-mono`}>{'★'.repeat(filledStars)}</span>
                               </p>
                             </div>
                             <div className="mt-3 pt-2 border-t border-card-border/40">

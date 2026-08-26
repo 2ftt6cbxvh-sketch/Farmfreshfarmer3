@@ -4,6 +4,7 @@ import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,22 +126,39 @@ export default function AdminCustomers() {
             <h3 className="text-lg font-bold flex items-center gap-2">⭐ Assign Loyalty Stars</h3>
             <p className="text-xs text-muted-foreground">Give customer loyalty stars (0 to 5 max).</p>
             
-            <div className="flex items-center justify-center gap-1.5 py-4 bg-secondary/50 rounded-xl">
+            <div className="flex flex-col items-center gap-3 py-4 bg-secondary/50 rounded-xl">
               <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setStarEditVal(i + 1)}
-                    className={`text-2xl transition-transform hover:scale-125 ${i < starEditVal ? "text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]" : "text-muted-foreground/30"}`}
-                  >★</button>
-                ))}
+                {[1, 2, 3, 4, 5].map((starVal) => {
+                  const theme = getStarTheme(starVal, true);
+                  const isSelected = starEditVal >= starVal;
+                  return (
+                    <button
+                      key={starVal}
+                      type="button"
+                      onClick={() => setStarEditVal(starVal)}
+                      className={`text-2xl transition-transform hover:scale-125 ${isSelected ? `${theme.starColor} ${theme.glowClass}` : "text-muted-foreground/30"}`}
+                    >
+                      ★
+                    </button>
+                  );
+                })}
               </div>
+              <button
+                type="button"
+                onClick={() => setStarEditVal(0)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold border transition ${
+                  starEditVal === 0
+                    ? "bg-muted border-card-border text-foreground font-black"
+                    : "bg-background border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Set to 0 Stars (No Discount)
+              </button>
             </div>
 
             <div className="flex items-center justify-between text-xs px-1">
               <span className="text-muted-foreground">Selected Stars:</span>
-              <span className="font-bold text-blue-400 text-sm">{starEditVal} / 5 Stars</span>
+              <span className="font-bold text-foreground text-sm">{starEditVal} / 5 Stars</span>
             </div>
 
             <div className="flex gap-2 pt-2">

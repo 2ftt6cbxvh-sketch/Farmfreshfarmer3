@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getStarTheme } from "@/lib/starTheme";
 
 export const ALL_MENU_OPTIONS = [
   // Core
@@ -691,24 +692,29 @@ export default function AdminStaff() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground">Staff Star Rating (1 - 5 Stars)</label>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setStarRating(star)}
-                          className={`p-1.5 rounded-lg border transition ${
-                            starRating >= star
-                              ? "bg-amber-500/20 border-amber-400 text-amber-400"
-                              : "bg-background border-border text-muted-foreground"
-                          }`}
-                        >
-                          <Star size={14} className={starRating >= star ? "fill-amber-400" : ""} />
-                        </button>
-                      ))}
-                      <span className="text-xs font-extrabold text-amber-400 ml-2">{starRating}/5</span>
+                  {/* Staff Star Rating Selector (0 - 6 Stars) */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground">Staff Authorization Rating (0 – 6 Stars)</label>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      {[0, 1, 2, 3, 4, 5, 6].map((star) => {
+                        const theme = getStarTheme(star, true);
+                        const isSelected = starRating === star;
+                        return (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setStarRating(star)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition flex items-center gap-1 ${
+                              isSelected
+                                ? `${theme.badgeClass} ring-2 ring-emerald-500/40 shadow-sm`
+                                : "bg-background border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Star size={13} fill={isSelected ? "currentColor" : "none"} className={isSelected ? theme.starColor : ""} />
+                            <span>{star === 0 ? "0★ (No Discount)" : `${star}★`}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

@@ -88,18 +88,31 @@ export default function AdminUsers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setStarEditOpen(null)}>
           <div className="bg-card rounded-2xl p-6 w-80 shadow-2xl border border-card-border" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-lg mb-4">🌟 Set Loyalty Stars</h3>
-            <div className="flex items-center justify-center gap-2 mb-6">
-              {Array.from({ length: 5 }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setStarEditValue(i + 1)}
-                  className={`text-2xl transition-transform hover:scale-125 ${
-                    i < starEditValue ? 'text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.8)]' : 'text-muted-foreground'
-                  }`}
-                >
-                  ★
-                </button>
-              ))}
+            <div className="flex flex-col items-center gap-3 mb-6">
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((starVal) => (
+                  <button
+                    key={starVal}
+                    onClick={() => setStarEditValue(starVal)}
+                    className={`text-2xl transition-transform hover:scale-125 ${
+                      starVal <= starEditValue ? 'text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.8)]' : 'text-muted-foreground opacity-40'
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setStarEditValue(0)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold border transition ${
+                  starEditValue === 0
+                    ? "bg-muted border-card-border text-foreground font-black"
+                    : "bg-background border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Set to 0 Stars (No Discount)
+              </button>
             </div>
             <div className="text-center text-sm text-muted-foreground mb-4">{starEditValue} / 5 loyalty stars</div>
             <div className="flex gap-2">

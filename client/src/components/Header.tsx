@@ -7,6 +7,7 @@ import { Logo } from "./Logo";
 import { DietDot } from "./DietDot";
 import { useAuth, useCart } from "@/lib/store";
 import type { Category } from "@/lib/types";
+import { getStarTheme } from "@/lib/starTheme";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -31,6 +32,8 @@ export function Header() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
+  const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
+  const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
 
   // Live Search Predictions & Admin Recommendations Query
   const { data: suggestionsData } = useQuery({
@@ -231,32 +234,35 @@ export function Header() {
             {/* Account Menu */}
             {user ? (
               <div className="flex items-center gap-1.5">
-                {/* Stars Display for All User Roles — Responsive layout */}
-                {user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ? (
-                  <div className="flex flex-col gap-0.5 items-center justify-center shrink-0 px-1.5 py-1 sm:px-2 rounded-xl bg-amber-500/15 border border-amber-400/35 shadow-[0_0_10px_rgba(251,191,36,0.3)]" title="Super Admin — 6 Gold Stars">
-                    <div className="hidden sm:flex items-center gap-0.5">
-                      {Array.from({ length: 6 }, (_, i) => (
-                        <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-pulse">★</span>
-                      ))}
+                {/* Stars Display for All User Roles — Responsive layout with Star Color Themes */}
+                {(() => {
+                  const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+                  const isStaff = isSuperAdmin || user.role !== "customer";
+                  const starsCount = isSuperAdmin
+                    ? 6
+                    : isStaff
+                    ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5))
+                    : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
+
+                  const theme = getStarTheme(starsCount, isStarThemeEnabled);
+
+                  return (
+                    <div
+                      className={`flex items-center gap-1 shrink-0 px-2 py-1 sm:px-2.5 rounded-xl border text-xs font-extrabold shadow-sm ${theme.badgeClass}`}
+                      title={`${isStaff ? 'Staff Tier' : 'Loyalty Rating'} — ${starsCount} Stars (${theme.label})`}
+                    >
+                      <div className="hidden sm:flex items-center gap-0.5">
+                        {Array.from({ length: Math.min(starsCount, starsCount > 5 ? 6 : 5) }, (_, i) => (
+                          <span key={i} className={`text-[11px] leading-none ${theme.starColor} ${theme.glowClass} ${starsCount === 6 ? 'animate-pulse' : ''}`}>★</span>
+                        ))}
+                        {starsCount === 0 && <span className="text-[10px] text-muted-foreground">0 Stars</span>}
+                      </div>
+                      <span className="sm:hidden font-extrabold">
+                        {isSuperAdmin ? '👑' : isStaff ? '🛡️' : '★'} {starsCount}★
+                      </span>
                     </div>
-                    <span className="sm:hidden text-amber-400 font-extrabold text-xs">👑 6★</span>
-                  </div>
-                ) : user.role !== "customer" ? (
-                  <div className="flex items-center gap-0.5 shrink-0 px-1.5 py-1 sm:px-2 rounded-xl bg-amber-500/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]" title={`Staff — ${user.starRating || 5} Gold Stars`}>
-                    <div className="hidden sm:flex items-center gap-0.5">
-                      {Array.from({ length: Math.min(5, Math.max(1, Number(user.starRating) || 5)) }, (_, i) => (
-                        <span key={i} className="text-amber-400 text-[11px] leading-none drop-shadow-[0_0_5px_rgba(251,191,36,0.9)]">★</span>
-                      ))}
-                    </div>
-                    <span className="sm:hidden text-amber-400 font-extrabold text-xs">🛡️ {user.starRating || 5}★</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 shrink-0 px-2 py-1 sm:px-2.5 rounded-xl bg-blue-500/20 border border-blue-400/40 text-blue-400 font-extrabold text-xs shadow-[0_0_10px_rgba(59,130,246,0.35)]" title={`Loyalty Rating — ${user.customerStars || 0} Stars`}>
-                    <span className="text-blue-400 text-sm">★</span>
-                    <span className="hidden sm:inline">{user.customerStars || 0} Star{(user.customerStars || 0) === 1 ? '' : 's'}</span>
-                    <span className="sm:hidden">{user.customerStars || 0}★</span>
-                  </div>
-                )}
+                  );
+                })()}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 rounded-2xl border border-emerald-500/20 bg-secondary/50 hover:bg-secondary font-bold text-xs px-2 sm:px-3" data-testid="button-account">

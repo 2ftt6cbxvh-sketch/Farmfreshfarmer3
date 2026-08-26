@@ -91,7 +91,7 @@ export function registerStaffRoutes(app: Express) {
         ...s,
         permissions: s.permissions ? JSON.parse(s.permissions) : [],
         isVerified: Boolean(s.isVerified),
-        starRating: (s.isPrimaryAdmin || s.email?.toLowerCase() === "admin@farmfreshfarmer.com") ? 6 : Math.min(5, Math.max(1, Number(s.starRating) || 5)),
+        starRating: (s.isPrimaryAdmin || s.email?.toLowerCase() === "admin@farmfreshfarmer.com") ? 6 : (s.starRating !== null && s.starRating !== undefined ? Math.min(6, Math.max(0, Number(s.starRating))) : 5),
         experienceRank: s.experienceRank || (s.isPrimaryAdmin ? "Super Admin" : "Specialist"),
       }));
 
@@ -207,7 +207,7 @@ export function registerStaffRoutes(app: Express) {
         permissions: permString,
         isPrimaryAdmin: false,
         isVerified: isVerified !== undefined ? Boolean(isVerified) : false,
-        starRating: Math.min(5, Math.max(1, Number(starRating) || 5)),
+        starRating: Math.min(6, Math.max(0, Number(starRating) ?? 5)),
         experienceRank: (experienceRank && String(experienceRank).trim()) ? String(experienceRank).trim() : "Specialist",
         status: "active",
       }).returning({
@@ -270,7 +270,7 @@ export function registerStaffRoutes(app: Express) {
         updates.permissions = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
       }
       if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
-      if (starRating !== undefined) updates.starRating = Math.min(5, Math.max(1, Number(starRating) || 5));
+      if (starRating !== undefined) updates.starRating = Math.min(6, Math.max(0, Number(starRating)));
       if (experienceRank !== undefined) updates.experienceRank = String(experienceRank).trim() || "Specialist";
 
       if (password && password.trim().length >= 6) {

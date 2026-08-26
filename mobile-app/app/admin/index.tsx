@@ -917,9 +917,9 @@ export default function AdminDashboardScreen() {
                     <TextInput style={[styles.input, { color: textColor, borderColor: borderCol }]} placeholder="Custom Sub-Admin Title" value={editingStaff.customTitle} onChangeText={t => setEditingStaff({...editingStaff, customTitle: t})} />
 
                     <View style={{ marginVertical: 8 }}>
-                      <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Staff Star Rating (1 to 5 Stars):</Text>
-                      <View style={{ flexDirection: 'row', gap: 6 }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
+                      <Text style={{ color: textColor, fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Staff Star Rating (0 to 6 Stars):</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                        {[0, 1, 2, 3, 4, 5, 6].map((star) => (
                           <TouchableOpacity
                             key={star}
                             onPress={() => setEditingStaff({ ...editingStaff, starRating: star })}
@@ -928,16 +928,16 @@ export default function AdminDashboardScreen() {
                               paddingVertical: 6,
                               borderRadius: 8,
                               borderWidth: 1,
-                              borderColor: (editingStaff.starRating || 5) === star ? '#f59e0b' : borderCol,
-                              backgroundColor: (editingStaff.starRating || 5) === star ? 'rgba(245,158,11,0.2)' : 'transparent',
+                              borderColor: (editingStaff.starRating ?? 5) === star ? '#f59e0b' : borderCol,
+                              backgroundColor: (editingStaff.starRating ?? 5) === star ? 'rgba(245,158,11,0.2)' : 'transparent',
                             }}
                           >
-                            <Text style={{ color: (editingStaff.starRating || 5) === star ? '#f59e0b' : mutedColor, fontWeight: 'bold', fontSize: 13 }}>
-                              ★ {star}
+                            <Text style={{ color: (editingStaff.starRating ?? 5) === star ? '#f59e0b' : mutedColor, fontWeight: 'bold', fontSize: 13 }}>
+                              ★ {star === 0 ? "0 (No Discount)" : star}
                             </Text>
                           </TouchableOpacity>
                         ))}
-                      </View>
+                      </ScrollView>
                     </View>
 
                     <TouchableOpacity style={styles.actionBtn} onPress={() => updateStaffMutation.mutate({
@@ -948,7 +948,7 @@ export default function AdminDashboardScreen() {
                         customTitle: editingStaff.customTitle,
                         password: editingStaff.password,
                         role: editingStaff.role,
-                        starRating: Number(editingStaff.starRating) || 5,
+                        starRating: Number(editingStaff.starRating) ?? 5,
                         permissions: editingStaff.permissions || [],
                       }
                     })}>

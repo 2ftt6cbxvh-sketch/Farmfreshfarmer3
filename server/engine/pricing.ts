@@ -438,7 +438,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
         let effectiveStars = isPrimary
           ? 6
           : isStaff
-          ? Math.max(1, Number(user.starRating) || 5)
+          ? Math.max(0, Number(user.starRating) ?? 5)
           : Number(user.customerStars || 0);
 
         if (effectiveStars > 0) {

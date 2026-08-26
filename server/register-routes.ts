@@ -115,7 +115,7 @@ function publicUser(u: any) {
     permissions: perms,
     isPrimaryAdmin: isPrimary,
     isVerified: u.isVerified !== undefined ? Boolean(u.isVerified) : isPrimary,
-    starRating: isPrimary ? 6 : Math.min(5, Math.max(1, Number(u.starRating) || 5)),
+    starRating: isPrimary ? 6 : (u.starRating !== null && u.starRating !== undefined ? Math.min(6, Math.max(0, Number(u.starRating))) : 5),
     experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
     customerStars: u.customerStars ?? 0,
     profilePhoto: u.profilePhoto || null,
@@ -2189,6 +2189,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       // Chatbot
       chatbot_enabled: all.chatbot_enabled !== "false",
       chatbot_welcome_message: all.chatbot_welcome_message || "",
+      // Star Tier Theme Colors Toggle
+      enable_star_tier_colors: all.enable_star_tier_colors !== "false",
       // Creator & Inventor Profile
       creator_name: all.creator_name || "Buddaraju Ganesh Sai Varma (Ganesh Varma)",
       creator_title: all.creator_title || "Creator & Architect of Lakshmi AI | Full-Stack & Data Engineer",
