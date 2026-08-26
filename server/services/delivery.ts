@@ -64,11 +64,19 @@ const PINCODE_GEO_DB: Record<string, { area: string; lat: number; lng: number }>
   "533001": { area: "Kakinada Town", lat: 16.9891, lng: 82.2475 },
 };
 
+const pincodeGeoCache = new Map<string, { areaName: string; lat: number; lng: number; valid: boolean }>();
+
 async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; lat: number; lng: number; valid: boolean }> {
   const cleanPin = pincode.trim();
+  if (pincodeGeoCache.has(cleanPin)) {
+    return pincodeGeoCache.get(cleanPin)!;
+  }
+
   if (PINCODE_GEO_DB[cleanPin]) {
     const info = PINCODE_GEO_DB[cleanPin];
-    return { areaName: info.area, lat: info.lat, lng: info.lng, valid: true };
+    const res = { areaName: info.area, lat: info.lat, lng: info.lng, valid: true };
+    pincodeGeoCache.set(cleanPin, res);
+    return res;
   }
 
   // Check if explicitly assigned to a warehouse in DB
@@ -77,7 +85,9 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
     if (dbPin) {
       const [wh] = await db.select().from(warehouses).where(eq(warehouses.id, dbPin.warehouseId)).limit(1);
       if (wh) {
-        return { areaName: `PIN ${cleanPin}`, lat: parseFloat(wh.latitude), lng: parseFloat(wh.longitude), valid: true };
+        const res = { areaName: `PIN ${cleanPin}`, lat: parseFloat(wh.latitude), lng: parseFloat(wh.longitude), valid: true };
+        pincodeGeoCache.set(cleanPin, res);
+        return res;
       }
     }
   } catch {}
@@ -103,10 +113,13 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
   else if (p === 518) { baseLat = 15.8281; baseLng = 78.0373; hasKnownPrefix = true; }
   else if (p >= 500 && p <= 509) { baseLat = 17.3850; baseLng = 78.4744; hasKnownPrefix = true; }
 
-  // Try Postal Pincode India API fallback
+  // Try Postal Pincode India API fallback with 1.5s timeout
   try {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
-    const data = await res.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const apiRes = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`, { signal: controller.signal });
+    clearTimeout(timer);
+    const data = await apiRes.json();
     if (Array.isArray(data) && data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
       const po = data[0].PostOffice[0];
       const areaName = `${po.Name}, ${po.District}`;
@@ -114,17 +127,22 @@ async function lookupPincodeGeo(pincode: string): Promise<{ areaName: string; la
         baseLat = 20.5937;
         baseLng = 78.9629;
       }
-      return { areaName, lat: baseLat, lng: baseLng, valid: true };
-    } else if (Array.isArray(data) && data[0]?.Status === "Error") {
-      return { areaName: `Invalid PIN ${cleanPin}`, lat: 0, lng: 0, valid: false };
+      const res = { areaName, lat: baseLat, lng: baseLng, valid: true };
+      pincodeGeoCache.set(cleanPin, res);
+      return res;
     }
   } catch {}
 
+  // Fast fallback if API times out or fails
   if (hasKnownPrefix) {
-    return { areaName: `PIN ${cleanPin}`, lat: baseLat, lng: baseLng, valid: true };
+    const fallbackRes = { areaName: `Area (PIN ${cleanPin})`, lat: baseLat, lng: baseLng, valid: true };
+    pincodeGeoCache.set(cleanPin, fallbackRes);
+    return fallbackRes;
   }
 
-  return { areaName: `Invalid PIN ${cleanPin}`, lat: 0, lng: 0, valid: false };
+  const invalidRes = { areaName: `Invalid PIN ${cleanPin}`, lat: 0, lng: 0, valid: false };
+  pincodeGeoCache.set(cleanPin, invalidRes);
+  return invalidRes;
 }
 
 export function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -289,9 +307,6 @@ export async function resolveByPincode(pincode: string | null | undefined, userI
 }
 
 export async function resolveByCoords(lat: number, lng: number, userId?: number, orderValue = 0): Promise<DeliveryResolution> {
-  // Self-healing: ensure max_radius_km column exists
-  try { await db.execute(sql`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30`); } catch {}
-
   let detectedPincode = "";
   let detectedArea = "";
 

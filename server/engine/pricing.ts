@@ -30,6 +30,10 @@
  *    customer's first qualifying order.
  */
 import { storage } from "../storage";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
+import { users, deliveryFeeRules } from "@shared/schema";
+import { resolveByPincode } from "../services/delivery";
 
 export interface CartLine {
   productId?: number | null;
@@ -414,10 +418,6 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   let starDiscountPercent = 0;
   if (req.userId) {
     try {
-      const { db } = await import("../db");
-      const { eq } = await import("drizzle-orm");
-      const { users } = await import("@shared/schema");
-      
       const [user] = await db.select({
         id: users.id,
         email: users.email,
@@ -478,10 +478,6 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
   let deliveryCity: string | null = req.city || null;
 
   try {
-    const { resolveByPincode } = await import("../services/delivery");
-    const { deliveryFeeRules } = await import("@shared/schema");
-    const { db } = await import("../db");
-    const { eq } = await import("drizzle-orm");
     const userPincode = req.pincode ?? null;
     const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
     const freeThreshold = resByPin?.freeDeliveryAbove || 500;
