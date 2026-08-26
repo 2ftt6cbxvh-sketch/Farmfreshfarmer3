@@ -466,6 +466,39 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 16 }}>{isDark ? '🌕' : '☀️'}</Text>
             </TouchableOpacity>
 
+            {user && (
+              (() => {
+                const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+                const isStaff = isSuperAdmin || user.role !== "customer";
+                const starsCount = isSuperAdmin
+                  ? 6
+                  : isStaff
+                  ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5))
+                  : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
+
+                const tierCol = starsCount <= 2
+                  ? { color: '#22c55e', bg: 'rgba(34,197,94,0.18)', border: 'rgba(34,197,94,0.45)' }
+                  : starsCount === 3
+                  ? { color: '#cd7f32', bg: 'rgba(205,127,50,0.18)', border: 'rgba(205,127,50,0.45)' }
+                  : starsCount === 4
+                  ? { color: '#c0c0c0', bg: 'rgba(192,192,192,0.22)', border: 'rgba(192,192,192,0.55)' }
+                  : starsCount === 5
+                  ? { color: '#3b82f6', bg: 'rgba(59,130,246,0.2)', border: 'rgba(59,130,246,0.45)' }
+                  : { color: '#fbbf24', bg: 'rgba(251,191,36,0.22)', border: 'rgba(251,191,36,0.6)' };
+
+                return (
+                  <TouchableOpacity
+                    style={[styles.navCircleBtn, { backgroundColor: tierCol.bg, borderColor: tierCol.border, borderWidth: 1, paddingHorizontal: 7, width: 'auto' }]}
+                    onPress={() => router.push('/(tabs)/account')}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: tierCol.color }}>
+                      {isSuperAdmin ? '👑 6★' : `★ ${starsCount}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()
+            )}
+
             <TouchableOpacity
               style={[styles.navCircleBtn, isDark ? styles.navCircleBtnDark : styles.navCircleBtnLight]}
               onPress={() => router.push('/(tabs)/account')}
