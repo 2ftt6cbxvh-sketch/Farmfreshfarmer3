@@ -36,13 +36,23 @@ export function registerCartRoutes(app: Express) {
       const dbItems = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
       if (dbItems.length === 0) return res.json({ items: [] });
 
-      const productIds = dbItems.map((i) => i.productId);
+      // Consolidate duplicate productId rows if any exist in DB
+      const consolidatedMap = new Map<number, number>();
+      for (const i of dbItems) {
+        if (i.productId && i.qty > 0) {
+          consolidatedMap.set(i.productId, (consolidatedMap.get(i.productId) || 0) + i.qty);
+        }
+      }
+
+      const productIds = Array.from(consolidatedMap.keys());
+      if (productIds.length === 0) return res.json({ items: [] });
+
       const productList = await db.select().from(products).where(inArray(products.id, productIds));
       const productMap = new Map(productList.map((p) => [p.id, p]));
 
-      const items = dbItems
-        .map((i) => {
-          const p = productMap.get(i.productId);
+      const items = productIds
+        .map((pId) => {
+          const p = productMap.get(pId);
           if (!p) return null;
           return {
             productId: p.id,
@@ -50,7 +60,7 @@ export function registerCartRoutes(app: Express) {
             unit: p.unit,
             price: Number(p.price) * (1 - Number(p.discountPercent || 0) / 100),
             image: p.image,
-            qty: i.qty,
+            qty: consolidatedMap.get(pId) || 1,
           };
         })
         .filter(Boolean);
@@ -67,7 +77,19 @@ export function registerCartRoutes(app: Express) {
     const userId = await getUserIdFromReq(req);
     if (!userId) return res.json({ status: "guest" });
 
-    const clientItems: Array<{ productId: number; qty: number }> = req.body.items || [];
+    const rawItems: Array<{ productId: number; qty: number }> = req.body.items || [];
+
+    // Consolidate duplicate productIds from client payload
+    const itemMap = new Map<number, number>();
+    for (const item of rawItems) {
+      if (item && typeof item.productId === "number" && !isNaN(item.productId)) {
+        itemMap.set(item.productId, (itemMap.get(item.productId) || 0) + (Number(item.qty) || 0));
+      }
+    }
+
+    const clientItems = Array.from(itemMap.entries())
+      .filter(([_, qty]) => qty > 0)
+      .map(([productId, qty]) => ({ productId, qty }));
 
     try {
       let [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
@@ -76,18 +98,18 @@ export function registerCartRoutes(app: Express) {
         userCart = inserted;
       }
 
-      // Clear existing cart items and replace with current sync state
-      await db.delete(cartItems).where(eq(cartItems.cartId, userCart.id));
-
-      if (clientItems.length > 0) {
-        await db.insert(cartItems).values(
-          clientItems.map((i) => ({
-            cartId: userCart.id,
-            productId: i.productId,
-            qty: i.qty,
-          }))
-        );
-      }
+      await db.transaction(async (tx) => {
+        await tx.delete(cartItems).where(eq(cartItems.cartId, userCart.id));
+        if (clientItems.length > 0) {
+          await tx.insert(cartItems).values(
+            clientItems.map((i) => ({
+              cartId: userCart.id,
+              productId: i.productId,
+              qty: i.qty,
+            }))
+          );
+        }
+      });
 
       return res.json({ status: "synced", count: clientItems.length });
     } catch (e: any) {
@@ -111,26 +133,35 @@ export function registerCartRoutes(app: Express) {
       }
 
       const dbItems = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
-      const itemMap = new Map(dbItems.map((i) => [i.productId, i.qty]));
+      const itemMap = new Map<number, number>();
+      for (const i of dbItems) {
+        if (i.productId && i.qty > 0) {
+          itemMap.set(i.productId, (itemMap.get(i.productId) || 0) + i.qty);
+        }
+      }
 
       // Merge guest quantities with existing server quantities
       for (const gi of guestItems) {
-        const existingQty = itemMap.get(gi.productId) || 0;
-        itemMap.set(gi.productId, Math.max(existingQty, gi.qty));
+        if (gi && gi.productId && gi.qty > 0) {
+          const existingQty = itemMap.get(gi.productId) || 0;
+          itemMap.set(gi.productId, Math.max(existingQty, gi.qty));
+        }
       }
 
-      await db.delete(cartItems).where(eq(cartItems.cartId, userCart.id));
+      const mergedEntries = Array.from(itemMap.entries()).filter(([_, qty]) => qty > 0);
 
-      const mergedEntries = Array.from(itemMap.entries());
-      if (mergedEntries.length > 0) {
-        await db.insert(cartItems).values(
-          mergedEntries.map(([productId, qty]) => ({
-            cartId: userCart.id,
-            productId,
-            qty,
-          }))
-        );
-      }
+      await db.transaction(async (tx) => {
+        await tx.delete(cartItems).where(eq(cartItems.cartId, userCart.id));
+        if (mergedEntries.length > 0) {
+          await tx.insert(cartItems).values(
+            mergedEntries.map(([productId, qty]) => ({
+              cartId: userCart.id,
+              productId,
+              qty,
+            }))
+          );
+        }
+      });
 
       return res.json({ status: "merged", totalItems: mergedEntries.length });
     } catch (e: any) {

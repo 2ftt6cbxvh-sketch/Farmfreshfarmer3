@@ -151,6 +151,26 @@ export function useAuth() {
 }
 
 /* ----------------------------- Cart ------------------------------ */
+function consolidateCartItems(rawItems: CartItem[]): CartItem[] {
+  if (!Array.isArray(rawItems)) return [];
+  const map = new Map<number, CartItem>();
+  for (const item of rawItems) {
+    if (!item || typeof item.productId !== "number" || isNaN(item.productId)) continue;
+    if (map.has(item.productId)) {
+      const existing = map.get(item.productId)!;
+      existing.qty += Number(item.qty) || 0;
+      if (item.price) existing.price = item.price;
+      if (item.name) existing.name = item.name;
+    } else {
+      map.set(item.productId, {
+        ...item,
+        qty: Number(item.qty) || 0,
+      });
+    }
+  }
+  return Array.from(map.values()).filter((i) => i.qty > 0);
+}
+
 interface CartContextType {
   items: CartItem[];
   add: (product: Product, qty?: number) => void;
@@ -165,13 +185,22 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
-    try { return JSON.parse(localStorage.getItem("cartItems") || "[]"); } catch { return []; }
+    try {
+      const raw = JSON.parse(localStorage.getItem("cartItems") || "[]");
+      return consolidateCartItems(raw);
+    } catch {
+      return [];
+    }
   });
   const { user } = useAuth();
+  const lastLocalEditRef = useRef<number>(0);
 
   // Sync to localStorage
   useEffect(() => {
-    try { localStorage.setItem("cartItems", JSON.stringify(items)); } catch {}
+    try {
+      const clean = consolidateCartItems(items);
+      localStorage.setItem("cartItems", JSON.stringify(clean));
+    } catch {}
   }, [items]);
 
   // Fetch / merge cart on user login
@@ -187,13 +216,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
           const data = await res.json();
           if (!cancelled && Array.isArray(data.items)) {
-            setItems(data.items);
+            setItems(consolidateCartItems(data.items));
           }
         } else {
           const res = await apiRequest("GET", "/api/cart");
           const data = await res.json();
           if (!cancelled && Array.isArray(data.items)) {
-            setItems(data.items);
+            setItems(consolidateCartItems(data.items));
           }
         }
       } catch (err) {
@@ -205,12 +234,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     // Poll /api/cart every 4s for logged-in user to reflect support CR additions/qty modifications live
     const interval = setInterval(async () => {
-      if (user && !cancelled) {
+      // Avoid overwriting state if user edited cart locally within last 5 seconds
+      if (user && !cancelled && Date.now() - lastLocalEditRef.current > 5000) {
         try {
           const res = await apiRequest("GET", "/api/cart");
           const data = await res.json();
           if (!cancelled && Array.isArray(data.items)) {
-            setItems(data.items);
+            const clean = consolidateCartItems(data.items);
+            if (clean.length > 0 || items.length === 0) {
+              setItems(clean);
+            }
           }
         } catch {}
       }
@@ -232,55 +265,52 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   function add(product: Product, qty = 1) {
+    lastLocalEditRef.current = Date.now();
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
       const price = effectivePrice(Number(product.price), Number(product.discountPercent));
       const maxStock = Number(product.stock || 0);
-      let next: CartItem[];
-      if (existing) {
-        const targetQty = Math.min(maxStock > 0 ? maxStock : 999, existing.qty + qty);
-        next = prev.map((i) =>
-          i.productId === product.id ? { ...i, qty: targetQty } : i
-        );
-      } else {
-        const targetQty = Math.min(maxStock > 0 ? maxStock : 999, qty);
-        if (targetQty <= 0) return prev;
-        next = [
-          ...prev,
-          {
-            productId: product.id,
-            name: product.name,
-            unit: product.unit,
-            price,
-            image: product.image,
-            qty: targetQty,
-          },
-        ];
-      }
-      syncToDb(next);
-      return next;
+      const targetAddQty = Math.min(maxStock > 0 ? maxStock : 999, qty);
+      if (targetAddQty <= 0) return prev;
+
+      const newRawItem: CartItem = {
+        productId: product.id,
+        name: product.name,
+        unit: product.unit,
+        price,
+        image: product.image,
+        qty: targetAddQty,
+      };
+
+      const consolidated = consolidateCartItems([...prev, newRawItem]);
+      syncToDb(consolidated);
+      return consolidated;
     });
   }
 
   function setQty(productId: number, qty: number) {
+    lastLocalEditRef.current = Date.now();
     setItems((prev) => {
-      const next = qty <= 0
+      const nextRaw = qty <= 0
         ? prev.filter((i) => i.productId !== productId)
         : prev.map((i) => (i.productId === productId ? { ...i, qty } : i));
-      syncToDb(next);
-      return next;
+      const consolidated = consolidateCartItems(nextRaw);
+      syncToDb(consolidated);
+      return consolidated;
     });
   }
 
   function remove(productId: number) {
+    lastLocalEditRef.current = Date.now();
     setItems((prev) => {
-      const next = prev.filter((i) => i.productId !== productId);
-      syncToDb(next);
-      return next;
+      const nextRaw = prev.filter((i) => i.productId !== productId);
+      const consolidated = consolidateCartItems(nextRaw);
+      syncToDb(consolidated);
+      return consolidated;
     });
   }
 
   function clear() {
+    lastLocalEditRef.current = Date.now();
     setItems([]);
     syncToDb([]);
   }
