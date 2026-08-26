@@ -211,6 +211,9 @@ export default function AdminStarDiscountRules() {
                   <option value={3}>3 Stars ★★★</option>
                   <option value={4}>4 Stars ★★★★</option>
                   <option value={5}>5 Stars ★★★★★</option>
+                  {(addForm.ruleType === "staff" || activeTab === "staff") && (
+                    <option value={6}>6 Stars ★★★★★★ (Super Admin Executive Tier)</option>
+                  )}
                 </select>
               </div>
               <div>
@@ -265,6 +268,9 @@ export default function AdminStarDiscountRules() {
                         <option value={3}>3 Stars ★★★</option>
                         <option value={4}>4 Stars ★★★★</option>
                         <option value={5}>5 Stars ★★★★★</option>
+                        {(rule.ruleType === "staff" || activeTab === "staff") && (
+                          <option value={6}>6 Stars ★★★★★★ (Super Admin Executive Tier)</option>
+                        )}
                       </select>
                     </div>
                     <div className="flex items-center gap-1">
