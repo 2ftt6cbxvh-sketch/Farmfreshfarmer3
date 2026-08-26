@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Star, Plus, Trash2, Edit2, Save, X, Zap, Users } from "lucide-react";
+import { Star, Plus, Trash2, Edit2, Save, X, Zap, Users, RotateCcw } from "lucide-react";
 import { apiGet, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
@@ -18,10 +18,10 @@ interface StarDiscountRule {
 }
 
 const DEFAULT_CUSTOMER_RULES = [
-  { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "3", description: "Bronze tier (1 star)", active: true },
+  { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 star)", active: true },
   { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "7", description: "Gold tier (3 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "10", description: "Platinum tier (4 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 stars)", active: true },
   { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 stars)", active: true },
 ];
 
@@ -46,7 +46,7 @@ export default function AdminStarDiscountRules() {
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<StarDiscountRule>>({});
-  const [addForm, setAddForm] = useState({ ruleType: "customer", starFrom: 1, starTo: 2, discountPercent: "5", description: "", active: true });
+  const [addForm, setAddForm] = useState({ ruleType: "customer", starFrom: 1, starTo: 1, discountPercent: "2", description: "", active: true });
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<"customer" | "staff">("customer");
 
@@ -86,6 +86,15 @@ export default function AdminStarDiscountRules() {
     onError: () => toast({ title: "Failed to delete rule", variant: "destructive" }),
   });
 
+  const resetDefaultsMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/star-discount-rules/reset-defaults", {});
+      return res.json();
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Rules reset to 1–5 Star Scale! 🌟" }); },
+    onError: () => toast({ title: "Failed to reset rules", variant: "destructive" }),
+  });
+
   const seedDefaults = async () => {
     for (const rule of DEFAULT_CUSTOMER_RULES) {
       await apiRequest("POST", "/api/star-discount-rules", rule).catch(() => {});
@@ -105,14 +114,17 @@ export default function AdminStarDiscountRules() {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Star className="text-amber-400" size={24} /> Star Discount Rules
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">Configure automatic discounts applied based on customer loyalty stars or staff authorization levels.</p>
+            <p className="text-muted-foreground text-sm mt-1">Configure automatic discounts applied based on customer loyalty stars (1–5 Stars) or staff authorization levels.</p>
           </div>
-          <div className="flex gap-2">
-            {rules.length === 0 && (
-              <button onClick={seedDefaults} className="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-semibold hover:bg-amber-500/30 transition-all">
-                Seed Defaults
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => resetDefaultsMut.mutate()}
+              disabled={resetDefaultsMut.isPending}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/15 text-amber-500 hover:text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/25 transition-all flex items-center gap-1.5"
+              title="Reset rules to standard 1–5 Star Tiers"
+            >
+              <RotateCcw size={13} /> Reset 1–5 Star Tiers
+            </button>
             <button onClick={() => setShowAdd(!showAdd)} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold flex items-center gap-1.5 hover:bg-blue-500 transition-all">
               <Plus size={15} /> Add Rule
             </button>

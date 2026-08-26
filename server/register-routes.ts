@@ -922,8 +922,46 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   /* =================== STAR DISCOUNT RULES ========================= */
   // Get all star discount rules (public - used by client to show discount tiers)
   app.get("/api/star-discount-rules", h(async (_req, res) => {
-    const rules = await storage.starDiscountRules.list();
+    let rules = await storage.starDiscountRules.list();
+    // Auto-fix legacy >5 star rules to standard 1..5 star scale
+    if (rules.some(r => r.ruleType === "customer" && r.starTo > 5)) {
+      for (const r of rules) {
+        await storage.starDiscountRules.remove(r.id);
+      }
+      const defaults = [
+        { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 star)", active: true },
+        { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 stars)", active: true },
+        { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 stars)", active: true },
+        { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 stars)", active: true },
+        { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 stars)", active: true },
+      ];
+      for (const def of defaults) {
+        await storage.starDiscountRules.create(def);
+      }
+      rules = await storage.starDiscountRules.list();
+    }
     res.json(rules);
+  }));
+
+  // Reset star discount rules to standard 1-5 scale (Super Admin only)
+  app.post("/api/star-discount-rules/reset-defaults", requireAdmin, h(async (_req, res) => {
+    const existing = await storage.starDiscountRules.list();
+    for (const r of existing) {
+      await storage.starDiscountRules.remove(r.id);
+    }
+    const defaults = [
+      { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 star)", active: true },
+      { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 stars)", active: true },
+      { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 stars)", active: true },
+      { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 stars)", active: true },
+      { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 stars)", active: true },
+    ];
+    const createdList = [];
+    for (const def of defaults) {
+      const created = await storage.starDiscountRules.create(def);
+      createdList.push(created);
+    }
+    res.json(createdList);
   }));
 
   // Create a new star discount rule (Super Admin only)
