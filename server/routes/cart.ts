@@ -163,7 +163,28 @@ export function registerCartRoutes(app: Express) {
         }
       });
 
-      return res.json({ status: "merged", totalItems: mergedEntries.length });
+      const productIds = mergedEntries.map(([pId]) => pId);
+      let hydratedItems: any[] = [];
+      if (productIds.length > 0) {
+        const productList = await db.select().from(products).where(inArray(products.id, productIds));
+        const productMap = new Map(productList.map((p) => [p.id, p]));
+        hydratedItems = mergedEntries
+          .map(([pId, qty]) => {
+            const p = productMap.get(pId);
+            if (!p) return null;
+            return {
+              productId: p.id,
+              name: p.name,
+              unit: p.unit,
+              price: Number(p.price) * (1 - Number(p.discountPercent || 0) / 100),
+              image: p.image,
+              qty,
+            };
+          })
+          .filter(Boolean);
+      }
+
+      return res.json({ status: "merged", totalItems: mergedEntries.length, items: hydratedItems });
     } catch (e: any) {
       console.error("[cart] Failed to merge cart:", e);
       return res.status(500).json({ message: "Failed to merge cart" });

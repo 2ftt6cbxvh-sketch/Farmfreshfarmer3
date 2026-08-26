@@ -194,35 +194,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
   const { user } = useAuth();
   const lastLocalEditRef = useRef<number>(0);
+  const deletedProductIdsRef = useRef<Set<number>>(new Set());
+  const hasMergedUserRef = useRef<number | null>(null);
 
   // Sync to localStorage
   useEffect(() => {
     try {
-      const clean = consolidateCartItems(items);
+      const clean = consolidateCartItems(items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
       localStorage.setItem("cartItems", JSON.stringify(clean));
     } catch {}
   }, [items]);
 
   // Fetch / merge cart on user login
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      hasMergedUserRef.current = null;
+      return;
+    }
     let cancelled = false;
 
     async function syncCartOnLogin() {
       try {
-        if (items.length > 0) {
-          const res = await apiRequest("POST", "/api/cart/merge", {
-            items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
-          });
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data.items)) {
-            setItems(consolidateCartItems(data.items));
-          }
-        } else {
-          const res = await apiRequest("GET", "/api/cart");
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data.items)) {
-            setItems(consolidateCartItems(data.items));
+        if (hasMergedUserRef.current !== user.id) {
+          hasMergedUserRef.current = user.id;
+          if (items.length > 0) {
+            const res = await apiRequest("POST", "/api/cart/merge", {
+              items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
+            });
+            const data = await res.json();
+            if (!cancelled && Array.isArray(data.items)) {
+              const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+              setItems(clean);
+            }
+          } else {
+            const res = await apiRequest("GET", "/api/cart");
+            const data = await res.json();
+            if (!cancelled && Array.isArray(data.items)) {
+              const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+              setItems(clean);
+            }
           }
         }
       } catch (err) {
@@ -240,7 +250,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const res = await apiRequest("GET", "/api/cart");
           const data = await res.json();
           if (!cancelled && Array.isArray(data.items)) {
-            const clean = consolidateCartItems(data.items);
+            const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
             if (clean.length > 0 || items.length === 0) {
               setItems(clean);
             }
@@ -266,6 +276,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function add(product: Product, qty = 1) {
     lastLocalEditRef.current = Date.now();
+    deletedProductIdsRef.current.delete(product.id);
     setItems((prev) => {
       const price = effectivePrice(Number(product.price), Number(product.discountPercent));
       const maxStock = Number(product.stock || 0);
@@ -281,7 +292,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         qty: targetAddQty,
       };
 
-      const consolidated = consolidateCartItems([...prev, newRawItem]);
+      const consolidated = consolidateCartItems([...prev, newRawItem]).filter((i) => !deletedProductIdsRef.current.has(i.productId));
       syncToDb(consolidated);
       return consolidated;
     });
@@ -289,11 +300,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function setQty(productId: number, qty: number) {
     lastLocalEditRef.current = Date.now();
+    if (qty <= 0) {
+      deletedProductIdsRef.current.add(productId);
+    }
     setItems((prev) => {
       const nextRaw = qty <= 0
         ? prev.filter((i) => i.productId !== productId)
         : prev.map((i) => (i.productId === productId ? { ...i, qty } : i));
-      const consolidated = consolidateCartItems(nextRaw);
+      const consolidated = consolidateCartItems(nextRaw).filter((i) => !deletedProductIdsRef.current.has(i.productId));
       syncToDb(consolidated);
       return consolidated;
     });
@@ -301,9 +315,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function remove(productId: number) {
     lastLocalEditRef.current = Date.now();
+    deletedProductIdsRef.current.add(productId);
     setItems((prev) => {
       const nextRaw = prev.filter((i) => i.productId !== productId);
-      const consolidated = consolidateCartItems(nextRaw);
+      const consolidated = consolidateCartItems(nextRaw).filter((i) => !deletedProductIdsRef.current.has(i.productId));
       syncToDb(consolidated);
       return consolidated;
     });
@@ -311,6 +326,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function clear() {
     lastLocalEditRef.current = Date.now();
+    items.forEach((i) => deletedProductIdsRef.current.add(i.productId));
     setItems([]);
     syncToDb([]);
   }
