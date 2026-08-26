@@ -18,15 +18,25 @@ interface StarDiscountRule {
 }
 
 const DEFAULT_CUSTOMER_RULES = [
-  { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 star)", active: true },
-  { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 stars)", active: true },
-  { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)", active: true },
+  { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)", active: true },
+  { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)", active: true },
+];
+
+const DEFAULT_STAFF_RULES = [
+  { ruleType: "staff" as const, starFrom: 1, starTo: 1, discountPercent: "5", description: "Staff Level 1", active: true },
+  { ruleType: "staff" as const, starFrom: 2, starTo: 2, discountPercent: "10", description: "Staff Level 2", active: true },
+  { ruleType: "staff" as const, starFrom: 3, starTo: 3, discountPercent: "15", description: "Staff Level 3", active: true },
+  { ruleType: "staff" as const, starFrom: 4, starTo: 4, discountPercent: "20", description: "Staff Level 4", active: true },
+  { ruleType: "staff" as const, starFrom: 5, starTo: 5, discountPercent: "25", description: "Staff Executive Level 5", active: true },
+  { ruleType: "staff" as const, starFrom: 6, starTo: 6, discountPercent: "30", description: "Master Admin Executive Level 6", active: true },
 ];
 
 function StarRow({ count, color = "blue" }: { count: number; color?: "blue" | "gold" }) {
-  const filled = Math.min(count, 5);
+  const totalStars = count > 5 ? 6 : 5;
+  const filled = Math.min(count, totalStars);
   const colorClass = color === "blue"
     ? "text-blue-400 drop-shadow-[0_0_4px_rgba(59,130,246,0.8)]"
     : "text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]";
@@ -35,7 +45,7 @@ function StarRow({ count, color = "blue" }: { count: number; color?: "blue" | "g
       {Array.from({ length: filled }, (_, i) => (
         <Star key={i} size={13} fill="currentColor" className={colorClass} />
       ))}
-      {Array.from({ length: Math.max(0, 5 - filled) }, (_, i) => (
+      {Array.from({ length: Math.max(0, totalStars - filled) }, (_, i) => (
         <Star key={`e-${i}`} size={13} className="text-muted-foreground opacity-30" />
       ))}
     </span>
@@ -113,11 +123,12 @@ export default function AdminStarDiscountRules() {
   });
 
   const seedDefaults = async () => {
-    for (const rule of DEFAULT_CUSTOMER_RULES) {
+    const rulesToSeed = activeTab === "staff" ? DEFAULT_STAFF_RULES : DEFAULT_CUSTOMER_RULES;
+    for (const rule of rulesToSeed) {
       await apiRequest("POST", "/api/star-discount-rules", rule).catch(() => {});
     }
     invalidate();
-    toast({ title: "Default rules seeded! 🌟" });
+    toast({ title: `Default ${activeTab} rules seeded! 🌟` });
   };
 
   const filteredRules = rules.filter(r => r.ruleType === activeTab);
