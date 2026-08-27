@@ -482,12 +482,13 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
     const freeThreshold = resByPin?.freeDeliveryAbove || 500;
 
+    if (resByPin && resByPin.serviceable && resByPin.locationArea) {
+      deliveryCity = resByPin.locationArea;
+    }
     if (freeThreshold > 0 && subtotal >= freeThreshold) {
       deliveryFee = 0;
-      deliveryCity = resByPin?.locationArea || null;
     } else if (resByPin && resByPin.serviceable) {
       deliveryFee = resByPin.fee;
-      deliveryCity = resByPin.locationArea || null;
     } else {
       const feeRules = await db.select().from(deliveryFeeRules).where(eq(deliveryFeeRules.active, true));
       if (feeRules.length > 0) {

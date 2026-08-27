@@ -45,6 +45,7 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [imgFailed, setImgFailed] = useState(false);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", id],

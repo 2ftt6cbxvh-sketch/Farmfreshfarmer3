@@ -102,9 +102,25 @@ export function Header() {
 
   const currentHeaderStarTheme = getStarTheme(user ? starsCount : 0, isStarThemeEnabled);
 
-  // Close search suggestions on outside click or Escape key
+  // Close search suggestions on route change
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    setSearchFocused(false);
+  }, [location]);
+
+  // Close search suggestions on page scroll
+  useEffect(() => {
+    const handleScrollDismiss = () => {
+      if (searchFocused) {
+        setSearchFocused(false);
+      }
+    };
+    window.addEventListener("scroll", handleScrollDismiss, { passive: true });
+    return () => window.removeEventListener("scroll", handleScrollDismiss);
+  }, [searchFocused]);
+
+  // Close search suggestions on outside click, touch, or Escape key
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       const target = e.target as Node;
       const clickedInsideDesktop = searchBoxRef.current?.contains(target);
       const clickedInsideMobile = mobileSearchBoxRef.current?.contains(target);
@@ -121,9 +137,11 @@ export function Header() {
     }
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
@@ -214,21 +232,33 @@ export function Header() {
                   onChange={(e) => setSearch(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   placeholder="Search organic fruits, ghee sweets, avakaya pickles..."
-                  className="w-full rounded-full border border-emerald-500/30 bg-secondary/50 dark:bg-zinc-900/60 backdrop-blur-md pl-10 pr-20 py-2 text-xs font-semibold text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all shadow-inner"
+                  className="w-full rounded-full border border-emerald-500/30 bg-secondary/50 dark:bg-zinc-900/80 backdrop-blur-md pl-10 pr-20 py-2 text-xs font-semibold text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all shadow-inner"
                   data-testid="input-search"
                 />
                 <Search size={15} className="absolute left-3.5 text-muted-foreground pointer-events-none" />
 
-                {/* Shortcut Badge / Search Button */}
-                <div className="absolute right-1.5 flex items-center gap-1">
-                  {!search && (
+                {/* Shortcut Badge / Clear button / Search Button */}
+                <div className="absolute right-1.5 flex items-center gap-1.5">
+                  {search ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setSearchFocused(false);
+                      }}
+                      className="w-5 h-5 rounded-full hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground flex items-center justify-center text-xs transition-colors cursor-pointer"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  ) : (
                     <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground bg-background/80 border border-border rounded-md shadow-xs pointer-events-none">
                       ⌘K
                     </kbd>
                   )}
                   <button
                     type="submit"
-                    className="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-colors shadow-xs"
+                    className="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer"
                     aria-label="Submit search"
                   >
                     <Search size={13} />
@@ -239,51 +269,78 @@ export function Header() {
 
             {/* Desktop Search Dropdown */}
             {searchFocused && (
-              <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-card/98 backdrop-blur-2xl border border-emerald-500/30 rounded-2xl shadow-[0_20px_50px_-10px_rgba(0,0,0,0.35)] z-50 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Trending Search Tags */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-500 mb-2">
-                    <TrendingUp size={13} />
+              <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-[60] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20">
+                {/* Header with Title and Close Button */}
+                <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                  <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                    <TrendingUp size={14} className="text-amber-500" />
                     <span>Trending Recommendations</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {recommendations.map((rec) => (
-                      <button
-                        key={rec}
-                        onClick={() => {
-                          setSearch(rec);
-                          navigate(`/search?q=${encodeURIComponent(rec)}`);
-                          setSearchFocused(false);
-                        }}
-                        className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-foreground transition-all active:scale-95 cursor-pointer"
-                      >
-                        {rec}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setSearchFocused(false)}
+                    className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                    title="Close suggestions"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Trending Search Tags */}
+                <div className="flex flex-wrap gap-1.5">
+                  {recommendations.map((rec) => (
+                    <button
+                      key={rec}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setSearch(rec);
+                        navigate(`/search?q=${encodeURIComponent(rec)}`);
+                        setSearchFocused(false);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/25 text-foreground transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1"
+                    >
+                      <Search size={11} className="text-emerald-500/70" />
+                      <span>{rec}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Live Matching Predictions */}
                 {search.trim().length > 0 && (
-                  <div className="pt-3 border-t border-emerald-500/20 space-y-1.5">
-                    <div className="flex items-center gap-1 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                      <Sparkles size={13} />
-                      <span>Matching Products</span>
+                  <div className="pt-2 border-t border-border/50 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                      <div className="flex items-center gap-1">
+                        <Sparkles size={13} className="text-amber-400" />
+                        <span>Matching Products</span>
+                      </div>
+                      {predictions.length > 0 && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={submitSearch}
+                          className="text-[10px] text-muted-foreground hover:text-emerald-500 underline cursor-pointer"
+                        >
+                          View all results
+                        </button>
+                      )}
                     </div>
 
                     {predictions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2">No direct product matches found.</p>
+                      <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
                     ) : (
                       <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
                         {predictions.map((p) => (
                           <div
                             key={p.id}
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleProductSearchClick(p.id)}
                             className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               {p.image ? (
-                                <img src={imgUrl(p.image)} alt={p.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border" />
+                                <img src={imgUrl(p.image)} alt={p.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border/50" />
                               ) : (
                                 <div className="w-8 h-8 rounded-lg bg-emerald-950/30 flex items-center justify-center text-sm shrink-0">🌱</div>
                               )}
@@ -591,22 +648,71 @@ export function Header() {
               )}
             </div>
 
-            {/* Mobile Recommendations */}
-            <div className="flex flex-wrap gap-1.5 mt-2.5 pb-2">
-              {recommendations.slice(0, 4).map((rec) => (
-                <button
-                  key={rec}
-                  onClick={() => {
-                    setSearch(rec);
-                    navigate(`/search?q=${encodeURIComponent(rec)}`);
-                    closeMobileMenu();
-                  }}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/20 text-foreground"
-                >
-                  {rec}
-                </button>
-              ))}
-            </div>
+            {/* Mobile Matching Predictions or Recommendations */}
+            {search.trim().length > 0 ? (
+              <div className="mt-2.5 pb-2 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400 px-1">
+                  <div className="flex items-center gap-1">
+                    <Sparkles size={12} className="text-amber-400" />
+                    <span>Matching Products</span>
+                  </div>
+                  {predictions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={submitSearch}
+                      className="text-[10px] text-muted-foreground hover:text-emerald-500 underline"
+                    >
+                      View all
+                    </button>
+                  )}
+                </div>
+
+                {predictions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
+                ) : (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {predictions.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => handleProductSearchClick(p.id)}
+                        className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item bg-secondary/40"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {p.image ? (
+                            <img src={imgUrl(p.image)} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0 border border-border/50" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-lg bg-emerald-950/30 flex items-center justify-center text-xs shrink-0">🌱</div>
+                          )}
+                          <div className="truncate">
+                            <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{p.unit}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
+                          ₹{parseFloat(p.price).toFixed(0)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mt-2.5 pb-2">
+                {recommendations.slice(0, 4).map((rec) => (
+                  <button
+                    key={rec}
+                    onClick={() => {
+                      setSearch(rec);
+                      navigate(`/search?q=${encodeURIComponent(rec)}`);
+                      closeMobileMenu();
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/20 text-foreground active:scale-95 transition-transform"
+                  >
+                    {rec}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
