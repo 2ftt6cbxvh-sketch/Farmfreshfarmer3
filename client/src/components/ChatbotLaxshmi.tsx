@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2 } from "lucide-react";
@@ -129,6 +130,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const sessionToken = useMemo(() => getSessionToken(user?.id), [user?.id]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -150,7 +156,14 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
         }
       }
     } catch {}
-    return [];
+    return [
+      {
+        id: "welcome",
+        role: "model",
+        content: WELCOME_MESSAGES.en,
+        timestamp: new Date(),
+      },
+    ];
   });
 
   const [input, setInput] = useState("");
@@ -870,7 +883,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     else if (action === "ADD_TO_CART" && actionData?.productId) window.location.href = `/products/${actionData.productId}`;
   }, []);
 
-  return (
+  if (!mounted || typeof document === "undefined") return null;
+
+  return createPortal(
     <>
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
@@ -961,12 +976,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed z-[9999] flex flex-col overflow-hidden bg-background border border-black/10 dark:border-emerald-900/40
-            top-0 left-0 right-0 bottom-0 rounded-none
-            sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 sm:rounded-2xl sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
+          className="fixed z-[99999] flex flex-col bg-background text-foreground border-0 sm:border border-black/10 dark:border-emerald-900/40 shadow-2xl overflow-hidden
+            inset-0 w-full h-[100dvh] max-h-[100dvh] rounded-none
+            sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] sm:rounded-2xl"
           style={{ 
-            animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(5, 150, 105, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.25), 0 10px 25px -5px rgba(5, 150, 105, 0.15)',
           }}>
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
@@ -1395,7 +1409,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       )}
 
 
-    </>
+    </>,
+    document.body
   );
 }
 

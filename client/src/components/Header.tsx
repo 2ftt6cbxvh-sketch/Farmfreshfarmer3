@@ -218,25 +218,25 @@ export function Header() {
             : "bg-background/90 shadow-sm border-emerald-500/20 py-3"
         }`}
       >
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6" style={{ position: 'relative', zIndex: 10 }}>
+        <div className="mx-auto max-w-7xl px-2.5 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-6" style={{ position: 'relative', zIndex: 10 }}>
           {/* 🌟 Logo & Brand Wordmark — Ultra-Crisp, High-Contrast Luminous Badge 🌟 */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0 group select-none">
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white dark:bg-emerald-950/80 p-1.5 shadow-[0_4px_16px_rgba(16,185,129,0.35)] border-2 border-emerald-400/80 group-hover:scale-105 group-hover:shadow-[0_6px_22px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center justify-center shrink-0">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 shrink min-w-0 group select-none">
+            <div className="relative w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white dark:bg-emerald-950/80 p-1 sm:p-1.5 shadow-[0_4px_16px_rgba(16,185,129,0.35)] border-2 border-emerald-400/80 group-hover:scale-105 group-hover:shadow-[0_6px_22px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center justify-center shrink-0">
               <img
                 src={imgUrl("/images/logo-icon.png")}
                 alt="FarmFreshFarmer"
                 className="w-full h-full object-contain filter drop-shadow"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <span
-                className="font-serif text-lg sm:text-xl font-black tracking-tight text-foreground transition-colors leading-none drop-shadow-xs"
+                className="font-serif text-sm sm:text-xl font-black tracking-tight text-foreground transition-colors leading-none drop-shadow-xs truncate"
                 style={{ ['--hover-color' as any]: currentHeaderStarTheme.fillColor }}
               >
                 <span className="group-hover:text-[var(--hover-color)] transition-colors duration-300">FarmFresh</span><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-amber-500 dark:from-emerald-400 dark:to-yellow-300">Farmer</span>
               </span>
-              <span className="text-[9px] font-black tracking-[0.2em] text-emerald-600 dark:text-emerald-400 uppercase mt-0.5 whitespace-nowrap">
+              <span className="text-[7.5px] sm:text-[9px] font-black tracking-[0.12em] sm:tracking-[0.2em] text-emerald-600 dark:text-emerald-400 uppercase mt-0.5 whitespace-nowrap truncate">
                 ORGANIC · FARM TO HOME
               </span>
             </div>
@@ -389,18 +389,18 @@ export function Header() {
 
 
           {/* Right Section: Theme Toggle, Star Tier, Account Dropdown, Admin Portal, Cart */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Light / Dark Mode Toggle */}
             <button
               onClick={toggleTheme}
-              className="w-9 h-9 rounded-full bg-secondary/80 hover:bg-secondary border border-border flex items-center justify-center text-foreground transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary/80 hover:bg-secondary border border-border flex items-center justify-center text-foreground transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs shrink-0"
               aria-label="Toggle theme"
               title="Toggle Light / Dark theme"
             >
               {theme === "dark" ? (
-                <Sun size={16} className="text-amber-400 animate-spin-slow" />
+                <Sun size={15} className="text-amber-400 animate-spin-slow" />
               ) : (
-                <Moon size={16} className="text-emerald-700" />
+                <Moon size={15} className="text-emerald-700" />
               )}
             </button>
 
@@ -446,7 +446,7 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full border text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer shrink-0"
                     style={{
                       borderColor: currentHeaderStarTheme.fillColor + "60",
                       backgroundColor: currentHeaderStarTheme.fillColor + "15",
@@ -473,7 +473,7 @@ export function Header() {
                       </div>
                     )}
                     <span className="hidden sm:inline max-w-[90px] truncate">{user.name || "Account"}</span>
-                    <ChevronDown size={12} className="text-muted-foreground" />
+                    <ChevronDown size={11} className="text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
 
@@ -550,7 +550,7 @@ export function Header() {
             ) : (
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-secondary/70 hover:bg-secondary text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-full border border-emerald-500/30 bg-secondary/70 hover:bg-secondary text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs shrink-0"
                 data-testid="button-login"
               >
                 <UserIcon size={14} className="text-emerald-500" />
@@ -561,13 +561,13 @@ export function Header() {
             {/* Animated Dynamic Cart Button */}
             <Link
               href="/cart"
-              className={`relative group inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs shadow-[0_4px_18px_rgba(245,158,11,0.35)] hover:shadow-[0_6px_24px_rgba(245,158,11,0.5)] transition-all duration-300 hover:scale-105 active:scale-95 ${
+              className={`relative group inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs shadow-[0_4px_18px_rgba(245,158,11,0.35)] hover:shadow-[0_6px_24px_rgba(245,158,11,0.5)] transition-all duration-300 hover:scale-105 active:scale-95 shrink-0 ${
                 cartPopped ? "scale-110 ring-4 ring-amber-400/40" : ""
               }`}
               data-testid="link-cart"
             >
               <ShoppingCart
-                size={16}
+                size={15}
                 className={`transition-transform duration-300 group-hover:-rotate-12 ${
                   cartPopped ? "animate-bounce" : ""
                 }`}
@@ -575,7 +575,7 @@ export function Header() {
               <span className="hidden sm:inline font-black tracking-wide">Cart</span>
               {count > 0 && (
                 <span
-                  className={`inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-slate-950 text-amber-400 border border-amber-300 text-[10px] font-black shadow-sm transition-all duration-300 ${
+                  className={`inline-flex items-center justify-center min-w-4 sm:min-w-5 h-4 sm:h-5 px-1 sm:px-1.5 rounded-full bg-slate-950 text-amber-400 border border-amber-300 text-[9px] sm:text-[10px] font-black shadow-sm transition-all duration-300 ${
                     cartPopped ? "scale-125 bg-emerald-950 text-white border-emerald-400" : ""
                   }`}
                 >
@@ -584,13 +584,13 @@ export function Header() {
               )}
             </Link>
 
-            {/* Mobile Menu Toggle */}
+            {/* Mobile Menu Toggle (Hamburger / 3 lines) */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors"
+              className="md:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors shrink-0"
               aria-label="Toggle mobile menu"
             >
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+              {mobileOpen ? <X size={16} /> : <Menu size={16} />}
             </button>
           </div>
         </div>
