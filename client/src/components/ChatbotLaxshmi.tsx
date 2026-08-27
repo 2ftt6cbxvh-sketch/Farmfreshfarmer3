@@ -557,16 +557,24 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 150);
+    if (isOpen && window.innerWidth >= 640) {
+      const t = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
   }, [isOpen]);
 
   // Lock body scroll on mobile when chatbot is open
   useEffect(() => {
     const isMobile = window.innerWidth < 640;
     if (isOpen && isMobile) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = prev; };
+      const prevOverflow = document.body.style.overflow;
+      const prevTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.touchAction = prevTouchAction;
+      };
     }
   }, [isOpen]);
 
@@ -976,9 +984,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed z-[99999] flex flex-col bg-background text-foreground border-0 sm:border border-black/10 dark:border-emerald-900/40 shadow-2xl overflow-hidden
-            inset-0 w-full h-[100dvh] max-h-[100dvh] rounded-none
-            sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] sm:rounded-2xl"
+          className="fixed inset-0 z-[99999] flex flex-col bg-background text-foreground shadow-2xl overflow-hidden
+            w-full h-[100dvh] max-h-[100dvh] rounded-none border-0
+            sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] sm:rounded-2xl sm:border sm:border-black/10 dark:sm:border-emerald-900/40"
           style={{ 
             boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.25), 0 10px 25px -5px rgba(5, 150, 105, 0.15)',
           }}>
@@ -1028,8 +1036,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               <Ticket size={14} />
             </button>
             <button id="chatbot-close-btn" onClick={() => { setIsOpen(false); stopSpeaking(); }}
-              className="text-white/80 hover:text-white transition ml-1" aria-label="Close chatbot">
-              <X size={18} />
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:text-white hover:bg-white/20 active:scale-90 transition ml-1 shrink-0 cursor-pointer" aria-label="Close chatbot">
+              <X size={20} />
             </button>
           </div>
 
@@ -1071,7 +1079,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           )}
 
           {/* Messages */}
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-3">
             {messages.map((msg, index) => (
               <div key={msg.id} ref={index === messages.length - 1 && msg.role === 'model' ? lastAssistantMessageRef : null} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "model" && (
