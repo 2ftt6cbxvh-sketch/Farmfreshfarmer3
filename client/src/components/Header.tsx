@@ -636,9 +636,8 @@ export function Header() {
               </form>
             </div>
 
-            {/* ── Search suggestions / predictions (shown above quick links) ── */}
-            {searchFocused && (
-              <div className="px-4 pb-2 relative z-[200]">
+            {/* ── Search suggestions / predictions (always shown) ── */}
+            <div className="px-4 pb-2 relative z-[200]">
                 {search.trim().length > 0 ? (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400 px-1 mb-1.5">
@@ -704,8 +703,7 @@ export function Header() {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* ── Quick links (Profile / Orders / Subscriptions / Login) ── */}
             <div className="flex flex-wrap gap-2 px-4 pt-1 pb-3 border-t border-emerald-500/20">

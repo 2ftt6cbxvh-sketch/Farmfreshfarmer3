@@ -547,6 +547,16 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 150);
   }, [isOpen]);
 
+  // Lock body scroll on mobile when chatbot is open
+  useEffect(() => {
+    const isMobile = window.innerWidth < 640;
+    if (isOpen && isMobile) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [isOpen]);
+
   /* TTS - Female Voice across website */
   const speakText = useCallback((text: string, id: string, lang: Language) => {
     if (!("speechSynthesis" in window)) return;
@@ -951,9 +961,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed z-[9999] flex flex-col bg-white dark:bg-zinc-900 border border-black/10 dark:border-emerald-900/40 overflow-hidden
-            inset-0 rounded-none
-            sm:inset-auto sm:bottom-6 sm:right-6 sm:rounded-2xl sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
+          className="fixed z-[9999] flex flex-col overflow-hidden bg-background border border-black/10 dark:border-emerald-900/40
+            top-0 left-0 right-0 bottom-0 rounded-none
+            sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 sm:rounded-2xl sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
           style={{ 
             animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
             boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(5, 150, 105, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
