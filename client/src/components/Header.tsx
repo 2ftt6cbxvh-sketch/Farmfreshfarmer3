@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Search, ShoppingCart, Menu, X, Sun, Moon, Sparkles, TrendingUp,
-  MapPin, ShieldCheck, Zap, ChevronRight, CheckCircle2,
-  Lock, Store
+  MapPin, ShieldCheck, Zap, ChevronRight, ChevronDown, CheckCircle2,
+  Lock, Store, User as UserIcon, UserCircle2, PackageCheck, Gift,
+  Ticket, Shield, Truck, LogOut, ShoppingBag
 } from "lucide-react";
 import { useCart, useAuth } from "@/lib/store";
 import { useTheme } from "@/lib/theme-provider";
@@ -12,11 +13,19 @@ import type { Category } from "@/lib/types";
 import { DietDot } from "./DietDot";
 import { imgUrl } from "@/lib/queryClient";
 import { getStarTheme } from "@/lib/starTheme";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export function Header() {
   const { count } = useCart();
   const { theme, toggleTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [location, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
@@ -131,6 +140,11 @@ export function Header() {
       setMobileClosing(false);
     }, 220);
   }
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/";
+  };
 
   // Recommendations and query predictions
   const recommendations: string[] = searchConfig?.recommendations?.length
@@ -281,9 +295,23 @@ export function Header() {
             )}
           </div>
 
-          {/* Right Section: Star Tier, Admin Portal, Theme Toggle, Animated Cart */}
+          {/* Right Section: Theme Toggle, User Profile/Orders Dropdown, Admin Portal, Cart */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* VIP Star Tier Badge */}
+            {/* Light / Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-full bg-secondary/80 hover:bg-secondary border border-border flex items-center justify-center text-foreground transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
+              aria-label="Toggle theme"
+              title="Toggle Light / Dark theme"
+            >
+              {theme === "dark" ? (
+                <Sun size={16} className="text-amber-400 animate-spin-slow" />
+              ) : (
+                <Moon size={16} className="text-emerald-700" />
+              )}
+            </button>
+
+            {/* VIP Star Tier Badge (Desktop) */}
             {user && (
               <div
                 className="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded-full border shadow-xs"
@@ -303,26 +331,110 @@ export function Header() {
             {user && (user.role === "admin" || user.role === "staff" || user.role === "support" || isSuperAdmin) && (
               <Link
                 href="/admin"
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 shadow-sm transition-all active:scale-95"
+                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 shadow-sm transition-all active:scale-95"
               >
                 <Store size={13} className="text-amber-400" />
                 <span>Store Admin</span>
               </Link>
             )}
 
-            {/* Light / Dark Mode Toggle (Fully Working) */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full bg-secondary/80 hover:bg-secondary border border-border flex items-center justify-center text-foreground transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
-              aria-label="Toggle theme"
-              title="Toggle Light / Dark theme"
-            >
-              {theme === "dark" ? (
-                <Sun size={16} className="text-amber-400 animate-spin-slow" />
-              ) : (
-                <Moon size={16} className="text-emerald-700" />
-              )}
-            </button>
+            {/* Account Menu Dropdown (Profile, Orders, Subscriptions, Referrals, Logout) */}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border border-emerald-500/30 bg-secondary/70 hover:bg-secondary text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer"
+                    data-testid="button-account"
+                  >
+                    {user.profilePhoto ? (
+                      <img
+                        src={user.profilePhoto}
+                        alt={user.name || "User"}
+                        className="w-5 h-5 rounded-full object-cover border border-emerald-500"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-black">
+                        {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon size={12} />}
+                      </div>
+                    )}
+                    <span className="hidden sm:inline max-w-[90px] truncate">{user.name || "Account"}</span>
+                    <ChevronDown size={12} className="text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-emerald-500/30 bg-card/98 backdrop-blur-2xl p-2 shadow-2xl z-50">
+                  <DropdownMenuLabel className="p-2 font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-xs font-black text-foreground leading-none truncate">{user.name || "User"}</p>
+                      <p className="text-[11px] leading-none text-muted-foreground truncate">{user.email || user.phone || ""}</p>
+                      <div className="pt-1 flex items-center gap-1.5">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          {isSuperAdmin ? "👑 Master Admin" : isStaff ? "🛡️ Staff Member" : `⭐ ${starsCount}★ Member`}
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl font-semibold cursor-pointer" data-testid="menu-profile">
+                    <UserCircle2 size={15} className="mr-2 text-sky-400" />
+                    <span>My Profile</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => navigate("/orders")} className="rounded-xl font-semibold cursor-pointer" data-testid="menu-orders">
+                    <ShoppingBag size={15} className="mr-2 text-emerald-500" />
+                    <span>My Orders</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => navigate("/account/subscriptions")} className="rounded-xl font-semibold cursor-pointer" data-testid="menu-subscriptions">
+                    <PackageCheck size={15} className="mr-2 text-emerald-400" />
+                    <span>Subscriptions</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => navigate("/account/referrals")} className="rounded-xl font-semibold cursor-pointer" data-testid="menu-referrals">
+                    <Gift size={15} className="mr-2 text-amber-400" />
+                    <span>Refer & Earn</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => navigate("/account")} className="rounded-xl font-semibold cursor-pointer" data-testid="menu-tickets">
+                    <Ticket size={15} className="mr-2 text-violet-400" />
+                    <span>Support Tickets</span>
+                  </DropdownMenuItem>
+
+                  {/* Admin & Staff Shortcut in Dropdown */}
+                  {["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(user.role) && (
+                    <DropdownMenuItem onClick={() => navigate("/admin")} className="rounded-xl font-bold text-amber-500 cursor-pointer" data-testid="menu-admin">
+                      <Shield size={15} className="mr-2 text-amber-500" />
+                      <span>Admin Control Panel</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  {/* Delivery Partner Portal in Dropdown */}
+                  {user.role === "delivery_partner" && (
+                    <DropdownMenuItem onClick={() => navigate("/partner-portal")} className="rounded-xl font-bold text-emerald-400 cursor-pointer" data-testid="menu-partner-portal">
+                      <Truck size={15} className="mr-2 text-emerald-400" />
+                      <span>Delivery Partner Portal</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={handleLogout} className="rounded-xl font-semibold text-destructive cursor-pointer focus:text-destructive" data-testid="menu-logout">
+                    <LogOut size={15} className="mr-2" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-secondary/70 hover:bg-secondary text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs"
+                data-testid="button-login"
+              >
+                <UserIcon size={14} className="text-emerald-500" />
+                <span className="hidden sm:inline">Login</span>
+              </Link>
+            )}
 
             {/* Animated Dynamic Cart Button */}
             <Link
@@ -350,7 +462,7 @@ export function Header() {
               )}
             </Link>
 
-            {/* Mobile Search & Menu Toggle */}
+            {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="md:hidden w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors"
@@ -389,6 +501,47 @@ export function Header() {
               )}
             </form>
 
+            {/* Mobile User Quick Links */}
+            <div className="flex flex-wrap gap-2 pt-3 pb-1 border-b border-emerald-500/20">
+              {user ? (
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={closeMobileMenu}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-secondary text-foreground"
+                  >
+                    <UserCircle2 size={13} className="text-sky-400" />
+                    <span>Profile</span>
+                  </Link>
+                  <Link
+                    href="/orders"
+                    onClick={closeMobileMenu}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-secondary text-foreground"
+                  >
+                    <ShoppingBag size={13} className="text-emerald-400" />
+                    <span>Orders</span>
+                  </Link>
+                  <Link
+                    href="/account/subscriptions"
+                    onClick={closeMobileMenu}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full bg-secondary text-foreground"
+                  >
+                    <PackageCheck size={13} className="text-emerald-400" />
+                    <span>Subscriptions</span>
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={closeMobileMenu}
+                  className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full bg-emerald-600 text-white"
+                >
+                  <UserIcon size={13} />
+                  <span>Login / Register</span>
+                </Link>
+              )}
+            </div>
+
             {/* Mobile Recommendations */}
             <div className="flex flex-wrap gap-1.5 mt-2.5 pb-2">
               {recommendations.slice(0, 4).map((rec) => (
@@ -409,7 +562,7 @@ export function Header() {
         )}
       </div>
 
-      {/* ── 3. Horizontal Scrollable Category Ribbon ── */}
+      {/* ── Horizontal Scrollable Category Ribbon ── */}
       <div className="w-full bg-card/75 dark:bg-zinc-950/70 backdrop-blur-md border-b border-border/60 overflow-x-auto no-scrollbar py-2">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center gap-2 min-w-max">
           {categories.map((c) => {
