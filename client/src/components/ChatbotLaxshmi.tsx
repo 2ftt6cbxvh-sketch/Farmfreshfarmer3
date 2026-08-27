@@ -563,21 +563,6 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     }
   }, [isOpen]);
 
-  // Lock body scroll on mobile when chatbot is open
-  useEffect(() => {
-    const isMobile = window.innerWidth < 640;
-    if (isOpen && isMobile) {
-      const prevOverflow = document.body.style.overflow;
-      const prevTouchAction = document.body.style.touchAction;
-      document.body.style.overflow = "hidden";
-      document.body.style.touchAction = "none";
-      return () => {
-        document.body.style.overflow = prevOverflow;
-        document.body.style.touchAction = prevTouchAction;
-      };
-    }
-  }, [isOpen]);
-
   /* TTS - Female Voice across website */
   const speakText = useCallback((text: string, id: string, lang: Language) => {
     if (!("speechSynthesis" in window)) return;
@@ -984,11 +969,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed inset-0 z-[99999] flex flex-col bg-background text-foreground shadow-2xl overflow-hidden
-            w-full h-[100dvh] max-h-[100dvh] rounded-none border-0
-            sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] sm:rounded-2xl sm:border sm:border-black/10 dark:sm:border-emerald-900/40"
+          className="fixed z-[99999] flex flex-col bg-background text-foreground shadow-2xl rounded-2xl border border-black/10 dark:border-emerald-900/40 overflow-hidden
+            bottom-4 right-3 left-3 h-[520px] max-h-[82vh]
+            sm:left-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
           style={{ 
-            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.25), 0 10px 25px -5px rgba(5, 150, 105, 0.15)',
+            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.35), 0 10px 25px -5px rgba(5, 150, 105, 0.25)',
           }}>
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
