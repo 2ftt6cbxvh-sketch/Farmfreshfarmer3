@@ -88,22 +88,6 @@ export default function Home() {
     };
   }, []);
 
-  // 3D Card Interactive Tilt & Specular Light Follow
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [isHoveringCard, setIsHoveringCard] = useState(false);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setMousePos({ x, y });
-  };
-  const handleMouseEnter = () => setIsHoveringCard(true);
-  const handleMouseLeave = () => {
-    setIsHoveringCard(false);
-    setMousePos({ x: 0, y: 0 });
-  };
-
   // Auto-rotate hero photos smoothly if 2+ products are selected
   useEffect(() => {
     if (showcaseMode !== "featured_products" || featuredHeroList.length <= 1) return;
@@ -242,31 +226,14 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Column: 🌟 3D Glassmorphic Interactive Showcase Card 🌟 */}
+          {/* Right Column: 🌟 Luxury Glassmorphic Interactive Showcase Card 🌟 */}
           <div
             className="lg:col-span-5 flex justify-center parallax-layer"
             style={{ transform: `translate3d(0, ${heroCardOffset}px, 0)` }}
           >
-            <div
-              onMouseMove={handleMouseMove}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-              className="relative w-full max-w-md aspect-square rounded-[36px] bg-gradient-to-br from-card/90 via-card/75 to-card/95 border-2 border-emerald-500/30 p-4 sm:p-6 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] backdrop-blur-2xl transition-transform duration-300 ease-out cursor-pointer group"
-              style={{
-                transform: isHoveringCard
-                  ? `perspective(1000px) rotateX(${mousePos.y * -14}deg) rotateY(${mousePos.x * 14}deg) scale3d(1.02, 1.02, 1)`
-                  : "perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)",
-                transformStyle: "preserve-3d",
-              }}
-            >
-              {/* Dynamic Specular Follow Light */}
-              <div
-                className="pointer-events-none absolute inset-0 rounded-[34px] transition-opacity duration-300 z-30"
-                style={{
-                  opacity: isHoveringCard ? 0.35 : 0,
-                  background: `radial-gradient(circle at ${(mousePos.x + 0.5) * 100}% ${(mousePos.y + 0.5) * 100}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 65%)`,
-                }}
-              />
+            <div className="relative w-full max-w-md aspect-square rounded-[36px] bg-gradient-to-br from-card/95 via-card/85 to-card/95 border-2 border-emerald-500/30 p-4 sm:p-6 shadow-[0_20px_50px_-15px_rgba(16,185,129,0.25)] hover:shadow-[0_25px_60px_-10px_rgba(16,185,129,0.35)] backdrop-blur-xl transition-all duration-500 ease-out hover:-translate-y-1.5 group cursor-pointer">
+              {/* Ambient Glow Aura */}
+              <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500/20 to-amber-500/20 rounded-[42px] blur-xl opacity-60 group-hover:opacity-90 transition-opacity duration-500 -z-10 pointer-events-none" />
 
               {/* Main Showcase Image Container */}
               <div className="relative w-full h-full rounded-[28px] overflow-hidden bg-emerald-950/20 border border-emerald-500/20 flex items-center justify-center">
@@ -274,19 +241,25 @@ export default function Home() {
                   <img
                     src={heroConfig.customImageUrl}
                     alt={heroConfig?.customTitle || "Organic Farm Harvest"}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    fetchPriority="high"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                 ) : featuredHeroList.length > 0 ? (
                   <img
                     src={imgUrl(featuredHeroList[heroIdx % featuredHeroList.length]?.image || "/images/hero.jpg")}
                     alt={featuredHeroList[heroIdx % featuredHeroList.length]?.name || "Organic Farm Harvest"}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 animate-in fade-in zoom-in-95 duration-500"
+                    fetchPriority="high"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out animate-in fade-in zoom-in-95 duration-500"
                   />
                 ) : (
                   <img
                     src={imgUrl("/images/p-mango.jpg")}
                     alt="Organic Banganapalli Mangoes"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    fetchPriority="high"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                 )}
 
@@ -310,13 +283,8 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Floating Top-Left Badge in 3D Space */}
-              <div
-                className="absolute top-6 left-6 bg-card/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-200"
-                style={{
-                  transform: `translateZ(35px) translate3d(${mousePos.x * -10}px, ${mousePos.y * -10}px, 0)`,
-                }}
-              >
+              {/* Floating Top-Left Badge */}
+              <div className="absolute top-6 left-6 bg-card/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 group-hover:-translate-y-1 transition-transform duration-300 pointer-events-none">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
                   <Leaf size={18} />
                 </div>
@@ -340,13 +308,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Floating Bottom-Right Badge in 3D Space */}
-              <div
-                className="absolute bottom-6 right-6 bg-card/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-200"
-                style={{
-                  transform: `translateZ(45px) translate3d(${mousePos.x * 12}px, ${mousePos.y * 12}px, 0)`,
-                }}
-              >
+              {/* Floating Bottom-Right Badge */}
+              <div className="absolute bottom-6 right-6 bg-card/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 group-hover:translate-y-1 transition-transform duration-300 pointer-events-none">
                 <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
                   <Zap size={18} />
                 </div>
@@ -383,6 +346,8 @@ export default function Home() {
                   <img
                     src={CAT_IMAGES[c.slug] || imgUrl(c.image)}
                     alt={c.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-115"
                   />
                 </div>

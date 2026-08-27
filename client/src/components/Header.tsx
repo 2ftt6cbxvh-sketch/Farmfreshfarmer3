@@ -102,20 +102,30 @@ export function Header() {
 
   const currentHeaderStarTheme = getStarTheme(user ? starsCount : 0, isStarThemeEnabled);
 
-  // Close search suggestions on outside click
+  // Close search suggestions on outside click or Escape key
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        searchBoxRef.current &&
-        !searchBoxRef.current.contains(e.target as Node) &&
-        mobileSearchBoxRef.current &&
-        !mobileSearchBoxRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      const clickedInsideDesktop = searchBoxRef.current?.contains(target);
+      const clickedInsideMobile = mobileSearchBoxRef.current?.contains(target);
+
+      if (!clickedInsideDesktop && !clickedInsideMobile) {
         setSearchFocused(false);
       }
     }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSearchFocused(false);
+      }
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   function submitSearch(e: React.FormEvent) {

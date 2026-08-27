@@ -320,9 +320,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   app.get("/api/auth/methods", h(async (_req, res) => {
-    const emailEnabled = (await storage.settings.get("auth_email_enabled")) !== "false";
-    const googleEnabled = (await storage.settings.get("auth_google_enabled")) !== "false";
-    res.json({ emailEnabled, googleEnabled });
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    const data = await apiCache.getOrSet("auth:methods", async () => {
+      const emailEnabled = (await storage.settings.get("auth_email_enabled")) !== "false";
+      const googleEnabled = (await storage.settings.get("auth_google_enabled")) !== "false";
+      return { emailEnabled, googleEnabled };
+    }, 120, ["settings", "auth"]);
+    res.json(data);
   }));
 
   /* ============================= AUTH ============================== */
@@ -621,13 +625,13 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const category = req.query.category ? String(req.query.category) : undefined;
     const q = req.query.q ? String(req.query.q) : undefined;
     const featured = req.query.featured === "1";
-    const includeInactive = req.query.includeInactive === "1" || req.query.all === "1" || Boolean(req.session?.userId) || Boolean(req.headers.authorization);
+    const includeInactive = req.query.includeInactive === "1" || req.query.all === "1";
     
     // Cache public catalog lists for instantaneous responses
     if (!includeInactive && !q) {
-      res.setHeader("Cache-Control", "public, max-age=20, stale-while-revalidate=60");
+      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
       const cacheKey = `products:list:${category || "all"}:${featured ? "1" : "0"}`;
-      const data = await apiCache.getOrSet(cacheKey, () => storage.products.list({ category, q, featured, includeInactive }), 30, ["products"]);
+      const data = await apiCache.getOrSet(cacheKey, () => storage.products.list({ category, q, featured, includeInactive: false }), 60, ["products"]);
       return res.json(data);
     }
 
@@ -937,27 +941,31 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   /* =================== STAR DISCOUNT RULES ========================= */
   // Get all star discount rules (public - used by client to show discount tiers)
   app.get("/api/star-discount-rules", h(async (_req, res) => {
-    let rules = await storage.starDiscountRules.list();
-    // Auto-fix legacy range rules for customer rules to 1..5 scale
-    if (rules.some(r => r.ruleType === "customer" && (r.starTo > 5 || r.starFrom !== r.starTo))) {
-      for (const r of rules) {
-        if (r.ruleType === "customer") {
-          await storage.starDiscountRules.remove(r.id);
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    const cached = await apiCache.getOrSet("star-discount-rules:list", async () => {
+      let rules = await storage.starDiscountRules.list();
+      // Auto-fix legacy range rules for customer rules to 1..5 scale
+      if (rules.some(r => r.ruleType === "customer" && (r.starTo > 5 || r.starFrom !== r.starTo))) {
+        for (const r of rules) {
+          if (r.ruleType === "customer") {
+            await storage.starDiscountRules.remove(r.id);
+          }
         }
+        const customerDefaults = [
+          { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)", active: true },
+          { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)", active: true },
+          { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)", active: true },
+          { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)", active: true },
+          { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)", active: true },
+        ];
+        for (const def of customerDefaults) {
+          await storage.starDiscountRules.create(def);
+        }
+        rules = await storage.starDiscountRules.list();
       }
-      const customerDefaults = [
-        { ruleType: "customer" as const, starFrom: 1, starTo: 1, discountPercent: "2", description: "Bronze tier (1 Star)", active: true },
-        { ruleType: "customer" as const, starFrom: 2, starTo: 2, discountPercent: "5", description: "Silver tier (2 Stars)", active: true },
-        { ruleType: "customer" as const, starFrom: 3, starTo: 3, discountPercent: "8", description: "Gold tier (3 Stars)", active: true },
-        { ruleType: "customer" as const, starFrom: 4, starTo: 4, discountPercent: "12", description: "Platinum tier (4 Stars)", active: true },
-        { ruleType: "customer" as const, starFrom: 5, starTo: 5, discountPercent: "15", description: "Diamond tier (5 Stars)", active: true },
-      ];
-      for (const def of customerDefaults) {
-        await storage.starDiscountRules.create(def);
-      }
-      rules = await storage.starDiscountRules.list();
-    }
-    res.json(rules);
+      return rules;
+    }, 120, ["star-discount-rules"]);
+    res.json(cached);
   }));
 
   // Reset star discount rules to standard scale (1–5 for Customers, 1–6 for Staff/Admin)
@@ -984,6 +992,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       const created = await storage.starDiscountRules.create(def);
       createdList.push(created);
     }
+    apiCache.invalidateTags(["star-discount-rules"]);
     res.json(createdList);
   }));
 
@@ -1002,6 +1011,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       description,
       active: active !== false,
     });
+    apiCache.invalidateTags(["star-discount-rules"]);
     res.status(201).json(rule);
   }));
 
@@ -1019,12 +1029,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
     const rule = await storage.starDiscountRules.update(id, updateData);
     if (!rule) return res.status(404).json({ message: "Rule not found" });
+    apiCache.invalidateTags(["star-discount-rules"]);
     res.json(rule);
   }));
 
   // Delete a star discount rule (Super Admin only)
   app.delete("/api/star-discount-rules/:id", requireAdmin, h(async (req, res) => {
     await storage.starDiscountRules.remove(Number(req.params.id));
+    apiCache.invalidateTags(["star-discount-rules"]);
     res.json({ ok: true });
   }));
 
@@ -1094,7 +1106,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   // city NAME and charge/threshold are exposed — the fee is still recomputed
   // server-side at order time so it can't be spoofed.
   app.get("/api/delivery-rules", h(async (_req, res) => {
-    const rules = parseDeliveryRules(await storage.settings.get("delivery_rules"));
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    const rules = await apiCache.getOrSet("delivery-rules:all", async () => {
+      return parseDeliveryRules(await storage.settings.get("delivery_rules"));
+    }, 120, ["settings", "delivery-rules"]);
     res.json(rules);
   }));
 
@@ -1102,8 +1117,12 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   // Public flags the checkout page needs. COD is ON unless the admin has
   // explicitly disabled it (cod_enabled === "false").
   app.get("/api/checkout-config", h(async (_req, res) => {
-    const codEnabled = (await storage.settings.get("cod_enabled")) !== "false";
-    res.json({ codEnabled });
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    const config = await apiCache.getOrSet("checkout-config:all", async () => {
+      const codEnabled = (await storage.settings.get("cod_enabled")) !== "false";
+      return { codEnabled };
+    }, 120, ["settings", "checkout-config"]);
+    res.json(config);
   }));
 
   app.patch('/api/user/phone', requireAuth as any, h(async (req, res) => {
@@ -2180,6 +2199,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     await storage.settings.setMany(
       Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, String(v)])),
     );
+    apiCache.invalidateTags(["settings", "delivery-rules", "checkout-config", "auth"]);
     res.json(await storage.settings.all());
   }));
 

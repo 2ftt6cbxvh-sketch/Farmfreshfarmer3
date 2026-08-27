@@ -130,6 +130,7 @@ export function ProductCard({ product }: { product: Product }) {
               src={imgUrl(product.image)}
               alt={product.name}
               loading="lazy"
+              decoding="async"
               onError={() => setImgFailed(true)}
               className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-115 group-hover:rotate-1"
             />

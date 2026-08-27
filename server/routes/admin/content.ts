@@ -5,6 +5,7 @@ import type { Express, Request, Response } from "express";
 import { db, pingDb } from "../../db";
 import { settings } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { apiCache } from "../../services/cache";
 
 async function requireAdmin(req: Request, res: Response, next: Function) {
   let userId = (req as any).jwtUser?.userId || req.session?.userId;
@@ -28,9 +29,7 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
   }
 
   if (userId) {
-    const { db } = await import("../../db");
     const { users } = await import("@shared/schema");
-    const { eq } = await import("drizzle-orm");
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     if (user && (user.role === "admin" || user.email === "admin@farmfreshfarmer.com")) {
       if (req.session) {
@@ -45,13 +44,15 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
 }
 
 export const DEFAULT_SITE_TEXT: Record<string, string> = {
-  hero_badge_text: "Visakhapatnam's #1 Instant Organic Farm Delivery",
-  hero_headline_text: "Fresh from local farms, delivered straight to your doorstep.",
-  hero_subtitle_text: "Hand-picked organic fruits, vine-ripened vegetables, authentic ghee sweets, traditional Andhra pickles, millets & spices.",
-  promise_badge_text: "Visakhapatnam Farm to Fork",
-  promise_title_text: "Our Farm-to-Home Promise",
-  promise_desc_text: "Connecting households directly with local organic farms and authentic Andhra kitchens. Zero chemicals, zero artificial ripening, and instant delivery right when you need it.",
-  promise_card1_title: "100% Organic",
+  header_brand_badge: "100% Organically Grown",
+  hero_title_accent: "Naturally Grown.",
+  hero_title_suffix: "Delivered to Your Doorstep.",
+  hero_subtitle: "Order farm-fresh vegetables, seasonal sweet fruits, sun-dried spices, hand-pounded millets, and authentic Andhra pickles directly from local cultivators with live delivery tracking.",
+  badge_1: "Same Day Dispatch",
+  badge_2: "Zero Chemical Residue",
+  badge_3: "Direct Farmer Support",
+  badge_4: "Farm-to-Door Transparency",
+  promise_card1_title: "Chemical-Free Produce",
   promise_card1_desc: "Sourced daily from certified local organic farms in Andhra Pradesh with zero chemical pesticides.",
   promise_card2_title: "Combined ETA",
   promise_card2_desc: "Haversine distance transit calculation + warehouse packing mins returned live for your PIN code.",
@@ -65,9 +66,13 @@ export function registerAdminContentRoutes(app: Express) {
   /** GET /api/content/site-text — Public endpoint for dynamic pills, badges & site text */
   app.get("/api/content/site-text", async (_req: Request, res: Response) => {
     try {
-      const [row] = await db.select().from(settings).where(eq(settings.key, "site_custom_text")).limit(1);
-      const textMap = row?.value ? { ...DEFAULT_SITE_TEXT, ...JSON.parse(row.value) } : DEFAULT_SITE_TEXT;
-      return res.json({ textMap });
+      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+      const data = await apiCache.getOrSet("content:site-text", async () => {
+        const [row] = await db.select().from(settings).where(eq(settings.key, "site_custom_text")).limit(1);
+        const textMap = row?.value ? { ...DEFAULT_SITE_TEXT, ...JSON.parse(row.value) } : DEFAULT_SITE_TEXT;
+        return { textMap };
+      }, 120, ["settings", "content"]);
+      return res.json(data);
     } catch (e) {
       return res.json({ textMap: DEFAULT_SITE_TEXT });
     }
@@ -83,6 +88,7 @@ export function registerAdminContentRoutes(app: Express) {
       await db.insert(settings).values({ key: "site_custom_text", value: strVal })
         .onConflictDoUpdate({ target: settings.key, set: { value: strVal } });
 
+      apiCache.invalidateTags(["settings", "content"]);
       return res.json({ message: "Site text & pills updated successfully!", textMap });
     } catch (e: any) {
       return res.status(500).json({ message: e?.message || "Failed to update site text" });
@@ -91,9 +97,12 @@ export function registerAdminContentRoutes(app: Express) {
 
   /** GET /api/admin/content/banners */
   app.get("/api/admin/content/banners", requireAdmin as any, async (_req: Request, res: Response) => {
-    const [row] = await db.select().from(settings).where(eq(settings.key, "homepage_banners")).limit(1);
-    const banners = row ? JSON.parse(row.value) : [];
-    return res.json({ banners });
+    const data = await apiCache.getOrSet("content:banners", async () => {
+      const [row] = await db.select().from(settings).where(eq(settings.key, "homepage_banners")).limit(1);
+      const banners = row ? JSON.parse(row.value) : [];
+      return { banners };
+    }, 60, ["settings", "content"]);
+    return res.json(data);
   });
 
   /** POST /api/admin/content/banners */
@@ -103,6 +112,7 @@ export function registerAdminContentRoutes(app: Express) {
     const strVal = JSON.stringify(banners);
     await db.insert(settings).values({ key: "homepage_banners", value: strVal })
       .onConflictDoUpdate({ target: settings.key, set: { value: strVal } });
+    apiCache.invalidateTags(["settings", "content"]);
     return res.json({ banners });
   });
 

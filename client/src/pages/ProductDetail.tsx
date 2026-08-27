@@ -120,6 +120,8 @@ export default function ProductDetail() {
               <img
                 src={imgUrl(product.image)}
                 alt={product.name}
+                fetchPriority="high"
+                decoding="async"
                 onError={() => setImgFailed(true)}
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
