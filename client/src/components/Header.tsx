@@ -200,7 +200,7 @@ export function Header() {
             : "bg-background/90 shadow-sm border-emerald-500/20 py-3"
         }`}
       >
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6" style={{ position: 'relative', zIndex: 10 }}>
           {/* 🌟 Logo & Brand Wordmark — Ultra-Crisp, High-Contrast Luminous Badge 🌟 */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0 group select-none">
             <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white dark:bg-emerald-950/80 p-1.5 shadow-[0_4px_16px_rgba(16,185,129,0.35)] border-2 border-emerald-400/80 group-hover:scale-105 group-hover:shadow-[0_6px_22px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center justify-center shrink-0">
@@ -269,7 +269,7 @@ export function Header() {
 
             {/* Desktop Search Dropdown */}
             {searchFocused && (
-              <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-[60] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20">
+              <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-[200] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20">
                 {/* Header with Title and Close Button */}
                 <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
@@ -579,36 +579,110 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile Slide-down Search Box */}
         {mobileOpen && (
           <div
             ref={mobileSearchBoxRef}
-            className={`md:hidden px-4 pt-3 pb-2 border-t border-emerald-500/20 bg-card/95 backdrop-blur-xl ${
+            className={`md:hidden border-t border-emerald-500/20 bg-card/95 backdrop-blur-xl relative z-[100] ${
               mobileClosing ? "animate-out fade-out slide-out-to-top duration-200" : "animate-in fade-in slide-in-from-top duration-200"
             }`}
           >
-            <form onSubmit={submitSearch} className="relative">
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search fruits, sweets, pickles..."
-                className="w-full rounded-full border border-emerald-500/30 bg-secondary/80 pl-10 pr-10 py-2 text-xs font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-              />
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </form>
+            {/* ── Search bar ── */}
+            <div className="px-4 pt-3 pb-2">
+              <form onSubmit={submitSearch} className="relative">
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  placeholder="Search fruits, sweets, pickles..."
+                  className="w-full rounded-full border border-emerald-500/30 bg-secondary/80 pl-10 pr-10 py-2.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </form>
+            </div>
 
-            {/* Mobile User Quick Links */}
-            <div className="flex flex-wrap gap-2 pt-3 pb-1 border-b border-emerald-500/20">
+            {/* ── Search suggestions / predictions (shown above quick links) ── */}
+            {searchFocused && (
+              <div className="px-4 pb-2 relative z-[200]">
+                {search.trim().length > 0 ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400 px-1 mb-1.5">
+                      <div className="flex items-center gap-1">
+                        <Sparkles size={12} className="text-amber-400" />
+                        <span>Matching Products</span>
+                      </div>
+                      {predictions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={submitSearch}
+                          className="text-[10px] text-muted-foreground hover:text-emerald-500 underline"
+                        >
+                          View all
+                        </button>
+                      )}
+                    </div>
+
+                    {predictions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
+                    ) : (
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {predictions.map((p) => (
+                          <div
+                            key={p.id}
+                            onClick={() => handleProductSearchClick(p.id)}
+                            className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item bg-secondary/40"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {p.image ? (
+                                <img src={imgUrl(p.image)} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0 border border-border/50" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-lg bg-emerald-950/30 flex items-center justify-center text-xs shrink-0">🌱</div>
+                              )}
+                              <div className="truncate">
+                                <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
+                                <p className="text-[10px] text-muted-foreground">{p.unit}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
+                              ₹{parseFloat(p.price).toFixed(0)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Recommendation chips */
+                  <div className="flex flex-wrap gap-1.5 pb-1">
+                    {recommendations.slice(0, 4).map((rec) => (
+                      <button
+                        key={rec}
+                        onClick={() => {
+                          setSearch(rec);
+                          navigate(`/search?q=${encodeURIComponent(rec)}`);
+                          closeMobileMenu();
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/20 text-foreground active:scale-95 transition-transform"
+                      >
+                        {rec}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Quick links (Profile / Orders / Subscriptions / Login) ── */}
+            <div className="flex flex-wrap gap-2 px-4 pt-1 pb-3 border-t border-emerald-500/20">
               {user ? (
                 <>
                   <Link
@@ -647,74 +721,9 @@ export function Header() {
                 </Link>
               )}
             </div>
-
-            {/* Mobile Matching Predictions or Recommendations */}
-            {search.trim().length > 0 ? (
-              <div className="mt-2.5 pb-2 space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400 px-1">
-                  <div className="flex items-center gap-1">
-                    <Sparkles size={12} className="text-amber-400" />
-                    <span>Matching Products</span>
-                  </div>
-                  {predictions.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={submitSearch}
-                      className="text-[10px] text-muted-foreground hover:text-emerald-500 underline"
-                    >
-                      View all
-                    </button>
-                  )}
-                </div>
-
-                {predictions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
-                ) : (
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {predictions.map((p) => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleProductSearchClick(p.id)}
-                        className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item bg-secondary/40"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {p.image ? (
-                            <img src={imgUrl(p.image)} alt={p.name} className="w-7 h-7 rounded-lg object-cover shrink-0 border border-border/50" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-lg bg-emerald-950/30 flex items-center justify-center text-xs shrink-0">🌱</div>
-                          )}
-                          <div className="truncate">
-                            <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{p.unit}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
-                          ₹{parseFloat(p.price).toFixed(0)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-1.5 mt-2.5 pb-2">
-                {recommendations.slice(0, 4).map((rec) => (
-                  <button
-                    key={rec}
-                    onClick={() => {
-                      setSearch(rec);
-                      navigate(`/search?q=${encodeURIComponent(rec)}`);
-                      closeMobileMenu();
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-500/10 border border-emerald-500/20 text-foreground active:scale-95 transition-transform"
-                  >
-                    {rec}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
+
       </div>
 
       {/* ── 🌟 CENTERED CATEGORY RIBBON (Centered on Desktop/Tablet, Smooth Scroll on Mobile) 🌟 ── */}

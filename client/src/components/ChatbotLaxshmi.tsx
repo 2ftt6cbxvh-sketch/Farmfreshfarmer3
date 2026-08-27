@@ -865,7 +865,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
         <div
-          className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-auto"
+          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[9998] flex flex-col items-end gap-2 pointer-events-auto"
           style={{ animation: 'laxFloat 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite' }}
         >
           {/* Animated Speech bubble */}
@@ -951,9 +951,10 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-black/10 dark:border-emerald-900/40"
+          className="fixed z-[9999] flex flex-col bg-white dark:bg-zinc-900 border border-black/10 dark:border-emerald-900/40 overflow-hidden
+            inset-0 rounded-none
+            sm:inset-auto sm:bottom-6 sm:right-6 sm:rounded-2xl sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
           style={{ 
-            width: '360px', maxWidth: 'calc(100vw - 24px)', height: '540px', maxHeight: 'calc(100vh - 80px)',
             animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
             boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(5, 150, 105, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
           }}>
