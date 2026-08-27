@@ -1108,11 +1108,12 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       )}
                       {(() => {
                         const isPrimary = Boolean(msg.senderMeta?.isPrimaryAdmin);
-                        const starNum = isPrimary ? 6 : Math.max(0, Math.min(6, Number(msg.senderMeta?.starRating) ?? 5));
+                        const rawStars = Number(msg.senderMeta?.starRating);
+                        const starNum = isPrimary ? 6 : Math.max(0, Math.min(6, Number.isFinite(rawStars) ? rawStars : 5));
                         const theme = getStarTheme(starNum, true);
                         return (
                           <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                            {[...Array(starNum)].map((_, i) => (
+                            {Array.from({ length: Math.max(0, Math.min(6, starNum)) }).map((_, i) => (
                               <Star key={i} size={9} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${isPrimary ? 'animate-pulse' : ''}`} />
                             ))}
                           </div>
@@ -1125,15 +1126,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {msg.role === "user" && user && (
                     <div className="flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
                       {(() => {
-                        const isSuperAdmin = user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+                        const isSuperAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com");
                         const isStaff = isSuperAdmin || user.role !== "customer";
-                        const starsCount = isSuperAdmin ? 6 : isStaff ? Math.max(0, Math.min(6, Number(user.starRating) ?? 5)) : Math.max(0, Math.min(5, Number(user.customerStars) || 0));
+                        const rawStaffRating = Number(user.starRating);
+                        const rawCustomerRating = Number(user.customerStars);
+                        const starsCount = isSuperAdmin
+                          ? 6
+                          : isStaff
+                          ? Math.max(0, Math.min(6, Number.isFinite(rawStaffRating) ? rawStaffRating : 5))
+                          : Math.max(0, Math.min(5, Number.isFinite(rawCustomerRating) ? rawCustomerRating : 0));
                         const theme = getStarTheme(starsCount, true);
 
                         return (
                           <>
                             <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                              {[...Array(starsCount)].map((_, i) => (
+                              {Array.from({ length: Math.max(0, Math.min(6, starsCount)) }).map((_, i) => (
                                 <Star key={i} size={9} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${starsCount === 6 ? 'animate-pulse' : ''}`} />
                               ))}
                             </div>

@@ -335,14 +335,15 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           </div>
 
           {(() => {
-            const adminStars = isPrimaryAdmin ? 6 : Math.max(0, Math.min(6, Number(adminUser?.starRating) ?? 5));
+            const rawStars = Number(adminUser?.starRating);
+            const adminStars = isPrimaryAdmin ? 6 : Math.max(0, Math.min(6, Number.isFinite(rawStars) ? rawStars : 5));
             const theme = getStarTheme(adminStars, true);
             return (
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-sidebar-border/40">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <p className="text-xs font-extrabold text-foreground truncate">{adminUser?.name || "Admin Panel"}</p>
                   <div className="flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                    {[...Array(adminStars)].map((_, i) => (
+                    {Array.from({ length: Math.max(0, Math.min(6, adminStars)) }).map((_, i) => (
                       <Star key={i} size={10} fill="currentColor" className={`shrink-0 ${theme.starColor} ${theme.glowClass} ${isPrimaryAdmin ? 'animate-pulse' : ''}`} />
                     ))}
                   </div>

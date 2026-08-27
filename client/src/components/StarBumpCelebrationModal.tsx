@@ -163,7 +163,7 @@ export function StarBumpCelebrationModal() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
-            {Array.from({ length: starCount }).map((_, i) => (
+            {Array.from({ length: Math.max(0, Math.min(6, Math.floor(Number(starCount) || 0))) }).map((_, i) => (
               <Star key={i} className="h-5 w-5 fill-current animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
             ))}
           </div>
