@@ -168,26 +168,26 @@ export function Header() {
       <div
         className={`w-full backdrop-blur-xl transition-all duration-300 border-b ${
           scrolled
-            ? "bg-background/95 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.2)] border-emerald-500/30 py-2.5"
+            ? "bg-background/95 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.25)] border-emerald-500/30 py-2.5"
             : "bg-background/90 shadow-sm border-emerald-500/20 py-3"
         }`}
       >
         <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-between gap-3 sm:gap-6">
-          {/* Logo & Brand Wordmark */}
+          {/* 🌟 Logo & Brand Wordmark — Ultra-Crisp, High-Contrast Luminous Badge 🌟 */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0 group select-none">
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-amber-600 p-0.5 shadow-md group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white dark:bg-emerald-950/80 p-1.5 shadow-[0_4px_16px_rgba(16,185,129,0.35)] border-2 border-emerald-400/80 group-hover:scale-105 group-hover:shadow-[0_6px_22px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center justify-center shrink-0">
               <img
                 src={imgUrl("/images/logo-icon.png")}
                 alt="FarmFreshFarmer"
                 className="w-full h-full object-contain filter drop-shadow"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-background" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif text-lg sm:text-xl font-black tracking-tight text-foreground group-hover:text-emerald-500 transition-colors leading-none">
-                FarmFresh<span className="text-emerald-500">Farmer</span>
+              <span className="font-serif text-lg sm:text-xl font-black tracking-tight text-foreground group-hover:text-emerald-500 transition-colors leading-none drop-shadow-xs">
+                FarmFresh<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-amber-500 dark:from-emerald-400 dark:to-yellow-300">Farmer</span>
               </span>
-              <span className="text-[9px] font-extrabold tracking-widest text-emerald-600 dark:text-emerald-400 uppercase mt-0.5">
+              <span className="text-[9px] font-black tracking-[0.2em] text-emerald-600 dark:text-emerald-400 uppercase mt-0.5 whitespace-nowrap">
                 ORGANIC · FARM TO HOME
               </span>
             </div>
@@ -295,7 +295,7 @@ export function Header() {
             )}
           </div>
 
-          {/* Right Section: Theme Toggle, User Profile/Orders Dropdown, Admin Portal, Cart */}
+          {/* Right Section: Theme Toggle, Star Tier, Account Dropdown, Admin Portal, Cart */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Light / Dark Mode Toggle */}
             <button
@@ -311,19 +311,39 @@ export function Header() {
               )}
             </button>
 
-            {/* VIP Star Tier Badge (Desktop) */}
+            {/* 🌟 VIBRANT STAR TIER BADGE (Reflects Star Colors, Glowing Accents & Pulse) 🌟 */}
             {user && (
               <div
-                className="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded-full border shadow-xs"
+                className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm transition-all duration-300 ${currentHeaderStarTheme.badgeClass}`}
                 style={{
-                  backgroundColor: currentHeaderStarTheme.fillColor + "15",
-                  borderColor: currentHeaderStarTheme.fillColor + "50",
-                  color: currentHeaderStarTheme.fillColor,
+                  borderColor: currentHeaderStarTheme.fillColor + "70",
+                  backgroundColor: currentHeaderStarTheme.fillColor + "18",
+                  boxShadow: `0 0 14px ${currentHeaderStarTheme.fillColor}30`,
                 }}
                 title={`${currentHeaderStarTheme.label} (${starsCount} Stars)`}
               >
-                <span className="text-xs">{starsCount >= 6 ? "👑" : "★"}</span>
-                <span className="text-[11px] font-black tracking-tight">{starsCount}★</span>
+                {/* Visual Stars */}
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: Math.max(1, Math.min(starsCount, 6)) }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`text-xs leading-none ${currentHeaderStarTheme.starColor} ${currentHeaderStarTheme.glowClass} ${
+                        starsCount === 6 ? "animate-pulse" : ""
+                      }`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                  {starsCount === 0 && (
+                    <span className="text-[11px] font-extrabold text-muted-foreground">0★</span>
+                  )}
+                </div>
+                <span
+                  className="text-xs font-black tracking-tight ml-0.5"
+                  style={{ color: currentHeaderStarTheme.fillColor }}
+                >
+                  {starsCount === 6 ? "👑 6★" : `${starsCount}★`}
+                </span>
               </div>
             )}
 
@@ -338,22 +358,34 @@ export function Header() {
               </Link>
             )}
 
-            {/* Account Menu Dropdown (Profile, Orders, Subscriptions, Referrals, Logout) */}
+            {/* 🌟 VIBRANT USER ACCOUNT DROPDOWN WITH TIER THEME HIGHLIGHTS 🌟 */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border border-emerald-500/30 bg-secondary/70 hover:bg-secondary text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border text-foreground text-xs font-bold transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer"
+                    style={{
+                      borderColor: currentHeaderStarTheme.fillColor + "60",
+                      backgroundColor: currentHeaderStarTheme.fillColor + "15",
+                      boxShadow: `0 0 10px ${currentHeaderStarTheme.fillColor}20`,
+                    }}
                     data-testid="button-account"
                   >
                     {user.profilePhoto ? (
                       <img
                         src={user.profilePhoto}
                         alt={user.name || "User"}
-                        className="w-5 h-5 rounded-full object-cover border border-emerald-500"
+                        className="w-5 h-5 rounded-full object-cover border-2"
+                        style={{ borderColor: currentHeaderStarTheme.fillColor }}
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-black">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shadow-inner"
+                        style={{
+                          backgroundColor: currentHeaderStarTheme.fillColor + "30",
+                          color: currentHeaderStarTheme.fillColor,
+                        }}
+                      >
                         {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon size={12} />}
                       </div>
                     )}
@@ -362,14 +394,21 @@ export function Header() {
                   </button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-emerald-500/30 bg-card/98 backdrop-blur-2xl p-2 shadow-2xl z-50">
-                  <DropdownMenuLabel className="p-2 font-normal">
+                <DropdownMenuContent align="end" className="w-60 rounded-2xl border border-emerald-500/30 bg-card/98 backdrop-blur-2xl p-2 shadow-2xl z-50">
+                  <DropdownMenuLabel className="p-2.5 font-normal rounded-xl bg-secondary/50 mb-1 border border-border/50">
                     <div className="flex flex-col space-y-1">
                       <p className="text-xs font-black text-foreground leading-none truncate">{user.name || "User"}</p>
                       <p className="text-[11px] leading-none text-muted-foreground truncate">{user.email || user.phone || ""}</p>
-                      <div className="pt-1 flex items-center gap-1.5">
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          {isSuperAdmin ? "👑 Master Admin" : isStaff ? "🛡️ Staff Member" : `⭐ ${starsCount}★ Member`}
+                      <div className="pt-1.5 flex items-center gap-1.5">
+                        <span
+                          className="text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-xs"
+                          style={{
+                            backgroundColor: currentHeaderStarTheme.fillColor + "20",
+                            borderColor: currentHeaderStarTheme.fillColor + "60",
+                            color: currentHeaderStarTheme.fillColor,
+                          }}
+                        >
+                          {isSuperAdmin ? "👑 Master Admin (6★ Gold)" : isStaff ? "🛡️ Staff Member" : currentHeaderStarTheme.label}
                         </span>
                       </div>
                     </div>
@@ -562,25 +601,25 @@ export function Header() {
         )}
       </div>
 
-      {/* ── Horizontal Scrollable Category Ribbon ── */}
+      {/* ── 🌟 CENTERED CATEGORY RIBBON (Centered on Desktop/Tablet, Smooth Scroll on Mobile) 🌟 ── */}
       <div className="w-full bg-card/75 dark:bg-zinc-950/70 backdrop-blur-md border-b border-border/60 overflow-x-auto no-scrollbar py-2">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center gap-2 min-w-max">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-start md:justify-center gap-2 min-w-max">
           {categories.map((c) => {
             const isActive = location === `/category/${c.slug}`;
             return (
               <Link
                 key={c.id}
                 href={`/category/${c.slug}`}
-                className={`group relative flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
+                className={`group relative flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
                   isActive
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                    ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-400/40"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 hover:scale-105 active:scale-95"
                 }`}
               >
                 <span>{c.name}</span>
                 <DietDot tag={c.dietTag} size={10} />
                 {isActive && (
-                  <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-500 rounded-full" />
+                  <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                 )}
               </Link>
             );
