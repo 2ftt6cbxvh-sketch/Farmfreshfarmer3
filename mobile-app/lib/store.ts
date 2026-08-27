@@ -7,7 +7,11 @@ export interface User {
   name?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  profilePhoto?: string;
   role?: string;
+  starRating?: number;
+  customerStars?: number;
   isPrimaryAdmin?: boolean;
   isSubAdmin?: boolean;
   permissions?: string[];

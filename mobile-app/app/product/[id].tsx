@@ -11,8 +11,9 @@ import { useDelivery } from '../../hooks/useDelivery';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
 import { useAuth } from '../../lib/store';
-import { api, resolveImgUrl } from '../../lib/api';
+import { api, resolveImgUrl, getCategoryFallbackEmoji } from '../../lib/api';
 import type { Product } from '../../lib/types';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 // ─── Similar Product Card ─────────────────────────────────────────────────────
 function SimilarProductCard({ product }: { product: Product }) {
@@ -27,6 +28,8 @@ function SimilarProductCard({ product }: { product: Product }) {
   const removeItem = useCartStore((state) => state.removeItem);
 
   const [localQty, setLocalQty] = useState(1);
+  const [imgFailed, setImgFailed] = useState(false);
+  const fallbackEmoji = getCategoryFallbackEmoji(product.categorySlug, product.name);
   const price = parseFloat(product.price);
   const discount = parseFloat(product.discountPercent || '0');
   const effectivePrice = discount > 0 ? price * (1 - discount / 100) : price;
@@ -56,11 +59,21 @@ function SimilarProductCard({ product }: { product: Product }) {
     >
       <View style={styles.cardTopAccent} />
 
-      <View style={styles.similarImageWrapper}>
-        {product.image ? (
-          <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.similarImage} resizeMode="cover" />
+      <View style={[styles.similarImageWrapper, isDark ? styles.similarImageWrapperDark : styles.similarImageWrapperLight]}>
+        {product.image && !imgFailed ? (
+          <Image
+            source={{ uri: resolveImgUrl(product.image) }}
+            style={styles.similarImage}
+            resizeMode="cover"
+            onError={() => setImgFailed(true)}
+          />
         ) : (
-          <View style={[styles.similarImage, styles.imagePlaceholder]}><Text style={{ fontSize: 28 }}>🌱</Text></View>
+          <View style={[styles.similarImage, styles.imagePlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight]}>
+            <Text style={{ fontSize: 32 }}>{fallbackEmoji}</Text>
+            <Text style={[styles.placeholderLabel, { color: isDark ? '#34d399' : '#059669' }]} numberOfLines={1}>
+              {product.name}
+            </Text>
+          </View>
         )}
 
         {discount > 0 && (
@@ -160,6 +173,7 @@ export default function ProductDetailScreen() {
   const warehouseName = resolution?.warehouseName || 'Local Warehouse';
 
   const [qty, setQty] = useState(1);
+  const [heroImgFailed, setHeroImgFailed] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
 
@@ -218,6 +232,15 @@ export default function ProductDetailScreen() {
   const allProducts: Product[] = allProductsData?.products || allProductsData || [];
   const similarProducts = allProducts.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 6);
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const userStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const activeTheme = getMobileStarTheme(user ? userStars : 0);
+
   const bg = isDark ? '#050505' : '#f8fafc';
   const cardBg = isDark ? '#0c121e' : '#ffffff';
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
@@ -241,9 +264,9 @@ export default function ProductDetailScreen() {
   return (
     <View style={[styles.mainContainer, { backgroundColor: bg }]}>
       {/* ── Top Header Navigation Bar ───────────────────────────────────────── */}
-      <View style={[styles.topNavBar, isDark && styles.topNavBarDark, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>← Back</Text>
+      <View style={[styles.topNavBar, isDark && styles.topNavBarDark, { paddingTop: insets.top + 6, borderBottomColor: activeTheme.border }]}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: activeTheme.badgeBg, borderColor: activeTheme.border }]} onPress={() => router.back()}>
+          <Text style={[styles.backButtonText, { color: activeTheme.color }]}>← Back</Text>
         </TouchableOpacity>
 
         <View style={styles.brandTitleContainer}>
@@ -277,10 +300,20 @@ export default function ProductDetailScreen() {
         {/* ── 1. Hero Image Container (Auto-Resizing) ─────────────────────────── */}
         <View style={styles.heroWrapper}>
           <View style={[styles.heroImageCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            {product.image ? (
-              <Image source={{ uri: resolveImgUrl(product.image) }} style={styles.heroImage} resizeMode="cover" />
+            {product.image && !heroImgFailed ? (
+              <Image
+                source={{ uri: resolveImgUrl(product.image) }}
+                style={styles.heroImage}
+                resizeMode="cover"
+                onError={() => setHeroImgFailed(true)}
+              />
             ) : (
-              <View style={[styles.heroImage, styles.imagePlaceholder]}><Text style={{ fontSize: 80 }}>🌱</Text></View>
+              <View style={[styles.heroImage, styles.imagePlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight]}>
+                <Text style={{ fontSize: 64 }}>{getCategoryFallbackEmoji(product.categorySlug, product.name)}</Text>
+                <Text style={[styles.heroPlaceholderLabel, { color: isDark ? '#34d399' : '#059669' }]}>
+                  {product.name} · Farm Fresh
+                </Text>
+              </View>
             )}
 
             {/* Dynamic Local Delivery Pill at bottom-left */}
@@ -327,7 +360,7 @@ export default function ProductDetailScreen() {
           {/* Price & Stock status */}
           <View style={styles.priceAndStockRow}>
             <View>
-              <Text style={styles.detailPrice}>₹{effectivePrice.toFixed(0)}</Text>
+              <Text style={[styles.detailPrice, { color: activeTheme.color }]}>₹{effectivePrice.toFixed(0)}</Text>
               {discount > 0 && <Text style={styles.detailOriginalPrice}>₹{price.toFixed(0)}</Text>}
             </View>
             <Text style={[styles.stockStatus, { color: outOfStock ? COLORS.error : '#10b981' }]}>
@@ -348,14 +381,20 @@ export default function ProductDetailScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.detailAddToCartBtn} onPress={handleAddToCart}>
-                <Text style={styles.detailAddToCartBtnText}>🛒 Add to Cart</Text>
+              <TouchableOpacity
+                style={[styles.detailAddToCartBtn, { backgroundColor: activeTheme.buttonBg }]}
+                onPress={handleAddToCart}
+              >
+                <Text style={[styles.detailAddToCartBtnText, { color: activeTheme.buttonTextColor }]}>🛒 Add to Cart</Text>
               </TouchableOpacity>
             </View>
 
             {cartCount > 0 && (
-              <TouchableOpacity style={styles.detailGoToCartFullBtn} onPress={() => router.push('/(tabs)/basket')}>
-                <Text style={styles.detailGoToCartFullBtnText}>🛒 View Cart ({cartCount} items) →</Text>
+              <TouchableOpacity
+                style={[styles.detailGoToCartFullBtn, { backgroundColor: activeTheme.badgeBg, borderColor: activeTheme.border, borderWidth: 1.5 }]}
+                onPress={() => router.push('/(tabs)/basket')}
+              >
+                <Text style={[styles.detailGoToCartFullBtnText, { color: activeTheme.color }]}>🛒 View Cart ({cartCount} items) →</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -700,7 +739,13 @@ const styles = StyleSheet.create({
   similarCardLight: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
   similarCardDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
   cardTopAccent: { height: 3, width: '100%', backgroundColor: '#10b981' },
-  similarImageWrapper: { width: '100%', height: 110, position: 'relative', overflow: 'hidden', backgroundColor: '#091510' },
+  similarImageWrapper: { width: '100%', height: 110, position: 'relative', overflow: 'hidden' },
+  similarImageWrapperLight: { backgroundColor: '#f0fdf4' },
+  similarImageWrapperDark: { backgroundColor: '#091510' },
+  placeholderLight: { backgroundColor: '#f0fdf4' },
+  placeholderDark: { backgroundColor: '#091510' },
+  placeholderLabel: { fontSize: 10, fontWeight: '700', marginTop: 4, textAlign: 'center', paddingHorizontal: 4 },
+  heroPlaceholderLabel: { fontSize: 13, fontWeight: '800', marginTop: 6, textAlign: 'center' },
   similarImage: { width: '100%', height: 110 },
   discountBadge: {
     position: 'absolute',

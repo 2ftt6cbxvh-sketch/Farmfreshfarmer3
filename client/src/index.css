@@ -176,14 +176,14 @@ html[data-tier="silver"].dark, html[data-tier="silver"] .dark {
 }
 
 html[data-tier="bronze"], html[data-tier="bronze"] body {
-  --primary: 28 75% 42%;
-  --sidebar-primary: 28 75% 42%;
-  --ring: 28 75% 42%;
+  --primary: 24 85% 26%;
+  --sidebar-primary: 24 85% 26%;
+  --ring: 24 85% 26%;
 }
 html[data-tier="bronze"].dark, html[data-tier="bronze"] .dark {
-  --primary: 28 65% 52%;
-  --sidebar-primary: 28 65% 52%;
-  --ring: 28 65% 52%;
+  --primary: 24 75% 42%;
+  --sidebar-primary: 24 75% 42%;
+  --ring: 24 75% 42%;
 }
 
 html[data-tier="green"], html[data-tier="green"] body {
@@ -499,3 +499,25 @@ html[data-tier="green"].dark, html[data-tier="green"] .dark {
 .animate-intro-text-slide {
   animation: introTextSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
 }
+
+/* -- Lakshmi AI Bot Animations --------------------------------- */
+@keyframes laxGlow {
+  0%, 100% { box-shadow: 0 0 22px rgba(5,150,105,0.45), 0 0 45px rgba(202,138,4,0.25), 0 8px 32px rgba(5,150,105,0.3); }
+  50% { box-shadow: 0 0 40px rgba(6,95,70,0.75), 0 0 80px rgba(5,150,105,0.55), 0 14px 48px rgba(202,138,4,0.45); }
+}
+@keyframes laxPulseRing { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes laxPulseRing2 { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(3.2); opacity: 0; } }
+@keyframes laxFloat { 0%,100% { transform: translateY(0px); } 30% { transform: translateY(-7px); } 60% { transform: translateY(-3px); } }
+@keyframes laxShimmer { 0% { transform: translateX(-130%) skewX(-18deg); opacity: 0; } 15%,85% { opacity: 0.9; } 100% { transform: translateX(230%) skewX(-18deg); opacity: 0; } }
+@keyframes laxBounce { 0%, 100% { transform: translateY(0px); } 40% { transform: translateY(-5px); } 70% { transform: translateY(-2px); } }
+@keyframes laxSparklePin { 0%,100% { transform: scale(1) rotate(0deg); opacity: 1; } 50% { transform: scale(1.3) rotate(180deg); opacity: 0.7; } }
+@keyframes laxAmbientDot1 { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.6; } 33% { transform: translate(-5px,-9px) scale(1.2); opacity: 1; } 66% { transform: translate(4px,-5px) scale(0.8); opacity: 0.4; } }
+@keyframes laxAmbientDot2 { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.5; } 40% { transform: translate(7px,-11px) scale(1.3); opacity: 0.9; } 70% { transform: translate(-3px,-4px) scale(0.7); opacity: 0.3; } }
+@keyframes laxAmbientDot3 { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.4; } 50% { transform: translate(4px,7px) scale(1.1); opacity: 0.8; } }
+@keyframes laxSlideUp { from { transform: translateY(20px) scale(0.95); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .lax-float-wrapper, .lax-bounce-wrapper { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Performance optimizations */
+.will-change-transform { will-change: transform; contain: layout style; }

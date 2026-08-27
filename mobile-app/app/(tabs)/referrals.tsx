@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { COLORS, BRAND } from '../../constants/config';
 import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 interface ReferralSummary {
   code: string;
@@ -31,6 +32,15 @@ export default function ReferralsScreen() {
     staleTime: 30000,
   });
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const userStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const activeTheme = getMobileStarTheme(user ? userStars : 0);
+
   const bg = isDark ? '#000000' : '#f8fafc';
   const cardBg = isDark ? '#0c121e' : '#ffffff';
   const textColor = isDark ? '#f8fafc' : COLORS.text;
@@ -54,8 +64,8 @@ export default function ReferralsScreen() {
           <Text style={styles.authIcon}>🎁</Text>
           <Text style={[styles.authTitle, { color: textColor }]}>Refer & Earn Rewards</Text>
           <Text style={[styles.authText, { color: mutedColor }]}>Log in to get your unique referral code and start earning cash rewards!</Text>
-          <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/(auth)/login')}>
-            <Text style={styles.loginBtnText}>Sign In to Get Referral Code</Text>
+          <TouchableOpacity style={[styles.loginBtn, { backgroundColor: activeTheme.buttonBg }]} onPress={() => router.push('/(auth)/login')}>
+            <Text style={[styles.loginBtnText, { color: activeTheme.buttonTextColor }]}>Sign In to Get Referral Code</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -65,14 +75,14 @@ export default function ReferralsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={activeTheme.color} />
         <Text style={[{ color: mutedColor, marginTop: 12 }]}>Loading referral data...</Text>
       </View>
     );
   }
 
   const statusColor = (s: string) => {
-    if (s === 'completed' || s === 'available') return '#10b981';
+    if (s === 'completed' || s === 'available') return activeTheme.color;
     if (s === 'pending') return '#f59e0b';
     return COLORS.textMuted;
   };
@@ -80,7 +90,7 @@ export default function ReferralsScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: bg }]}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} colors={[COLORS.primary]} tintColor={COLORS.primary} />}
+      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} colors={[activeTheme.color]} tintColor={activeTheme.color} />}
     >
       <View style={{ paddingTop: Math.max(insets.top + 10, 40), padding: 16 }}>
         <Text style={[styles.pageTitle, { color: textColor }]}>🎁 Refer & Earn</Text>
@@ -88,14 +98,14 @@ export default function ReferralsScreen() {
 
         {data?.code && (
           <TouchableOpacity
-            style={[styles.codeCard, { backgroundColor: isDark ? '#022c22' : '#f0fdf4', borderColor: isDark ? '#065f46' : '#bbf7d0' }]}
+            style={[styles.codeCard, { backgroundColor: isDark ? activeTheme.badgeBg : '#f0fdf4', borderColor: activeTheme.border }]}
             onPress={handleShareCode}
             activeOpacity={0.85}
           >
             <Text style={[{ color: mutedColor, fontSize: 11, marginBottom: 6, textAlign: 'center', letterSpacing: 1, fontWeight: '700' }]}>YOUR REFERRAL CODE</Text>
-            <Text style={styles.codeText}>{data.code}</Text>
-            <View style={styles.copyBtnRow}>
-              <Text style={styles.copyBtnText}>📋 Tap to Share Code</Text>
+            <Text style={[styles.codeText, { color: activeTheme.color }]}>{data.code}</Text>
+            <View style={[styles.copyBtnRow, { backgroundColor: activeTheme.buttonBg }]}>
+              <Text style={[styles.copyBtnText, { color: activeTheme.buttonTextColor }]}>📋 Tap to Share Code</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -108,7 +118,7 @@ export default function ReferralsScreen() {
             { value: `₹${(data?.availableBalance || 0).toFixed(0)}`, label: '👛 Available' },
           ].map(k => (
             <View key={k.label} style={[styles.kpiCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-              <Text style={[styles.kpiValue, { color: k.label.includes('Available') ? COLORS.primary : textColor }]}>{k.value}</Text>
+              <Text style={[styles.kpiValue, { color: k.label.includes('Available') ? activeTheme.color : textColor }]}>{k.value}</Text>
               <Text style={[styles.kpiLabel, { color: mutedColor }]}>{k.label}</Text>
             </View>
           ))}

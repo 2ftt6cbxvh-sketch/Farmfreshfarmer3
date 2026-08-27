@@ -19,6 +19,7 @@ interface LiveSession {
   id: number;
   sessionToken: string;
   userId?: number | null;
+  customerName?: string | null;
   language: string;
   status: 'bot' | 'waiting_for_agent' | 'agent_connected' | 'closed';
   assignedAgentId?: number | null;
@@ -243,7 +244,7 @@ export function AdminLiveChatView({
       </View>
 
       {/* Segmented Tab Selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 12 }}>
         <View style={[styles.tabBar, { backgroundColor: cardBg, borderColor: borderCol, flexDirection: 'row', gap: 6, padding: 4 }]}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'all' && styles.tabBtnActive]}
@@ -612,6 +613,12 @@ const styles = StyleSheet.create({
     color: '#34d399',
     fontSize: 10,
     fontWeight: '800',
+  },
+  tagClosed: {
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   messageSnippet: {
     fontSize: 12,

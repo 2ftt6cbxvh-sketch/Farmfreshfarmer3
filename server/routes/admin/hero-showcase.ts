@@ -9,6 +9,7 @@ import { db } from "../../db";
 import { products, users } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { storage } from "../../storage";
+import { apiCache } from "../../services/cache";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -56,25 +57,30 @@ export function registerHeroShowcaseRoutes(app: Express) {
   /** GET /api/hero-showcase — Public hero showcase configuration & featured product list */
   app.get("/api/hero-showcase", async (_req: Request, res: Response) => {
     try {
-      const settings = await storage.settings.all();
-      const mode = settings.hero_showcase_mode || "featured_products";
-      const customImageUrl = settings.hero_showcase_custom_url || "/images/p-mango.jpg";
-      const customTitle = settings.hero_showcase_custom_title || "Direct Farm Harvest";
-      const customSubtitle = settings.hero_showcase_custom_subtitle || "Picked this morning";
+      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+      const data = await apiCache.getOrSet("hero:showcase", async () => {
+        const settings = await storage.settings.all();
+        const mode = settings.hero_showcase_mode || "featured_products";
+        const customImageUrl = settings.hero_showcase_custom_url || "/images/p-mango.jpg";
+        const customTitle = settings.hero_showcase_custom_title || "Direct Farm Harvest";
+        const customSubtitle = settings.hero_showcase_custom_subtitle || "Picked this morning";
 
-      // Query products flagged with featuredInHero === true
-      const featuredHeroProducts = await db
-        .select()
-        .from(products)
-        .where(and(eq(products.featuredInHero, true), eq(products.active, true)));
+        // Query products flagged with featuredInHero === true
+        const featuredHeroProducts = await db
+          .select()
+          .from(products)
+          .where(and(eq(products.featuredInHero, true), eq(products.active, true)));
 
-      return res.json({
-        mode,
-        customImageUrl,
-        customTitle,
-        customSubtitle,
-        featuredProducts: featuredHeroProducts,
-      });
+        return {
+          mode,
+          customImageUrl,
+          customTitle,
+          customSubtitle,
+          featuredProducts: featuredHeroProducts,
+        };
+      }, 60, ["hero", "products", "settings"]);
+
+      return res.json(data);
     } catch (err: any) {
       console.error("[hero-showcase] GET error:", err);
       return res.status(500).json({ message: "Failed to fetch hero showcase config" });

@@ -591,7 +591,7 @@ export function LakshmiAiBot({ customGreeting }: { customGreeting?: string } = {
               style={styles.pillWrapper}
             >
               <LinearGradient
-                colors={['#FF6B35', '#D4145A', '#7B2FF7']}
+                colors={['#14532d', '#065f46', '#ca8a04']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.floatingPill}
@@ -871,13 +871,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(212, 20, 90, 0.45)',
+    borderColor: 'rgba(5, 150, 105, 0.45)',
     marginBottom: 10,
     maxWidth: 220,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    shadowColor: '#D4145A',
+    shadowColor: '#065f46',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
     right: 0,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: 'rgba(123, 47, 247, 0.5)',
+    borderColor: 'rgba(5, 150, 105, 0.5)',
     backgroundColor: 'transparent',
   },
   innerPulseRing: {
@@ -921,13 +921,13 @@ const styles = StyleSheet.create({
     right: 0,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: 'rgba(212, 20, 90, 0.6)',
+    borderColor: 'rgba(5, 122, 85, 0.6)',
     backgroundColor: 'transparent',
   },
   pillWrapper: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#D4145A',
+    shadowColor: '#065f46',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.5,
     shadowRadius: 14,

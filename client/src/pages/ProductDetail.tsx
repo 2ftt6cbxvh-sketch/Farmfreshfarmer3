@@ -116,9 +116,20 @@ export default function ProductDetail() {
         {/* Main Product Specs */}
         <div className="grid md:grid-cols-2 gap-8 items-start">
           <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group w-full max-w-full">
-            {product.image ? (
-              <img src={imgUrl(product.image)} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            ) : <div className="h-full flex items-center justify-center text-muted-foreground font-bold">No image</div>}
+            {product.image && !imgFailed ? (
+              <img
+                src={imgUrl(product.image)}
+                alt={product.name}
+                onError={() => setImgFailed(true)}
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <div className="h-full w-full flex flex-col items-center justify-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 p-6 text-center">
+                <span className="text-6xl">🌱</span>
+                <span className="text-sm font-black mt-3">{product.name}</span>
+                <span className="text-xs text-muted-foreground mt-1">Farm Fresh Harvest</span>
+              </div>
+            )}
             {hasDiscount && (
               <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-xs font-extrabold px-3.5 py-1 rounded-full shadow-lg border border-amber-300/40">
                 {Math.round(Number(product.discountPercent))}% OFF

@@ -22,6 +22,7 @@ import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { api } from '../../lib/api';
 import { getMobileStarTheme } from '../../lib/starTheme';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 
@@ -73,7 +74,13 @@ export default function AccountScreen() {
   const [editName, setEditName] = useState(user?.name || '');
   const [editPhone, setEditPhone] = useState(user?.phone || '');
   const [editAddress, setEditAddress] = useState(user?.address || '');
+  const [editProfilePhoto, setEditProfilePhoto] = useState((user as any)?.profilePhoto || '');
   const [profileSaving, setProfileSaving] = useState(false);
+
+  // Profile Photo Modal State
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [customPhotoInput, setCustomPhotoInput] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -81,8 +88,83 @@ export default function AccountScreen() {
       setEditPhone(user.phone || '');
       setEditAddress(user.address || '');
       setNewPhone(user.phone || '');
+      setEditProfilePhoto((user as any).profilePhoto || '');
     }
   }, [user]);
+
+  const handlePickPhotoFromLibrary = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please grant photo library access in your device settings to select a profile photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let photoUri = asset.uri;
+        if (asset.base64) {
+          photoUri = `data:image/jpeg;base64,${asset.base64}`;
+        }
+        await handleSavePhoto(photoUri);
+      }
+    } catch (err: any) {
+      Alert.alert('Photo Selection Failed', err?.message || 'Could not pick image.');
+    }
+  };
+
+  const handleSavePhoto = async (photoUrl: string) => {
+    setPhotoBusy(true);
+    try {
+      const res = await api.patch('/api/user/profile', {
+        name: editName || user?.name || '',
+        phone: editPhone || user?.phone || '',
+        address: editAddress || user?.address || '',
+        profilePhoto: photoUrl,
+      });
+      if (res.data?.user) {
+        useAuth.getState().setUser(res.data.user);
+      }
+      setEditProfilePhoto(photoUrl);
+      setShowPhotoModal(false);
+      setCustomPhotoInput('');
+      Alert.alert('✅ Photo Synchronized', 'Your profile photo has been updated and synced with your web account!');
+    } catch (err: any) {
+      Alert.alert('Photo Update Failed', err?.response?.data?.message || 'Could not save profile photo.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoBusy(true);
+    try {
+      const res = await api.patch('/api/user/profile', {
+        name: editName || user?.name || '',
+        phone: editPhone || user?.phone || '',
+        address: editAddress || user?.address || '',
+        profilePhoto: '',
+      });
+      if (res.data?.user) {
+        useAuth.getState().setUser(res.data.user);
+      }
+      setEditProfilePhoto('');
+      setShowPhotoModal(false);
+      Alert.alert('Photo Removed', 'Your profile photo was removed.');
+    } catch (err: any) {
+      Alert.alert('Error', 'Could not remove photo.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'refund' | 'shipping' | 'contact' | null>(null);
 
@@ -356,28 +438,37 @@ export default function AccountScreen() {
           },
         ]}
       >
-        {/* Glow Halo */}
-        <Animated.View
-          style={[
-            styles.avatarGlowCircle,
-            {
-              backgroundColor: activeTheme.glowColor,
-              opacity: glowAnim,
-              transform: [{ scale: glowAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.96, 1.05] }) }],
-            },
-          ]}
-        />
+        {/* ── Perfectly Centered Avatar Container with Halo Glow ── */}
+        <View style={styles.avatarContainer}>
+          <Animated.View
+            style={[
+              styles.avatarGlowCircle,
+              {
+                backgroundColor: activeTheme.glowColor,
+                opacity: glowAnim,
+                transform: [{ scale: glowAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.94, 1.12] }) }],
+              },
+            ]}
+          />
 
-        <View style={[styles.avatarWrapper, { backgroundColor: activeTheme.avatarBg, borderColor: activeTheme.avatarBorder }]}>
-          {(user as any).profilePhoto ? (
-            <Image
-              source={{ uri: (user as any).profilePhoto }}
-              style={{ width: '100%', height: '100%', borderRadius: 38 }}
-            />
-          ) : (
-            <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
-          )}
-          <View style={[styles.onlineDot, { borderColor: isDark ? activeTheme.heroBgDark : activeTheme.heroBgLight }]} />
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setShowPhotoModal(true)}
+            style={[styles.avatarWrapper, { backgroundColor: activeTheme.avatarBg, borderColor: activeTheme.avatarBorder }]}
+          >
+            {(user as any).profilePhoto ? (
+              <Image
+                source={{ uri: (user as any).profilePhoto }}
+                style={{ width: '100%', height: '100%', borderRadius: 38 }}
+              />
+            ) : (
+              <Text style={styles.avatarInitial}>{user.name ? user.name[0].toUpperCase() : 'F'}</Text>
+            )}
+            <View style={[styles.onlineDot, { borderColor: isDark ? activeTheme.heroBgDark : activeTheme.heroBgLight }]} />
+            <View style={styles.cameraIconBadge}>
+              <Text style={{ fontSize: 11 }}>📷</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <Text style={[styles.heroNameText, !isDark && { color: '#0f172a' }]}>{user.name}</Text>
@@ -740,8 +831,32 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 440 }}>
               <View style={{ gap: 14, paddingVertical: 8 }}>
+                {/* Photo Row in Edit Modal */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: inputBg, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: borderCol }}>
+                  <View style={[styles.modalAvatarThumb, { borderColor: activeTheme.border }]}>
+                    {(user as any).profilePhoto ? (
+                      <Image source={{ uri: (user as any).profilePhoto }} style={{ width: '100%', height: '100%', borderRadius: 22 }} />
+                    ) : (
+                      <Text style={{ fontSize: 18 }}>{user?.name ? user.name[0].toUpperCase() : '👤'}</Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: textColor, fontWeight: '800', fontSize: 13 }}>Profile Photo</Text>
+                    <Text style={{ color: mutedColor, fontSize: 11 }}>Synchronized with your web account</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.changePhotoBtn, { backgroundColor: activeTheme.buttonBg }]}
+                    onPress={() => {
+                      setShowEditProfileModal(false);
+                      setTimeout(() => setShowPhotoModal(true), 300);
+                    }}
+                  >
+                    <Text style={[styles.changePhotoBtnText, { color: activeTheme.buttonTextColor }]}>Change 📷</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View>
                   <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Full Name</Text>
                   <TextInput
@@ -789,16 +904,92 @@ export default function AccountScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitTicketBtn, { marginTop: 8 }]}
+                  style={[styles.submitTicketBtn, { marginTop: 8, backgroundColor: activeTheme.buttonBg }]}
                   onPress={handleSaveFullProfile}
                   disabled={profileSaving}
                 >
                   {profileSaving ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={activeTheme.buttonTextColor} />
                   ) : (
-                    <Text style={styles.submitTicketBtnText}>Save Profile Changes 💾</Text>
+                    <Text style={[styles.submitTicketBtnText, { color: activeTheme.buttonTextColor }]}>Save Profile Changes 💾</Text>
                   )}
                 </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── 📷 Profile Photo Picker Modal (Synced with Web) ──────────────────── */}
+      <Modal visible={showPhotoModal} transparent animationType="slide" onRequestClose={() => setShowPhotoModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContentCard, { backgroundColor: isDark ? '#091510' : '#ffffff', borderColor: borderCol }]}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalHeaderTitle, { color: textColor }]}>📷 Update Profile Photo</Text>
+              <TouchableOpacity onPress={() => setShowPhotoModal(false)} style={[styles.modalCloseBtn, { backgroundColor: inputBg }]}>
+                <Text style={{ color: textColor, fontWeight: 'bold', fontSize: 14 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+              <View style={{ gap: 16, paddingVertical: 8 }}>
+                {/* Current Avatar Preview */}
+                <View style={{ alignItems: 'center', marginVertical: 8 }}>
+                  <View style={[styles.photoPreviewWrapper, { borderColor: activeTheme.border, backgroundColor: activeTheme.avatarBg }]}>
+                    {(user as any).profilePhoto ? (
+                      <Image source={{ uri: (user as any).profilePhoto }} style={{ width: '100%', height: '100%', borderRadius: 44 }} />
+                    ) : (
+                      <Text style={{ fontSize: 36 }}>{user?.name ? user.name[0].toUpperCase() : '👨‍🌾'}</Text>
+                    )}
+                  </View>
+                  <Text style={{ color: mutedColor, fontSize: 11, marginTop: 6 }}>Changes sync directly to your web account in real-time</Text>
+                </View>
+
+                {/* Upload from Library */}
+                <TouchableOpacity
+                  style={[styles.photoActionBtn, { backgroundColor: activeTheme.buttonBg }]}
+                  onPress={handlePickPhotoFromLibrary}
+                  disabled={photoBusy}
+                >
+                  <Text style={{ fontSize: 18 }}>🖼️</Text>
+                  <Text style={[styles.photoActionBtnText, { color: activeTheme.buttonTextColor }]}>
+                    Choose from Photo Library
+                  </Text>
+                </TouchableOpacity>
+
+                
+                {/* Custom Photo URL Input */}
+                <View>
+                  <Text style={[styles.formLabel, { color: textColor, marginBottom: 6 }]}>Or Paste Image URL:</Text>
+                  <TextInput
+                    style={[styles.ticketInput, { backgroundColor: inputBg, borderColor: borderCol, color: textColor, minHeight: 45 }]}
+                    placeholder="https://images.example.com/my-photo.jpg"
+                    placeholderTextColor={mutedColor}
+                    value={customPhotoInput}
+                    onChangeText={setCustomPhotoInput}
+                    autoCapitalize="none"
+                  />
+                  {customPhotoInput.trim() ? (
+                    <TouchableOpacity
+                      style={[styles.photoActionBtn, { backgroundColor: activeTheme.buttonBg, marginTop: 6 }]}
+                      onPress={() => handleSavePhoto(customPhotoInput.trim())}
+                      disabled={photoBusy}
+                    >
+                      <Text style={[styles.photoActionBtnText, { color: activeTheme.buttonTextColor }]}>Use URL as Profile Photo 🔗</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {/* Remove Photo */}
+                {(user as any).profilePhoto ? (
+                  <TouchableOpacity
+                    style={[styles.removePhotoBtn, { borderColor: '#ef4444' }]}
+                    onPress={handleRemovePhoto}
+                    disabled={photoBusy}
+                  >
+                    <Text style={{ color: '#ef4444', fontWeight: '800', fontSize: 13 }}>🗑️ Remove Current Profile Photo</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </ScrollView>
           </View>
@@ -1022,13 +1213,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  avatarContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 90,
+    height: 90,
+    marginBottom: 8,
+  },
   avatarGlowCircle: {
     position: 'absolute',
-    top: 40,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
   },
   avatarWrapper: {
     width: 76,
@@ -1040,7 +1237,66 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#34d399',
     position: 'relative',
-    marginBottom: 10,
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  modalAvatarThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  changePhotoBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  changePhotoBtnText: {
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  photoPreviewWrapper: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  photoActionBtnText: {
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  removePhotoBtn: {
+    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 4,
   },
   avatarInitial: {
     fontSize: 32,

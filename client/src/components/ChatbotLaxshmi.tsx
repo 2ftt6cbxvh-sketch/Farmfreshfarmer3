@@ -880,7 +880,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               <div
                 className="bg-white/96 dark:bg-zinc-800/96 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/8 dark:border-white/10 max-w-[210px] flex items-center justify-between gap-2"
                 style={{
-                  boxShadow: '0 12px 32px -6px rgba(212,20,90,0.18), 0 4px 12px -2px rgba(0,0,0,0.1)',
+                  boxShadow: '0 12px 32px -6px rgba(5,150,105,0.18), 0 4px 12px -2px rgba(0,0,0,0.1)',
                 }}
               >
                 <span>{customGreeting || strings.bubbleGreeting}</span>
@@ -907,66 +907,15 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           )}
 
           {/* Main pill button */}
-          <div className="relative">
-            {/* Outer ambient glow dots */}
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: 'rgba(255,107,53,0.8)',
-                top: -8, left: 6,
-                filter: 'blur(2px)',
-                animation: 'laxAmbientDot1 4.2s ease-in-out infinite',
-              }}
-            />
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: 'rgba(212,20,90,0.8)',
-                top: -5, right: 10,
-                filter: 'blur(1.5px)',
-                animation: 'laxAmbientDot2 5.1s ease-in-out infinite 0.8s',
-              }}
-            />
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: 5, height: 5, borderRadius: '50%',
-                background: 'rgba(123,47,247,0.9)',
-                bottom: -6, left: 16,
-                filter: 'blur(1.5px)',
-                animation: 'laxAmbientDot3 3.8s ease-in-out infinite 1.4s',
-              }}
-            />
-
-            {/* Outer slow pulse ring */}
-            <div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                animation: 'laxPulseRing2 3.4s cubic-bezier(0,0.5,0.5,1) infinite 1.1s',
-                background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
-                opacity: 0,
-              }}
-            />
-            {/* Inner fast pulse ring */}
-            <div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                animation: 'laxPulseRing 2.2s cubic-bezier(0,0.5,0.5,1) infinite',
-                background: 'linear-gradient(135deg, #FF6B35, #D4145A, #7B2FF7)',
-                opacity: 0,
-              }}
-            />
-
-            {/* The pill button - single line compact layout */}
+          <div className="relative" style={{ contain: 'layout style', willChange: 'transform' }}>
+            {/* The pill button - hardware accelerated & GPU optimized */}
             <button
               id="chatbot-open-btn"
               onClick={() => setIsOpen(true)}
-              className="relative overflow-hidden px-3.5 py-2 flex items-center gap-1.5 rounded-full hover:scale-[1.05] active:scale-95 transition-transform duration-300 cursor-pointer shadow-lg"
+              className="relative overflow-hidden px-3.5 py-2 flex items-center gap-1.5 rounded-full hover:scale-[1.05] active:scale-95 transition-all duration-300 cursor-pointer shadow-lg will-change-transform"
               style={{
-                background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)',
-                animation: 'laxGlow 3.5s ease-in-out infinite',
+                background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)',
+                animation: 'laxGlow 6s ease-in-out infinite',
               }}
               aria-label="Open Lakshmi AI assistant"
             >
@@ -974,7 +923,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               <div
                 className="absolute inset-0 pointer-events-none rounded-full"
                 style={{
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
                   animation: 'laxShimmer 4s ease-in-out infinite 1.5s',
                 }}
               />
@@ -1002,15 +951,15 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-black/10 dark:border-purple-900/40"
+          className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-black/10 dark:border-emerald-900/40"
           style={{ 
             width: '360px', maxWidth: 'calc(100vw - 24px)', height: '540px', maxHeight: 'calc(100vh - 80px)',
             animation: 'laxSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(212, 20, 90, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.18), 0 10px 25px -5px rgba(5, 150, 105, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)',
           }}>
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+            style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <span style={{ fontSize: '20px' }}>🪔</span>
             </div>
@@ -1031,7 +980,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 <div className="absolute right-0 top-8 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-emerald-100 dark:border-emerald-800 overflow-hidden z-10 min-w-[120px]">
                   {(Object.keys(LANG_LABELS) as Language[]).map((l) => (
                     <button key={l} onClick={() => { setLanguage(l); setShowLangPicker(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition ${language === l ? "text-purple-600 font-semibold" : "text-gray-700 dark:text-gray-300"}`}>
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition ${language === l ? "text-emerald-600 font-semibold" : "text-gray-700 dark:text-gray-300"}`}>
                       {LANG_LABELS[l]}
                     </button>
                   ))}
@@ -1101,8 +1050,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
             {messages.map((msg, index) => (
               <div key={msg.id} ref={index === messages.length - 1 && msg.role === 'model' ? lastAssistantMessageRef : null} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "model" && (
-                  <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
-                    style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
+                    style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
                     <span style={{ fontSize: '12px' }}>{msg.senderName ? "👤" : "🪔"}</span>
                   </div>
                 )}
@@ -1162,7 +1111,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                           </>
                         );
                       })()}
-                      <span className="text-purple-300 font-extrabold">{user.name}</span>
+                      <span className="text-emerald-300 font-extrabold">{user.name}</span>
                     </div>
                   )}
                   <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${
@@ -1170,7 +1119,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       ? "text-white rounded-tr-sm"
                       : "bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 rounded-tl-sm"
                   }`}
-                  style={msg.role === "user" ? { background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' } : {}}
+                  style={msg.role === "user" ? { background: 'linear-gradient(135deg, #065f46, #ca8a04)' } : {}}
                   >
                     {msg.content}
                   </div>
@@ -1180,7 +1129,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       {msg.products.map((p) => {
                         const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.quantity || 0;
                         return (
-                          <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-purple-300">
+                          <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-emerald-300">
                             {p.image ? (
                               <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
                             ) : (
@@ -1212,7 +1161,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                               className={`h-7 px-2 text-[11px] font-bold gap-1 transition ${
                                 inCartQty > 0
                                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "bg-purple-600 hover:bg-purple-700 text-white"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
                               }`}
                             >
                               <ShoppingCart size={11} />
@@ -1227,7 +1176,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {/* Inline Sign-In Box */}
                   {msg.showSignInBox && (
                     <GoogleOAuthProvider clientId="983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com">
-                      <div className="mt-2.5 p-3 bg-card border border-purple-300 dark:border-purple-800 rounded-2xl shadow-lg space-y-2.5 text-center">
+                      <div className="mt-2.5 p-3 bg-card border border-emerald-300 dark:border-emerald-800 rounded-2xl shadow-lg space-y-2.5 text-center">
                         <div className="flex items-center justify-center gap-1 text-xs font-bold text-foreground">
                           <Lock size={13} className="text-emerald-500" /> Sign In Required
                         </div>
@@ -1321,13 +1270,13 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {/* Action buttons */}
                   {msg.action === "GO_TO_CHECKOUT" && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
-                      className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
+                      className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold hover:underline">
                       <ShoppingCart size={12} /> {strings.goToCart}
                     </button>
                   )}
                   {msg.action === "ADD_TO_CART" && msg.actionData?.productId && (
                     <button onClick={() => handleAction(msg.action!, msg.actionData)}
-                      className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-600 font-semibold hover:underline">
+                      className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold hover:underline">
                       <ExternalLink size={12} /> {strings.viewProduct}
                     </button>
                   )}
@@ -1335,7 +1284,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                     <button
                       onClick={() => navigate('/account')}
                       className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 w-fit"
-                      style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}
+                      style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}
                     >
                       <Ticket size={14} />
                       View My Tickets
@@ -1345,7 +1294,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                     <button
                       onClick={handleDetectLocation}
                       className="mt-2 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
-                      style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}
+                      style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}
                     >
                       <MapPin size={15} />
                       Detect My Location
@@ -1355,7 +1304,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {msg.role === "model" && (
                     <button id={`chatbot-listen-${msg.id}`}
                       onClick={() => speakText(msg.content, msg.id, language)}
-                      className={`mt-1 flex items-center gap-1 text-[10px] transition ${speakingId === msg.id ? "text-red-500 font-medium" : "text-gray-400 hover:text-purple-600"}`}>
+                      className={`mt-1 flex items-center gap-1 text-[10px] transition ${speakingId === msg.id ? "text-red-500 font-medium" : "text-gray-400 hover:text-emerald-600"}`}>
                       {speakingId === msg.id ? <><VolumeX size={11} /> {strings.stop}</> : <><Volume2 size={11} /> {strings.listen}</>}
                     </button>
                   )}
@@ -1366,12 +1315,12 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
             {sendMutation.isPending && (
               <div className="flex justify-start">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center mr-2 mt-1"
-                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #D4145A 50%, #7B2FF7 100%)' }}>
+                  style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
                   <span style={{ fontSize: '12px' }}>🪔</span>
                 </div>
                 <div className="bg-gray-100 dark:bg-zinc-800 rounded-2xl rounded-tl-sm px-4 py-3.5 flex gap-1.5 items-center">
                   {[0, 150, 300].map((d) => (
-                    <span key={d} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#7B2FF7', animationDelay: `${d}ms` }} />
+                    <span key={d} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: '#ca8a04', animationDelay: `${d}ms` }} />
                   ))}
                 </div>
               </div>
@@ -1388,7 +1337,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
             </button>
 
             <button id="chatbot-human-btn" onClick={handleConnectHuman} disabled={humanMutation.isPending}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border border-purple-200 dark:border-purple-800 text-[11px] font-bold text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition disabled:opacity-50">
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition disabled:opacity-50">
               <Users size={12} />
               {humanMutation.isPending ? strings.connecting : strings.connectHuman}
             </button>
@@ -1407,7 +1356,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-purple-400 transition">
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-emerald-400 transition">
                 <input ref={inputRef} id="chatbot-input" type="text" value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
@@ -1416,14 +1365,14 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 />
                 {/* Mic button */}
                 <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
-                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30"}`}
+                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"}`}
                   aria-label={isListening ? "Stop recording" : "Start voice input"}>
                   {isListening ? <MicOff size={14} /> : <Mic size={14} />}
                 </button>
                 {/* Send button */}
                 <button id="chatbot-send-btn" onClick={handleSend} disabled={!input.trim() || sendMutation.isPending}
                   className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, #D4145A, #7B2FF7)' }}
+                  style={{ background: 'linear-gradient(135deg, #065f46, #ca8a04)' }}
                   aria-label="Send message">
                   <Send size={13} />
                 </button>
@@ -1434,64 +1383,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
         </div>
       )}
 
-      <style>{`
-        @keyframes laxGlow {
-          0%, 100% {
-            box-shadow: 0 0 22px rgba(212,20,90,0.45), 0 0 45px rgba(123,47,247,0.25), 0 8px 32px rgba(212,20,90,0.3), inset 0 1px 1px rgba(255,255,255,0.25);
-          }
-          50% {
-            box-shadow: 0 0 40px rgba(255,107,53,0.75), 0 0 80px rgba(212,20,90,0.55), 0 14px 48px rgba(123,47,247,0.45), inset 0 1px 1px rgba(255,255,255,0.35);
-          }
-        }
-        @keyframes laxPulseRing {
-          0% { transform: scale(1); opacity: 0.7; }
-          100% { transform: scale(2.4); opacity: 0; }
-        }
-        @keyframes laxPulseRing2 {
-          0% { transform: scale(1); opacity: 0.4; }
-          100% { transform: scale(3.2); opacity: 0; }
-        }
-        @keyframes laxFloat {
-          0%   { transform: translateY(0px) rotate(0deg); }
-          20%  { transform: translateY(-10px) rotate(0.8deg); }
-          50%  { transform: translateY(-6px) rotate(-0.5deg); }
-          80%  { transform: translateY(-11px) rotate(0.6deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-        @keyframes laxShimmer {
-          0%   { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
-          15%  { opacity: 0.9; }
-          85%  { opacity: 0.9; }
-          100% { transform: translateX(230%) skewX(-18deg); opacity: 0; }
-        }
-        @keyframes laxBounce {
-          0%, 100% { transform: translateY(0px); }
-          40% { transform: translateY(-7px); }
-          70% { transform: translateY(-3px); }
-        }
-        @keyframes laxSparklePin {
-          0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-          50% { transform: scale(1.4) rotate(180deg); opacity: 0.7; }
-        }
-        @keyframes laxAmbientDot1 {
-          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.6; }
-          33% { transform: translate(-8px, -12px) scale(1.3); opacity: 1; }
-          66% { transform: translate(5px, -8px) scale(0.8); opacity: 0.4; }
-        }
-        @keyframes laxAmbientDot2 {
-          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.5; }
-          40% { transform: translate(10px, -14px) scale(1.4); opacity: 0.9; }
-          70% { transform: translate(-4px, -6px) scale(0.7); opacity: 0.3; }
-        }
-        @keyframes laxAmbientDot3 {
-          0%, 100% { transform: translate(0px, 0px) scale(1); opacity: 0.4; }
-          50% { transform: translate(6px, 10px) scale(1.2); opacity: 0.8; }
-        }
-        @keyframes laxSlideUp {
-          from { transform: translateY(20px) scale(0.95); opacity: 0; }
-          to { transform: translateY(0) scale(1); opacity: 1; }
-        }
-      `}</style>
+
     </>
   );
 }

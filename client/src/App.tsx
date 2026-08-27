@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import LockdownOverlay from "@/components/LockdownOverlay";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { IntroLoader } from "@/components/IntroLoader";
+import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
 import Home from "@/pages/Home";
 import Category from "@/pages/Category";
 import SearchPage from "@/pages/SearchPage";
@@ -266,6 +267,7 @@ function AppContent() {
       <TooltipProvider>
         <AuthProvider>
           <TierThemeSync />
+          <StarBumpCelebrationModal />
           <CartProvider>
             <Toaster />
             <Router>

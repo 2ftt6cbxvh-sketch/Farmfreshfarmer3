@@ -74,12 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
 
-    // Poll /api/me periodically (every 4s) so that real-time CR / support edits to profile/stars reflect instantly
+    // Poll /api/me periodically when tab is visible to prevent background battery/GPU drain
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (localStorage.getItem("accessToken") || localStorage.getItem("token")) {
         refresh();
       }
-    }, 4000);
+    }, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -242,8 +243,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     syncCartOnLogin();
 
-    // Poll /api/cart every 4s for logged-in user to reflect support CR additions/qty modifications live
+    // Poll /api/cart when tab is visible to prevent unnecessary CPU load
     const interval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       // Avoid overwriting state if user edited cart locally within last 5 seconds
       if (user && !cancelled && Date.now() - lastLocalEditRef.current > 5000) {
         try {
@@ -257,7 +259,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } catch {}
       }
-    }, 4000);
+    }, 8000);
 
     return () => {
       cancelled = true;

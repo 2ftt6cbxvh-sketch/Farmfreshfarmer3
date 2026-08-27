@@ -12,9 +12,10 @@ import { useDelivery } from '../../hooks/useDelivery';
 import { useThemeStore } from '../../lib/theme';
 import { useCartStore } from '../../lib/cart';
 import { useAuth } from '../../lib/store';
-import { api, resolveImgUrl } from '../../lib/api';
+import { api, resolveImgUrl, getCategoryFallbackEmoji } from '../../lib/api';
 import type { Product } from '../../lib/types';
 import { AnimatedFreeDeliveryBar } from '../../components/FreeDeliveryBar';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 interface PriceQuote {
   subtotal: number;
@@ -246,6 +247,15 @@ export default function BasketScreen() {
     }
   };
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const userStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const activeTheme = getMobileStarTheme(user ? userStars : 0);
+
   const bg = isDark ? '#050505' : '#ffffff';
   const cardBg = isDark ? '#0c121e' : '#ffffff';
   const borderCol = isDark ? 'rgba(16, 185, 129, 0.25)' : '#e2e8f0';
@@ -260,8 +270,8 @@ export default function BasketScreen() {
         <Text style={[styles.emptySubtitle, { color: mutedColor }]}>
           Explore our fresh fruits, sweets, vegetables & pickles to fill your basket!
         </Text>
-        <TouchableOpacity style={styles.startShoppingBtn} onPress={() => router.push('/(tabs)')}>
-          <Text style={styles.startShoppingBtnText}>Start Shopping Now →</Text>
+        <TouchableOpacity style={[styles.startShoppingBtn, { backgroundColor: activeTheme.buttonBg }]} onPress={() => router.push('/(tabs)')}>
+          <Text style={[styles.startShoppingBtnText, { color: activeTheme.buttonTextColor }]}>Start Shopping Now →</Text>
         </TouchableOpacity>
       </View>
     );
@@ -282,8 +292,8 @@ export default function BasketScreen() {
               {item.image ? (
                 <Image source={{ uri: resolveImgUrl(item.image) }} style={styles.itemImage} resizeMode="cover" />
               ) : (
-                <View style={[styles.itemImage, styles.itemPlaceholder]}>
-                  <Text style={{ fontSize: 24 }}>🌱</Text>
+                <View style={[styles.itemImage, styles.itemPlaceholder, isDark ? { backgroundColor: '#091510' } : { backgroundColor: '#f0fdf4' }]}>
+                  <Text style={{ fontSize: 28 }}>{getCategoryFallbackEmoji((item as any).categorySlug, item.name)}</Text>
                 </View>
               )}
 
@@ -335,12 +345,12 @@ export default function BasketScreen() {
               onChangeText={setCouponInput}
               autoCapitalize="characters"
             />
-            <TouchableOpacity style={styles.applyBtn} onPress={applyCoupon} disabled={couponBusy}>
-              <Text style={styles.applyBtnText}>{couponBusy ? '...' : '🏷️ Apply'}</Text>
+            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: activeTheme.buttonBg }]} onPress={applyCoupon} disabled={couponBusy}>
+              <Text style={[styles.applyBtnText, { color: activeTheme.buttonTextColor }]}>{couponBusy ? '...' : '🏷️ Apply'}</Text>
             </TouchableOpacity>
           </View>
           {coupon && (
-            <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700', marginTop: -4, marginBottom: 8 }}>
+            <Text style={{ color: activeTheme.buttonBg, fontSize: 11, fontWeight: '700', marginTop: -4, marginBottom: 8 }}>
               ✓ Coupon {coupon.code} applied ({coupon.discountPercent}% OFF)
             </Text>
           )}
@@ -355,12 +365,12 @@ export default function BasketScreen() {
               onChangeText={setReferralInput}
               autoCapitalize="characters"
             />
-            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', borderWidth: 1 }]} onPress={validateReferral} disabled={referralBusy}>
-              <Text style={[styles.applyBtnText, { color: '#fbbf24' }]}>{referralBusy ? '...' : '🎁 Check'}</Text>
+            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: activeTheme.buttonBg }]} onPress={validateReferral} disabled={referralBusy}>
+              <Text style={[styles.applyBtnText, { color: activeTheme.buttonTextColor }]}>{referralBusy ? '...' : '🎁 Check'}</Text>
             </TouchableOpacity>
           </View>
           {referralValidated && (
-            <Text style={{ color: '#fbbf24', fontSize: 11, fontWeight: '700', marginTop: -4, marginBottom: 8 }}>
+            <Text style={{ color: activeTheme.buttonBg, fontSize: 11, fontWeight: '700', marginTop: -4, marginBottom: 8 }}>
               ✓ Referral code {referralValidated} validated (10% off first order)
             </Text>
           )}
@@ -622,6 +632,7 @@ export default function BasketScreen() {
           <TouchableOpacity
             style={[
               styles.checkoutSubmitBtn,
+              { backgroundColor: activeTheme.buttonBg },
               (!isInternationalDelivery && resolution && resolution.serviceable === false) && styles.checkoutSubmitBtnDisabled,
               placingOrder && { opacity: 0.7 }
             ]}
@@ -629,11 +640,11 @@ export default function BasketScreen() {
             disabled={placingOrder || (!isInternationalDelivery && resolution?.serviceable === false)}
           >
             {placingOrder ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={activeTheme.buttonTextColor} />
             ) : !isInternationalDelivery && resolution && resolution.serviceable === false ? (
               <Text style={styles.checkoutSubmitBtnText}>Delivery Unavailable for this Location</Text>
             ) : (
-              <Text style={styles.checkoutSubmitBtnText}>
+              <Text style={[styles.checkoutSubmitBtnText, { color: activeTheme.buttonTextColor }]}>
                 {`Place Order (Cash on Delivery) ₹${grandTotal}`}
               </Text>
             )}

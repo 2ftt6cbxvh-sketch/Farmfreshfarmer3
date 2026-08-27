@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { api, resolveImgUrl } from '../../lib/api';
+import { api, resolveImgUrl, getCategoryFallbackEmoji } from '../../lib/api';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS } from '../../constants/config';
 import type { Product, Category } from '../../lib/types';
@@ -117,7 +117,7 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
       >
         <View style={[styles.cardTopAccent, { backgroundColor: cardTheme.color }]} />
 
-        <View style={[styles.imageWrapper, isDark && { backgroundColor: '#091510' }]}>
+        <View style={[styles.imageWrapper, isDark ? styles.imageWrapperDark : styles.imageWrapperLight]}>
           {product.image && !imgFailed ? (
             <Image
               source={{ uri: resolveImgUrl(product.image) }}
@@ -126,9 +126,11 @@ function ProductCard({ product, maxRadiusKm }: { product: Product; maxRadiusKm?:
               onError={() => setImgFailed(true)}
             />
           ) : (
-            <View style={[styles.productImage, styles.productImagePlaceholder, isDark && { backgroundColor: '#091510' }]}>
-              <Text style={{ fontSize: 32 }}>🌱</Text>
-              <Text style={[styles.productImagePlaceholderText, { color: cardTheme.color }]}>Farm Fresh</Text>
+            <View style={[styles.productImage, styles.productImagePlaceholder, isDark ? styles.placeholderDark : styles.placeholderLight]}>
+              <Text style={{ fontSize: 36 }}>{getCategoryFallbackEmoji(product.categorySlug, product.name)}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '800', marginTop: 4, color: isDark ? '#34d399' : '#059669', textAlign: 'center', paddingHorizontal: 4 }} numberOfLines={1}>
+                {product.name}
+              </Text>
             </View>
           )}
 
@@ -241,6 +243,8 @@ export default function HomeScreen() {
   const [inputPincode, setInputPincode] = useState('');
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [heroIdx, setHeroIdx] = useState(0);
   const categoriesLayoutY = useRef<number>(380);
   const productsLayoutY = useRef<number>(750);
 
@@ -279,6 +283,7 @@ export default function HomeScreen() {
     queryFn: () => api.get('/api/hero-showcase').then((r) => r.data).catch(() => ({})),
     staleTime: 60000,
   });
+  const featuredHeroList: any[] = (heroConfig as any)?.featuredProducts || [];
 
   const categories: Category[] = categoriesData?.categories || categoriesData || [];
   const allProducts: Product[] = productsData?.products || productsData || [];
@@ -328,6 +333,15 @@ export default function HomeScreen() {
   const handleExploreCategoriesPress = () => {
     scrollViewRef.current?.scrollTo({ y: categoriesLayoutY.current, animated: true });
   };
+
+  // Auto-rotate hero photos smoothly if 2+ products are selected
+  useEffect(() => {
+    if (heroConfig?.mode === 'custom_image' || !featuredHeroList || featuredHeroList.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIdx((prev) => (prev + 1) % featuredHeroList.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [heroConfig?.mode, featuredHeroList]);
 
   const handleRecommendationPress = (query: string) => {
     setSelectedCategory(null);
@@ -573,10 +587,12 @@ export default function HomeScreen() {
       <AnimatedFreeDeliveryBar subtotal={cartSubtotal} threshold={freeDeliveryThreshold} isDark={isDark} />
 
       {/* ── Scrollable Body ─────────────────────────────────────────────── */}
-      <ScrollView
-        ref={scrollViewRef}
+      <Animated.ScrollView
+        ref={scrollViewRef as any}
         style={styles.scrollBody}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={COLORS.primary} />}
       >
         {/* ── 3. Hero Landing Section with Dynamic Tier Colors ───────────────────────────────────── */}
@@ -627,28 +643,98 @@ export default function HomeScreen() {
             </View>
           </ScrollView>
 
-          {/* Hero Showcase Card */}
-          <View style={[styles.heroShowcaseCard, isDark ? styles.heroShowcaseCardDark : styles.heroShowcaseCardLight]}>
+          {/* Hero Showcase Card with Smooth Parallax Depth */}
+          <Animated.View
+            style={[
+              styles.heroShowcaseCard,
+              isDark ? styles.heroShowcaseCardDark : styles.heroShowcaseCardLight,
+              {
+                transform: [
+                  {
+                    translateY: scrollY.interpolate({
+                      inputRange: [0, 300],
+                      outputRange: [0, -15],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <Image
-              source={{ uri: resolveImgUrl(heroConfig?.customImageUrl || '/images/p-mango.jpg') }}
+              source={{
+                uri: resolveImgUrl(
+                  heroConfig?.mode === 'custom_image'
+                    ? heroConfig?.customImageUrl || '/images/p-mango.jpg'
+                    : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]?.image
+                    ? featuredHeroList[heroIdx % featuredHeroList.length].image
+                    : heroConfig?.customImageUrl || '/images/p-mango.jpg'
+                ),
+              }}
               style={styles.heroShowcaseImage}
               resizeMode="cover"
             />
-            <View style={styles.heroFloatingBadgeTop}>
+
+            {/* Parallax Floating Top Badge */}
+            <Animated.View
+              style={[
+                styles.heroFloatingBadgeTop,
+                {
+                  transform: [
+                    {
+                      translateY: scrollY.interpolate({
+                        inputRange: [0, 300],
+                        outputRange: [0, -25],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
               <Text style={{ fontSize: 16 }}>🌿</Text>
-              <View>
-                <Text style={styles.heroFloatingTitle}>Direct Farm Harvest</Text>
-                <Text style={styles.heroFloatingSub}>Picked this morning</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.heroFloatingTitle} numberOfLines={1}>
+                  {heroConfig?.mode === 'custom_image'
+                    ? heroConfig?.customTitle || 'Direct Farm Harvest'
+                    : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]?.name
+                    ? featuredHeroList[heroIdx % featuredHeroList.length].name
+                    : 'Direct Farm Harvest'}
+                </Text>
+                <Text style={styles.heroFloatingSub} numberOfLines={1}>
+                  {heroConfig?.mode === 'custom_image'
+                    ? heroConfig?.customSubtitle || 'Picked this morning'
+                    : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]?.price
+                    ? `₹${featuredHeroList[heroIdx % featuredHeroList.length].price} / ${featuredHeroList[heroIdx % featuredHeroList.length].unit}`
+                    : 'Picked this morning'}
+                </Text>
               </View>
-            </View>
-            <View style={styles.heroFloatingBadgeBottom}>
+            </Animated.View>
+
+            {/* Parallax Floating Bottom Badge */}
+            <Animated.View
+              style={[
+                styles.heroFloatingBadgeBottom,
+                {
+                  transform: [
+                    {
+                      translateY: scrollY.interpolate({
+                        inputRange: [0, 300],
+                        outputRange: [0, -18],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
               <Text style={{ fontSize: 16 }}>⚡</Text>
-              <View>
-                <Text style={styles.heroFloatingTitle}>Express Delivery</Text>
-                <Text style={styles.heroFloatingSub}>Combined ETA calculated live</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.heroFloatingTitle} numberOfLines={1}>Express Delivery</Text>
+                <Text style={styles.heroFloatingSub} numberOfLines={1}>Combined ETA calculated live</Text>
               </View>
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
         </View>
 
         {/* ── 4. Curated Categories 2-Column Grid (Screenshot 1) ─────────── */}
@@ -835,7 +921,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* ── 7. Category Drawer / Menu Modal (Smooth Animated Side Drawer) ─────────── */}
       <AnimatedSideMenu
@@ -1251,7 +1337,11 @@ const styles = StyleSheet.create({
   productCardDark: { backgroundColor: '#091510', borderColor: 'rgba(52, 211, 153, 0.2)' },
   cardTopAccent: { height: 3, width: '100%', backgroundColor: '#10b981' },
 
-  imageWrapper: { width: '100%', height: 130, position: 'relative', overflow: 'hidden', backgroundColor: '#091510' },
+  imageWrapper: { width: '100%', height: 130, position: 'relative', overflow: 'hidden' },
+  imageWrapperLight: { backgroundColor: '#f0fdf4' },
+  imageWrapperDark: { backgroundColor: '#091510' },
+  placeholderLight: { backgroundColor: '#f0fdf4' },
+  placeholderDark: { backgroundColor: '#091510' },
   productImage: { width: '100%', height: 130 },
   productImagePlaceholder: { backgroundColor: '#091510', alignItems: 'center', justifyContent: 'center' },
   discountBadge: {

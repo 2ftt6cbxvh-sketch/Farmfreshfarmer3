@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { COLORS } from '../../constants/config';
 import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 interface Plan {
   id: number;
@@ -23,14 +24,17 @@ interface Plan {
 interface Subscription {
   id: number;
   planId: number;
-  planName: string;
-  status: string;
+  planName?: string;
+  planPrice?: string;
+  status: 'active' | 'paused' | 'cancelled';
   deliveryDays: string;
-  phone: string;
-  address: string;
-  createdAt: string;
-  cycles?: Array<{ id: number; scheduledDate: string; status: string; amount: string }>;
+  phone?: string;
+  address?: string;
+  nextDeliveryDate?: string;
+  subscribedAt: string;
 }
+
+const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function SubscriptionsScreen() {
   const { user } = useAuth();
@@ -39,14 +43,25 @@ export default function SubscriptionsScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
 
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
-  const [subscribePlan, setSubscribePlan] = useState<Plan | null>(null);
-  const [deliveryDays, setDeliveryDays] = useState('saturday');
-  const [subPhone, setSubPhone] = useState(user?.phone || '');
-  const [subAddress, setSubAddress] = useState('');
-  const [cancelTarget, setCancelTarget] = useState<number | null>(null);
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const userStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const activeTheme = getMobileStarTheme(user ? userStars : 0);
 
-  const { data: plansData, isLoading: plansLoading } = useQuery<Plan[]>({
+  const [tab, setTab] = useState<'plans' | 'mine'>('plans');
+  const [subscribePlan, setSubscribePlan] = useState<Plan | null>(null);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<number | null>(null);
+  const [deliveryDays, setDeliveryDays] = useState<string[]>(['Mon', 'Wed', 'Fri']);
+  const [subPhone, setSubPhone] = useState(user?.phone || '');
+  const [subAddress, setSubAddress] = useState(user?.address || '');
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: plansData, isLoading: plansLoading } = useQuery<Plan[] | { plans: Plan[] }>({
     queryKey: ['plans'],
     queryFn: () => api.get('/api/plans').then(r => r.data),
     staleTime: 60000,
@@ -108,7 +123,7 @@ export default function SubscriptionsScreen() {
     return mutedColor;
   };
 
-  const plans: Plan[] = plansData || [];
+  const plans: Plan[] = Array.isArray(plansData) ? plansData : (plansData as any)?.plans || [];
   const subscriptions: Subscription[] = subsData?.subscriptions || [];
   const upcomingDeliveries: string[] = subsData?.upcomingDeliveries || [];
 
@@ -208,7 +223,7 @@ export default function SubscriptionsScreen() {
 
         <Text style={[styles.sectionTitle, { color: textColor, marginTop: 24, marginBottom: 12 }]}>🌿 Available Plans</Text>
         {plansLoading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <ActivityIndicator color={activeTheme.color} />
         ) : (
           plans.filter(p => p.active).map(plan => (
             <View key={plan.id} style={[styles.planCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
@@ -217,21 +232,21 @@ export default function SubscriptionsScreen() {
                   <Text style={[{ fontWeight: '800', fontSize: 16, color: textColor }]}>{plan.name}</Text>
                   <Text style={[{ color: mutedColor, fontSize: 12, marginTop: 2 }]}>{plan.description}</Text>
                 </View>
-                <Text style={[{ color: COLORS.primary, fontWeight: '900', fontSize: 18 }]}>₹{parseFloat(plan.price).toFixed(0)}<Text style={{ fontSize: 11, color: mutedColor }}>/week</Text></Text>
+                <Text style={[{ color: activeTheme.color, fontWeight: '900', fontSize: 18 }]}>₹{parseFloat(plan.price).toFixed(0)}<Text style={{ fontSize: 11, color: mutedColor }}>/week</Text></Text>
               </View>
               <Text style={[{ color: mutedColor, fontSize: 12, marginBottom: 12 }]}>📅 Delivery: {plan.deliveryDays} • {plan.frequency}</Text>
               <TouchableOpacity
-                style={styles.subscribeBtn}
+                style={[styles.subscribeBtn, { backgroundColor: activeTheme.buttonBg }]}
                 onPress={() => {
                   if (!user) { router.push('/(auth)/login'); return; }
                   setSubscribePlan(plan);
-                  setDeliveryDays(plan.deliveryDays === 'both' ? 'saturday' : plan.deliveryDays);
+                  setDeliveryDays(['saturday']);
                   setSubPhone(user?.phone || '');
                   setSubAddress('');
                   setSubscribeOpen(true);
                 }}
               >
-                <Text style={styles.subscribeBtnText}>Subscribe →</Text>
+                <Text style={[styles.subscribeBtnText, { color: activeTheme.buttonTextColor }]}>Subscribe →</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -252,10 +267,10 @@ export default function SubscriptionsScreen() {
               {['saturday', 'sunday', 'both'].map(d => (
                 <TouchableOpacity
                   key={d}
-                  style={[styles.dayBtn, { borderColor: deliveryDays === d ? COLORS.primary : borderCol, backgroundColor: deliveryDays === d ? COLORS.primary + '20' : 'transparent' }]}
-                  onPress={() => setDeliveryDays(d)}
+                  style={[styles.dayBtn, { borderColor: (Array.isArray(deliveryDays) ? deliveryDays.includes(d) : deliveryDays === d) ? activeTheme.color : borderCol, backgroundColor: (Array.isArray(deliveryDays) ? deliveryDays.includes(d) : deliveryDays === d) ? activeTheme.badgeBg : 'transparent' }]}
+                  onPress={() => setDeliveryDays([d])}
                 >
-                  <Text style={[{ color: deliveryDays === d ? COLORS.primary : mutedColor, fontWeight: '700', fontSize: 12 }]}>{d}</Text>
+                  <Text style={[{ color: (Array.isArray(deliveryDays) ? deliveryDays.includes(d) : deliveryDays === d) ? activeTheme.color : mutedColor, fontWeight: '700', fontSize: 12 }]}>{d}</Text>
                 </TouchableOpacity>
               ))}
             </View>

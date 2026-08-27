@@ -24,6 +24,7 @@ import session from "express-session";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+import { apiCache } from "./services/cache";
 import { db, runAutoMigrations } from "./db";
 import { eq, sql } from "drizzle-orm";
 
@@ -573,7 +574,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   /* =========================== CATEGORIES ========================== */
   app.get("/api/categories", h(async (_req, res) => {
-    res.json(await storage.categories.list());
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+    const data = await apiCache.getOrSet("categories:list", () => storage.categories.list(), 60, ["categories"]);
+    res.json(data);
   }));
 
 async function isPrimaryAdminUser(req: Request): Promise<boolean> {
@@ -619,11 +622,22 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const q = req.query.q ? String(req.query.q) : undefined;
     const featured = req.query.featured === "1";
     const includeInactive = req.query.includeInactive === "1" || req.query.all === "1" || Boolean(req.session?.userId) || Boolean(req.headers.authorization);
+    
+    // Cache public catalog lists for instantaneous responses
+    if (!includeInactive && !q) {
+      res.setHeader("Cache-Control", "public, max-age=20, stale-while-revalidate=60");
+      const cacheKey = `products:list:${category || "all"}:${featured ? "1" : "0"}`;
+      const data = await apiCache.getOrSet(cacheKey, () => storage.products.list({ category, q, featured, includeInactive }), 30, ["products"]);
+      return res.json(data);
+    }
+
     res.json(await storage.products.list({ category, q, featured, includeInactive }));
   }));
 
   app.get("/api/products/:id", h(async (req, res) => {
-    const p = await storage.products.get(Number(req.params.id));
+    const id = Number(req.params.id);
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+    const p = await apiCache.getOrSet(`products:item:${id}`, () => storage.products.get(id), 60, ["products"]);
     if (!p) return res.status(404).json({ message: "Not found" });
     res.json(p);
   }));
@@ -644,6 +658,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       active: isPrimary ? true : false,
     };
     const created = await storage.products.create(productData);
+    apiCache.invalidateTags(["products", "hero"]);
 
     if (!isPrimary) {
       let submitterUser: any = null;
@@ -1014,15 +1029,22 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   }));
 
   /* =================== CUSTOMER STARS ============================== */
-  // Set customer loyalty stars (Super Admin only)
+  // Set customer loyalty stars (Super Admin only) — restricted exclusively to customer accounts
   app.patch("/api/users/:id/customer-stars", requireAdmin, h(async (req, res) => {
     const userId = Number(req.params.id);
     const stars = Number(req.body.customerStars);
     if (isNaN(stars) || stars < 0 || stars > 5) {
-      return res.status(400).json({ message: "customerStars must be 0–5" });
+      return res.status(400).json({ message: "customerStars must be between 0 and 5" });
     }
+
+    const targetUser = await storage.users.get(userId);
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+    if (targetUser.role !== "customer" || targetUser.isPrimaryAdmin || targetUser.email?.toLowerCase() === "admin@farmfreshfarmer.com") {
+      return res.status(400).json({ message: "Customer loyalty stars cannot be assigned to admin or staff accounts. Use Staff & Sub-Admins management." });
+    }
+
     const [updated] = await db.update(users).set({ customerStars: stars, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
-    if (!updated) return res.status(404).json({ message: "User not found" });
     res.json({ user: publicUser(updated) });
   }));
 
@@ -2163,7 +2185,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   /** GET /api/settings/public — Fetch public store settings (contact info, delivery rules, return hours) */
   app.get("/api/settings/public", h(async (_req, res) => {
-    const all = await storage.settings.all();
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+    const all = await apiCache.getOrSet("settings:all", () => storage.settings.all(), 60, ["settings"]);
     res.json({
       contact_phone: all.contact_phone || "+91 79897 93669",
       contact_email: all.contact_email || "admin@farmfreshfarmer.com",

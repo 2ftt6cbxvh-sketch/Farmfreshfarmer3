@@ -17,6 +17,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { toast } = useToast();
   const [qty, setQty] = useState(1);
   const [animating, setAnimating] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const cartItem = items.find((i) => i.productId === product.id);
   const inCartQty = cartItem?.qty || 0;
@@ -124,16 +125,18 @@ export function ProductCard({ product }: { product: Product }) {
 
         {/* Product Image with 3D Depth Zoom */}
         <Link href={`/product/${product.id}`} className="relative block aspect-[4/3] overflow-hidden bg-emerald-950/20 m-2 rounded-2xl">
-          {product.image ? (
+          {product.image && !imgFailed ? (
             <img
               src={imgUrl(product.image)}
               alt={product.name}
               loading="lazy"
+              onError={() => setImgFailed(true)}
               className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-115 group-hover:rotate-1"
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm font-medium">
-              No image
+            <div className="h-full w-full flex flex-col items-center justify-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 p-2 text-center">
+              <span className="text-3xl">🌱</span>
+              <span className="text-[11px] font-bold mt-1 line-clamp-1">{product.name}</span>
             </div>
           )}
 

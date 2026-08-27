@@ -4,6 +4,10 @@ export interface User {
   email: string;
   role: 'customer' | 'admin' | string;
   phone?: string;
+  address?: string;
+  profilePhoto?: string;
+  starRating?: number;
+  customerStars?: number;
   isPrimaryAdmin?: boolean;
   isSubAdmin?: boolean;
   permissions?: string[];

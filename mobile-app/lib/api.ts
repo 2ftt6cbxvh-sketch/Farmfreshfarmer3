@@ -2,12 +2,29 @@ import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../constants/config';
 import { tokenStorage } from './storage';
 
-export function resolveImgUrl(path?: string): string {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+export function resolveImgUrl(path?: string | null): string {
+  if (!path || typeof path !== 'string') return '';
+  const trimmed = path.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
   const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${baseUrl}${cleanPath}`;
+}
+
+export function getCategoryFallbackEmoji(categorySlug?: string, name?: string): string {
+  const s = (categorySlug || '').toLowerCase();
+  const n = (name || '').toLowerCase();
+  if (s.includes('fruit') || n.includes('mango') || n.includes('banana') || n.includes('apple') || n.includes('grape') || n.includes('pomegranate')) return '🥭';
+  if (s.includes('veg') || n.includes('tomato') || n.includes('potato') || n.includes('onion') || n.includes('garlic') || n.includes('ginger') || n.includes('spinach') || n.includes('okra') || n.includes('carrot') || n.includes('gourd')) return '🥬';
+  if (s.includes('sweet') || n.includes('laddu') || n.includes('katli') || n.includes('pak') || n.includes('halwa')) return '🍯';
+  if (s.includes('namkeen') || s.includes('snack') || n.includes('mixture') || n.includes('murukku') || n.includes('chana')) return '🥨';
+  if (s.includes('pickle') || n.includes('pickle') || n.includes('avakaya') || n.includes('gongura')) return '🌶️';
+  if (s.includes('millet') || s.includes('pulse') || s.includes('grain') || s.includes('rice') || s.includes('dal')) return '🌾';
+  if (s.includes('spice') || n.includes('masala') || n.includes('turmeric') || n.includes('chilli')) return '🌿';
+  return '🌱';
 }
 
 export const api = axios.create({

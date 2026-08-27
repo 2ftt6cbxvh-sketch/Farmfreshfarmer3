@@ -79,25 +79,25 @@ export function getStarTheme(count: number, enabled: boolean = true): StarTheme 
       mobileBorder: "rgba(34,197,94,0.45)",
     };
   } else if (stars === 3) {
-    // 3 Stars = Bronze (#cd7f32)
+    // 3 Stars = Deep Metallic Bronze (#854d0e / #78350f) - distinctly darker than Gold
     return {
       tierName: "bronze",
-      starColor: "text-[#cd7f32] dark:text-[#e59850]",
-      fillColor: "#cd7f32",
-      glowClass: "drop-shadow-[0_0_8px_rgba(205,127,50,0.85)]",
-      badgeClass: "bg-[#cd7f32]/20 border-[#cd7f32]/45 text-[#9a5416] dark:text-[#f4aa64] font-extrabold",
-      borderClass: "border-[#cd7f32]/70 ring-2 ring-[#cd7f32]/30",
-      bgClass: "bg-[#cd7f32]/15",
+      starColor: "text-[#92400e] dark:text-[#d97706]",
+      fillColor: "#78350f",
+      glowClass: "drop-shadow-[0_0_8px_rgba(120,53,15,0.85)]",
+      badgeClass: "bg-[#78350f]/25 border-[#92400e]/50 text-[#78350f] dark:text-[#d97706] font-extrabold",
+      borderClass: "border-[#78350f]/80 ring-2 ring-[#78350f]/30",
+      bgClass: "bg-[#78350f]/15",
       label: "3 Stars (Bronze Tier)",
-      btnClass: "bg-gradient-to-r from-[#a66020] via-[#cd7f32] to-[#e59850] text-white shadow-lg shadow-[#cd7f32]/40 border border-[#e59850]/50 hover:brightness-110",
-      btnSecondaryClass: "bg-[#cd7f32]/15 border-[#cd7f32]/35 text-[#9a5416] dark:text-[#f4aa64] hover:bg-[#cd7f32]/25",
-      ambientGlowClass: "bg-[#cd7f32]/20",
-      heroBadgeClass: "bg-[#cd7f32]/15 border-[#cd7f32]/35 text-[#9a5416] dark:text-[#f4aa64]",
-      accentTextClass: "text-[#cd7f32] dark:text-[#f4aa64]",
-      logoColorClass: "text-[#cd7f32] dark:text-[#f4aa64]",
-      mobileColor: "#cd7f32",
-      mobileBadgeBg: "rgba(205,127,50,0.18)",
-      mobileBorder: "rgba(205,127,50,0.45)",
+      btnClass: "bg-gradient-to-r from-[#451a03] via-[#78350f] to-[#92400e] text-amber-100 font-bold shadow-lg shadow-[#451a03]/50 border border-[#92400e]/60 hover:brightness-110",
+      btnSecondaryClass: "bg-[#78350f]/20 border-[#92400e]/40 text-[#78350f] dark:text-[#d97706] hover:bg-[#78350f]/30",
+      ambientGlowClass: "bg-[#78350f]/25",
+      heroBadgeClass: "bg-[#78350f]/20 border-[#92400e]/40 text-[#78350f] dark:text-[#d97706]",
+      accentTextClass: "text-[#92400e] dark:text-[#d97706]",
+      logoColorClass: "text-[#92400e] dark:text-[#d97706]",
+      mobileColor: "#78350f",
+      mobileBadgeBg: "rgba(120,53,15,0.25)",
+      mobileBorder: "rgba(146,64,14,0.65)",
     };
   } else if (stars === 4) {
     // 4 Stars = Silver (#c0c0c0)

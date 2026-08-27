@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/store';
 import { useThemeStore } from '../../lib/theme';
 import { COLORS } from '../../constants/config';
 import { AdminLiveChatView } from '../../components/AdminLiveChatView';
+import { getMobileStarTheme } from '../../lib/starTheme';
 
 const PRESET_PRODUCT_IMAGES = [
   { label: '🥭 Mango', url: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=500&auto=format&fit=crop&q=80' },
@@ -434,25 +435,56 @@ export default function AdminDashboardScreen() {
   const statuses = ['placed', 'packed', 'out_for_delivery', 'delivered'];
   const statusLabels: Record<string, string> = { 'placed': 'Placed', 'packed': 'Packed', 'out_for_delivery': 'Out for delivery', 'delivered': 'Delivered' };
 
+  const isSuperAdminUser = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === 'admin@farmfreshfarmer.com' || (user as any)?.id === 1);
+  const isStaffUser = Boolean(!isSuperAdminUser && user && user.role !== 'customer');
+  const adminStars = isSuperAdminUser
+    ? 6
+    : isStaffUser
+    ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
+    : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
+  const adminTheme = getMobileStarTheme(user ? adminStars : 0);
+
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <View style={[styles.navBar, { borderBottomColor: borderCol }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>← Back</Text>
+      <View style={[styles.navBar, { borderBottomColor: adminTheme.border }]}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: adminTheme.badgeBg, borderColor: adminTheme.border }]}
+          onPress={() => router.back()}
+        >
+          <Text style={[styles.backBtnText, { color: adminTheme.color }]}>← Back</Text>
         </TouchableOpacity>
         <Text style={[styles.navTitle, { color: textColor }]}>
-          {isSuperAdmin ? 'Super Admin Control' : `${user?.customTitle || 'Sub-Admin'} Portal`}
+          {isSuperAdmin ? '👑 Super Admin Control' : `${user?.customTitle || 'Sub-Admin'} Portal`}
         </Text>
         <View style={{ width: 60 }} />
       </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-          {visibleTabs.map((tab) => (
-            <TouchableOpacity key={tab.id} style={[styles.tab, activeTab === tab.id && styles.tabActive]} onPress={() => setActiveTab(tab.id)}>
-              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
+      <View style={{ borderBottomWidth: 1, borderBottomColor: adminTheme.border, height: 48 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, height: 48 }}
+          contentContainerStyle={[styles.tabs, { height: 48, alignItems: 'center' }]}
+        >
+          {visibleTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[
+                  styles.tab,
+                  isActive && { borderBottomWidth: 3, borderBottomColor: adminTheme.color },
+                ]}
+                onPress={() => setActiveTab(tab.id)}
+              >
+                <Text style={[styles.tabText, isActive && { color: adminTheme.color, fontWeight: '900' }]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
+      </View>
 
       {meLoading && !isSuperAdmin && (
         <View style={{ padding: 32, alignItems: 'center', justifyContent: 'center' }}>

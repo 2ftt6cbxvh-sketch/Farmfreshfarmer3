@@ -7,12 +7,13 @@ import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { LakshmiAiBot } from '../components/LaxshmiAiBot';
+import { StarBumpCelebrationModal } from '../components/StarBumpCelebrationModal';
 import { IntroSplash } from '../components/IntroSplash';
 import { api } from '../lib/api';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30000 },
+    queries: { retry: 1, staleTime: 60000, gcTime: 300000 },
   },
 });
 
@@ -38,7 +39,7 @@ function AppContent() {
       }
     };
     checkLockdown();
-    const interval = setInterval(checkLockdown, 5000);
+    const interval = setInterval(checkLockdown, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -86,6 +87,7 @@ function AppContent() {
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
       </Stack>
       <LakshmiAiBot />
+      <StarBumpCelebrationModal />
     </>
   );
 }
