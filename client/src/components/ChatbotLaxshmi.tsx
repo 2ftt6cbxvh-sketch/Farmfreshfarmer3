@@ -1152,7 +1152,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {msg.products && msg.products.length > 0 && (
                     <div className="mt-2 space-y-2">
                       {msg.products.map((p) => {
-                        const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.quantity || 0;
+                        const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.qty || 0;
                         return (
                           <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-emerald-300">
                             {p.image ? (
