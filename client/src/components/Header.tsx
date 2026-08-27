@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import {
   Search, ShoppingCart, Menu, X, Sun, Moon, Sparkles, TrendingUp,
@@ -34,10 +35,27 @@ export function Header() {
   const [mobileClosing, setMobileClosing] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [cartPopped, setCartPopped] = useState(false);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const prevCount = useRef(count);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const mobileSearchBoxRef = useRef<HTMLDivElement>(null);
+
+  // Recompute dropdown position whenever it's focused or window resizes/scrolls
+  useLayoutEffect(() => {
+    if (!searchFocused || !searchBoxRef.current) { setDropdownRect(null); return; }
+    const update = () => {
+      const rect = searchBoxRef.current?.getBoundingClientRect();
+      if (rect) setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+    };
+    update();
+    window.addEventListener("resize", update, { passive: true });
+    window.addEventListener("scroll", update, { passive: true });
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update);
+    };
+  }, [searchFocused]);
 
   // Animate cart on item count change
   useEffect(() => {
@@ -212,8 +230,11 @@ export function Header() {
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif text-lg sm:text-xl font-black tracking-tight text-foreground group-hover:text-emerald-500 transition-colors leading-none drop-shadow-xs">
-                FarmFresh<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-amber-500 dark:from-emerald-400 dark:to-yellow-300">Farmer</span>
+              <span
+                className="font-serif text-lg sm:text-xl font-black tracking-tight text-foreground transition-colors leading-none drop-shadow-xs"
+                style={{ ['--hover-color' as any]: currentHeaderStarTheme.fillColor }}
+              >
+                <span className="group-hover:text-[var(--hover-color)] transition-colors duration-300">FarmFresh</span><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-amber-500 dark:from-emerald-400 dark:to-yellow-300">Farmer</span>
               </span>
               <span className="text-[9px] font-black tracking-[0.2em] text-emerald-600 dark:text-emerald-400 uppercase mt-0.5 whitespace-nowrap">
                 ORGANIC · FARM TO HOME
@@ -266,101 +287,106 @@ export function Header() {
                 </div>
               </div>
             </form>
+          </div>
 
-            {/* Desktop Search Dropdown */}
-            {searchFocused && (
-              <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-[200] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20">
-                {/* Header with Title and Close Button */}
-                <div className="flex items-center justify-between pb-2 border-b border-border/50">
-                  <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                    <TrendingUp size={14} className="text-amber-500" />
-                    <span>Trending Recommendations</span>
-                  </div>
+          {/* Desktop Search Dropdown — rendered via portal at fixed position to escape header stacking context */}
+          {searchFocused && dropdownRect && createPortal(
+            <div
+              className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20"
+              style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width }}
+            >
+              {/* Header with Title and Close Button */}
+              <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                <div className="flex items-center gap-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                  <TrendingUp size={14} className="text-amber-500" />
+                  <span>Trending Recommendations</span>
+                </div>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setSearchFocused(false)}
+                  className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                  title="Close suggestions"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Trending Search Tags */}
+              <div className="flex flex-wrap gap-1.5">
+                {recommendations.map((rec) => (
                   <button
+                    key={rec}
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setSearchFocused(false)}
-                    className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
-                    title="Close suggestions"
+                    onClick={() => {
+                      setSearch(rec);
+                      navigate(`/search?q=${encodeURIComponent(rec)}`);
+                      setSearchFocused(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/25 text-foreground transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1"
                   >
-                    ✕
+                    <Search size={11} className="text-emerald-500/70" />
+                    <span>{rec}</span>
                   </button>
-                </div>
+                ))}
+              </div>
 
-                {/* Trending Search Tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {recommendations.map((rec) => (
-                    <button
-                      key={rec}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setSearch(rec);
-                        navigate(`/search?q=${encodeURIComponent(rec)}`);
-                        setSearchFocused(false);
-                      }}
-                      className="px-3 py-1.5 text-xs font-bold rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/25 text-foreground transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1"
-                    >
-                      <Search size={11} className="text-emerald-500/70" />
-                      <span>{rec}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Live Matching Predictions */}
-                {search.trim().length > 0 && (
-                  <div className="pt-2 border-t border-border/50 space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400">
-                      <div className="flex items-center gap-1">
-                        <Sparkles size={13} className="text-amber-400" />
-                        <span>Matching Products</span>
-                      </div>
-                      {predictions.length > 0 && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={submitSearch}
-                          className="text-[10px] text-muted-foreground hover:text-emerald-500 underline cursor-pointer"
-                        >
-                          View all results
-                        </button>
-                      )}
+              {/* Live Matching Predictions */}
+              {search.trim().length > 0 && (
+                <div className="pt-2 border-t border-border/50 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                    <div className="flex items-center gap-1">
+                      <Sparkles size={13} className="text-amber-400" />
+                      <span>Matching Products</span>
                     </div>
-
-                    {predictions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
-                    ) : (
-                      <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
-                        {predictions.map((p) => (
-                          <div
-                            key={p.id}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleProductSearchClick(p.id)}
-                            className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {p.image ? (
-                                <img src={imgUrl(p.image)} alt={p.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border/50" />
-                              ) : (
-                                <div className="w-8 h-8 rounded-lg bg-emerald-950/30 flex items-center justify-center text-sm shrink-0">🌱</div>
-                              )}
-                              <div className="truncate">
-                                <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
-                                <p className="text-[10px] text-muted-foreground">{p.unit}</p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
-                              ₹{parseFloat(p.price).toFixed(0)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                    {predictions.length > 0 && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={submitSearch}
+                        className="text-[10px] text-muted-foreground hover:text-emerald-500 underline cursor-pointer"
+                      >
+                        View all results
+                      </button>
                     )}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+
+                  {predictions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">No products matching "{search}"</p>
+                  ) : (
+                    <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
+                      {predictions.map((p) => (
+                        <div
+                          key={p.id}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleProductSearchClick(p.id)}
+                          className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-500/15 cursor-pointer transition-colors group/item"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {p.image ? (
+                              <img src={imgUrl(p.image)} alt={p.name} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-border/50" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-emerald-950/30 flex items-center justify-center text-sm shrink-0">🌱</div>
+                            )}
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{p.unit}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
+                            ₹{parseFloat(p.price).toFixed(0)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>,
+            document.body
+          )}
+
 
           {/* Right Section: Theme Toggle, Star Tier, Account Dropdown, Admin Portal, Cart */}
           <div className="flex items-center gap-2 sm:gap-3">

@@ -177,7 +177,14 @@ export default function Home() {
             {/* Headline */}
             <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-black text-foreground tracking-tight leading-[1.08]">
               Fresh from local farms,{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-400">
+              <span
+                className="text-transparent bg-clip-text"
+                style={{
+                  backgroundImage: user
+                    ? `linear-gradient(135deg, ${homeStarTheme.fillColor}, ${homeStarTheme.fillColor}cc)`
+                    : "linear-gradient(135deg, #10b981, #34d399)",
+                }}
+              >
                 delivered straight
               </span>{" "}
               to your doorstep.
