@@ -440,16 +440,6 @@ export function Header() {
               </div>
             )}
 
-            {/* Admin / Staff Shortcut */}
-            {user && (user.role === "admin" || user.role === "staff" || user.role === "support" || isSuperAdmin) && (
-              <Link
-                href="/admin"
-                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-zinc-700 shadow-sm transition-all active:scale-95"
-              >
-                <Store size={13} className="text-amber-400" />
-                <span>Store Admin</span>
-              </Link>
-            )}
 
             {/* 🌟 VIBRANT USER ACCOUNT DROPDOWN WITH TIER THEME HIGHLIGHTS 🌟 */}
             {user ? (
