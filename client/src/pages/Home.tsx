@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, imgUrl } from "@/lib/queryClient";
@@ -71,32 +71,38 @@ export default function Home() {
   const featuredHeroList = heroConfig?.featuredProducts || [];
   const [heroIdx, setHeroIdx] = useState(0);
 
-  // Smooth Parallax Scroll Tracking (GPU friendly)
+  // Smooth Multi-Layer Parallax Scroll Tracking
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
-    let ticking = false;
+    let animationFrameId: number;
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
-          ticking = false;
-        });
-        ticking = true;
-      }
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        setScrollY(window.scrollY);
+      });
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
-  // 3D Card Interactive Tilt
+  // 3D Card Interactive Tilt & Specular Light Follow
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHoveringCard, setIsHoveringCard] = useState(false);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
     setMousePos({ x, y });
   };
-  const handleMouseLeave = () => setMousePos({ x: 0, y: 0 });
+  const handleMouseEnter = () => setIsHoveringCard(true);
+  const handleMouseLeave = () => {
+    setIsHoveringCard(false);
+    setMousePos({ x: 0, y: 0 });
+  };
 
   // Auto-rotate hero photos smoothly if 2+ products are selected
   useEffect(() => {
@@ -122,167 +128,214 @@ export default function Home() {
     ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
     : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
 
-  const homeTheme = getStarTheme(user ? homeStarsCount : 0, isStarThemeEnabled);
+  const homeStarTheme = getStarTheme(user ? homeStarsCount : 0, isStarThemeEnabled);
 
-  // Parallax offsets (capped for performance)
-  const bgOrbOffset = Math.min(scrollY * 0.12, 60);
-  const cardParallaxOffset = Math.min(scrollY * -0.06, 0);
-  const badgeTopOffset = Math.min(scrollY * -0.14, 0);
-  const badgeBottomOffset = Math.min(scrollY * -0.10, 0);
+  // Parallax offsets calculation for multi-layer depth
+  const bgOrbOffset1 = scrollY * 0.25;
+  const bgOrbOffset2 = scrollY * -0.18;
+  const heroTextOffset = scrollY * 0.08;
+  const floatingLeaf1Offset = scrollY * 0.45;
+  const floatingLeaf2Offset = scrollY * -0.30;
+  const floatingGrainOffset = scrollY * 0.38;
+  const showcaseCardOffset = scrollY * 0.15;
 
   return (
     <Layout>
-      {/* ── High-End Organic Luxury Opening Hero with Parallax Scrolling ── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-emerald-950/25 via-background to-background py-12 sm:py-20 lg:py-24 border-b border-border/80">
-        {/* Parallax Ambient Floating Orbs */}
+      {/* ── Dynamic VIP Star Tier Notification Banner ── */}
+      {user && (
         <div
-          className={`pointer-events-none absolute -top-32 -left-32 w-[34rem] h-[34rem] rounded-full ${homeTheme.ambientGlowClass} opacity-60 blur-[130px] transition-transform duration-75`}
-          style={{ transform: `translate3d(0, ${bgOrbOffset}px, 0)` }}
+          className="w-full border-b py-2 px-4 text-center text-xs font-black tracking-wide flex items-center justify-center gap-2 transition-all shadow-inner"
+          style={{
+            backgroundColor: homeStarTheme.fillColor + "18",
+            borderColor: homeStarTheme.fillColor + "45",
+            color: homeStarTheme.fillColor,
+          }}
+        >
+          <span className="text-base">{homeStarsCount >= 6 ? "👑" : "⭐"}</span>
+          <span>
+            {user.name ? `${user.name} — ` : ""}
+            Active Status: <strong>{homeStarTheme.label} ({homeStarsCount} Stars)</strong>
+          </span>
+        </div>
+      )}
+
+      {/* ── LUXURY OPENING HERO SECTION WITH PARALLAX & 3D TILT ── */}
+      <section className="relative overflow-hidden pt-10 pb-20 sm:py-24 bg-gradient-to-b from-emerald-950/25 via-background to-background">
+        {/* Parallax Layer 0: Ambient Glowing Aura Orbs */}
+        <div
+          className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow parallax-layer"
+          style={{ transform: `translate3d(0, ${bgOrbOffset1}px, 0)` }}
         />
         <div
-          className={`pointer-events-none absolute top-1/3 -right-32 w-[30rem] h-[30rem] rounded-full bg-amber-500/20 opacity-40 blur-[140px] transition-transform duration-75`}
-          style={{ transform: `translate3d(0, ${-bgOrbOffset}px, 0)` }}
+          className="absolute top-1/3 -right-32 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none animate-pulse-glow parallax-layer"
+          style={{ transform: `translate3d(0, ${bgOrbOffset2}px, 0)` }}
         />
 
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-          {/* ── Left Column: Headlines, Trust & CTAs ── */}
-          <div className="lg:col-span-7 space-y-6 text-left">
-            {/* Sparkling Hero Micro-Badge */}
-            <div className={`inline-flex items-center gap-2 rounded-full ${homeTheme.heroBadgeClass} text-xs font-black px-4 py-1.5 shadow-md backdrop-blur-xl border border-emerald-500/30`}>
-              <Sparkles size={14} className="text-amber-400 animate-pulse shrink-0" />
-              <span className="tracking-wide">
-                {txt.hero_badge_text || "Vijayawada & Vizag's #1 Instant Farm-Direct Harvest"}
-              </span>
+        {/* Parallax Layer 1: Floating Seasonal Particles */}
+        <div
+          className="absolute top-20 left-[10%] text-2xl opacity-40 select-none pointer-events-none animate-float-slow parallax-layer"
+          style={{ transform: `translate3d(0, ${floatingLeaf1Offset}px, 0)` }}
+        >
+          🌿
+        </div>
+        <div
+          className="absolute top-48 right-[15%] text-2xl opacity-40 select-none pointer-events-none animate-float-reverse parallax-layer"
+          style={{ transform: `translate3d(0, ${floatingGrainOffset}px, 0)` }}
+        >
+          🌾
+        </div>
+        <div
+          className="absolute bottom-20 left-[20%] text-xl opacity-35 select-none pointer-events-none animate-float-slow parallax-layer"
+          style={{ transform: `translate3d(0, ${floatingLeaf2Offset}px, 0)` }}
+        >
+          🍃
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          {/* Left Column: Hero Narrative & Value Pillars */}
+          <div
+            className="lg:col-span-7 space-y-6 text-center lg:text-left parallax-layer"
+            style={{ transform: `translate3d(0, ${heroTextOffset}px, 0)` }}
+          >
+            {/* Top Micro-Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-black shadow-xs">
+              <Sparkles size={14} className="text-amber-500 animate-spin-slow" />
+              <span>{txt.hero_badge || "Vijayawada & Vizag's #1 Instant Organic Farm Delivery"}</span>
             </div>
 
-            {/* Editorial Headline */}
-            <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-black leading-[1.08] text-foreground tracking-tight">
+            {/* Editorial Serif Headline */}
+            <h1 className="font-serif text-4xl sm:text-6xl font-black tracking-tight text-foreground leading-[1.1]">
               Fresh from local farms,{" "}
-              <span className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-amber-400 bg-clip-text text-transparent">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-500 to-amber-500 dark:from-emerald-400 dark:via-emerald-300 dark:to-amber-400">
                 delivered straight
               </span>{" "}
               to your doorstep.
             </h1>
 
-            {/* Subheading */}
-            <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl leading-relaxed font-medium">
-              {txt.hero_subtitle_text ||
-                "Hand-picked organic fruits, vine-ripened vegetables, authentic ghee sweets, traditional Andhra pickles, millets & spices direct from natural farmers."}
+            {/* Sub-headline / Brand Promise */}
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              {txt.hero_subtext ||
+                "Hand-picked organic fruits, vine-ripened vegetables, authentic ghee sweets, traditional Andhra pickles, millets & spices."}
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap items-center gap-3.5 pt-2">
+            {/* CTA Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
               <a
                 href="#categories-section"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById("categories-section")?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className={`inline-flex items-center gap-2.5 rounded-full ${homeTheme.btnClass} px-7 py-3.5 text-sm font-black shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer`}
-                data-testid="button-shop-now"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-[0_8px_25px_rgba(245,158,11,0.35)] hover:shadow-[0_12px_32px_rgba(245,158,11,0.5)] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
               >
                 <span>Explore Harvest 🌾</span>
-                <ArrowRight size={17} />
+                <ArrowRight size={16} />
               </a>
 
               <Link
                 href="/account/referrals"
-                className={`inline-flex items-center gap-2 rounded-full ${homeTheme.btnSecondaryClass} px-5 py-3.5 text-xs font-black shadow-md hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer`}
-                data-testid="button-refer-earn"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-secondary/80 hover:bg-secondary border border-border text-foreground font-bold text-sm hover:scale-105 active:scale-95 transition-all duration-200"
               >
                 <span>🎁 Refer & Earn Rewards</span>
               </Link>
             </div>
 
-            {/* Micro-Trust Feature Bar */}
-            <div className={`flex flex-wrap items-center gap-4 sm:gap-6 p-4 rounded-3xl bg-card/75 border ${homeTheme.borderClass} backdrop-blur-xl shadow-lg mt-6`}>
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+            {/* Micro Trust Bar */}
+            <div className="pt-6 grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto lg:mx-0 border-t border-emerald-500/20 text-xs font-semibold text-muted-foreground">
+              <div className="flex items-center gap-1.5 justify-center lg:justify-start">
+                <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
                 <span>100% Naturally Grown</span>
               </div>
-              <span className="hidden sm:inline text-emerald-500/40 font-bold">•</span>
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Zap size={16} className="text-amber-500 shrink-0 animate-pulse" />
+              <div className="flex items-center gap-1.5 justify-center lg:justify-start">
+                <Zap size={15} className="text-amber-500 shrink-0" />
                 <span>Instant Delivery ETA</span>
               </div>
-              <span className="hidden sm:inline text-emerald-500/40 font-bold">•</span>
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Package size={16} className="text-emerald-500 shrink-0" />
+              <div className="flex items-center gap-1.5 justify-center lg:justify-start">
+                <Package size={15} className="text-emerald-500 shrink-0" />
                 <span>Zero Preservatives</span>
               </div>
             </div>
           </div>
 
-          {/* ── Right Column: 3D Interactive Parallax Hero Showcase Card ── */}
+          {/* Right Column: 3D Perspective Parallax Showcase Card */}
           <div
-            className="lg:col-span-5 relative"
+            className="lg:col-span-5 flex justify-center perspective-[1200px] parallax-layer"
+            style={{ transform: `translate3d(0, ${showcaseCardOffset}px, 0)` }}
             onMouseMove={handleMouseMove}
+            onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            style={{
-              perspective: "1200px",
-              transform: `translate3d(0, ${cardParallaxOffset}px, 0)`,
-              transition: "transform 0.1s ease-out",
-            }}
           >
-            {/* Card Outer Shell with 3D Tilt */}
             <div
-              className="relative rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-card/95 via-card/90 to-card/95 p-3.5 sm:p-4 shadow-2xl overflow-hidden group transition-transform duration-200 ease-out"
+              className="relative w-full max-w-md aspect-4/3 rounded-3xl p-3 bg-gradient-to-br from-emerald-500/30 via-card to-amber-500/20 border border-emerald-500/40 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] transition-transform duration-200 ease-out"
               style={{
-                transform: `rotateX(${mousePos.y * -10}deg) rotateY(${mousePos.x * 10}deg)`,
-                boxShadow: "0 25px 50px -12px rgba(5, 150, 105, 0.25), 0 0 30px rgba(245, 158, 11, 0.15)",
+                transform: `rotateX(${mousePos.y * -16}deg) rotateY(${mousePos.x * 16}deg) scale3d(${
+                  isHoveringCard ? 1.02 : 1
+                }, ${isHoveringCard ? 1.02 : 1}, 1)`,
+                transformStyle: "preserve-3d",
               }}
             >
-              {/* Product Photo Showcase */}
-              <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden bg-emerald-950/20">
+              {/* Specular Lighting Glow */}
+              <div
+                className="absolute inset-0 rounded-3xl pointer-events-none opacity-50 transition-opacity duration-300"
+                style={{
+                  background: `radial-gradient(circle at ${((mousePos.x + 0.5) * 100).toFixed(1)}% ${(
+                    (mousePos.y + 0.5) *
+                    100
+                  ).toFixed(1)}%, rgba(255,255,255,0.2) 0%, transparent 60%)`,
+                }}
+              />
+
+              {/* Hero Image Showcase Carousel */}
+              <div className="relative w-full h-full rounded-2xl overflow-hidden bg-black/40">
                 {showcaseMode === "custom_image" ? (
                   <img
                     src={heroConfig?.customImageUrl || "/images/p-mango.jpg"}
-                    alt="Hero Showcase"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    alt={heroConfig?.customTitle || "Direct Farm Harvest"}
+                    className="w-full h-full object-cover"
                   />
                 ) : featuredHeroList.length > 0 ? (
-                  <>
-                    {featuredHeroList.map((p: any, idx: number) => (
-                      <img
-                        key={p.id}
-                        src={imgUrl(p.image)}
-                        alt={p.name}
-                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
-                          idx === (heroIdx % featuredHeroList.length) ? "opacity-100 z-10 scale-100" : "opacity-0 z-0 scale-105"
-                        }`}
-                      />
-                    ))}
-                    {/* Carousel Indicator Dots */}
-                    {featuredHeroList.length > 1 && (
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
-                        {featuredHeroList.map((_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setHeroIdx(i)}
-                            className={`h-1.5 rounded-full transition-all duration-300 ${
-                              i === (heroIdx % featuredHeroList.length) ? "w-5 bg-amber-400" : "w-1.5 bg-white/50"
-                            }`}
-                            aria-label={`View featured product ${i + 1}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
+                  featuredHeroList.map((prod, idx) => (
+                    <img
+                      key={prod.id || idx}
+                      src={imgUrl(prod.image || "/images/p-mango.jpg")}
+                      alt={prod.name}
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                        idx === heroIdx % featuredHeroList.length ? "opacity-100 scale-105" : "opacity-0 scale-100"
+                      }`}
+                      style={{ transition: "opacity 1s ease-in-out, transform 4s ease-out" }}
+                    />
+                  ))
                 ) : (
                   <img
                     src="/images/p-mango.jpg"
-                    alt="Organic Harvest"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    alt="Direct Farm Harvest"
+                    className="w-full h-full object-cover"
                   />
+                )}
+
+                {/* Carousel Progress Dots */}
+                {showcaseMode === "featured_products" && featuredHeroList.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
+                    {featuredHeroList.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        onClick={() => setHeroIdx(dotIdx)}
+                        className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                          dotIdx === heroIdx % featuredHeroList.length
+                            ? "bg-amber-400 w-4 shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                            : "bg-white/40 hover:bg-white/70"
+                        }`}
+                        aria-label={`View hero item ${dotIdx + 1}`}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Floating Top-Left Badge with Parallax Depth */}
+              {/* Floating Top-Left Badge in 3D Space */}
               <div
-                className="absolute top-7 left-7 bg-card/90 backdrop-blur-xl border border-emerald-500/35 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-150"
-                style={{ transform: `translate3d(0, ${badgeTopOffset}px, 0)` }}
+                className="absolute top-6 left-6 bg-card/92 backdrop-blur-xl border border-emerald-500/35 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-200"
+                style={{
+                  transform: `translateZ(40px) translate3d(${mousePos.x * -10}px, ${mousePos.y * -10}px, 0)`,
+                }}
               >
-                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
                   <Leaf size={18} />
                 </div>
                 <div className="min-w-0 pr-1">
@@ -293,27 +346,31 @@ export default function Home() {
                       ? featuredHeroList[heroIdx % featuredHeroList.length].name
                       : "Direct Farm Harvest"}
                   </p>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold truncate">
                     {showcaseMode === "custom_image"
                       ? heroConfig?.customSubtitle || "Picked this morning"
                       : featuredHeroList.length > 0 && featuredHeroList[heroIdx % featuredHeroList.length]
-                      ? `₹${featuredHeroList[heroIdx % featuredHeroList.length].price} / ${featuredHeroList[heroIdx % featuredHeroList.length].unit}`
+                      ? `₹${featuredHeroList[heroIdx % featuredHeroList.length].price} / ${
+                          featuredHeroList[heroIdx % featuredHeroList.length].unit
+                        }`
                       : "Picked this morning"}
                   </p>
                 </div>
               </div>
 
-              {/* Floating Bottom-Right Badge with Parallax Depth */}
+              {/* Floating Bottom-Right Badge in 3D Space */}
               <div
-                className="absolute bottom-7 right-7 bg-card/90 backdrop-blur-xl border border-amber-500/35 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-150"
-                style={{ transform: `translate3d(0, ${badgeBottomOffset}px, 0)` }}
+                className="absolute bottom-6 right-6 bg-card/92 backdrop-blur-xl border border-amber-500/35 rounded-2xl p-2.5 sm:p-3 shadow-xl flex items-center gap-2.5 z-20 transition-transform duration-200"
+                style={{
+                  transform: `translateZ(50px) translate3d(${mousePos.x * 12}px, ${mousePos.y * 12}px, 0)`,
+                }}
               >
                 <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
                   <Zap size={18} />
                 </div>
                 <div className="min-w-0 pr-1">
                   <p className="text-xs font-black text-foreground">Express Delivery</p>
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Combined ETA calculated live</p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Live Hub Transit</p>
                 </div>
               </div>
             </div>
@@ -321,8 +378,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 3D Glassmorphic Category Showcase ── */}
-      <section id="categories-section" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 scroll-mt-8">
+      {/* ── 3D Glassmorphic Category Showcase with Parallax ── */}
+      <section id="categories-section" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 scroll-mt-8 relative">
         <div className="text-center space-y-2 mb-12">
           <span className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-3.5 py-1 rounded-full border border-emerald-500/30">
             Curated Categories
@@ -399,7 +456,7 @@ export default function Home() {
       <section className="border-t border-emerald-500/20 bg-emerald-950/20 dark:bg-emerald-950/30 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-emerald-500/20 backdrop-blur">
+            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-emerald-500/20 backdrop-blur hover:scale-102 transition-transform duration-300">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
                 <Leaf size={28} />
               </div>
@@ -411,7 +468,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-amber-500/20 backdrop-blur">
+            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-amber-500/20 backdrop-blur hover:scale-102 transition-transform duration-300">
               <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
                 <Truck size={28} />
               </div>
@@ -423,7 +480,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-emerald-500/20 backdrop-blur">
+            <div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-3xl bg-card/60 border border-emerald-500/20 backdrop-blur hover:scale-102 transition-transform duration-300">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
                 <Award size={28} />
               </div>
