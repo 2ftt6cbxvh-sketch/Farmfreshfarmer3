@@ -427,6 +427,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     if (user && (user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1)) && !isFromStealthGateway) {
+      // Constant-Time Timing Oracle Defense: perform identical CPU bcrypt work
+      const DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+      try { bcrypt.compareSync(String(password || "dummySecret123"), DUMMY_HASH); } catch {}
+
       const refId = `SEC-TRAP-${Date.now().toString().slice(-4)}`;
       const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";
@@ -470,28 +474,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
     }
 
-    // Check if 2FA Mobile SMS OTP is required globally for this Sub-Admin / Staff member
-    const isGlobal2faEnabled = ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
+    // Production Guard & 2FA Enforcement: In production, Staff 2FA is strictly required at runtime
+    const isProduction = process.env.NODE_ENV === "production";
+    const isGlobal2faEnabled = isProduction || ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
     const isSubAdminStaff = user.role !== "customer" && !user.isPrimaryAdmin && user.email.toLowerCase() !== "admin@farmfreshfarmer.com";
+    const userTwoFaMethod = (user.twoFaMethod || "both") as string;
 
-    if (isGlobal2faEnabled && isSubAdminStaff) {
-      const { createStaffSmsOtpSession } = await import("./services/staff-otp");
-
-      const phoneToUse = user.phone || "";
-      const { tempToken, maskedPhone } = await createStaffSmsOtpSession(
-        user.id,
-        user.email,
-        phoneToUse,
-        user.name
-      );
+    if (isGlobal2faEnabled && isSubAdminStaff && userTwoFaMethod !== "none") {
+      const { createStaff2faSession } = await import("./services/staff-otp");
+      const sessionData = await createStaff2faSession(user);
 
       return res.json({
         require2fa: true,
-        tempToken,
-        maskedPhone,
-        maskedTelegram: maskedPhone,
-        staffName: user.name,
-        message: `🔐 6-digit 2FA verification code sent to your registered mobile number (${maskedPhone}).`,
+        ...sessionData,
       });
     }
 
@@ -504,15 +499,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ user: publicUser(user), ...tokens });
   }));
 
-  /** POST /api/login/verify-otp — Verify 6-digit Sub-Admin 2FA Mobile SMS OTP */
+  /** POST /api/login/verify-otp — Verify 6-digit Sub-Admin 2FA (TOTP or Mobile SMS OTP) */
   app.post("/api/login/verify-otp", h(async (req, res) => {
-    const { tempToken, otp } = req.body || {};
+    const { tempToken, otp, method } = req.body || {};
     if (!tempToken || !otp) {
-      return res.status(400).json({ message: "Session token and 6-digit OTP code are required" });
+      return res.status(400).json({ message: "Session token and 6-digit verification code are required" });
     }
 
-    const { verifyStaffSmsOtpSession } = await import("./services/staff-otp");
-    let result = verifyStaffSmsOtpSession(String(tempToken), String(otp));
+    const { verifyStaff2faSession } = await import("./services/staff-otp");
+    let result = await verifyStaff2faSession(String(tempToken), String(otp), method);
 
     // Fallback to legacy telegram session if present
     if (!result.success) {
@@ -523,7 +518,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     if (!result.success || !result.userId) {
-      return res.status(401).json({ message: result.message || "Invalid OTP code" });
+      return res.status(401).json({ message: result.message || "Invalid verification code" });
     }
 
     const user = await storage.users.get(result.userId);
@@ -538,6 +533,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
     });
     return res.json({ user: publicUser(user), ...tokens, message: "✨ 2FA Authentication Verified!" });
+  }));
+
+  /** POST /api/login/staff-fallback-sms — Switch Staff 2FA to Mobile SMS OTP when TOTP is inaccessible */
+  app.post("/api/login/staff-fallback-sms", h(async (req, res) => {
+    const { tempToken } = req.body || {};
+    if (!tempToken) {
+      return res.status(400).json({ message: "Session token is required" });
+    }
+
+    const { triggerStaffSmsFallback } = await import("./services/staff-otp");
+    const result = await triggerStaffSmsFallback(String(tempToken));
+
+    if (!result.success) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    return res.json({ message: result.message, maskedPhone: result.maskedPhone });
   }));
 
   /** POST /api/login/resend-otp — Resend 2FA Mobile SMS OTP */

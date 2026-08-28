@@ -100,6 +100,8 @@ export async function runAutoMigrations(): Promise<void> {
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMP WITH TIME ZONE", "users.lockout_until"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_tier INTEGER NOT NULL DEFAULT 0", "users.lockout_tier"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_permanently_locked BOOLEAN NOT NULL DEFAULT FALSE", "users.is_permanently_locked"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS two_fa_method VARCHAR(32) NOT NULL DEFAULT 'both'", "users.two_fa_method"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT", "users.totp_secret"],
       [`CREATE TABLE IF NOT EXISTS star_discount_rules (
           id SERIAL PRIMARY KEY,
           rule_type VARCHAR(16) NOT NULL DEFAULT 'customer',

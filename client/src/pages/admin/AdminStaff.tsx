@@ -77,6 +77,7 @@ export default function AdminStaff() {
   const [isVerified, setIsVerified] = useState(true);
   const [starRating, setStarRating] = useState(5);
   const [experienceRank, setExperienceRank] = useState("Senior Specialist");
+  const [twoFaMethod, setTwoFaMethod] = useState<"both" | "totp" | "sms" | "none">("both");
 
   // 2FA Global Settings State
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
@@ -138,6 +139,7 @@ export default function AdminStaff() {
     setIsVerified(true);
     setStarRating(5);
     setExperienceRank("Senior Specialist");
+    setTwoFaMethod("both");
     setModalOpen(true);
   };
 
@@ -151,6 +153,7 @@ export default function AdminStaff() {
     setRole(staff.role || "custom_subadmin");
     setCustomTitle(staff.customTitle || "");
     setTelegramChatId(staff.telegramChatId || "");
+    setTwoFaMethod(staff.twoFaMethod || "both");
 
     let permsArray: string[] = [];
     if (Array.isArray(staff.permissions)) {
@@ -254,6 +257,7 @@ export default function AdminStaff() {
           isVerified,
           starRating,
           experienceRank: experienceRank.trim() || "Senior Specialist",
+          twoFaMethod,
         },
       });
     } else {
@@ -269,6 +273,7 @@ export default function AdminStaff() {
         isVerified,
         starRating,
         experienceRank: experienceRank.trim() || "Senior Specialist",
+        twoFaMethod,
       });
     }
   };
@@ -380,7 +385,7 @@ export default function AdminStaff() {
                   <tr>
                     <th className="p-4">Staff Member</th>
                     <th className="p-4">Role & Designation</th>
-                    <th className="p-4">Telegram 2FA ID</th>
+                    <th className="p-4">2FA Method</th>
                     <th className="p-4">Menu Permissions</th>
                     <th className="p-4">Status</th>
                     <th className="p-4 text-right">Actions</th>
@@ -391,6 +396,7 @@ export default function AdminStaff() {
                     const isPrimary = s.isPrimaryAdmin || s.email.toLowerCase() === "admin@farmfreshfarmer.com";
                     const isBlocked = s.status === "blocked";
                     const perms: string[] = Array.isArray(s.permissions) ? s.permissions : [];
+                    const staff2fa = s.twoFaMethod || "both";
 
                     return (
                       <tr key={s.id} className="hover:bg-secondary/20 transition-colors">
@@ -427,16 +433,24 @@ export default function AdminStaff() {
 
                         <td className="p-4">
                           {isPrimary ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                              🛡️ Super Admin 2FA
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              👑 TOTP + Offline Code
                             </span>
-                          ) : s.telegramChatId ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30 font-mono">
-                              📱 {s.telegramChatId}
+                          ) : staff2fa === "both" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              🔐 TOTP + Mobile SMS
+                            </span>
+                          ) : staff2fa === "totp" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                              🔑 TOTP Only
+                            </span>
+                          ) : staff2fa === "sms" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                              📱 Mobile SMS Only
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                              ⚠️ No 2FA ID
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                              ⚠️ Disabled (Testing)
                             </span>
                           )}
                         </td>
@@ -649,24 +663,40 @@ export default function AdminStaff() {
                 </div>
               </div>
 
-              {/* Personal Telegram Chat ID Input for 2FA OTPs */}
-              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 space-y-1.5">
-                <label className="text-xs font-extrabold text-sky-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <Smartphone size={13} /> Personal Telegram Chat ID (for 2FA OTPs)
-                  </span>
-                  <span className="text-[10px] text-sky-400/80 font-normal">from @userinfobot</span>
-                </label>
-                <input
-                  type="text"
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                  placeholder="e.g. 1927711332"
-                  className="w-full rounded-xl border border-sky-500/30 bg-background/80 px-3 py-2 text-xs font-bold text-foreground font-mono focus:ring-2 focus:ring-sky-500 outline-none"
-                />
-                <p className="text-[10px] text-sky-300/80">
-                  When global 2FA is active, this sub-admin will receive their instant 6-digit login verification OTP on this Telegram ID.
-                </p>
+              {/* 2FA Enforcement Method Selector */}
+              <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-emerald-400" />
+                    <span>2FA Authentication Method *</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-extrabold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Production Hardened</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { val: "both", label: "🔐 Both: TOTP + SMS Fallback", desc: "Authenticator App with SMS OTP fallback option (Recommended)" },
+                    { val: "totp", label: "🔑 TOTP Authenticator Only", desc: "Google Authenticator, Apple Passwords, Authy" },
+                    { val: "sms", label: "📱 Mobile SMS OTP Only", desc: "6-digit code sent to registered mobile phone" },
+                    { val: "none", label: "⚠️ Disabled (Testing Only)", desc: "Password-only sign in (development testing only)" },
+                  ].map((opt) => {
+                    const isSel = twoFaMethod === opt.val;
+                    return (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setTwoFaMethod(opt.val as any)}
+                        className={`p-2.5 rounded-xl text-left border transition text-xs flex flex-col justify-between ${
+                          isSel
+                            ? "border-emerald-500 bg-emerald-500/15 text-foreground ring-1 ring-emerald-500/60 shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                        }`}
+                      >
+                        <p className="font-extrabold text-[11px] text-foreground">{opt.label}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{opt.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Role Selection */}

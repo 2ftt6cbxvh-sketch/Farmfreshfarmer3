@@ -346,6 +346,10 @@ export function registerAuthJwtRoutes(app: Express) {
 
     const cleanEmail = email.toLowerCase().trim();
     if (cleanEmail === "admin@farmfreshfarmer.com") {
+      // Constant-Time Timing Oracle Defense: perform identical CPU bcrypt work
+      const DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+      await bcrypt.compare(String(password || "dummySecret123"), DUMMY_HASH).catch(() => {});
+
       const refId = `SEC-TRAP-${Date.now().toString().slice(-4)}`;
       const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
       const userAgent = req.headers["user-agent"] || "unknown";

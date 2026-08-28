@@ -77,6 +77,8 @@ export function registerStaffRoutes(app: Express) {
         starRating: users.starRating,
         experienceRank: users.experienceRank,
         status: users.status,
+        twoFaMethod: users.twoFaMethod,
+        totpSecret: users.totpSecret,
         createdAt: users.createdAt,
       }).from(users).where(and(ne(users.role, "customer"), ne(users.role, "delivery_partner")));
 
@@ -87,6 +89,8 @@ export function registerStaffRoutes(app: Express) {
         isVerified: Boolean(s.isVerified),
         starRating: (s.isPrimaryAdmin || s.email?.toLowerCase() === "admin@farmfreshfarmer.com") ? 6 : (s.starRating !== null && s.starRating !== undefined ? Math.min(6, Math.max(0, Number(s.starRating))) : 5),
         experienceRank: s.experienceRank || (s.isPrimaryAdmin ? "Super Admin" : "Specialist"),
+        twoFaMethod: s.twoFaMethod || "both",
+        hasTotpSecret: !!s.totpSecret,
       }));
 
       return res.json({ staff: formatted });
@@ -100,10 +104,11 @@ export function registerStaffRoutes(app: Express) {
   app.get("/api/admin/staff/2fa-config", requirePrimaryAdmin, async (_req: Request, res: Response) => {
     try {
       const { storage } = await import("../../storage");
-      const enabled = ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
+      const isProduction = process.env.NODE_ENV === "production";
+      const enabled = isProduction || ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
       return res.json({
         enabled,
-        method: "sms",
+        isProduction,
         configured: true,
       });
     } catch (err: any) {
@@ -125,8 +130,8 @@ export function registerStaffRoutes(app: Express) {
 
       return res.json({
         message: enabled
-          ? "🛡️ Full Production 2FA Mode Activated! All Staff & Sub-Admins must verify 6-digit Mobile SMS OTP on login."
-          : "⚠️ Testing Mode Activated. Staff & Sub-Admins can sign in directly with password.",
+          ? "🛡️ Full Production 2FA Mode Activated! All Staff & Sub-Admins must verify 2FA on login."
+          : "⚠️ Testing Mode Activated. Staff & Sub-Admins can sign in directly with password (local testing only).",
       });
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Failed to save 2FA config" });
@@ -163,7 +168,7 @@ export function registerStaffRoutes(app: Express) {
   /** POST /api/admin/staff — Create a new sub-admin/staff member (Primary Admin only) */
   app.post("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, password, role, customTitle, telegramChatId, permissions, isVerified, starRating, experienceRank } = req.body || {};
+      const { name, email, phone, password, role, customTitle, telegramChatId, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
 
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required" });
@@ -186,6 +191,10 @@ export function registerStaffRoutes(app: Express) {
       const ALLOWED_STAFF_ROLES = ["warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"];
       const assignedRole = ALLOWED_STAFF_ROLES.includes(role) ? role : "custom_subadmin";
 
+      const method = (twoFaMethod || "both") as "totp" | "sms" | "both" | "none";
+      const { generateTotpSecret } = await import("../../services/totp");
+      const totpSecret = (method === "totp" || method === "both") ? generateTotpSecret(cleanEmail).secret : null;
+
       const [created] = await db.insert(users).values({
         name: name.trim(),
         email: cleanEmail,
@@ -200,6 +209,8 @@ export function registerStaffRoutes(app: Express) {
         isVerified: isVerified !== undefined ? Boolean(isVerified) : false,
         starRating: Math.min(6, Math.max(0, Number(starRating) ?? 5)),
         experienceRank: (experienceRank && String(experienceRank).trim()) ? String(experienceRank).trim() : "Specialist",
+        twoFaMethod: method,
+        totpSecret,
         status: "active",
       }).returning({
         id: users.id,
@@ -215,6 +226,7 @@ export function registerStaffRoutes(app: Express) {
         isVerified: users.isVerified,
         starRating: users.starRating,
         experienceRank: users.experienceRank,
+        twoFaMethod: users.twoFaMethod,
         status: users.status,
         createdAt: users.createdAt,
       });
@@ -226,6 +238,7 @@ export function registerStaffRoutes(app: Express) {
           isVerified: Boolean(created.isVerified),
           starRating: Number(created.starRating) || 5,
           experienceRank: created.experienceRank || "Specialist",
+          twoFaMethod: created.twoFaMethod || "both",
         },
       });
     } catch (err: any) {
@@ -234,7 +247,7 @@ export function registerStaffRoutes(app: Express) {
     }
   });
 
-  /** PATCH /api/admin/staff/:id — Edit sub-admin role, status, or permissions (Primary Admin only) */
+  /** PATCH /api/admin/staff/:id — Edit sub-admin role, status, 2FA, or permissions (Primary Admin only) */
   app.patch("/api/admin/staff/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
       const staffId = parseInt(String(req.params.id), 10);
@@ -248,7 +261,7 @@ export function registerStaffRoutes(app: Express) {
         return res.status(403).json({ message: "Chief Super Admin credentials cannot be modified via sub-admin management" });
       }
 
-      const { name, phone, password, role, customTitle, telegramChatId, status, permissions, isVerified, starRating, experienceRank } = req.body || {};
+      const { name, phone, password, role, customTitle, telegramChatId, status, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
       const updates: any = { updatedAt: new Date() };
 
       if (name) updates.name = name.trim();
@@ -274,6 +287,14 @@ export function registerStaffRoutes(app: Express) {
       if (starRating !== undefined) updates.starRating = Math.min(6, Math.max(0, Number(starRating)));
       if (experienceRank !== undefined) updates.experienceRank = String(experienceRank).trim() || "Specialist";
 
+      if (twoFaMethod !== undefined) {
+        updates.twoFaMethod = twoFaMethod;
+        if ((twoFaMethod === "totp" || twoFaMethod === "both") && !target.totpSecret) {
+          const { generateTotpSecret } = await import("../../services/totp");
+          updates.totpSecret = generateTotpSecret(target.email).secret;
+        }
+      }
+
       if (password && password.trim().length >= 6) {
         updates.password = await bcrypt.hash(password.trim(), 10);
       }
@@ -292,6 +313,7 @@ export function registerStaffRoutes(app: Express) {
         isVerified: users.isVerified,
         starRating: users.starRating,
         experienceRank: users.experienceRank,
+        twoFaMethod: users.twoFaMethod,
         status: users.status,
         createdAt: users.createdAt,
       });

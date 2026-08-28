@@ -54,6 +54,8 @@ export const users = pgTable("users", {
   lockoutUntil: timestamp("lockout_until", { withTimezone: true }),
   lockoutTier: integer("lockout_tier").notNull().default(0),
   isPermanentlyLocked: boolean("is_permanently_locked").notNull().default(false),
+  twoFaMethod: varchar("two_fa_method", { length: 32 }).notNull().default("both"), // totp | sms | both | none
+  totpSecret: text("totp_secret"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

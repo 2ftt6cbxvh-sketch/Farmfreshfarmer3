@@ -102,6 +102,9 @@ export default function Login() {
   const [staffName, setStaffName] = useState("");
   const [staffOtpCode, setStaffOtpCode] = useState("");
   const [staffBusy, setStaffBusy] = useState(false);
+  const [staff2faMethod, setStaff2faMethod] = useState<"totp" | "sms">("totp");
+  const [staffCanFallback, setStaffCanFallback] = useState(false);
+  const [staffSmsSent, setStaffSmsSent] = useState(false);
 
   async function handleStaffLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -113,9 +116,16 @@ export default function Login() {
       if (res?.require2fa) {
         setStaffStep2fa(true);
         setStaffTempToken(res.tempToken);
-        setStaffMaskedTelegram(res.maskedPhone || res.maskedTelegram || "registered mobile");
+        setStaff2faMethod(res.initialMethod || "totp");
+        setStaffCanFallback(!!res.canFallbackToSms);
+        setStaffMaskedTelegram(res.maskedPhone || "registered mobile");
         setStaffName(res.staffName || "Staff Member");
-        toast({ title: "🔐 2FA Mobile OTP Dispatched", description: `Enter the 6-digit verification code sent to ${res.maskedPhone || res.maskedTelegram || "your registered mobile"}.` });
+        setStaffOtpCode("");
+        setStaffSmsSent(res.initialMethod === "sms");
+        toast({
+          title: res.initialMethod === "sms" ? "📱 2FA Mobile OTP Sent" : "🔐 2FA Authenticator Verification",
+          description: res.message || `Please verify your identity to proceed.`,
+        });
         return;
       }
       const u = res;
@@ -138,10 +148,28 @@ export default function Login() {
     }
   }
 
+  async function handleStaffFallbackToSms() {
+    if (!staffTempToken) return;
+    setStaffBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/login/staff-fallback-sms", { tempToken: staffTempToken });
+      const data = await res.json();
+      setStaff2faMethod("sms");
+      setStaffSmsSent(true);
+      setStaffMaskedTelegram(data.maskedPhone || staffMaskedTelegram);
+      setStaffOtpCode("");
+      toast({ title: "📱 SMS OTP Dispatched", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Could not send SMS OTP", description: err?.message || "Failed to dispatch SMS", variant: "destructive" });
+    } finally {
+      setStaffBusy(false);
+    }
+  }
+
   async function handleStaffVerify2fa(e: React.FormEvent) {
     e.preventDefault();
     if (!staffOtpCode || staffOtpCode.trim().length !== 6) {
-      toast({ title: "Invalid Code", description: "Please enter the 6-digit code sent to your mobile phone.", variant: "destructive" });
+      toast({ title: "Invalid Code", description: "Please enter the 6-digit verification code.", variant: "destructive" });
       return;
     }
     setStaffBusy(true);
@@ -149,6 +177,7 @@ export default function Login() {
       const res = await apiRequest("POST", "/api/login/verify-otp", {
         tempToken: staffTempToken,
         otp: staffOtpCode.trim(),
+        method: staff2faMethod,
       });
       const data = await res.json();
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
@@ -160,7 +189,7 @@ export default function Login() {
       toast({ title: "✨ 2FA Verified!", description: `Welcome back, ${data.user?.name || staffName}!` });
       navigate("/admin");
     } catch (err: any) {
-      toast({ title: "2FA Verification Failed", description: err?.message || "Invalid or expired OTP code.", variant: "destructive" });
+      toast({ title: "2FA Verification Failed", description: err?.message || "Invalid or expired verification code.", variant: "destructive" });
     } finally {
       setStaffBusy(false);
     }
@@ -1238,17 +1267,23 @@ export default function Login() {
                 <>
                   <div className="text-center space-y-1">
                     <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/40 mb-2">
-                      <Smartphone size={26} />
+                      {staff2faMethod === "totp" ? <ShieldCheck size={26} /> : <Smartphone size={26} />}
                     </div>
-                    <h2 className="text-xl font-serif font-bold text-foreground">Staff 2FA Mobile Verification</h2>
+                    <h2 className="text-xl font-serif font-bold text-foreground">
+                      {staff2faMethod === "totp" ? "Staff 2FA Authenticator" : "Staff 2FA Mobile SMS"}
+                    </h2>
                     <p className="text-xs text-muted-foreground">
-                      Hello <b>{staffName}</b>, enter the 6-digit verification code sent to your mobile ({staffMaskedTelegram}).
+                      {staff2faMethod === "totp"
+                        ? <>Hello <b>{staffName}</b>, enter the 6-digit code from your Authenticator App.</>
+                        : <>Hello <b>{staffName}</b>, enter the 6-digit code sent to your mobile ({staffMaskedTelegram}).</>}
                     </p>
                   </div>
 
                   <form onSubmit={handleStaffVerify2fa} className="space-y-4 pt-2">
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold text-sky-400">6-Digit One-Time Passcode</Label>
+                      <Label className="text-xs font-bold text-emerald-400">
+                        {staff2faMethod === "totp" ? "6-Digit Authenticator Passcode" : "6-Digit Mobile SMS OTP"}
+                      </Label>
                       <Input
                         type="text"
                         maxLength={6}
@@ -1257,17 +1292,42 @@ export default function Login() {
                         onChange={(e) => setStaffOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         required
                         autoFocus
-                        className="rounded-xl text-center font-mono text-xl tracking-widest font-bold h-12 border-sky-500/40"
+                        className="rounded-xl text-center font-mono text-xl tracking-widest font-bold h-12 border-emerald-500/40"
                       />
                     </div>
 
                     <Button
                       type="submit"
                       disabled={staffBusy || staffOtpCode.length !== 6}
-                      className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl text-xs shadow-lg"
+                      className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-lg"
                     >
-                      {staffBusy ? "Verifying Token..." : "Verify & Unlock Access 🔓"}
+                      {staffBusy ? "Verifying Passcode..." : "Verify & Unlock Access 🔓"}
                     </Button>
+
+                    {staffCanFallback && staff2faMethod === "totp" && (
+                      <div className="pt-2 text-center border-t border-border/40">
+                        <button
+                          type="button"
+                          onClick={handleStaffFallbackToSms}
+                          disabled={staffBusy}
+                          className="text-xs font-bold text-emerald-400 hover:text-emerald-300 underline flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <Smartphone size={13} /> Can't access Authenticator? Send Mobile SMS OTP
+                        </button>
+                      </div>
+                    )}
+
+                    {staffCanFallback && staff2faMethod === "sms" && (
+                      <div className="pt-2 text-center border-t border-border/40">
+                        <button
+                          type="button"
+                          onClick={() => { setStaff2faMethod("totp"); setStaffOtpCode(""); }}
+                          className="text-xs font-bold text-sky-400 hover:text-sky-300 underline flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <ShieldCheck size={13} /> Use Authenticator App instead
+                        </button>
+                      </div>
+                    )}
                   </form>
                 </>
               )}

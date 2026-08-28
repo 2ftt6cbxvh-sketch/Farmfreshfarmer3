@@ -478,6 +478,8 @@ export function registerPasswordResetRoutes(app: Express) {
         success: true,
         message: "🛡️ Break-Glass Emergency Authentication successful! Welcome back, Chief Super Admin.",
         incidentRef: authRef,
+        mustRotatePassword: true,
+        mustRefreshEmergencyCodes: true,
         user: {
           id: user.id,
           name: user.name,
