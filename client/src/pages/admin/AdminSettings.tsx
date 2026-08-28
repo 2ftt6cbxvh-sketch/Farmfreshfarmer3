@@ -1248,11 +1248,11 @@ function TelegramBotsCustomizer() {
 
 function SmtpEmailCustomizer() {
   const { toast } = useToast();
-  const [smtpHost, setSmtpHost] = useState("smtp.resend.com");
-  const [smtpPort, setSmtpPort] = useState("587");
-  const [smtpUser, setSmtpUser] = useState("resend");
+  const [smtpHost, setSmtpHost] = useState("smtp.titan.email");
+  const [smtpPort, setSmtpPort] = useState("465");
+  const [smtpUser, setSmtpUser] = useState("admin@farmfreshfarmer.com");
   const [smtpPass, setSmtpPass] = useState("");
-  const [fromEmail, setFromEmail] = useState("orders@farmfreshfarmer.com");
+  const [fromEmail, setFromEmail] = useState("FarmFreshFarmer <admin@farmfreshfarmer.com>");
   const [resendApiKey, setResendApiKey] = useState("");
   const [testEmail, setTestEmail] = useState("");
 
@@ -1311,10 +1311,10 @@ function SmtpEmailCustomizer() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-serif text-xl font-bold flex items-center gap-2 text-foreground">
-            <span>📧 Production Email & SMTP Settings (Resend / Custom SMTP)</span>
+            <span>📧 Production Email & SMTP Settings (Titan Email / Custom SMTP)</span>
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure live Resend API key or custom SMTP server details for dispatching 6-Digit OTPs, Password Resets, and Order Confirmations.
+            Configure Titan Mail SMTP server details or Resend API key for dispatching 6-Digit OTPs, Password Resets, and Order Confirmations.
           </p>
         </div>
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-500 font-bold">
@@ -1323,27 +1323,19 @@ function SmtpEmailCustomizer() {
       </div>
 
       <div className="space-y-4">
-        {/* Resend API Key Section */}
-        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-2">
-          <Label className="text-xs font-bold text-emerald-400">Resend API Key (Recommended Alternative to SMTP)</Label>
-          <Input
-            type="password"
-            placeholder="re_123456789..."
-            value={resendApiKey}
-            onChange={(e) => setResendApiKey(e.target.value)}
-            className="font-mono text-xs rounded-xl"
-          />
-          <p className="text-[10px] text-muted-foreground">If provided, Resend HTTPS API will be prioritized over SMTP for instant delivery.</p>
-        </div>
-
         {/* Custom SMTP Configuration */}
         <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Standard SMTP Server Configuration</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Titan Email SMTP Configuration</h3>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
+              SSL Port 465 / STARTTLS 587
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs font-bold">SMTP Host (e.g. smtp.resend.com or smtp.gmail.com)</Label>
+              <Label className="text-xs font-bold">SMTP Host</Label>
               <Input
-                placeholder="smtp.resend.com"
+                placeholder="smtp.titan.email"
                 value={smtpHost}
                 onChange={(e) => setSmtpHost(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl"
@@ -1351,9 +1343,9 @@ function SmtpEmailCustomizer() {
             </div>
 
             <div>
-              <Label className="text-xs font-bold">SMTP Port (e.g. 587 or 465)</Label>
+              <Label className="text-xs font-bold">SMTP Port (465 for SSL or 587 for TLS)</Label>
               <Input
-                placeholder="587"
+                placeholder="465"
                 value={smtpPort}
                 onChange={(e) => setSmtpPort(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl"
@@ -1361,9 +1353,9 @@ function SmtpEmailCustomizer() {
             </div>
 
             <div>
-              <Label className="text-xs font-bold">SMTP Username (e.g. resend or your-email@gmail.com)</Label>
+              <Label className="text-xs font-bold">SMTP Username / Email</Label>
               <Input
-                placeholder="resend"
+                placeholder="admin@farmfreshfarmer.com"
                 value={smtpUser}
                 onChange={(e) => setSmtpUser(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl"
@@ -1371,10 +1363,10 @@ function SmtpEmailCustomizer() {
             </div>
 
             <div>
-              <Label className="text-xs font-bold">SMTP Password / API Key</Label>
+              <Label className="text-xs font-bold">SMTP Mailbox Password</Label>
               <Input
                 type="password"
-                placeholder="SMTP Password or API Token"
+                placeholder="Enter Titan Email Password"
                 value={smtpPass}
                 onChange={(e) => setSmtpPass(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl"
@@ -1382,16 +1374,29 @@ function SmtpEmailCustomizer() {
             </div>
 
             <div className="md:col-span-2">
-              <Label className="text-xs font-bold text-emerald-400">Sender Email Address (FROM_EMAIL)</Label>
+              <Label className="text-xs font-bold text-emerald-400">Sender Display (FROM_EMAIL)</Label>
               <Input
-                placeholder="orders@farmfreshfarmer.com"
+                placeholder="FarmFreshFarmer <admin@farmfreshfarmer.com>"
                 value={fromEmail}
                 onChange={(e) => setFromEmail(e.target.value)}
                 className="mt-1 font-mono text-xs rounded-xl"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">Must be verified with your domain in Resend/SMTP provider.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Sent as the "From:" header on all customer OTPs and password reset emails.</p>
             </div>
           </div>
+        </div>
+
+        {/* Resend API Key Section */}
+        <div className="p-4 rounded-xl bg-secondary/30 border border-emerald-500/20 space-y-2">
+          <Label className="text-xs font-bold text-muted-foreground">Resend API Key (Optional Alternative)</Label>
+          <Input
+            type="password"
+            placeholder="re_123456789..."
+            value={resendApiKey}
+            onChange={(e) => setResendApiKey(e.target.value)}
+            className="font-mono text-xs rounded-xl"
+          />
+          <p className="text-[10px] text-muted-foreground">Optional: If provided, Resend HTTPS API will be prioritized over SMTP.</p>
         </div>
 
         {/* Test Email Dispatcher */}
