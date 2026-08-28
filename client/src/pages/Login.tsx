@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useLocation } from "wouter";
@@ -15,9 +15,26 @@ import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 import { getRecaptchaToken } from "@/lib/recaptcha";
 
 export default function Login() {
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (
+        user.isPrimaryAdmin ||
+        user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+        ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(user.role)
+      ) {
+        navigate("/admin");
+      } else if (user.role === "delivery_partner") {
+        navigate("/partner-portal");
+      } else {
+        navigate("/profile");
+      }
+    }
+  }, [user, navigate]);
 
   const { data: authMethods } = useQuery<{ emailEnabled: boolean; googleEnabled: boolean }>({
     queryKey: ["/api/auth/methods"],
@@ -514,6 +531,17 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (user) {
+    return (
+      <Layout>
+        <div className="mx-auto max-w-md px-4 py-24 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mx-auto" />
+          <p className="text-sm font-bold text-foreground">Already signed in as {user.name || user.email}. Redirecting...</p>
+        </div>
+      </Layout>
+    );
   }
 
   return (

@@ -10,12 +10,25 @@ import { apiRequest } from "@/lib/queryClient";
 import { AdminDirectAccessWarning } from "./AdminDirectAccessWarning";
 
 export default function AdminLogin() {
-  const { login, setUser } = useAuth();
+  const { user, login, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [email, setEmail] = useState("admin@farmfreshfarmer.com");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Auto-redirect if already authenticated as admin
+  useEffect(() => {
+    if (user) {
+      if (
+        user.isPrimaryAdmin ||
+        user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+        ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(user.role)
+      ) {
+        navigate("/admin");
+      }
+    }
+  }, [user, navigate]);
 
   // 2FA Challenge State
   const [step2fa, setStep2fa] = useState(false);
@@ -148,6 +161,20 @@ export default function AdminLogin() {
     } finally {
       setResending(false);
     }
+  }
+
+  if (
+    user &&
+    (user.isPrimaryAdmin ||
+      user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(user.role))
+  ) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center p-6 space-y-4">
+        <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mx-auto" />
+        <p className="text-sm font-bold text-white">Authenticated as {user.name || user.email}. Opening Dashboard...</p>
+      </div>
+    );
   }
 
   return (
