@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Shield, Crown, Search, UserCheck, ExternalLink,
-  Phone, Mail, CheckCircle2, ShieldAlert, Trash2, AlertTriangle
+  Phone, Mail, CheckCircle2, ShieldAlert, Trash2, AlertTriangle, Lock, Unlock
 } from "lucide-react";
 
 export default function AdminUsers() {
@@ -42,6 +42,21 @@ export default function AdminUsers() {
     },
     onError: (err: any) => {
       toast({ title: "Deletion Failed", description: err.message || "Could not delete user", variant: "destructive" });
+    },
+  });
+
+  const unlockUserMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/users/${id}/unlock`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      toast({ title: "🔓 Account Unlocked", description: data.message || "User account unlocked successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Unlock Failed", description: err.message || "Could not unlock user", variant: "destructive" });
     },
   });
 
@@ -154,11 +169,34 @@ export default function AdminUsers() {
                       </td>
                       <td className="p-3.5 text-xs text-foreground font-medium">{u.email}</td>
                       <td className="p-3.5">
-                        <Badge variant="outline" className="text-[10px] font-black uppercase">
-                          {isSuperAdmin ? "Executive Admin" : u.role}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] font-black uppercase">
+                            {isSuperAdmin ? "Executive Admin" : u.role}
+                          </Badge>
+                          {(u.isPermanentlyLocked || u.status === "locked") && (
+                            <Badge className="text-[10px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+                              <Lock size={10} /> Permanently Locked
+                            </Badge>
+                          )}
+                          {u.lockoutUntil && new Date(u.lockoutUntil) > new Date() && (
+                            <Badge className="text-[10px] bg-amber-600/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                              <Lock size={10} /> Temp Locked
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3.5 text-right flex items-center justify-end gap-2">
+                        {(u.isPermanentlyLocked || u.status === "locked" || (u.lockoutUntil && new Date(u.lockoutUntil) > new Date()) || (u.failedLoginAttempts || 0) > 0) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 flex items-center gap-1"
+                            onClick={() => unlockUserMut.mutate(u.id)}
+                            disabled={unlockUserMut.isPending}
+                          >
+                            <Unlock size={12} /> Unlock
+                          </Button>
+                        )}
                         {isSuperAdmin || isStaff ? (
                           <Link href="/admin/staff" className="text-xs text-blue-400 font-bold hover:underline">Manage Staff</Link>
                         ) : (

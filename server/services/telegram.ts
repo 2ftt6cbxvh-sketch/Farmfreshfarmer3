@@ -987,6 +987,25 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
+  if (lowerText.startsWith("/unlock ") || lowerText.startsWith("/unlock_user ")) {
+    const target = text.replace("/unlock_user", "").replace("/unlock", "").trim().toLowerCase();
+    if (!target) {
+      const reply = "⚠️ Usage: <code>/unlock user@email.com</code>";
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+    const { unlockUserAccount } = await import("./lockout");
+    const res = await unlockUserAccount(target, "Super Admin (Telegram)");
+    if (res.success && res.user) {
+      const reply = `🔓 <b>ACCOUNT UNLOCKED SUCCESSFULLY</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n👤 <b>User:</b> ${res.user.name} (<code>${res.user.email}</code>)\n✅ <b>Result:</b> All lockout timers, password failure counts, and restrictions reset to 0.\nUser can now log in immediately.`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+    const reply = `⚠️ Account not found: <code>${target}</code>`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
   if (lowerText.startsWith("/approve ")) {
     const token = text.replace("/approve", "").trim();
     if (approveTelegramUnlockToken(token)) {
@@ -1015,13 +1034,14 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
 🔓 <code>/lock off</code> - Deactivate platform lockdown
 ℹ️ <code>/status</code> - Check lockdown & platform status
 📋 <code>/approvals</code> - View pending product & category approvals
+🔓 <code>/unlock &lt;email&gt;</code> - Unlock locked account & reset failure attempts
 🚫 <code>/subadmin block &lt;email&gt;</code> - Block a user or sub-admin
 ✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user or sub-admin
 🔑 <code>/approve &lt;token&gt;</code> - Approve emergency unlock token
 👥 <code>/users</code> - View registered user count
 ❓ <code>/help</code> - Show this commands manual
 
-<i>Note: All product & category approval requests from sub-admins are automatically sent to this bot!</i>`;
+<i>Note: All security alerts and 24-hour / permanent lockout alerts are automatically sent to this bot!</i>`;
     await sendRawTelegramMessage(botToken, senderChatId, help);
     return { handled: true, reply: help };
   }

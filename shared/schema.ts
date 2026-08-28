@@ -49,7 +49,11 @@ export const users = pgTable("users", {
   experienceRank: varchar("experience_rank", { length: 64 }).notNull().default("Specialist"),
   customerStars: integer("customer_stars").notNull().default(0),
   profilePhoto: text("profile_photo"),
-  status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive
+  status: varchar("status", { length: 16 }).notNull().default("active"), // active | blocked | inactive | locked
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockoutUntil: timestamp("lockout_until", { withTimezone: true }),
+  lockoutTier: integer("lockout_tier").notNull().default(0),
+  isPermanentlyLocked: boolean("is_permanently_locked").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

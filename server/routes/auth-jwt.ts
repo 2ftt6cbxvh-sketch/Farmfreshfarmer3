@@ -7,6 +7,7 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
 import { ensureReferralCode } from "../engine/referral";
+import { verifyPasswordWithLockout } from "../services/lockout";
 
 function validatePassword(password: string): { valid: boolean; error?: string } {
   if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters long." };
@@ -109,12 +110,13 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    if (user.status === "blocked") return res.status(403).json({ message: "Account is suspended." });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      await auditLog("login_failed", { userId: user.id, req, action: `Wrong password for email: ${cleanEmail}` });
-      return res.status(401).json({ message: "Invalid email or password" });
+    const lockoutCheck = await verifyPasswordWithLockout(user, password, req);
+    if (!lockoutCheck.allowed) {
+      return res.status(lockoutCheck.statusCode || 401).json({
+        message: lockoutCheck.message || "Invalid email or password",
+        remainingAttempts: lockoutCheck.remainingAttempts,
+        isPermanentlyLocked: lockoutCheck.isPermanentlyLocked,
+      });
     }
 
     if (req.session) {
@@ -320,10 +322,13 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(403).json({ message: "Your account is currently suspended. Please contact support." });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      await auditLog("login_failed", { userId: user.id, req, action: `Wrong password for email: ${cleanEmail}` });
-      return res.status(401).json({ message: "Incorrect password. Please try again or use Forgot Password." });
+    const lockoutCheck = await verifyPasswordWithLockout(user, password, req);
+    if (!lockoutCheck.allowed) {
+      return res.status(lockoutCheck.statusCode || 401).json({
+        message: lockoutCheck.message || "Incorrect password. Please try again or use Forgot Password.",
+        remainingAttempts: lockoutCheck.remainingAttempts,
+        isPermanentlyLocked: lockoutCheck.isPermanentlyLocked,
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

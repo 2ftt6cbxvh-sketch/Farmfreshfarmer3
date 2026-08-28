@@ -1767,6 +1767,25 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     });
   }));
 
+  /** POST /api/admin/users/:id/unlock — Unlock locked / rate-limited user account */
+  app.post("/api/admin/users/:id/unlock", requireAdmin, h(async (req, res) => {
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId || isNaN(targetId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const { unlockUserAccount } = await import("./services/lockout");
+    const result = await unlockUserAccount(targetId, `Admin ID #${req.session?.userId || "Admin"}`);
+    if (!result.success) {
+      return res.status(404).json({ message: result.message });
+    }
+
+    return res.json({
+      success: true,
+      message: result.message,
+    });
+  }));
+
   /* ============================= REFERRAL ========================== */
   app.get("/api/referral/summary", requireAuth, h(async (req, res) => {
     res.json(await referralSummary(req.session.userId!));

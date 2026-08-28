@@ -8,7 +8,7 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { useAuth } from "@/lib/store";
 
 interface Customer {
@@ -16,6 +16,9 @@ interface Customer {
   hasCompletedFirstOrder: boolean; totalOrders: number; totalSpent: string;
   referralCode: string | null; successfulReferrals: number; referralBalance: number;
   customerStars?: number;
+  isPermanentlyLocked?: boolean;
+  failedLoginAttempts?: number;
+  lockoutUntil?: string | null;
 }
 
 export default function AdminCustomers() {
@@ -71,6 +74,21 @@ export default function AdminCustomers() {
     },
   });
 
+  const unlockUserMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/users/${id}/unlock`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "🔓 Customer Unlocked", description: data.message || "Customer account unlocked successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Unlock Failed", description: err.message || "Could not unlock customer", variant: "destructive" });
+    },
+  });
+
   return (
     <AdminLayout title="Customers">
       <p className="text-sm text-muted-foreground mb-4">All registered customers, their order history, loyalty stars, and referral performance.</p>
@@ -120,9 +138,31 @@ export default function AdminCustomers() {
                   <td className="p-3">{c.hasCompletedFirstOrder ? <Badge variant="default">Yes</Badge> : <Badge variant="outline">No</Badge>}</td>
                   <td className="p-3 font-mono text-xs">{c.referralCode || "—"}</td>
                   <td className="p-3">{formatINR(Number(c.referralBalance))}</td>
-                  <td className="p-3"><Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge></td>
+                  <td className="p-3">
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge>
+                      {(c.isPermanentlyLocked || c.status === "locked") && (
+                        <Badge className="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
+                          <Lock size={9} /> Locked
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-3">
                     <div className="flex justify-end items-center gap-1.5">
+                      {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => unlockUserMut.mutate(c.id)}
+                          disabled={unlockUserMut.isPending}
+                          title="Unlock account and reset failed login attempts"
+                          className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
+                        >
+                          <Unlock size={12} /> Unlock
+                        </Button>
+                      )}
+
                       <Button
                         variant="outline"
                         size="sm"
