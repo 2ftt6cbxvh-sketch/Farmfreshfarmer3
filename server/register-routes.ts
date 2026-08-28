@@ -2317,34 +2317,48 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   /** PATCH /api/admin/customers/:id — Super Admin manual edit of customer details (phone, email, name, verified status) without OTP */
   app.patch("/api/admin/customers/:id", requireAdmin, h(async (req, res) => {
-    const isSuperAdmin =
-      req.session?.userId === 1 ||
-      req.session?.role === "admin" ||
-      (req as any).user?.isPrimaryAdmin ||
-      (req as any).user?.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+    const isSuperAdmin = await isPrimaryAdminUser(req);
     if (!isSuperAdmin) {
-      return res.status(403).json({ message: "Only Super Admin is authorized to manually update customer phone and email details without OTP." });
+      return res.status(403).json({ message: "Only Chief Super Admin is authorized to manually update customer details." });
     }
 
     const id = Number(req.params.id);
+    if (id === 1) {
+      return res.status(403).json({ message: "Root Chief Super Admin credentials cannot be modified via customer edit." });
+    }
+
+    const [targetCustomer] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!targetCustomer) return res.status(404).json({ message: "Customer not found." });
+    if (targetCustomer.isPrimaryAdmin || targetCustomer.email?.toLowerCase() === "admin@farmfreshfarmer.com") {
+      return res.status(403).json({ message: "Protected Root Admin account cannot be modified via customer edit." });
+    }
+
     const { name, email, phone, isVerified } = req.body || {};
     const updates: Record<string, any> = {};
 
     if (typeof name === "string" && name.trim()) updates.name = name.trim();
-    if (typeof email === "string" && email.trim()) updates.email = email.trim().toLowerCase();
+    if (typeof email === "string" && email.trim()) {
+      const cleanEmail = email.trim().toLowerCase();
+      if (cleanEmail === "admin@farmfreshfarmer.com") {
+        return res.status(403).json({ message: "Cannot assign Chief Super Admin email to any other user." });
+      }
+      updates.email = cleanEmail;
+    }
     if (phone !== undefined) {
       const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
       updates.phone = cleanPhone || null;
     }
     if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
 
+    // Hard-enforce zero elevation
+    delete updates.isPrimaryAdmin;
+    delete updates.role;
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No customer fields provided for update." });
     }
 
     const [updated] = await db.update(users).set({ ...updates, updatedAt: new Date() }).where(eq(users.id, id)).returning();
-    if (!updated) return res.status(404).json({ message: "Customer not found." });
-
     res.json({ message: "Customer profile details manually updated successfully by Super Admin.", customer: updated });
   }));
 
@@ -2373,16 +2387,85 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   }));
 
   /* ===================== ADMIN: settings ========================= */
-  app.get("/api/admin/settings", requireAdmin, h(async (_req, res) => {
-    res.json(await storage.settings.all());
+  const SENSITIVE_SECURITY_KEYS = new Set([
+    "admin_totp_secret",
+    "telegram_security_bot_token",
+    "telegram_bot_token",
+    "telegram_2fa_bot_token",
+    "telegram_otp_bot_token",
+    "telegram_grievance_bot_token",
+    "telegram_support_bot_token",
+    "telegram_security_chat_ids",
+    "telegram_security_chat_id",
+    "telegram_chat_id",
+    "telegram_grievance_chat_ids",
+    "telegram_support_chat_ids",
+    "razorpay_key_secret",
+    "razorpay_secret",
+    "shiprocket_token",
+    "shiprocket_password",
+    "resend_api_key",
+    "smtp_password",
+    "password_reset_pepper",
+    "emergency_codes",
+    "jwt_secret",
+  ]);
+
+  app.get("/api/admin/settings", requireAdmin, h(async (req, res) => {
+    const isPrimary = await isPrimaryAdminUser(req);
+    const all = await storage.settings.all();
+
+    if (!isPrimary) {
+      // Sub-admins: strip all sensitive keys completely
+      const filtered: Record<string, string> = {};
+      for (const [k, v] of Object.entries(all)) {
+        if (!SENSITIVE_SECURITY_KEYS.has(k)) {
+          filtered[k] = v;
+        }
+      }
+      return res.json(filtered);
+    }
+
+    // Primary Admin: return with sensitive tokens masked
+    const sanitized: Record<string, string> = {};
+    for (const [k, v] of Object.entries(all)) {
+      if (SENSITIVE_SECURITY_KEYS.has(k) && v && String(v).length > 8 && !String(v).includes("...")) {
+        sanitized[k] = `${String(v).substring(0, 4)}••••••••${String(v).slice(-4)}`;
+      } else {
+        sanitized[k] = v;
+      }
+    }
+    res.json(sanitized);
   }));
+
   app.post("/api/admin/settings", requireAdmin, h(async (req, res) => {
+    const isPrimary = await isPrimaryAdminUser(req);
     const pairs = req.body && typeof req.body === "object" ? req.body : {};
-    await storage.settings.setMany(
-      Object.fromEntries(Object.entries(pairs).map(([k, v]) => [k, String(v)])),
-    );
-    apiCache.invalidateTags(["settings", "delivery-rules", "checkout-config", "auth"]);
-    res.json(await storage.settings.all());
+
+    // Check if modifying any sensitive security keys
+    const attemptedSensitive = Object.keys(pairs).filter((k) => SENSITIVE_SECURITY_KEYS.has(k));
+    if (attemptedSensitive.length > 0 && !isPrimary) {
+      return res.status(403).json({
+        message: `⛔ ACCESS DENIED: Modifying security keys (${attemptedSensitive.join(", ")}) is strictly restricted to Chief Super Admin.`,
+      });
+    }
+
+    // Filter out masked placeholders so we never overwrite real keys with preview bullets
+    const validPairs: Record<string, string> = {};
+    for (const [k, v] of Object.entries(pairs)) {
+      const valStr = String(v ?? "");
+      if (SENSITIVE_SECURITY_KEYS.has(k) && (valStr.includes("••••") || valStr.includes("..."))) {
+        continue; // Skip masked placeholder
+      }
+      validPairs[k] = valStr;
+    }
+
+    if (Object.keys(validPairs).length > 0) {
+      await storage.settings.setMany(validPairs);
+      apiCache.invalidateTags(["settings", "delivery-rules", "checkout-config", "auth"]);
+    }
+
+    res.json({ success: true, message: "Settings saved successfully" });
   }));
 
   /** GET /api/settings/public — Fetch public store settings (contact info, delivery rules, return hours) */

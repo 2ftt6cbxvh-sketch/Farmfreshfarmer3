@@ -179,6 +179,10 @@ export function registerStaffRoutes(app: Express) {
       }
 
       const cleanEmail = email.trim().toLowerCase();
+      if (cleanEmail === "admin@farmfreshfarmer.com") {
+        return res.status(403).json({ message: "⛔ The Chief Super Admin credentials (admin@farmfreshfarmer.com) are unique and cannot be duplicated." });
+      }
+
       const existing = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
       if (existing.length > 0) {
         return res.status(400).json({ message: "A user with this email already exists" });
@@ -187,7 +191,9 @@ export function registerStaffRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(password, 10);
       const permString = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
 
-      const assignedRole = (role === "superadmin" || role === "super_admin") ? "admin" : (role || "custom_subadmin");
+      // Never allow creating a root "admin" or "superadmin" — all created staff are sub-admins
+      const ALLOWED_STAFF_ROLES = ["warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"];
+      const assignedRole = ALLOWED_STAFF_ROLES.includes(role) ? role : "custom_subadmin";
 
       const [created] = await db.insert(users).values({
         name: name.trim(),
@@ -247,8 +253,8 @@ export function registerStaffRoutes(app: Express) {
       if (!target) return res.status(404).json({ message: "Staff account not found" });
 
       // Prevent editing primary admin via this endpoint
-      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin) {
-        return res.status(403).json({ message: "Primary Admin credentials cannot be modified via sub-admin management" });
+      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin || target.id === 1) {
+        return res.status(403).json({ message: "Chief Super Admin credentials cannot be modified via sub-admin management" });
       }
 
       const { name, phone, password, role, customTitle, telegramChatId, status, permissions, isVerified, starRating, experienceRank } = req.body || {};
@@ -256,7 +262,17 @@ export function registerStaffRoutes(app: Express) {
 
       if (name) updates.name = name.trim();
       if (phone !== undefined) updates.phone = phone ? phone.trim() : null;
-      if (role) updates.role = (role === "superadmin" || role === "super_admin") ? "admin" : role;
+      
+      // Never allow promoting to root admin
+      if (role) {
+        const ALLOWED_STAFF_ROLES = ["warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"];
+        updates.role = ALLOWED_STAFF_ROLES.includes(role) ? role : "custom_subadmin";
+      }
+
+      // Hardcode single-root immutability
+      delete updates.isPrimaryAdmin;
+      delete updates.email; // Email of staff accounts cannot be renamed to hijack identities
+
       if (customTitle !== undefined) updates.customTitle = customTitle ? customTitle.trim() : null;
       if (telegramChatId !== undefined) updates.telegramChatId = telegramChatId ? String(telegramChatId).trim() : null;
       if (status) updates.status = status; // 'active' | 'blocked' | 'inactive'

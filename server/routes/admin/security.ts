@@ -7,12 +7,11 @@ import { refreshTokens, securityAuditLogs, users } from "@shared/schema";
 import { eq, isNull, desc } from "drizzle-orm";
 import { getLockdownStatus, setLockdown } from "../../services/lockdown";
 
-async function requireAdmin(req: Request, res: Response, next: Function) {
+async function requirePrimaryAdmin(req: Request, res: Response, next: Function) {
   let userId: number | undefined = (req as any).jwtUser?.userId || req.session?.userId;
-  let role: string | undefined = (req as any).jwtUser?.role || req.session?.role;
 
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || req.cookies?.admin_token);
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
@@ -23,28 +22,42 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
     } catch (e: any) {}
   }
 
-  const ADMIN_ROLES = ["admin", "superadmin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"];
-
-  if (userId) {
-    const { db } = await import("../../db");
-    const { users } = await import("@shared/schema");
-    const { eq } = await import("drizzle-orm");
-    const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
-    if (user && (ADMIN_ROLES.includes(user.role) || user.isPrimaryAdmin) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
-      if (req.session) {
-        req.session.userId = user.id;
-        req.session.role = user.role;
-      }
-      return (next as any)();
-    }
+  if (!userId) {
+    return res.status(401).json({ message: "Authentication required" });
   }
 
-  return res.status(403).json({ message: "Admin access required" });
+  const { db } = await import("../../db");
+  const { users } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+  const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
+
+  if (!user || user.status === "blocked" || user.status === "locked" || user.isPermanentlyLocked) {
+    return res.status(403).json({ message: "Forbidden: Active account required" });
+  }
+
+  const isPrimary = Boolean(
+    user.isPrimaryAdmin === true ||
+    user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    user.id === 1
+  );
+
+  if (!isPrimary) {
+    return res.status(403).json({
+      message: "⛔ ACCESS DENIED: Only the Chief Executive Super Admin is authorized to access Security Controls and Cryptographic Settings.",
+    });
+  }
+
+  if (req.session) {
+    req.session.userId = user.id;
+    req.session.role = user.role;
+  }
+  (req as any).currentUser = user;
+  return (next as any)();
 }
 
 export function registerAdminSecurityRoutes(app: Express) {
-  /** GET /api/admin/mfa/totp/setup — Generate TOTP secret & QR URI for Apple Passwords / Authenticator */
-  app.get("/api/admin/mfa/totp/setup", async (req: Request, res: Response) => {
+  /** GET /api/admin/mfa/totp/setup — Generate TOTP secret & QR URI for Apple Passwords / Authenticator (Chief Super Admin Only) */
+  app.get("/api/admin/mfa/totp/setup", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     const { generateTotpSecret } = await import("../../services/totp");
     const { storage } = await import("../../storage");
 
@@ -67,8 +80,8 @@ export function registerAdminSecurityRoutes(app: Express) {
     });
   });
 
-  /** POST /api/admin/mfa/totp/verify — Confirm 6-Digit TOTP Code & Activate MFA */
-  app.post("/api/admin/mfa/totp/verify", requireAdmin as any, async (req: Request, res: Response) => {
+  /** POST /api/admin/mfa/totp/verify — Confirm 6-Digit TOTP Code & Activate MFA (Chief Super Admin Only) */
+  app.post("/api/admin/mfa/totp/verify", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     const { code } = req.body || {};
     const { verifyTotpCode } = await import("../../services/totp");
     const { storage } = await import("../../storage");
@@ -128,11 +141,11 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({ logged: true, alertSent: true });
   });
 
-  app.get("/api/admin/security/lockdown", requireAdmin as any, async (_req: Request, res: Response) => {
+  app.get("/api/admin/security/lockdown", requirePrimaryAdmin as any, async (_req: Request, res: Response) => {
     return res.json(await getLockdownStatus());
   });
 
-  app.post("/api/admin/security/lockdown", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/lockdown", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     const { active, reason } = req.body || {};
     if (typeof active !== "boolean") return res.status(400).json({ message: "active (boolean) required" });
     if (active && !reason) return res.status(400).json({ message: "reason required when activating lockdown" });
@@ -141,7 +154,7 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({ message: `Lockdown ${active ? "activated" : "deactivated"}`, active });
   });
 
-  app.get("/api/admin/security/audit-log", requireAdmin as any, async (req: Request, res: Response) => {
+  app.get("/api/admin/security/audit-log", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(String(req.query.limit || "50")), 200);
     const logs = await db.select({
       id: securityAuditLogs.id, eventType: securityAuditLogs.eventType,
@@ -154,7 +167,7 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({ logs });
   });
 
-  app.get("/api/admin/security/sessions", requireAdmin as any, async (_req: Request, res: Response) => {
+  app.get("/api/admin/security/sessions", requirePrimaryAdmin as any, async (_req: Request, res: Response) => {
     const sessions = await db.select({
       id: refreshTokens.id, userId: refreshTokens.userId, email: users.email,
       platform: refreshTokens.platform, deviceId: refreshTokens.deviceId,
@@ -164,7 +177,7 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({ sessions });
   });
 
-  app.delete("/api/admin/security/sessions/:id", requireAdmin as any, async (req: Request, res: Response) => {
+  app.delete("/api/admin/security/sessions/:id", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return res.status(400).json({ message: "Invalid session ID" });
     await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id));
@@ -172,7 +185,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** GET /api/admin/security/telegram — Fetch both Telegram bots configuration */
-  app.get("/api/admin/security/telegram", requireAdmin as any, async (_req: Request, res: Response) => {
+  app.get("/api/admin/security/telegram", requirePrimaryAdmin as any, async (_req: Request, res: Response) => {
     try {
       const { getTelegramSecurityCredentials, getTelegramGrievanceCredentials } = await import("../../services/telegram");
       const { storage } = await import("../../storage");
@@ -218,7 +231,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/security — Save Security Bot credentials (Super Admin only) */
-  app.post("/api/admin/security/telegram/security", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/security", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { botToken, chatId, chatIds } = req.body || {};
       const { storage } = await import("../../storage");
@@ -252,7 +265,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/broadcast-update — Broadcast update push alert to all Super Admins */
-  app.post("/api/admin/security/telegram/broadcast-update", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/broadcast-update", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { sendTelegramDeployNotification } = await import("../../services/telegram");
       const { version, details } = req.body || {};
@@ -268,7 +281,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   // Legacy route alias for Security credentials
-  app.post("/api/admin/security/telegram", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { botToken, chatId } = req.body || {};
       const { storage } = await import("../../storage");
@@ -299,7 +312,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/security/setup-webhook — Auto-Register Security Webhook */
-  app.post("/api/admin/security/telegram/security/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/security/setup-webhook", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { getTelegramSecurityCredentials } = await import("../../services/telegram");
       const { botToken } = await getTelegramSecurityCredentials();
@@ -332,7 +345,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   // Legacy setup-webhook alias
-  app.post("/api/admin/security/telegram/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/setup-webhook", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { getTelegramSecurityCredentials } = await import("../../services/telegram");
       const { botToken } = await getTelegramSecurityCredentials();
@@ -362,7 +375,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/security/test-alert — Dispatch test alert to Super Admin Security Bot */
-  app.post(["/api/admin/security/telegram/security/test-alert", "/api/admin/security/telegram/test-alert"], requireAdmin as any, async (_req: Request, res: Response) => {
+  app.post(["/api/admin/security/telegram/security/test-alert", "/api/admin/security/telegram/test-alert"], requirePrimaryAdmin as any, async (_req: Request, res: Response) => {
     try {
       const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../../services/telegram");
       if (!(await isTelegramSecurityConfigured())) {
@@ -387,7 +400,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/grievance — Save Grievance & Support Bot credentials */
-  app.post("/api/admin/security/telegram/grievance", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/grievance", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { botToken, chatIds } = req.body || {};
       const { storage } = await import("../../storage");
@@ -419,7 +432,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/grievance/setup-webhook — Auto-Register Grievance Webhook */
-  app.post("/api/admin/security/telegram/grievance/setup-webhook", requireAdmin as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/grievance/setup-webhook", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
     try {
       const { getTelegramGrievanceCredentials } = await import("../../services/telegram");
       const { botToken } = await getTelegramGrievanceCredentials();
@@ -452,7 +465,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram/grievance/test-alert — Dispatch test alert to Grievance & Support Bot */
-  app.post("/api/admin/security/telegram/grievance/test-alert", requireAdmin as any, async (_req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram/grievance/test-alert", requirePrimaryAdmin as any, async (_req: Request, res: Response) => {
     try {
       const { sendTelegramGrievanceAlert, isTelegramGrievanceConfigured } = await import("../../services/telegram");
       if (!(await isTelegramGrievanceConfigured())) {

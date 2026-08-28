@@ -186,7 +186,16 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (!user || !user.password || !(await bcrypt.compare(String(currentPassword || ""), user.password))) {
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    const isSuperAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.id === 1);
+    if (isSuperAdmin) {
+      return res.status(403).json({
+        message: "⛔ Chief Super Admin password updates are protected by 2FA Authenticator TOTP and must be performed in the Security Controls Dashboard (/api/admin/update-password).",
+      });
+    }
+
+    if (!user.password || !(await bcrypt.compare(String(currentPassword || ""), user.password))) {
       return res.status(401).json({ message: "Current password incorrect" });
     }
 

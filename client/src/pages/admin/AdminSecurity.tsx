@@ -742,7 +742,7 @@ export default function AdminSecurity() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-red-400">
-                  Super Admin &amp; Sub-Super-Admin Chat IDs ({secChatIdList.filter((s) => s.trim()).length} Authorized)
+                  Chief Executive Super Admin Chat IDs ({secChatIdList.filter((s) => s.trim()).length} Authorized)
                 </Label>
                 <Button
                   type="button"
@@ -751,7 +751,7 @@ export default function AdminSecurity() {
                   onClick={handleAddSecChatId}
                   className="border-red-500/40 text-red-400 hover:bg-red-500/10 text-[11px] h-7 px-2.5 rounded-lg font-bold gap-1 cursor-pointer"
                 >
-                  <Plus size={13} /> Add Admin Chat ID
+                  <Plus size={13} /> Add Telegram Chat ID
                 </Button>
               </div>
 

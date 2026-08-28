@@ -134,11 +134,19 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = username.trim().toLowerCase();
 
+      if (cleanEmail === "admin@farmfreshfarmer.com") {
+        return res.status(403).json({ message: "Cannot associate delivery partner account with Chief Super Admin." });
+      }
+
       // Check if user exists by email OR username
       const existingUserByEmail = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
       const existingUserByUsername = await db.select().from(users).where(eq(users.username, cleanUsername)).limit(1);
 
       let targetUser = existingUserByEmail[0] || existingUserByUsername[0];
+
+      if (targetUser && (targetUser.id === 1 || targetUser.isPrimaryAdmin || targetUser.email?.toLowerCase() === "admin@farmfreshfarmer.com")) {
+        return res.status(403).json({ message: "Chief Super Admin account cannot be converted into a delivery partner." });
+      }
 
       if (!targetUser) {
         const hashedPassword = await bcrypt.hash(password, 10);
