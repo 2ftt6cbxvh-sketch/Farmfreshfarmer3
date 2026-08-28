@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles, Upload, User, FileText, Award, GraduationCap, Briefcase, Globe, Mail, Phone, RefreshCw, CheckCircle2 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
+import { ChiefExecutiveExclusiveControls } from "@/components/admin/ChiefExecutiveExclusiveControls";
 import { apiGet, apiRequest, queryClient, imgUrl } from "@/lib/queryClient";
 import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
@@ -2204,6 +2205,7 @@ export default function AdminSettings() {
         {/* ── TAB 8: 🔐 SECURITY & ACCOUNTS ────────────────────────────── */}
         {activeCategory === "security" && (
           <div className="space-y-6">
+            <ChiefExecutiveExclusiveControls />
             <AuthMethodsCustomizer />
 
             {/* Password change */}

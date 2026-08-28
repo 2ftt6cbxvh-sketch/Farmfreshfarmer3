@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus, Copy, Check, Search, Terminal, ShieldX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
-
+import { ChiefExecutiveExclusiveControls } from "@/components/admin/ChiefExecutiveExclusiveControls";
 import { apiRequest } from "@/lib/queryClient";
 
 function SuperAdminPasswordUpdateCard() {
@@ -165,96 +165,6 @@ function ChiefAdminTotpCard() {
               className="bg-emerald-600 hover:bg-emerald-500 font-bold"
             >
               {verifyMutation.isPending ? "Verifying..." : "Verify & Lock Down Chief Admin"}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StealthGatewayLockdownToggleCard() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: settingsData, isLoading } = useQuery<{ stealth_admin_lockdown?: string }>({
-    queryKey: ["/api/admin/settings"],
-    queryFn: async () => (await apiRequest("GET", "/api/admin/settings")).json(),
-  });
-
-  const isLockdownActive = settingsData?.stealth_admin_lockdown === "true";
-
-  const toggleMutation = useMutation({
-    mutationFn: async (enable: boolean) => {
-      const res = await apiRequest("POST", "/api/admin/settings", {
-        stealth_admin_lockdown: enable ? "true" : "false",
-      });
-      return res.json();
-    },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/settings"] });
-      qc.invalidateQueries({ queryKey: ["/api/settings/public"] });
-      toast({
-        title: vars ? "🔒 Production Hardened Mode Active" : "🛠️ Testing Mode (Relaxed) Active",
-        description: vars
-          ? "Direct /admin and /admin/login URLs are now strictly intercepted with full-screen security threat quarantine. Super Admins can only log in via your Private Executive Gateway."
-          : "Direct admin access is now relaxed for testing.",
-      });
-    },
-    onError: (err: any) => {
-      toast({ title: "Failed to update lockdown mode", description: err.message, variant: "destructive" });
-    },
-  });
-
-  return (
-    <Card className={`shadow-xl transition-all ${isLockdownActive ? "border-emerald-500/40 bg-card" : "border-amber-500/40 bg-card"}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-foreground font-serif">
-            <ShieldAlert className={`w-5 h-5 ${isLockdownActive ? "text-emerald-400" : "text-amber-400"}`} />
-            <span>Stealth Gateway &amp; Admin URL Strict Lockdown</span>
-          </CardTitle>
-          <Badge
-            className={
-              isLockdownActive
-                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                : "bg-amber-500/20 text-amber-400 border-amber-500/30"
-            }
-          >
-            {isLockdownActive ? "🟢 PRODUCTION HARDENED (ACTIVE)" : "🟡 TESTING MODE (RELAXED)"}
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Controls whether direct URL access to <code>/admin</code> and <code>/admin/login</code> throws a full-screen threat warning screen or allows testing access.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4 pt-0">
-        <div className="p-4 rounded-2xl bg-secondary/30 border border-card-border space-y-2">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold text-foreground">
-                {isLockdownActive
-                  ? "🛡️ Production Mode: Direct Admin URL entry is strictly prohibited."
-                  : "🛠️ Testing Mode: Relaxed gateway entry enabled for development & testing."}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Executive Access: <span className="text-emerald-400 font-semibold">Private Stealth Gateway Active</span>
-              </p>
-            </div>
-            <Button
-              onClick={() => toggleMutation.mutate(!isLockdownActive)}
-              disabled={toggleMutation.isPending || isLoading}
-              className={
-                isLockdownActive
-                  ? "bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl h-10 px-4 shrink-0 shadow-lg"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl h-10 px-4 shrink-0 shadow-lg"
-              }
-            >
-              {toggleMutation.isPending
-                ? "Switching Mode..."
-                : isLockdownActive
-                ? "Switch to Relaxed Testing Mode 🛠️"
-                : "Turn On Production Hardened Mode 🔒"}
             </Button>
           </div>
         </div>
@@ -729,8 +639,8 @@ export default function AdminSecurity() {
         </CardContent>
       </Card>
 
-      {/* Stealth Gateway & Admin URL Strict Lockdown Toggle */}
-      <StealthGatewayLockdownToggleCard />
+      {/* 👑 Chief Executive Admin Exclusive Mode Controls (Stealth Gateway & Staff 2FA Toggles) */}
+      <ChiefExecutiveExclusiveControls />
 
       {/* Chief Admin 2FA TOTP & Passkeys */}
       <ChiefAdminTotpCard />
