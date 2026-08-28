@@ -103,12 +103,10 @@ export function registerAnnouncementRoutes(app: Express) {
           CASE WHEN p.id IS NOT NULL THEN json_build_object(
             'id', p.id,
             'name', p.name,
-            'slug', p.slug,
             'price', p.price,
-            'originalPrice', p.original_price,
+            'discountPercent', p.discount_percent,
             'image', p.image,
             'categorySlug', p.category_slug,
-            'rating', p.rating,
             'stock', p.stock,
             'unit', p.unit
           ) ELSE NULL END as product
@@ -146,10 +144,12 @@ export function registerAnnouncementRoutes(app: Express) {
           CASE WHEN p.id IS NOT NULL THEN json_build_object(
             'id', p.id,
             'name', p.name,
-            'slug', p.slug,
             'price', p.price,
-            'originalPrice', p.original_price,
-            'image', p.image
+            'discountPercent', p.discount_percent,
+            'image', p.image,
+            'categorySlug', p.category_slug,
+            'stock', p.stock,
+            'unit', p.unit
           ) ELSE NULL END as product
         FROM announcements a
         LEFT JOIN products p ON a.product_id = p.id

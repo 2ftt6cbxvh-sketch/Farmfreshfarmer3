@@ -161,7 +161,7 @@ export function BroadcastPopupModal() {
 
               <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                 <Link
-                  href={`/product/${activePopup.product.slug}`}
+                  href={`/products/${activePopup.product.id}`}
                   onClick={handleClose}
                   className="flex-1 sm:flex-none text-center px-3 py-2 text-xs font-bold rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all"
                 >

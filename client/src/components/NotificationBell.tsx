@@ -287,7 +287,7 @@ export function NotificationBell() {
 
                       <div className="flex items-center gap-1 shrink-0">
                         <Link
-                          href={`/products/${item.product.slug}`}
+                          href={`/products/${item.product.id}`}
                           onClick={() => setIsOpen(false)}
                           className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700"
                         >
