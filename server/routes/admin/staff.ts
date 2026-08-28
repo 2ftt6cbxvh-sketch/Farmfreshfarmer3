@@ -70,7 +70,6 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
-        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         isVerified: users.isVerified,
@@ -168,7 +167,7 @@ export function registerStaffRoutes(app: Express) {
   /** POST /api/admin/staff — Create a new sub-admin/staff member (Primary Admin only) */
   app.post("/api/admin/staff", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, email, phone, password, role, customTitle, telegramChatId, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
+      const { name, email, phone, password, role, customTitle, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
 
       if (!name || !email || !password) {
         return res.status(400).json({ message: "Name, email, and password are required" });
@@ -203,7 +202,6 @@ export function registerStaffRoutes(app: Express) {
         phone: phone ? phone.trim() : null,
         role: assignedRole,
         customTitle: customTitle ? customTitle.trim() : null,
-        telegramChatId: telegramChatId ? String(telegramChatId).trim() : null,
         permissions: permString,
         isPrimaryAdmin: false,
         isVerified: isVerified !== undefined ? Boolean(isVerified) : false,
@@ -220,7 +218,6 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
-        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         isVerified: users.isVerified,
@@ -261,7 +258,7 @@ export function registerStaffRoutes(app: Express) {
         return res.status(403).json({ message: "Chief Super Admin credentials cannot be modified via sub-admin management" });
       }
 
-      const { name, phone, password, role, customTitle, telegramChatId, status, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
+      const { name, phone, password, role, customTitle, status, permissions, isVerified, starRating, experienceRank, twoFaMethod } = req.body || {};
       const updates: any = { updatedAt: new Date() };
 
       if (name) updates.name = name.trim();
@@ -278,7 +275,6 @@ export function registerStaffRoutes(app: Express) {
       delete updates.email; // Email of staff accounts cannot be renamed to hijack identities
 
       if (customTitle !== undefined) updates.customTitle = customTitle ? customTitle.trim() : null;
-      if (telegramChatId !== undefined) updates.telegramChatId = telegramChatId ? String(telegramChatId).trim() : null;
       if (status) updates.status = status; // 'active' | 'blocked' | 'inactive'
       if (permissions !== undefined) {
         updates.permissions = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
@@ -307,7 +303,6 @@ export function registerStaffRoutes(app: Express) {
         phone: users.phone,
         role: users.role,
         customTitle: users.customTitle,
-        telegramChatId: users.telegramChatId,
         permissions: users.permissions,
         isPrimaryAdmin: users.isPrimaryAdmin,
         isVerified: users.isVerified,

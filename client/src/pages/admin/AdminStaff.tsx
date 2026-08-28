@@ -72,7 +72,6 @@ export default function AdminStaff() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("custom_subadmin");
   const [customTitle, setCustomTitle] = useState("");
-  const [telegramChatId, setTelegramChatId] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(["/admin", "/admin/orders"]);
   const [isVerified, setIsVerified] = useState(true);
   const [starRating, setStarRating] = useState(5);
@@ -134,7 +133,6 @@ export default function AdminStaff() {
     setPassword("");
     setRole("custom_subadmin");
     setCustomTitle("");
-    setTelegramChatId("");
     setSelectedPermissions(["/admin", "/admin/orders"]);
     setIsVerified(true);
     setStarRating(5);
@@ -152,7 +150,6 @@ export default function AdminStaff() {
     setPassword(""); // Blank unless updating password
     setRole(staff.role || "custom_subadmin");
     setCustomTitle(staff.customTitle || "");
-    setTelegramChatId(staff.telegramChatId || "");
     setTwoFaMethod(staff.twoFaMethod || "both");
 
     let permsArray: string[] = [];
@@ -252,7 +249,6 @@ export default function AdminStaff() {
           ...(password ? { password } : {}),
           role,
           customTitle: customTitle.trim(),
-          telegramChatId: telegramChatId.trim(),
           permissions: selectedPermissions,
           isVerified,
           starRating,
@@ -268,7 +264,6 @@ export default function AdminStaff() {
         password,
         role,
         customTitle: customTitle.trim(),
-        telegramChatId: telegramChatId.trim(),
         permissions: selectedPermissions,
         isVerified,
         starRating,
@@ -300,7 +295,7 @@ export default function AdminStaff() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Add, modify credentials, block accounts, configure 2FA Telegram OTPs, and assign granular menu permissions to designated sub-admin roles.
+              Add, modify credentials, block accounts, configure 2FA enforcement methods (TOTP & Mobile SMS), and assign granular menu permissions to designated sub-admin roles.
             </p>
           </div>
           <Button onClick={openCreateModal} className="gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold shadow-lg shadow-emerald-900/30 hover:scale-105 transition-all">
