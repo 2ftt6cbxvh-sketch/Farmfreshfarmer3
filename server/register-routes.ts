@@ -2351,6 +2351,23 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       creator_title: all.creator_title || "Creator & Architect of Lakshmi AI | Full-Stack & Data Engineer",
       creator_portfolio: all.creator_portfolio || "https://www.ganeshvarma.in/",
       creator_email: all.creator_email || "gp61080@gmail.com",
+      require_superadmin_verification_to_order: all.require_superadmin_verification_to_order || "false",
+    });
+  }));
+
+  /** GET /api/settings/:key — Retrieve a specific setting value */
+  app.get("/api/settings/:key", h(async (req, res) => {
+    const key = req.params.key;
+    const val = await storage.settings.get(key);
+    res.json({ key, value: val ?? "false" });
+  }));
+
+  /** GET /api/search/config — Search configuration for frontend Header & Search bar */
+  app.get("/api/search/config", h(async (_req, res) => {
+    const all = await storage.settings.all();
+    res.json({
+      ai_search_enabled: all.ai_search_enabled !== "false",
+      trending_searches: all.trending_searches ? JSON.parse(all.trending_searches) : ["Mangoes", "Pickles", "Avakaya", "Sweets", "Honey"],
     });
   }));
 

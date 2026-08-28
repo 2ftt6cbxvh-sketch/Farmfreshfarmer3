@@ -34,6 +34,8 @@
           
           var isChunkErr = msg.indexOf('MIME type') !== -1 || 
                            msg.indexOf('dynamically imported module') !== -1 || 
+                           msg.indexOf('Importing a module script failed') !== -1 ||
+                           msg.indexOf('Failed to load module script') !== -1 ||
                            msg.indexOf('Loading chunk') !== -1 ||
                            msg.indexOf('Failed to fetch') !== -1 ||
                            (isScriptOrCss && targetSrc.indexOf('/assets/') !== -1);
@@ -55,6 +57,11 @@
             }
           }
         }
+
+        window.addEventListener('vite:preloadError', function(event) {
+          if (event && event.preventDefault) event.preventDefault();
+          handleChunkError({ message: 'dynamically imported module failed' });
+        });
 
         window.addEventListener('error', handleChunkError, true);
         window.addEventListener('unhandledrejection', function(e) {
