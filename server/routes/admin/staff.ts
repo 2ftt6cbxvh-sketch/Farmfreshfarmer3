@@ -244,8 +244,8 @@ export function registerStaffRoutes(app: Express) {
     }
   });
 
-  /** PATCH /api/admin/staff/:id — Edit sub-admin role, status, 2FA, or permissions (Primary Admin only) */
-  app.patch("/api/admin/staff/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
+  /** Staff update handler */
+  const handleStaffUpdate = async (req: Request, res: Response) => {
     try {
       const staffId = parseInt(String(req.params.id), 10);
       if (isNaN(staffId)) return res.status(400).json({ message: "Invalid staff ID" });
@@ -323,10 +323,16 @@ export function registerStaffRoutes(app: Express) {
         },
       });
     } catch (err: any) {
-      console.error("[staff] PATCH error:", err);
+      console.error("[staff] Update error:", err);
       return res.status(500).json({ message: "Failed to update staff account" });
     }
-  });
+  };
+
+  /** PATCH/PUT/POST /api/admin/staff/:id — Edit sub-admin role, status, 2FA, or permissions (Primary Admin only) */
+  app.patch("/api/admin/staff/:id", requirePrimaryAdmin, handleStaffUpdate);
+  app.put("/api/admin/staff/:id", requirePrimaryAdmin, handleStaffUpdate);
+  app.post("/api/admin/staff/:id", requirePrimaryAdmin, handleStaffUpdate);
+  app.post("/api/admin/staff/:id/update", requirePrimaryAdmin, handleStaffUpdate);
 
   /** DELETE /api/admin/staff/:id — Delete sub-admin account (Primary Admin only) */
   app.delete("/api/admin/staff/:id", requirePrimaryAdmin, async (req: Request, res: Response) => {
