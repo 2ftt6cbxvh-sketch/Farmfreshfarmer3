@@ -15,9 +15,9 @@ export async function requireRecaptcha(req: Request, res: Response, next: NextFu
 
   const token = req.body?.recaptchaToken || req.headers["x-recaptcha-token"];
   if (!token) {
-    return res.status(400).json({
-      message: "reCAPTCHA security check failed: missing token. Please refresh the page.",
-    });
+    // If client token is unavailable (e.g. Brave Shields / ad-blockers / network drop),
+    // proceed to standard rate limiting and progressive lockout defense
+    return next();
   }
 
   try {
