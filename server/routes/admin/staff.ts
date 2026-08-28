@@ -96,47 +96,38 @@ export function registerStaffRoutes(app: Express) {
     }
   });
 
-  /** GET /api/admin/staff/2fa-config — Fetch Sub-Admin 2FA Global Config (Primary Admin only) */
+  /** GET /api/admin/staff/2fa-config — Fetch Staff 2FA Global Config (Primary Admin only) */
   app.get("/api/admin/staff/2fa-config", requirePrimaryAdmin, async (_req: Request, res: Response) => {
     try {
       const { storage } = await import("../../storage");
-      const { getTelegramOtpCredentials } = await import("../../services/telegram");
-      const enabled = (await storage.settings.get("subadmin_2fa_otp_enabled")) === "true";
-      const { botToken } = await getTelegramOtpCredentials();
-      const isValid = !!(botToken && botToken.includes(":") && !botToken.includes("..."));
-      const masked = isValid ? `${botToken.substring(0, 5)}...${botToken.slice(-4)}` : "";
+      const enabled = ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
       return res.json({
         enabled,
-        botToken: masked,
-        configured: isValid,
+        method: "sms",
+        configured: true,
       });
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Failed to fetch 2FA config" });
     }
   });
 
-  /** POST /api/admin/staff/2fa-config — Save Sub-Admin 2FA Global Config (Primary Admin only) */
+  /** POST /api/admin/staff/2fa-config — Save Staff 2FA Global Config (Primary Admin only) */
   app.post("/api/admin/staff/2fa-config", requirePrimaryAdmin, async (req: Request, res: Response) => {
     try {
-      const { enabled, botToken } = req.body || {};
+      const { enabled } = req.body || {};
       const { storage } = await import("../../storage");
 
       if (enabled !== undefined) {
-        await storage.settings.set("subadmin_2fa_otp_enabled", enabled ? "true" : "false");
+        const val = enabled ? "true" : "false";
+        await storage.settings.set("staff_sms_2fa_enabled", val);
+        await storage.settings.set("subadmin_2fa_otp_enabled", val);
       }
 
-      if (botToken !== undefined && String(botToken).trim() && !String(botToken).includes("...")) {
-        const cleanToken = String(botToken).trim();
-        if (!cleanToken.includes(":")) {
-          return res.status(400).json({
-            message: `Invalid Bot Token format ("${cleanToken}"). A Telegram Bot Token from @BotFather must contain a colon ':'.`,
-          });
-        }
-        await storage.settings.set("telegram_otp_bot_token", cleanToken);
-        await storage.settings.set("telegram_2fa_bot_token", cleanToken);
-      }
-
-      return res.json({ message: "🛡️ Sub-Admin 2FA Security configuration saved successfully!" });
+      return res.json({
+        message: enabled
+          ? "🛡️ Full Production 2FA Mode Activated! All Staff & Sub-Admins must verify 6-digit Mobile SMS OTP on login."
+          : "⚠️ Testing Mode Activated. Staff & Sub-Admins can sign in directly with password.",
+      });
     } catch (err: any) {
       return res.status(500).json({ message: err?.message || "Failed to save 2FA config" });
     }

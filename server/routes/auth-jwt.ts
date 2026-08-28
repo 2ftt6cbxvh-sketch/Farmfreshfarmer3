@@ -346,9 +346,28 @@ export function registerAuthJwtRoutes(app: Express) {
 
     const cleanEmail = email.toLowerCase().trim();
     if (cleanEmail === "admin@farmfreshfarmer.com") {
-      return res.status(403).json({
-        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
-      });
+      const refId = `SEC-TRAP-${Date.now().toString().slice(-4)}`;
+      const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+
+      // Silently record incident in security audit logs
+      const { securityAuditLogs } = await import("@shared/schema");
+      await db.insert(securityAuditLogs).values({
+        eventType: "master_credential_intercepted",
+        actionTaken: `[${refId}] Master Admin Probed on Public Portal | Route: /api/auth/login/initiate | Target: ${cleanEmail}`,
+        ip: ip.slice(0, 64),
+        platform: "web",
+        userAgent: userAgent.slice(0, 500),
+      }).catch(() => {});
+
+      const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../services/telegram");
+      if (await isTelegramSecurityConfigured()) {
+        await sendTelegramSecurityAlert(
+          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed master admin email on the customer login form.\n• IP: <code>${ip}</code>\n• Device: ${userAgent.slice(0, 60)}\n• Action: Silently deflected with generic 401 response.`
+        ).catch(() => {});
+      }
+
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     if (!password) {
@@ -359,10 +378,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     if (!user) {
       await auditLog("login_failed", { req, action: `Login attempt for non-existent email: ${cleanEmail}` });
-      return res.status(404).json({
-        message: "No account found with this email. Please sign up first.",
-        notFound: true,
-      });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     if (user.status === "blocked") {
@@ -371,9 +387,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     const isMasterAdmin = Boolean(user.isPrimaryAdmin || cleanEmail === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
     if (isMasterAdmin) {
-      return res.status(403).json({
-        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
-      });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     if (user.role && user.role !== "customer") {

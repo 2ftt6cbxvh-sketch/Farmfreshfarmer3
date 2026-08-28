@@ -87,8 +87,12 @@ export async function verifyPasswordWithLockout(
   const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
   const currentTier = user.lockoutTier || 0;
 
-  // If 10 or more total failed attempts reached -> Permanent Lockout
-  if (newFailedAttempts >= 10 || currentTier >= 9) {
+  // If 10 or more total failed attempts reached:
+  // For Super Admin and Staff: Permanent Lockout + Telegram alert
+  // For Customers: Progressive cooling-off (prevents malicious DoS bricking)
+  const isPrivilegedStaff = user.isPrimaryAdmin || user.role !== "customer" || user.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+
+  if (newFailedAttempts >= 10 && isPrivilegedStaff) {
     const newTier = currentTier + 1;
     await db.update(users).set({
       failedLoginAttempts: newFailedAttempts,
@@ -100,10 +104,10 @@ export async function verifyPasswordWithLockout(
 
     // Send Telegram Alert for Permanent Lockout
     await sendTelegramAlert(
-      `🛑 <b>SECURITY ALERT: ACCOUNT PERMANENTLY LOCKED</b>\n` +
+      `🛑 <b>SECURITY ALERT: PRIVILEGED ACCOUNT PERMANENTLY LOCKED</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `👤 <b>User:</b> ${user.name} (<code>${user.email}</code>)\n` +
-      `⚠️ <b>Reason:</b> 10+ failed password attempts detected. Potential cyber-attack / brute-force.\n` +
+      `⚠️ <b>Reason:</b> 10+ failed password attempts detected. Potential brute-force attack.\n` +
       `🔒 <b>Status:</b> PERMANENTLY LOCKED. Requires Super Admin approval.\n` +
       `⏰ <b>Timestamp:</b> ${new Date().toLocaleString("en-IN")}\n\n` +
       `👉 <b>Quick Unlock Telegram Command:</b>\n<code>/unlock ${user.email}</code>\n\n` +
@@ -114,7 +118,7 @@ export async function verifyPasswordWithLockout(
       allowed: false,
       statusCode: 423,
       isPermanentlyLocked: true,
-      message: "🔒 Your account has been permanently locked due to 10 failed login attempts. Please contact admin support or wait for Super Admin approval.",
+      message: "🔒 Account permanently locked due to repeated failed login attempts. Please contact admin support.",
     };
   }
 

@@ -73,6 +73,8 @@ app.use((req, res, next) => {
     "img-src 'self' data: blob: https: res.cloudinary.com https://images.unsplash.com https://*.googleusercontent.com https://lh3.googleusercontent.com",
     "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google.com/recaptcha/ https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://api.ipify.org http://ip-api.com https://api.telegram.org wss: ws:",
     "frame-src 'self' https://accounts.google.com https://www.google.com/recaptcha/ https://recaptcha.google.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://challenges.cloudflare.com",
+    "frame-ancestors 'self'",
+    "form-action 'self' https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com",
     "object-src 'none'",
     "base-uri 'self'",
   ].join("; ");

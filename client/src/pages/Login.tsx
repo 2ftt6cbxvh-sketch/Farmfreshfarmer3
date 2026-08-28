@@ -107,20 +107,15 @@ export default function Login() {
     e.preventDefault();
     const cleanStaffEmail = staffEmail.trim().toLowerCase();
 
-    if (cleanStaffEmail === "admin@farmfreshfarmer.com") {
-      setShowFullScreenThreat(true);
-      return;
-    }
-
     setStaffBusy(true);
     try {
       const res: any = await login(cleanStaffEmail, staffPassword);
       if (res?.require2fa) {
         setStaffStep2fa(true);
         setStaffTempToken(res.tempToken);
-        setStaffMaskedTelegram(res.maskedTelegram || "your Telegram");
+        setStaffMaskedTelegram(res.maskedPhone || res.maskedTelegram || "registered mobile");
         setStaffName(res.staffName || "Staff Member");
-        toast({ title: "🔐 2FA Telegram OTP Dispatched", description: `Enter the 6-digit code sent to Telegram (${res.maskedTelegram}).` });
+        toast({ title: "🔐 2FA Mobile OTP Dispatched", description: `Enter the 6-digit verification code sent to ${res.maskedPhone || res.maskedTelegram || "your registered mobile"}.` });
         return;
       }
       const u = res;
@@ -137,10 +132,6 @@ export default function Login() {
       navigate("/admin");
     } catch (err: any) {
       const msg = String(err?.message || "");
-      if (msg.includes("Master credentials") || msg.includes("Chief Executive") || msg.includes("Access Denied") || cleanStaffEmail === "admin@farmfreshfarmer.com") {
-        setShowFullScreenThreat(true);
-        return;
-      }
       toast({ title: "🚫 Access Denied", description: msg || "Invalid credentials.", variant: "destructive" });
     } finally {
       setStaffBusy(false);
@@ -150,7 +141,7 @@ export default function Login() {
   async function handleStaffVerify2fa(e: React.FormEvent) {
     e.preventDefault();
     if (!staffOtpCode || staffOtpCode.trim().length !== 6) {
-      toast({ title: "Invalid Code", description: "Please enter the 6-digit code from Telegram.", variant: "destructive" });
+      toast({ title: "Invalid Code", description: "Please enter the 6-digit code sent to your mobile phone.", variant: "destructive" });
       return;
     }
     setStaffBusy(true);
@@ -191,11 +182,6 @@ export default function Login() {
       return;
     }
 
-    if (cleanLoginEmail === "admin@farmfreshfarmer.com") {
-      setShowFullScreenThreat(true);
-      return;
-    }
-
     setBusy(true);
     try {
       const recaptchaToken = await getRecaptchaToken("login");
@@ -217,10 +203,6 @@ export default function Login() {
       });
     } catch (err: any) {
       const errorMsg = String(err?.message || "");
-      if (errorMsg.includes("Master credentials") || errorMsg.includes("Chief Executive") || errorMsg.includes("Access Denied") || cleanLoginEmail === "admin@farmfreshfarmer.com") {
-        setShowFullScreenThreat(true);
-        return;
-      }
       if (errorMsg.toLowerCase().includes("lock") || errorMsg.includes("24 hours") || errorMsg.includes("temporary") || errorMsg.includes("permanently")) {
         setIsAccountLocked(true);
         toast({
@@ -243,16 +225,10 @@ export default function Login() {
         setSignupConfirmPassword(loginPassword);
         setMode("signup");
         setSignupStep("form");
-      } else if (errorMsg.includes("Incorrect password") || errorMsg.includes("401")) {
-        toast({
-          title: "Incorrect Password",
-          description: errorMsg || "Please check your password or use 'Forgot Password' below.",
-          variant: "destructive",
-        });
       } else {
         toast({
-          title: "Could Not Sign In",
-          description: errorMsg || "Please check your credentials and try again.",
+          title: "Invalid Credentials",
+          description: errorMsg || "Wrong email or password.",
           variant: "destructive",
         });
       }
@@ -1261,12 +1237,12 @@ export default function Login() {
               ) : (
                 <>
                   <div className="text-center space-y-1">
-                    <div className="w-12 h-12 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto border border-sky-500/40 mb-2">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/40 mb-2">
                       <Smartphone size={26} />
                     </div>
-                    <h2 className="text-xl font-serif font-bold text-foreground">2FA Telegram Verification</h2>
+                    <h2 className="text-xl font-serif font-bold text-foreground">Staff 2FA Mobile Verification</h2>
                     <p className="text-xs text-muted-foreground">
-                      Hello <b>{staffName}</b>, enter the 6-digit code sent to Telegram ({staffMaskedTelegram}).
+                      Hello <b>{staffName}</b>, enter the 6-digit verification code sent to your mobile ({staffMaskedTelegram}).
                     </p>
                   </div>
 

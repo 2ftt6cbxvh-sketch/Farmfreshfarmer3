@@ -88,6 +88,7 @@ export async function runAutoMigrations(): Promise<void> {
       ["ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS average_speed_kmph NUMERIC(5,2) NOT NULL DEFAULT 30", "warehouses.average_speed_kmph"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT", "users.permissions"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE", "users.is_primary_admin"],
+      ["CREATE UNIQUE INDEX IF NOT EXISTS single_primary_admin_idx ON users (is_primary_admin) WHERE is_primary_admin = TRUE", "idx.single_primary_admin"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)", "users.custom_title"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)", "users.telegram_chat_id"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE", "users.is_verified"],

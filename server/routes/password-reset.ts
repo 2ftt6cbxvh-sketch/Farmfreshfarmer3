@@ -442,8 +442,13 @@ export function registerPasswordResetRoutes(app: Express) {
         [String(req.ip || "").slice(0, 64), matchedCodeId]
       );
 
+      // Security Hardening: Immediately revoke all existing active refresh tokens across all devices
+      await pool.query("UPDATE refresh_tokens SET revoked = TRUE, revoked_at = NOW() WHERE user_id = $1", [user.id]).catch(() => {});
+
+      // Invalidate remaining emergency codes to force generating a fresh set
+      await pool.query("UPDATE emergency_recovery_codes SET used = TRUE WHERE user_id = $1 AND id != $2", [user.id, matchedCodeId]).catch(() => {});
+
       const authRef = `SEC-EMRG-AUTH-${Date.now().toString().slice(-4)}`;
-      const remainingCount = recCodesRes.rows.length - 1;
 
       // Log successful break-glass recovery to security audit logs
       await pool.query(
@@ -451,7 +456,7 @@ export function registerPasswordResetRoutes(app: Express) {
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           "login_success",
-          `[${authRef}] Break-Glass Emergency Recovery Login Succeeded | Code Consumed | Remaining Codes: ${remainingCount}`,
+          `[${authRef}] Break-Glass Emergency Recovery Login Succeeded | All Prior Sessions Revoked | Forced Fresh Codes Required`,
           ip.slice(0, 64),
           "web",
           userAgent.slice(0, 500),
@@ -459,7 +464,7 @@ export function registerPasswordResetRoutes(app: Express) {
         ]
       ).catch(() => {});
 
-      // Issue Super Admin session & token pair
+      // Issue fresh Super Admin session & token pair
       if (req.session) {
         req.session.userId = user.id;
         req.session.role = user.role;
@@ -473,7 +478,7 @@ export function registerPasswordResetRoutes(app: Express) {
       });
 
       await sendTelegramAlert(
-        `🚨 <b>BREAK-GLASS EMERGENCY LOGIN USED [<code>${authRef}</code>]</b>\n\nChief Super Admin logged in via Single-Use Emergency Recovery Code.\n• IP: <code>${ip}</code>\n• Remaining codes: ${remainingCount}`
+        `🚨 <b>BREAK-GLASS EMERGENCY LOGIN USED [<code>${authRef}</code>]</b>\n\nChief Super Admin logged in via Single-Use Emergency Recovery Code.\n• All previous sessions and refresh tokens were terminated.\n• IP: <code>${ip}</code>\n• Action: Please generate a fresh set of 10 Emergency Codes and review Security Logs.`
       ).catch(() => {});
 
       return res.json({

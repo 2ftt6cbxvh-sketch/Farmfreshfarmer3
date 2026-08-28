@@ -57,7 +57,6 @@ const PRESET_ROLES = [
   { value: "local_grievance_officer", label: "Local Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
   { value: "zonal_grievance_officer", label: "Zonal Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat"] },
   { value: "chief_grievance_officer", label: "Chief Grievance Officer", defaultPerms: ["/admin", "/admin/orders", "/admin/customers", "/admin/reviews", "/admin/tickets", "/admin/live-chat", "/admin/settings"] },
-  { value: "admin", label: "Main Admin (Full Rights)", defaultPerms: ALL_MENU_OPTIONS.map((m) => m.href) },
 ];
 
 export default function AdminStaff() {
@@ -81,8 +80,6 @@ export default function AdminStaff() {
 
   // 2FA Global Settings State
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
-  const [twoFaBotToken, setTwoFaBotToken] = useState("");
-  const [testChatId, setTestChatId] = useState("");
 
   const { data, isLoading, error } = useQuery<{ staff: any[] }>({
     queryKey: ["/api/admin/staff"],
@@ -103,39 +100,28 @@ export default function AdminStaff() {
   useEffect(() => {
     if (twoFaConfig) {
       setTwoFaEnabled(!!twoFaConfig.enabled);
-      if (twoFaConfig.botToken && !twoFaConfig.botToken.includes("...")) {
-        setTwoFaBotToken(twoFaConfig.botToken);
-      }
     }
   }, [twoFaConfig]);
 
   const save2faMutation = useMutation({
-    mutationFn: async (payload: { enabled: boolean; botToken?: string }) => {
+    mutationFn: async (payload: { enabled: boolean }) => {
       const res = await apiRequest("POST", "/api/admin/staff/2fa-config", payload);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/staff/2fa-config"] });
       refetch2fa();
-      toast({ title: "🛡️ 2FA Security Settings Saved!" });
+      toast({ title: "🛡️ Staff 2FA Mode Updated!", description: res?.message });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err?.message || "Failed to save 2FA configuration", variant: "destructive" });
+      toast({ title: "Error", description: err?.message || "Failed to update 2FA configuration", variant: "destructive" });
     },
   });
 
-  const test2faMutation = useMutation({
-    mutationFn: async (chatId: string) => {
-      const res = await apiRequest("POST", "/api/admin/staff/2fa-test", { chatId });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      toast({ title: "✨ 2FA OTP Dispatched!", description: data?.message || "Check your Telegram app." });
-    },
-    onError: (err: any) => {
-      toast({ title: "2FA Dispatch Failed", description: err?.message || "Could not send OTP", variant: "destructive" });
-    },
-  });
+  const handleToggle2fa = (newVal: boolean) => {
+    setTwoFaEnabled(newVal);
+    save2faMutation.mutate({ enabled: newVal });
+  };
 
   const staffList = data?.staff || [];
 
@@ -318,111 +304,54 @@ export default function AdminStaff() {
           </Button>
         </div>
 
-        {/* 🛡️ Sub-Admin 2FA Security Layer & Dedicated Telegram OTP Authenticator Card */}
-        <div className="p-6 rounded-3xl bg-card border border-emerald-500/30 shadow-xl space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        {/* 🛡️ Staff & Sub-Admin Production 2FA Security Mode Card */}
+        <div className="p-6 rounded-3xl bg-card border border-emerald-500/30 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Key size={20} />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border transition-colors ${
+                twoFaEnabled ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+              }`}>
+                <Smartphone size={22} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-extrabold text-foreground">Sub-Admin 2FA Telegram Authenticator Layer</h2>
-                  {twoFaConfig?.configured ? (
-                    <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                      <CheckCircle2 size={11} /> Bot Connected
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                      <AlertTriangle size={11} /> Token Required
-                    </span>
-                  )}
+                  <h2 className="text-base font-extrabold text-foreground">Staff &amp; Sub-Admin Production 2FA Security Mode</h2>
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                    twoFaEnabled ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  }`}>
+                    {twoFaEnabled ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
+                    {twoFaEnabled ? "Full Production Mode (SMS OTP Active)" : "Testing Mode (Password Only)"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Sends unbreachable, time-limited (3-min) 6-digit OTPs directly to each sub-admin's Telegram account before allowing dashboard login.
+                  {twoFaEnabled
+                    ? "Production 2FA Active: All Sub-Admins, Managers, and Staff members must verify a 6-digit SMS OTP sent to their mobile phone on every login."
+                    : "Testing Mode Active: Staff members can sign in directly with their email & password without SMS OTP."}
                 </p>
               </div>
             </div>
 
-            {/* Global Master 2FA Requirement Switch */}
-            <div className="flex items-center gap-3 bg-secondary/50 border border-border p-2 px-3 rounded-2xl">
-              <span className="text-xs font-extrabold text-foreground">Global 2FA Enforcement:</span>
+            {/* Production Mode Toggle Switch */}
+            <div className="flex items-center gap-3 bg-secondary/50 border border-border p-2.5 px-4 rounded-2xl shrink-0">
+              <span className="text-xs font-extrabold text-foreground">Production 2FA:</span>
               <button
                 type="button"
-                onClick={() => setTwoFaEnabled(!twoFaEnabled)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                onClick={() => handleToggle2fa(!twoFaEnabled)}
+                disabled={save2faMutation.isPending}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
                   twoFaEnabled ? "bg-emerald-500" : "bg-muted"
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
                     twoFaEnabled ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
               </button>
-              <span className={`text-[11px] font-black uppercase ${twoFaEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>
-                {twoFaEnabled ? "ENFORCED (ON)" : "DISABLED (OFF)"}
+              <span className={`text-[11px] font-black uppercase tracking-wider ${twoFaEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>
+                {twoFaEnabled ? "ENFORCED" : "DISABLED"}
               </span>
             </div>
-          </div>
-
-          {/* Dedicated 2FA OTP Bot Credentials & Dispatch Tester */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>Dedicated 2FA OTP Bot Token (from @BotFather)</span>
-                <span className="text-[10px] text-muted-foreground">e.g. 7123456789:AAFx...</span>
-              </label>
-              <Input
-                type="password"
-                value={twoFaBotToken}
-                onChange={(e) => setTwoFaBotToken(e.target.value)}
-                placeholder={twoFaConfig?.botToken ? "•••••••••••••••• (Saved. Type to change)" : "Enter dedicated 2FA bot token from @BotFather"}
-                className="rounded-xl text-xs"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Create a distinct private Telegram bot on @BotFather (e.g. <code>@FarmFreshAuthenticatorBot</code>) strictly for dispatching login OTPs.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>Test 2FA OTP Dispatch</span>
-                <span className="text-[10px] text-muted-foreground">Send real-time verification code</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  value={testChatId}
-                  onChange={(e) => setTestChatId(e.target.value)}
-                  placeholder="Enter Telegram Chat ID (e.g. 1927711332)"
-                  className="rounded-xl text-xs flex-1"
-                />
-                <Button
-                  type="button"
-                  onClick={() => test2faMutation.mutate(testChatId)}
-                  disabled={test2faMutation.isPending || !testChatId.trim()}
-                  className="rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs gap-1.5 shrink-0"
-                >
-                  <Send size={13} />
-                  <span>{test2faMutation.isPending ? "Sending…" : "Send Test OTP"}</span>
-                </Button>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Ensure the recipient has opened the 2FA bot in Telegram and clicked <b>/start</b> before testing.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end pt-2 border-t border-border/50">
-            <Button
-              type="button"
-              onClick={() => save2faMutation.mutate({ enabled: twoFaEnabled, botToken: twoFaBotToken })}
-              disabled={save2faMutation.isPending}
-              className="rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold text-xs shadow-md"
-            >
-              {save2faMutation.isPending ? "Saving Security Settings…" : "💾 Save 2FA Security Settings"}
-            </Button>
           </div>
         </div>
 
