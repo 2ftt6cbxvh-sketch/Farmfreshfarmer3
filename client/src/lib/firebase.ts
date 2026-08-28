@@ -9,12 +9,13 @@ import {
 
 // Public Firebase Client configuration (defaults or from Vite env variables)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDummyKeyReplaceWithYourProjectKey",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "farmfreshfarmer-auth.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "farmfreshfarmer-auth",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "farmfreshfarmer-auth.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "983416661519",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:983416661519:web:abcdef123456",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBTQQZlpxFwqEmpD8hrYyrb-c7fMUREAr8",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "farmfreshfarmer-46584.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "farmfreshfarmer-46584",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "farmfreshfarmer-46584.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "192566781836",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:192566781836:web:b56450d3b77376a21d18a9",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-GJ0KXDKJEM",
 };
 
 // Initialize Firebase singleton
