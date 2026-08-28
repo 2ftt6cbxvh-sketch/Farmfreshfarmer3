@@ -429,13 +429,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (isStealthLockdown && isSuperAdmin && !isFromStealthGateway) {
       return res.status(403).json({
-        message: "🚫 Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Public customer and staff portal logins are prohibited for master credentials.",
+        message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
       });
     }
 
     if (isFromStealthGateway && !isSuperAdmin) {
       return res.status(403).json({
-        message: "🚫 This private executive portal is reserved exclusively for the Chief Super Admin. Sub-admins and staff members must use the Staff Portal.",
+        message: "🚫 This private portal is reserved exclusively for the Chief Super Admin. Staff members must sign in via the Staff Portal.",
       });
     }
 
