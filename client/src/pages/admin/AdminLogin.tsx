@@ -17,18 +17,6 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Stealth Access Check (Direct URL Navigation Interceptor)
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [checkingUnlock, setCheckingUnlock] = useState(true);
-
-  useEffect(() => {
-    const unlocked =
-      sessionStorage.getItem("fff_stealth_gateway_unlocked") === "true" ||
-      localStorage.getItem("fff_stealth_gateway_unlocked") === "true";
-    setIsUnlocked(unlocked);
-    setCheckingUnlock(false);
-  }, []);
-
   // 2FA Challenge State
   const [step2fa, setStep2fa] = useState(false);
   const [tempToken, setTempToken] = useState("");
@@ -160,14 +148,6 @@ export default function AdminLogin() {
     } finally {
       setResending(false);
     }
-  }
-
-  if (!checkingUnlock && !isUnlocked) {
-    return <AdminDirectAccessWarning />;
-  }
-
-  if (checkingUnlock) {
-    return <div className="min-h-screen bg-black" />;
   }
 
   return (

@@ -873,11 +873,7 @@ export default function Login() {
               <div className="text-center pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    sessionStorage.setItem("fff_stealth_gateway_unlocked", "true");
-                    localStorage.setItem("fff_stealth_gateway_unlocked", "true");
-                    navigate("/admin/login");
-                  }}
+                  onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
                   className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
                 >
                   <span>🔐 Admin &amp; Partner Logins</span>

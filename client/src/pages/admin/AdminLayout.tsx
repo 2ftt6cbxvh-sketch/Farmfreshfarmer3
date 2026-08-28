@@ -250,14 +250,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
 
   if (!adminUser || !isStaffOrAdmin) {
-    const isUnlocked = typeof window !== "undefined" && (
-      sessionStorage.getItem("fff_stealth_gateway_unlocked") === "true" ||
-      localStorage.getItem("fff_stealth_gateway_unlocked") === "true"
-    );
-    if (!isUnlocked) {
-      return <AdminDirectAccessWarning />;
-    }
-    return <AdminLogin />;
+    return <AdminDirectAccessWarning />;
   }
 
   const isSuperAdmin = adminUser?.role === "admin" || adminUser?.role === "superadmin" || adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com";

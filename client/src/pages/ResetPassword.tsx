@@ -108,7 +108,7 @@ export default function ResetPassword() {
             <Button
               variant="outline"
               className="w-full h-10 border-slate-700 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold"
-              onClick={() => navigate("/admin/login")}
+              onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
             >
               <span>Staff / Super Admin Portal</span>
             </Button>

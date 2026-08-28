@@ -64,7 +64,7 @@ import AdminTickets from "@/pages/admin/AdminTickets";
 import AdminRefunds from "@/pages/admin/AdminRefunds";
 import AdminAdvertisements from "@/pages/admin/AdminAdvertisements";
 import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
-import StealthPassage from "@/pages/admin/StealthPassage";
+import { AdminDirectAccessWarning } from "@/pages/admin/AdminDirectAccessWarning";
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -181,12 +181,15 @@ function AppRouter() {
         <Route path="/my-orders" component={Orders} />
         <Route path="/help" component={GrievancePage} />
 
-        {/* Stealth Gateway Portal */}
-        <Route path="/aIhHYTdgagthawsWGHSgs" component={StealthPassage} />
-        <Route path="/aIhHYTdgagthawsWGHSgs/" component={StealthPassage} />
+        {/* Secret Master Stealth Admin Gateway */}
+        <Route path="/aIhHYTdgagthawsWGHSgs" component={AdminLogin} />
+        <Route path="/aIhHYTdgagthawsWGHSgs/" component={AdminLogin} />
 
-        {/* Admin & Partner Portal Routes */}
-        <Route path="/admin/login" component={AdminLogin} />
+        {/* Intercept & Block Direct /admin/login with Full-Screen Security Warning */}
+        <Route path="/admin/login" component={AdminDirectAccessWarning} />
+        <Route path="/admin/login/" component={AdminDirectAccessWarning} />
+
+        {/* Admin Portal Protected Routes */}
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/live-chat" component={AdminLiveChat} />
         <Route path="/admin/tickets" component={AdminTickets} />
