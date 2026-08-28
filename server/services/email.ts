@@ -158,7 +158,7 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
 
 /** Helper: Generate Plain Text for OTP Code */
 export function buildOtpPlainText(otpCode: string, name = "Valued Customer"): string {
-  return `Hello ${name},\n\nYour FarmFreshFarmer verification code is: ${otpCode}\n\nThis OTP is valid for 10 minutes.\nNever share this code with anyone.\n\nFarmFreshFarmer - Fresh Organic Produce\nhttps://farmfreshfarmer.com`;
+  return `Hello ${name},\n\nYour FarmFreshFarmer verification code is: ${otpCode}\n\nThis OTP is valid for 10 minutes.\nNever share this code with anyone.\n\n🛡️ Didn't request this code?\nIf you did not request this OTP, someone may be attempting to access your account. Please contact our support team immediately:\n• Email: assistance.farmfresh@gmail.com / support@farmfreshfarmer.com\n• Helpline & WhatsApp: +91 79897 93669\n\nFarmFreshFarmer - Fresh Organic Produce\nhttps://farmfreshfarmer.com`;
 }
 
 /** Helper: Generate HTML Template for OTP Code Email */
@@ -204,6 +204,26 @@ export function buildOtpEmailHtml(otpCode: string, name = "Valued Customer"): st
                   <p style="margin: 20px 0 0; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center;">
                     ⏱️ Valid for <strong>10 minutes</strong>. Do not share this code with anyone.
                   </p>
+
+                  <!-- Security Warning & Direct Contact Info -->
+                  <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px 16px; margin-top: 24px; text-align: left;">
+                    <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #b91c1c;">
+                      🛡️ Didn't request this code?
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #7f1d1d; line-height: 1.5;">
+                      If you did not request this OTP, someone may be attempting to access your account. Please reach out to our customer support team immediately:
+                    </p>
+                    <table border="0" cellpadding="0" cellspacing="0" style="margin-top: 8px; font-size: 11px; color: #991b1b;">
+                      <tr>
+                        <td style="padding: 2px 8px 2px 0; font-weight: 700;">📧 Email:</td>
+                        <td><a href="mailto:assistance.farmfresh@gmail.com" style="color: #b91c1c; text-decoration: underline; font-weight: 600;">assistance.farmfresh@gmail.com</a></td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 2px 8px 2px 0; font-weight: 700;">📞 Phone &amp; WhatsApp:</td>
+                        <td><a href="tel:+917989793669" style="color: #b91c1c; text-decoration: underline; font-weight: 600;">+91 79897 93669</a></td>
+                      </tr>
+                    </table>
+                  </div>
                 </td>
               </tr>
 
@@ -211,7 +231,7 @@ export function buildOtpEmailHtml(otpCode: string, name = "Valued Customer"): st
               <tr>
                 <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
                   <p style="margin: 0 0 4px;">Sent securely by FarmFreshFarmer · <a href="https://farmfreshfarmer.com" style="color: #16a34a; text-decoration: none;">farmfreshfarmer.com</a></p>
-                  <p style="margin: 0;">If you did not request this code, you can safely ignore this email.</p>
+                  <p style="margin: 0;">© ${new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</p>
                 </td>
               </tr>
 
