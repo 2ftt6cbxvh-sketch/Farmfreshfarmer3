@@ -422,6 +422,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ message: "Account is blocked" });
     }
 
+    // Strict Executive Super Admin Stealth Gateway Enforcement
+    const isStealthLockdown = (await storage.settings.get("stealth_admin_lockdown")) === "true";
+    const isSuperAdmin = user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1);
+    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true";
+
+    if (isStealthLockdown && isSuperAdmin && !isFromStealthGateway) {
+      return res.status(403).json({
+        message: "🚫 Chief Executive Super Admin authentication is restricted exclusively to the private encrypted Stealth Gateway URL (/aIhHYTdgagthawsWGHSgs). Direct customer-portal logins are prohibited for master credentials.",
+      });
+    }
+
     // Check if 2FA Telegram OTP is required globally for this Sub-Admin / Staff member
     const isGlobal2faEnabled = (await storage.settings.get("subadmin_2fa_otp_enabled")) === "true";
     const isSubAdminStaff = user.role !== "customer" && !user.isPrimaryAdmin && user.email.toLowerCase() !== "admin@farmfreshfarmer.com";
@@ -2390,6 +2401,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       creator_portfolio: all.creator_portfolio || "https://www.ganeshvarma.in/",
       creator_email: all.creator_email || "gp61080@gmail.com",
       require_superadmin_verification_to_order: all.require_superadmin_verification_to_order || "false",
+      stealth_admin_lockdown: all.stealth_admin_lockdown === "true",
     });
   }));
 

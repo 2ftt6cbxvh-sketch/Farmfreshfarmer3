@@ -94,8 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function login(email: string, password: string) {
-    const res = await apiRequest("POST", "/api/login", { email, password });
+  async function login(email: string, password: string, options?: { isStealthGateway?: boolean }) {
+    const res = await apiRequest("POST", "/api/login", {
+      email,
+      password,
+      isStealthGateway: options?.isStealthGateway,
+    });
     const data = await res.json();
     if (data.require2fa) {
       return data;

@@ -33,7 +33,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setBusy(true);
     try {
-      const res: any = await login(email.trim().toLowerCase(), password);
+      const res: any = await login(email.trim().toLowerCase(), password, { isStealthGateway: true });
 
       if (res?.require2fa) {
         setStep2fa(true);

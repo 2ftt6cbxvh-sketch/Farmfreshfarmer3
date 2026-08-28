@@ -1,11 +1,19 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
-import { ShieldAlert, AlertTriangle, ArrowLeft, Lock, ShieldX, Terminal } from "lucide-react";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { ShieldAlert, ArrowLeft, ShieldX, Terminal, Sparkles, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AdminDirectAccessWarning() {
   const [, navigate] = useLocation();
   const [incidentId, setIncidentId] = useState("");
+
+  const { data: settings } = useQuery<{ stealth_admin_lockdown?: boolean }>({
+    queryKey: ["/api/settings/public"],
+    queryFn: async () => (await fetch("/api/settings/public")).json(),
+  });
+
+  const isLockdownStrict = settings?.stealth_admin_lockdown === true;
 
   useEffect(() => {
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -19,7 +27,7 @@ export function AdminDirectAccessWarning() {
         {/* Top Warning Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-black uppercase tracking-widest mx-auto animate-pulse">
           <ShieldAlert size={14} />
-          <span>Access Restricted • Security Firewall Active</span>
+          <span>{isLockdownStrict ? "Production Lockdown Active • Direct Access Prohibited" : "Testing Mode Active • Stealth Gateway Required"}</span>
         </div>
 
         {/* Big Alert Icon */}
@@ -30,10 +38,10 @@ export function AdminDirectAccessWarning() {
         {/* Warning Title & Message */}
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Direct Access Prohibited
+            Direct Admin URL Intercepted
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
-            Direct URL navigation to administrative routing is disabled under enterprise zero-trust security policy.
+            Direct browser URL navigation to administrative routes is disabled. Access to the master control portal is restricted strictly to the encrypted Stealth Gateway.
           </p>
         </div>
 
@@ -47,17 +55,28 @@ export function AdminDirectAccessWarning() {
           </div>
           <div className="space-y-1 text-slate-400">
             <p>• Incident Reference: <span className="text-red-300 font-bold">{incidentId || "SEC-SYS-LOG"}</span></p>
-            <p>• Target Gateway: <span className="text-slate-200">/admin/*</span></p>
-            <p>• Policy Enforcement: <span className="text-amber-400">Stealth Keycard Required</span></p>
+            <p>• Target Route: <span className="text-slate-200">/admin/*</span></p>
+            <p>• Security Policy: <span className="text-amber-400">Stealth Gateway Keycard Enforced</span></p>
             <p>• System Response: <span className="text-emerald-400">Access Intercepted &amp; Quarantined</span></p>
           </div>
         </div>
 
-        {/* Return Button */}
-        <div className="pt-2">
+        {/* Action Buttons */}
+        <div className="pt-2 flex flex-col gap-3">
+          {!isLockdownStrict && (
+            <Button
+              onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
+              className="w-full h-11 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold rounded-xl gap-2 shadow-lg shadow-emerald-950/60"
+            >
+              <KeyRound size={16} />
+              <span>🛠️ Open Testing Admin Gateway Portal</span>
+            </Button>
+          )}
+
           <Button
             onClick={() => navigate("/")}
-            className="w-full h-12 bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold rounded-xl gap-2 shadow-lg shadow-red-950/60"
+            variant="outline"
+            className="w-full h-11 border-slate-700 hover:bg-slate-900 text-slate-300 font-bold rounded-xl gap-2 shadow-lg"
           >
             <ArrowLeft size={16} />
             <span>Return to FarmFreshFarmer Store</span>
