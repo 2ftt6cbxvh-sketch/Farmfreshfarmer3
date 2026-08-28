@@ -789,6 +789,11 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(404).json({ message: "User account not found" });
     }
 
+    const sessionUserId = (req.session as any)?.userId;
+    if (sessionUserId && targetUser.id !== sessionUserId && (req.session as any)?.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized account verification attempt." });
+    }
+
     // Mark user as verified with Blue Badge and set their verified phone
     await db.update(users).set({
       isVerified: true,
@@ -823,6 +828,16 @@ export function registerAuthJwtRoutes(app: Express) {
     const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
     if (!user) {
       return res.status(404).json({ message: "No account found with this email address." });
+    }
+
+    // Verify phone matches account registered phone if present
+    if (user.phone) {
+      const userCleanPhone = String(user.phone).replace(/\D/g, "").slice(-10);
+      if (userCleanPhone.length === 10 && userCleanPhone !== cleanPhone) {
+        return res.status(400).json({
+          message: "The entered mobile number does not match the registered phone on this account.",
+        });
+      }
     }
 
     const { unlockUserAccount } = await import("../services/lockout");
