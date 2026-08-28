@@ -9,7 +9,7 @@ import {
 
 // Public Firebase Client configuration (defaults or from Vite env variables)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBTQQZlpxFwqEmpD8hrYyrb-c7fMUREAr8",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBTQQZlpxFwqEmpD8hrYyrb-c7fWUREAr8",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "farmfreshfarmer-46584.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "farmfreshfarmer-46584",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "farmfreshfarmer-46584.firebasestorage.app",
