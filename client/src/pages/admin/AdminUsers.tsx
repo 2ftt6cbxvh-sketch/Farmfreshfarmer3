@@ -208,42 +208,50 @@ export default function AdminUsers() {
                         </div>
                       </td>
                       <td className="p-3.5 text-right flex items-center justify-end gap-2">
-                        {isSuperAdminLoggedIn && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-7 text-xs font-bold flex items-center gap-1 ${
-                              u.isVerified
-                                ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
-                                : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
-                            }`}
-                            onClick={() => verifyUserMut.mutate(u.id)}
-                            disabled={verifyUserMut.isPending}
-                            title={u.isVerified ? "Remove Super Admin verification" : "Verify user with Blue Badge"}
-                          >
-                            <BadgeCheck size={12} /> {u.isVerified ? "Verified" : "Verify"}
-                          </Button>
-                        )}
-                        {(u.isPermanentlyLocked || u.status === "locked" || (u.lockoutUntil && new Date(u.lockoutUntil) > new Date()) || (u.failedLoginAttempts || 0) > 0) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 flex items-center gap-1"
-                            onClick={() => unlockUserMut.mutate(u.id)}
-                            disabled={unlockUserMut.isPending}
-                          >
-                            <Unlock size={12} /> Unlock
-                          </Button>
-                        )}
-                        {isSuperAdmin || isStaff ? (
-                          <Link href="/admin/staff" className="text-xs text-blue-400 font-bold hover:underline">Manage Staff</Link>
+                        {isSuperAdmin ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            👑 Protected Root Super Admin (Immutable)
+                          </span>
                         ) : (
-                          <Link href="/admin/customers" className="text-xs text-emerald-400 font-bold hover:underline">Manage Customer</Link>
-                        )}
-                        {isSuperAdminLoggedIn && !isSuperAdmin && u.id !== currentUser?.id && (
-                          <Button variant="ghost" size="sm" className="h-7 text-red-400 hover:text-red-500 hover:bg-red-500/10" onClick={() => setDeleteTarget(u)}>
-                            <Trash2 size={14} />
-                          </Button>
+                          <>
+                            {isSuperAdminLoggedIn && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7 text-xs font-bold flex items-center gap-1 ${
+                                  u.isVerified
+                                    ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
+                                    : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
+                                }`}
+                                onClick={() => verifyUserMut.mutate(u.id)}
+                                disabled={verifyUserMut.isPending}
+                                title={u.isVerified ? "Remove Super Admin verification" : "Verify user with Blue Badge"}
+                              >
+                                <BadgeCheck size={12} /> {u.isVerified ? "Verified" : "Verify"}
+                              </Button>
+                            )}
+                            {(u.isPermanentlyLocked || u.status === "locked" || (u.lockoutUntil && new Date(u.lockoutUntil) > new Date()) || (u.failedLoginAttempts || 0) > 0) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 flex items-center gap-1"
+                                onClick={() => unlockUserMut.mutate(u.id)}
+                                disabled={unlockUserMut.isPending}
+                              >
+                                <Unlock size={12} /> Unlock
+                              </Button>
+                            )}
+                            {isStaff ? (
+                              <Link href="/admin/staff" className="text-xs text-blue-400 font-bold hover:underline">Manage Staff</Link>
+                            ) : (
+                              <Link href="/admin/customers" className="text-xs text-emerald-400 font-bold hover:underline">Manage Customer</Link>
+                            )}
+                            {isSuperAdminLoggedIn && u.id !== currentUser?.id && (
+                              <Button variant="ghost" size="sm" className="h-7 text-red-400 hover:text-red-500 hover:bg-red-500/10" onClick={() => setDeleteTarget(u)}>
+                                <Trash2 size={14} />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

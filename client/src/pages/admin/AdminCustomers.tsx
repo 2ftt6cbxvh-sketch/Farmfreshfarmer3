@@ -210,75 +210,83 @@ export default function AdminCustomers() {
                     </div>
                   </td>
                   <td className="p-3">
-                    <div className="flex justify-end items-center gap-1.5">
-                      {isSuperAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditTarget(c);
-                            setEditName(c.name || "");
-                            setEditEmail(c.email || "");
-                            setEditPhone(c.phone || "");
-                            setEditVerified(Boolean(c.isVerified));
-                          }}
-                          title="Manually edit customer phone, email & details (Super Admin Override)"
-                          className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1"
-                        >
-                          <Pencil size={12} /> Edit
-                        </Button>
-                      )}
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      {(c.isPrimaryAdmin || c.email?.toLowerCase() === "admin@farmfreshfarmer.com" || c.id === 1) ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          👑 Protected Root Super Admin (Immutable)
+                        </span>
+                      ) : (
+                        <>
+                          {isSuperAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditTarget(c);
+                                setEditName(c.name || "");
+                                setEditEmail(c.email || "");
+                                setEditPhone(c.phone || "");
+                                setEditVerified(Boolean(c.isVerified));
+                              }}
+                              title="Manually edit customer phone, email & details (Super Admin Override)"
+                              className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1"
+                            >
+                              <Pencil size={12} /> Edit
+                            </Button>
+                          )}
 
-                      {isSuperAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => verifyUserMut.mutate(c.id)}
-                          disabled={verifyUserMut.isPending}
-                          title={c.isVerified ? "Remove verification badge" : "Verify genuine customer with Blue Badge"}
-                          className={`h-8 px-2.5 text-xs font-bold rounded-lg flex items-center gap-1 ${
-                            c.isVerified
-                              ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
-                              : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
-                          }`}
-                        >
-                          <BadgeCheck size={12} /> {c.isVerified ? "Verified" : "Verify"}
-                        </Button>
-                      )}
+                          {isSuperAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => verifyUserMut.mutate(c.id)}
+                              disabled={verifyUserMut.isPending}
+                              title={c.isVerified ? "Remove verification badge" : "Verify genuine customer with Blue Badge"}
+                              className={`h-8 px-2.5 text-xs font-bold rounded-lg flex items-center gap-1 ${
+                                c.isVerified
+                                  ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
+                                  : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
+                              }`}
+                            >
+                              <BadgeCheck size={12} /> {c.isVerified ? "Verified" : "Verify"}
+                            </Button>
+                          )}
 
-                      {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => unlockUserMut.mutate(c.id)}
-                          disabled={unlockUserMut.isPending}
-                          title="Unlock account and reset failed login attempts"
-                          className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
-                        >
-                          <Unlock size={12} /> Unlock
-                        </Button>
-                      )}
+                          {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => unlockUserMut.mutate(c.id)}
+                              disabled={unlockUserMut.isPending}
+                              title="Unlock account and reset failed login attempts"
+                              className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
+                            >
+                              <Unlock size={12} /> Unlock
+                            </Button>
+                          )}
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
-                        data-testid={`button-toggle-block-${c.id}`}
-                        className="rounded-lg text-xs"
-                      >
-                        {c.status === "blocked" ? "Unblock" : "Block"}
-                      </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
+                            data-testid={`button-toggle-block-${c.id}`}
+                            className="rounded-lg text-xs"
+                          >
+                            {c.status === "blocked" ? "Unblock" : "Block"}
+                          </Button>
 
-                      {isSuperAdmin && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setDeleteTarget(c)}
-                          title="Permanently delete customer from DB (Super Admin Only)"
-                          className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg transition-all"
-                        >
-                          <Trash2 size={13} />
-                        </Button>
+                          {isSuperAdmin && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleteTarget(c)}
+                              title="Permanently delete customer from DB (Super Admin Only)"
+                              className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg transition-all"
+                            >
+                              <Trash2 size={13} />
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
