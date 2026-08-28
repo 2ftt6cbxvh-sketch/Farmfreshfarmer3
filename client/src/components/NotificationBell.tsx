@@ -36,23 +36,34 @@ export function NotificationBell() {
   const { user } = useAuth();
   const { add: addToCart } = useCart();
   const [isOpen, setIsOpen] = useState(false);
+
+  // readIds = notifications marked as read (count clears on open)
   const [readIds, setReadIds] = useState<number[]>(() => {
     try {
       const stored = localStorage.getItem("read_notification_ids");
       return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
+  });
+
+  // dismissedIds = notifications permanently hidden with ✕ (persisted in localStorage)
+  const [dismissedIds, setDismissedIds] = useState<number[]>(() => {
+    try {
+      const stored = localStorage.getItem("dismissed_notification_ids");
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
   });
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: announcements = [] } = useQuery<AnnouncementItem[]>({
+  const { data: allAnnouncements = [] } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
     refetchInterval: 10000,
     staleTime: 0,
   });
+
+  // Visible = not individually dismissed
+  const announcements = allAnnouncements.filter((a) => !dismissedIds.includes(a.id));
 
   const { data: requireVerificationSetting } = useQuery<{ value: string }>({
     queryKey: ["/api/settings/require_superadmin_verification_to_order"],
@@ -63,6 +74,7 @@ export function NotificationBell() {
   const showUnverifiedWarning = Boolean(user && !user.isVerified && isVerificationMandatory && user.role === "customer");
 
   const unreadCount = announcements.filter((a) => !readIds.includes(a.id)).length + (showUnverifiedWarning ? 1 : 0);
+  const totalCount = announcements.length + (showUnverifiedWarning ? 1 : 0);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -71,25 +83,39 @@ export function NotificationBell() {
         setIsOpen(false);
       }
     }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
   const markAllAsRead = () => {
     const allIds = announcements.map((a) => a.id);
     setReadIds(allIds);
+    try { localStorage.setItem("read_notification_ids", JSON.stringify(allIds)); } catch {}
+  };
+
+  const dismissOne = (id: number) => {
+    const next = [...dismissedIds, id];
+    setDismissedIds(next);
+    try { localStorage.setItem("dismissed_notification_ids", JSON.stringify(next)); } catch {}
+    // Also mark as read
+    const nextRead = [...readIds, id];
+    setReadIds(nextRead);
+    try { localStorage.setItem("read_notification_ids", JSON.stringify(nextRead)); } catch {}
+  };
+
+  const clearAll = () => {
+    const allIds = allAnnouncements.map((a) => a.id);
+    setDismissedIds(allIds);
+    setReadIds(allIds);
     try {
+      localStorage.setItem("dismissed_notification_ids", JSON.stringify(allIds));
       localStorage.setItem("read_notification_ids", JSON.stringify(allIds));
     } catch {}
   };
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
-    if (!isOpen && unreadCount > 0) {
-      markAllAsRead();
-    }
+    if (!isOpen && unreadCount > 0) markAllAsRead();
   };
 
   return (
@@ -114,11 +140,14 @@ export function NotificationBell() {
           }`}
         />
 
-        {/* Counter Badge */}
+        {/* Counter Badge — shows unread count, collapses to dot when all read but still have notifications */}
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow-[0_0_8px_rgba(220,38,38,0.7)] animate-pulse">
             {unreadCount}
           </span>
+        )}
+        {unreadCount === 0 && totalCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-slate-400" />
         )}
       </button>
 
@@ -130,14 +159,20 @@ export function NotificationBell() {
             <div className="flex items-center gap-2">
               <Bell size={16} className="text-emerald-400" />
               <h3 className="text-xs font-black uppercase tracking-wider text-white">Notifications & Alerts</h3>
+              {totalCount > 0 && (
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300">
+                  {totalCount}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              {announcements.length > 0 && (
+              {totalCount > 0 && (
                 <button
-                  onClick={markAllAsRead}
-                  className="text-[10px] text-slate-400 hover:text-white font-bold"
+                  onClick={clearAll}
+                  className="text-[10px] text-slate-400 hover:text-red-400 font-bold transition-colors px-1.5 py-0.5 rounded hover:bg-red-950/40"
+                  title="Clear all notifications"
                 >
-                  Mark read
+                  Clear All
                 </button>
               )}
               <button
@@ -195,7 +230,7 @@ export function NotificationBell() {
               return (
                 <div
                   key={item.id}
-                  className={`p-3 rounded-xl border transition-all space-y-2 ${
+                  className={`p-3 rounded-xl border transition-all space-y-2 relative ${
                     isCritical
                       ? "bg-red-950/70 border-red-500/50"
                       : isWarning
@@ -204,15 +239,25 @@ export function NotificationBell() {
                   } ${isUnread ? "ring-1 ring-emerald-500/40" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {isCritical && <ShieldAlert size={14} className="text-red-400 shrink-0" />}
                       {isWarning && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                       {isAd && <Sparkles size={14} className="text-emerald-400 shrink-0" />}
-                      <span className="text-xs font-black text-white">{item.title}</span>
+                      <span className="text-xs font-black text-white truncate">{item.title}</span>
                     </div>
-                    {isUnread && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="New notice" />
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isUnread && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" title="New notice" />
+                      )}
+                      {/* Individual ✕ Dismiss button */}
+                      <button
+                        onClick={() => dismissOne(item.id)}
+                        title="Dismiss this notification"
+                        className="w-5 h-5 rounded-full bg-slate-700/60 hover:bg-red-900/60 text-slate-400 hover:text-red-300 flex items-center justify-center transition-all"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">{item.message}</p>
@@ -269,7 +314,7 @@ export function NotificationBell() {
               );
             })}
 
-            {announcements.length === 0 && !showUnverifiedWarning && (
+            {totalCount === 0 && !showUnverifiedWarning && (
               <div className="p-6 text-center text-muted-foreground space-y-1">
                 <Bell size={24} className="mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-xs font-bold">No active notifications</p>

@@ -864,11 +864,41 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     sendMutation.mutate({ message: msg, history });
   }, [input, messages, sendMutation, ticketStep, ticketData, user]);
 
-  /* Connect to human */
+  /* Connect to human — requires phone-verified account */
   const handleConnectHuman = useCallback(async () => {
+    // Gate: must be logged in
+    if (!user) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `live_auth_${Date.now()}`,
+          role: "model",
+          content: "🔒 Please **sign in** first before connecting to a live agent.",
+          timestamp: new Date(),
+          showSignInBox: true,
+        },
+      ]);
+      return;
+    }
+
+    // Gate: must have a verified phone number (SMS OTP verified)
+    const hasVerifiedPhone = Boolean(user.phone && user.isVerified);
+    if (!hasVerifiedPhone) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `live_phone_gate_${Date.now()}`,
+          role: "model",
+          content: `📵 **Phone verification required to access Live Agent Support.**\n\nFor security, live chat with our support agents is only available to users with a verified phone number.\n\n👉 Go to **My Account → Profile** and add & verify your mobile number via SMS OTP — then come back to connect with a live agent.`,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     const lastMsg = [...messages].reverse().find((m) => m.role === "user");
     await humanMutation.mutateAsync(lastMsg?.content || "Customer requested live support assistance");
-  }, [messages, humanMutation]);
+  }, [messages, humanMutation, user]);
 
   /* Action handler */
   const handleAction = useCallback((action: string, actionData: any) => {
