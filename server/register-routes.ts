@@ -116,7 +116,7 @@ function publicUser(u: any) {
     customTitle: u.customTitle || null,
     permissions: perms,
     isPrimaryAdmin: isPrimary,
-    isVerified: u.isVerified !== undefined ? Boolean(u.isVerified) : isPrimary,
+    isVerified: isPrimary || (u.role !== "customer" && Boolean(u.isVerified)) || (Boolean(u.isVerified) && Boolean(u.phone && String(u.phone).trim() !== "")),
     starRating: isPrimary ? 6 : (u.starRating !== null && u.starRating !== undefined ? Math.min(6, Math.max(0, Number(u.starRating))) : 5),
     experienceRank: u.experienceRank || (isPrimary ? "Super Admin" : "Specialist"),
     customerStars: u.customerStars ?? 0,

@@ -243,6 +243,8 @@ export default function Account() {
     ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Bronze Tier`, discount: dynamicDiscountLabel, color: "from-[#a66020] via-[#cd7f32] to-[#804010]" }
     : { name: "Green Tier Member", badge: `🌿 ${starsCount}★ Green Tier`, discount: dynamicDiscountLabel, color: "from-emerald-500 to-teal-600" };
 
+  const isUserVerified = Boolean(isSuperAdmin || (user.isVerified && user.phone && user.phone.trim() !== ""));
+
   return (
     <Layout>
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
@@ -285,29 +287,25 @@ export default function Account() {
                   <h1 className="font-serif text-xl sm:text-2xl font-black text-foreground">
                     {user.name || "Valued Customer"}
                   </h1>
-                  {user.isVerified && <VerifiedBadge size="md" />}
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black text-white bg-gradient-to-r ${starTier.color} shadow-xs`}>
-                    <Crown size={12} /> {starTier.badge}
-                  </span>
+                  {isUserVerified && <VerifiedBadge size="md" />}
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
                   <span>✉️ {user.email}</span>
                   {user.phone && <span>📞 {user.phone}</span>}
                 </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black">
-                    <Star size={13} className="fill-amber-400 text-amber-400" />
-                    {starsCount} Loyalty Stars ⭐
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black text-white bg-gradient-to-r ${starTier.color} shadow-xs`}>
+                    <Crown size={12} /> {starTier.badge}
                   </span>
                   <span className="text-[11px] text-muted-foreground font-semibold">
-                    {starTier.discount} on checkout
+                    • {starTier.discount} on checkout
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
-              {!user.isVerified && user.role === "customer" && (
+              {!isUserVerified && user.role === "customer" && (
                 <Button
                   size="sm"
                   onClick={() => setShowVerifyModal(true)}

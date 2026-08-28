@@ -121,6 +121,7 @@ export function Header() {
     : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
 
   const currentHeaderStarTheme = getStarTheme(user ? starsCount : 0, isStarThemeEnabled);
+  const isUserVerified = Boolean(isSuperAdmin || (user?.isVerified && user?.phone && user.phone.trim() !== ""));
 
   // Close search suggestions on route change
   useEffect(() => {
@@ -480,7 +481,7 @@ export function Header() {
                       </div>
                     )}
                     <span className="hidden sm:inline max-w-[90px] truncate">{user.name || "Account"}</span>
-                    {user.isVerified && <VerifiedBadge size="sm" />}
+                    {isUserVerified && <VerifiedBadge size="sm" />}
                     <ChevronDown size={11} className="text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
@@ -490,7 +491,7 @@ export function Header() {
                     <div className="flex flex-col space-y-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-xs font-black text-foreground leading-none truncate">{user.name || "User"}</p>
-                        {user.isVerified && <VerifiedBadge size="sm" />}
+                        {isUserVerified && <VerifiedBadge size="sm" />}
                       </div>
                       <p className="text-[11px] leading-none text-muted-foreground truncate">{user.email || user.phone || ""}</p>
                       <div className="pt-1.5 flex items-center gap-1.5">
