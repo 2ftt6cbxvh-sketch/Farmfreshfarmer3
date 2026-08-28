@@ -123,25 +123,25 @@ export function NotificationBell() {
 
       {/* 📋 Notification Drop Box Modal */}
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-card/98 backdrop-blur-2xl border border-card-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-[#0f172a] dark:bg-[#090d16] text-slate-100 border-2 border-slate-700 shadow-[0_25px_60px_rgba(0,0,0,0.95)] z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
-          <div className="flex items-center justify-between p-3.5 bg-secondary/70 border-b border-card-border">
+          <div className="flex items-center justify-between p-3.5 bg-[#1e293b] dark:bg-[#0f172a] border-b border-slate-700">
             <div className="flex items-center gap-2">
-              <Bell size={16} className="text-emerald-500" />
-              <h3 className="text-xs font-black uppercase tracking-wider text-foreground">Notifications & Alerts</h3>
+              <Bell size={16} className="text-emerald-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-white">Notifications & Alerts</h3>
             </div>
             <div className="flex items-center gap-2">
               {announcements.length > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-[10px] text-muted-foreground hover:text-foreground font-semibold"
+                  className="text-[10px] text-slate-400 hover:text-white font-bold"
                 >
                   Mark read
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-5 h-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center text-xs"
+                className="w-5 h-5 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs"
               >
                 ✕
               </button>
@@ -149,21 +149,21 @@ export function NotificationBell() {
           </div>
 
           {/* List of Notifications */}
-          <div className="max-h-96 overflow-y-auto p-3 space-y-2.5 divide-y divide-border/20">
+          <div className="max-h-96 overflow-y-auto p-3 space-y-2.5 bg-[#0f172a] dark:bg-[#090d16]">
             {/* Account Verification Warning Banner if user is unverified and verification is required */}
             {showUnverifiedWarning && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5 animate-pulse">
-                <div className="flex items-center gap-2 text-amber-500 text-xs font-black">
+              <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 space-y-1.5 animate-pulse">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-black">
                   <AlertTriangle size={15} />
                   <span>Account Pending Verification</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <p className="text-[11px] text-slate-300 leading-relaxed">
                   Your account is pending Super Admin review. Order placement will be unlocked once your profile is verified with the Blue Badge.
                 </p>
                 <Link
                   href="/account"
                   onClick={() => setIsOpen(false)}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-500 hover:underline pt-0.5"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 hover:underline pt-0.5"
                 >
                   <span>View Account Status</span>
                   <ArrowRight size={12} />
@@ -173,12 +173,12 @@ export function NotificationBell() {
 
             {/* Verified Genuine Account Badge Card if user is verified */}
             {user && user.isVerified && (
-              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-between">
+              <div className="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">✓</span>
+                  <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold shrink-0">✓</span>
                   <div>
                     <p className="text-xs font-bold text-blue-400">Verified Genuine Account</p>
-                    <p className="text-[10px] text-muted-foreground">You have verified status & unrestricted ordering.</p>
+                    <p className="text-[10px] text-slate-400">You have verified status & unrestricted ordering.</p>
                   </div>
                 </div>
               </div>
@@ -189,54 +189,51 @@ export function NotificationBell() {
               const isWarning = item.category === "warning";
               const isCritical = item.category === "critical";
               const isAd = item.category === "advertisement";
-
-              const themeClasses = isCritical
-                ? "bg-red-500/10 border-red-500/30 text-red-400"
-                : isWarning
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+              const isUnread = !readIds.includes(item.id);
 
               return (
                 <div
                   key={item.id}
-                  className={`p-3 rounded-xl border transition-all ${themeClasses} space-y-2`}
+                  className={`p-3 rounded-xl border transition-all space-y-2 ${
+                    isCritical
+                      ? "bg-red-950/70 border-red-500/50"
+                      : isWarning
+                      ? "bg-amber-950/70 border-amber-500/50"
+                      : "bg-slate-800/80 border-slate-700 hover:border-slate-600"
+                  } ${isUnread ? "ring-1 ring-emerald-500/40" : ""}`}
                 >
-                  {/* Category Title & Badge */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-black text-xs">
-                      {isCritical && <ShieldAlert size={14} className="text-red-500" />}
-                      {isWarning && <AlertTriangle size={14} className="text-amber-500" />}
-                      {isAd && <Sparkles size={14} className="text-emerald-500" />}
-                      <span className="text-foreground">{item.title}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      {isCritical && <ShieldAlert size={14} className="text-red-400 shrink-0" />}
+                      {isWarning && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                      {isAd && <Sparkles size={14} className="text-emerald-400 shrink-0" />}
+                      <span className="text-xs font-black text-white">{item.title}</span>
                     </div>
-                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-background/80 border border-border">
-                      {item.category}
-                    </span>
+                    {isUnread && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="New notice" />
+                    )}
                   </div>
 
-                  {/* Message */}
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                    {item.message}
-                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{item.message}</p>
 
-                  {/* Interactive Product Card in Ad */}
-                  {isAd && item.product && (
-                    <div className="p-2 rounded-lg bg-card border border-emerald-500/20 flex items-center justify-between gap-2 mt-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                  {/* Attached Product Card if advertisement is linked to a product */}
+                  {item.product && (
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-700/80 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         {item.product.image ? (
                           <img
                             src={imgUrl(item.product.image)}
                             alt={item.product.name}
-                            className="w-10 h-10 rounded-md object-cover border border-border shrink-0"
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-700 shrink-0"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-md bg-emerald-950/20 flex items-center justify-center text-sm shrink-0">
-                            🌱
+                          <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                            <Package size={16} />
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-foreground truncate">{item.product.name}</p>
-                          <p className="text-[11px] font-black text-emerald-500">
+                          <p className="text-xs font-bold truncate text-white">{item.product.name}</p>
+                          <p className="text-[11px] font-black text-emerald-400">
                             {formatINR(Number(item.product.price))}
                           </p>
                         </div>
@@ -244,15 +241,15 @@ export function NotificationBell() {
 
                       <div className="flex items-center gap-1 shrink-0">
                         <Link
-                          href={`/product/${item.product.slug}`}
+                          href={`/products/${item.product.slug}`}
                           onClick={() => setIsOpen(false)}
-                          className="px-2 py-1 text-[10px] font-bold text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-muted"
+                          className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700"
                         >
                           View
                         </Link>
                         <Button
                           size="sm"
-                          className="h-6 px-2 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-md"
+                          className="h-7 px-2.5 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
                           onClick={() => {
                             addToCart(item.product as any);
                             setIsOpen(false);
@@ -264,7 +261,7 @@ export function NotificationBell() {
                     </div>
                   )}
 
-                  <div className="text-[9px] text-muted-foreground/60 text-right">
+                  <div className="text-[9px] text-slate-500 text-right">
                     {new Date(item.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                   </div>
                 </div>

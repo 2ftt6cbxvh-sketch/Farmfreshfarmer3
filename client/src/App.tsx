@@ -11,93 +11,94 @@ import { IntroLoader } from "@/components/IntroLoader";
 import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
 import { BroadcastPopupModal } from "@/components/BroadcastPopupModal";
 
-// Eager load core customer landing & discovery pages for instant initial load
+// Core customer discovery & checkout pages
 import Home from "@/pages/Home";
 import Category from "@/pages/Category";
 import SearchPage from "@/pages/SearchPage";
 import ProductDetail from "@/pages/ProductDetail";
 import Cart from "@/pages/Cart";
 import Login from "@/pages/Login";
+import Orders from "@/pages/Orders";
+import PaymentSimulate from "@/pages/PaymentSimulate";
+import PaymentCallback from "@/pages/PaymentCallback";
+import { PaymentSuccess, PaymentFailure } from "@/pages/PaymentResult";
+import MySubscriptions from "@/pages/MySubscriptions";
+import MyReferrals from "@/pages/MyReferrals";
+import Account from "@/pages/Account";
+import ForgotPassword from "@/pages/ForgotPassword";
+import NotFound from "@/pages/not-found";
 
-// Helper to auto-recover when newer chunks are deployed
-function lazyWithRetry<T extends React.ComponentType<any>>(
-  factory: () => Promise<{ default: T } | any>
-): React.LazyExoticComponent<T> {
-  return React.lazy(async () => {
-    try {
-      return await factory();
-    } catch (err: any) {
-      console.warn("[Chunk Load Error] Fetching fresh deployment...", err);
-      const reloadKey = "fff_chunk_retry_" + window.location.pathname;
-      const lastRetry = parseInt(sessionStorage.getItem(reloadKey) || "0", 10);
-      if (!lastRetry || Date.now() - lastRetry > 8000) {
-        sessionStorage.setItem(reloadKey, String(Date.now()));
-        window.location.reload();
-        return new Promise(() => {}) as any;
-      }
-      throw err;
+// Legal pages
+import {
+  TermsPage, PrivacyPage, RefundPage, ReturnPage, ShippingPage, GrievancePage
+} from "@/pages/LegalPages";
+
+// Admin & Partner Portal pages
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminProducts from "@/pages/admin/AdminProducts";
+import AdminCategories from "@/pages/admin/AdminCategories";
+import AdminApprovals from "@/pages/admin/AdminApprovals";
+import AdminInventory from "@/pages/admin/AdminInventory";
+import AdminOrders from "@/pages/admin/AdminOrders";
+import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
+import AdminCustomers from "@/pages/admin/AdminCustomers";
+import AdminReviews from "@/pages/admin/AdminReviews";
+import AdminCoupons from "@/pages/admin/AdminCoupons";
+import AdminDiscounts from "@/pages/admin/AdminDiscounts";
+import AdminStarDiscountRules from "@/pages/admin/AdminStarDiscountRules";
+import AdminReferrals from "@/pages/admin/AdminReferrals";
+import AdminPayments from "@/pages/admin/AdminPayments";
+import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminSecurity from "@/pages/admin/AdminSecurity";
+import AdminWarehouses from "@/pages/admin/AdminWarehouses";
+import AdminDelivery from "@/pages/admin/AdminDelivery";
+import AdminLogin from "@/pages/admin/AdminLogin";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminStaff from "@/pages/admin/AdminStaff";
+import AdminDeliveryPartners from "@/pages/admin/AdminDeliveryPartners";
+import AdminGST from "@/pages/admin/AdminGST";
+import { AdminLiveChat } from "@/pages/admin/AdminLiveChat";
+import AdminTickets from "@/pages/admin/AdminTickets";
+import AdminRefunds from "@/pages/admin/AdminRefunds";
+import AdminAdvertisements from "@/pages/admin/AdminAdvertisements";
+import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("[React App ErrorBoundary caught error]:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background text-foreground">
+          <div className="max-w-md space-y-4 p-8 rounded-3xl bg-card border border-border shadow-2xl">
+            <h2 className="text-xl font-bold">Something went wrong</h2>
+            <p className="text-xs text-muted-foreground">The page encountered an error. Click below to reload.</p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false });
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
     }
-  });
-}
-
-// Lazy load secondary customer pages
-const Orders = lazyWithRetry(() => import("@/pages/Orders"));
-const PaymentSimulate = lazyWithRetry(() => import("@/pages/PaymentSimulate"));
-const PaymentCallback = lazyWithRetry(() => import("@/pages/PaymentCallback"));
-const PaymentSuccess = lazyWithRetry(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentSuccess })));
-const PaymentFailure = lazyWithRetry(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentFailure })));
-const MySubscriptions = lazyWithRetry(() => import("@/pages/MySubscriptions"));
-const MyReferrals = lazyWithRetry(() => import("@/pages/MyReferrals"));
-const Account = lazyWithRetry(() => import("@/pages/Account"));
-const ForgotPassword = lazyWithRetry(() => import("@/pages/ForgotPassword"));
-const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
-
-// Lazy load Legal pages
-const TermsPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.TermsPage })));
-const PrivacyPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.PrivacyPage })));
-const RefundPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.RefundPage })));
-const ReturnPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.ReturnPage })));
-const ShippingPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.ShippingPage })));
-const GrievancePage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.GrievancePage })));
-
-// Lazy load Admin pages
-const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/AdminDashboard"));
-const AdminProducts = lazyWithRetry(() => import("@/pages/admin/AdminProducts"));
-const AdminCategories = lazyWithRetry(() => import("@/pages/admin/AdminCategories"));
-const AdminApprovals = lazyWithRetry(() => import("@/pages/admin/AdminApprovals"));
-const AdminInventory = lazyWithRetry(() => import("@/pages/admin/AdminInventory"));
-const AdminOrders = lazyWithRetry(() => import("@/pages/admin/AdminOrders"));
-const AdminSubscriptions = lazyWithRetry(() => import("@/pages/admin/AdminSubscriptions"));
-const AdminCustomers = lazyWithRetry(() => import("@/pages/admin/AdminCustomers"));
-const AdminReviews = lazyWithRetry(() => import("@/pages/admin/AdminReviews"));
-const AdminCoupons = lazyWithRetry(() => import("@/pages/admin/AdminCoupons"));
-const AdminDiscounts = lazyWithRetry(() => import("@/pages/admin/AdminDiscounts"));
-const AdminStarDiscountRules = lazyWithRetry(() => import("@/pages/admin/AdminStarDiscountRules"));
-const AdminReferrals = lazyWithRetry(() => import("@/pages/admin/AdminReferrals"));
-const AdminPayments = lazyWithRetry(() => import("@/pages/admin/AdminPayments"));
-const AdminSettings = lazyWithRetry(() => import("@/pages/admin/AdminSettings"));
-const AdminSecurity = lazyWithRetry(() => import("@/pages/admin/AdminSecurity"));
-const AdminWarehouses = lazyWithRetry(() => import("@/pages/admin/AdminWarehouses"));
-const AdminDelivery = lazyWithRetry(() => import("@/pages/admin/AdminDelivery"));
-const AdminLogin = lazyWithRetry(() => import("@/pages/admin/AdminLogin"));
-const AdminUsers = lazyWithRetry(() => import("@/pages/admin/AdminUsers"));
-const AdminStaff = lazyWithRetry(() => import("@/pages/admin/AdminStaff"));
-const AdminDeliveryPartners = lazyWithRetry(() => import("@/pages/admin/AdminDeliveryPartners"));
-const AdminGST = lazyWithRetry(() => import("@/pages/admin/AdminGST"));
-const AdminLiveChat = lazyWithRetry(() => import("@/pages/admin/AdminLiveChat").then(m => ({ default: m.AdminLiveChat })));
-const AdminTickets = lazyWithRetry(() => import("@/pages/admin/AdminTickets"));
-const AdminRefunds = lazyWithRetry(() => import("@/pages/admin/AdminRefunds"));
-const AdminAdvertisements = lazyWithRetry(() => import("@/pages/admin/AdminAdvertisements"));
-
-// Lazy load Delivery Partner pages
-const DeliveryPartnerPortal = lazyWithRetry(() => import("@/pages/DeliveryPartnerPortal"));
-
-function RouteFallback() {
-  return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-500 border-t-transparent" />
-    </div>
-  );
+    return this.props.children;
+  }
 }
 
 function AppRouter() {
@@ -119,7 +120,7 @@ function AppRouter() {
   }, [setLocation]);
 
   return (
-    <Suspense fallback={<RouteFallback />}>
+    <ErrorBoundary>
       <Switch>
         {/* Legal & Policy Pages for Merchant Onboarding & Public Access */}
         <Route path="/terms" component={TermsPage} />
@@ -212,7 +213,7 @@ function AppRouter() {
         {/* Fallback 404 Route */}
         <Route component={NotFound} />
       </Switch>
-    </Suspense>
+    </ErrorBoundary>
   );
 }
 
