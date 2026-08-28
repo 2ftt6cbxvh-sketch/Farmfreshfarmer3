@@ -1160,10 +1160,9 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     if (userId) {
       const u = await storage.users.get(userId);
-      const requireVerification = (await storage.settings.get("require_superadmin_verification_to_order")) === "true";
-      if (requireVerification && !u?.isVerified && !u?.isPrimaryAdmin && u?.role !== "admin") {
+      if (!u?.isVerified) {
         return res.status(403).json({
-          message: "🔒 Account Verification Required: Your account is pending Super Admin verification before you can place orders.",
+          message: "🔒 Phone Verification Required: Please verify your mobile number via SMS OTP to place orders.",
           verificationRequired: true,
         });
       }

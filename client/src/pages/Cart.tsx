@@ -272,8 +272,8 @@ export default function Cart() {
     queryFn: () => apiGet<{ value: string }>("/api/settings/require_superadmin_verification_to_order").catch(() => ({ value: "false" })),
   });
 
-  const isVerificationMandatory = requireVerificationSetting?.value === "true";
-  const isPendingSuperAdminVerification = Boolean(user && !user.isVerified && isVerificationMandatory && user.role === "customer" && !user.isPrimaryAdmin);
+  const isVerificationMandatory = requireVerificationSetting?.value !== "false";
+  const isPendingSuperAdminVerification = Boolean(!user || !user.isVerified);
   const [showCartVerifyModal, setShowCartVerifyModal] = useState(false);
 
   // Subscription items in cart (strictly local Visakhapatnam delivery)
