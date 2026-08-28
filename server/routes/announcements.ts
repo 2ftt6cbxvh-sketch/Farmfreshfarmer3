@@ -1,11 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { db, pool } from "../db";
-import { announcements, products, users } from "@shared/schema";
-import { eq, desc, and, or, isNull, gt } from "drizzle-orm";
+import { pool } from "../db";
 
 const STAFF_ROLES = ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"];
 
-async function ensureAnnouncementsTable() {
+async function ensureAnnouncementsTable(): Promise<void> {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS announcements (
@@ -52,24 +50,29 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   }
 
   if (userId) {
-    const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
-    if (
-      user &&
-      (STAFF_ROLES.includes(user.role) ||
-        user.role === "admin" ||
-        user.isPrimaryAdmin ||
-        user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-        user.email?.toLowerCase() === "gp61080@gmail.com" ||
-        user.id === 1) &&
-      user.status !== "blocked" &&
-      user.status !== "locked" &&
-      !user.isPermanentlyLocked
-    ) {
-      if (req.session) {
-        req.session.userId = user.id;
-        req.session.role = user.role;
+    try {
+      const userRes = await pool.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [Number(userId)]);
+      const user = userRes.rows[0];
+      if (
+        user &&
+        (STAFF_ROLES.includes(user.role) ||
+          user.role === "admin" ||
+          user.is_primary_admin ||
+          user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+          user.email?.toLowerCase() === "gp61080@gmail.com" ||
+          user.id === 1) &&
+        user.status !== "blocked" &&
+        user.status !== "locked" &&
+        !user.is_permanently_locked
+      ) {
+        if (req.session) {
+          req.session.userId = user.id;
+          req.session.role = user.role;
+        }
+        return next();
       }
-      return next();
+    } catch (dbErr: any) {
+      console.warn("[announcements requireAdmin db error]:", dbErr?.message);
     }
   }
 
@@ -77,53 +80,48 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export function registerAnnouncementRoutes(app: Express) {
-  // Ensure database table exists
+  // Ensure database table exists on boot
   ensureAnnouncementsTable().catch(() => {});
 
   /** GET /api/announcements/active — Get active announcements and ads for visitors & users */
-  app.get("/api/announcements/active", async (req: Request, res: Response) => {
+  app.get("/api/announcements/active", async (_req: Request, res: Response) => {
     try {
       await ensureAnnouncementsTable();
-      const now = new Date();
-      const rows = await db
-        .select({
-          id: announcements.id,
-          title: announcements.title,
-          message: announcements.message,
-          category: announcements.category,
-          productId: announcements.productId,
-          isActive: announcements.isActive,
-          showPopup: announcements.showPopup,
-          priority: announcements.priority,
-          targetAudience: announcements.targetAudience,
-          createdAt: announcements.createdAt,
-          expiresAt: announcements.expiresAt,
-          product: {
-            id: products.id,
-            name: products.name,
-            slug: products.slug,
-            price: products.price,
-            originalPrice: products.originalPrice,
-            image: products.image,
-            categorySlug: products.categorySlug,
-            rating: products.rating,
-            stock: products.stock,
-            unit: products.unit,
-          },
-        })
-        .from(announcements)
-        .leftJoin(products, eq(announcements.productId, products.id))
-        .where(
-          and(
-            eq(announcements.isActive, true),
-            or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now))
-          )
-        )
-        .orderBy(desc(announcements.priority), desc(announcements.createdAt));
+      const result = await pool.query(`
+        SELECT 
+          a.id,
+          a.title,
+          a.message,
+          a.category,
+          a.product_id as "productId",
+          a.is_active as "isActive",
+          a.show_popup as "showPopup",
+          a.priority,
+          a.target_audience as "targetAudience",
+          a.created_at as "createdAt",
+          a.expires_at as "expiresAt",
+          CASE WHEN p.id IS NOT NULL THEN json_build_object(
+            'id', p.id,
+            'name', p.name,
+            'slug', p.slug,
+            'price', p.price,
+            'originalPrice', p.original_price,
+            'image', p.image,
+            'categorySlug', p.category_slug,
+            'rating', p.rating,
+            'stock', p.stock,
+            'unit', p.unit
+          ) ELSE NULL END as product
+        FROM announcements a
+        LEFT JOIN products p ON a.product_id = p.id
+        WHERE a.is_active = TRUE AND (a.expires_at IS NULL OR a.expires_at > NOW())
+        ORDER BY a.priority DESC, a.created_at DESC
+      `);
 
-      res.json(rows || []);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.json(result.rows || []);
     } catch (err: any) {
-      console.warn("[announcements/active notice]:", err?.message);
+      console.warn("[announcements/active query error]:", err?.message);
       res.json([]);
     }
   });
@@ -132,33 +130,36 @@ export function registerAnnouncementRoutes(app: Express) {
   app.get("/api/admin/announcements", requireAdmin, async (_req: Request, res: Response) => {
     try {
       await ensureAnnouncementsTable();
-      const rows = await db
-        .select({
-          id: announcements.id,
-          title: announcements.title,
-          message: announcements.message,
-          category: announcements.category,
-          productId: announcements.productId,
-          isActive: announcements.isActive,
-          showPopup: announcements.showPopup,
-          priority: announcements.priority,
-          targetAudience: announcements.targetAudience,
-          createdAt: announcements.createdAt,
-          expiresAt: announcements.expiresAt,
-          product: {
-            id: products.id,
-            name: products.name,
-            slug: products.slug,
-            price: products.price,
-            image: products.image,
-          },
-        })
-        .from(announcements)
-        .leftJoin(products, eq(announcements.productId, products.id))
-        .orderBy(desc(announcements.createdAt));
+      const result = await pool.query(`
+        SELECT 
+          a.id,
+          a.title,
+          a.message,
+          a.category,
+          a.product_id as "productId",
+          a.is_active as "isActive",
+          a.show_popup as "showPopup",
+          a.priority,
+          a.target_audience as "targetAudience",
+          a.created_at as "createdAt",
+          a.expires_at as "expiresAt",
+          CASE WHEN p.id IS NOT NULL THEN json_build_object(
+            'id', p.id,
+            'name', p.name,
+            'slug', p.slug,
+            'price', p.price,
+            'originalPrice', p.original_price,
+            'image', p.image
+          ) ELSE NULL END as product
+        FROM announcements a
+        LEFT JOIN products p ON a.product_id = p.id
+        ORDER BY a.created_at DESC
+      `);
 
-      res.json(rows);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.json(result.rows || []);
     } catch (err: any) {
+      console.error("[admin/announcements query error]:", err?.message);
       res.status(500).json({ message: "Failed to fetch announcements", error: err?.message });
     }
   });
@@ -175,20 +176,30 @@ export function registerAnnouncementRoutes(app: Express) {
       const validCategories = ["warning", "critical", "advertisement"];
       const finalCategory = validCategories.includes(category) ? category : "advertisement";
 
-      const [created] = await db.insert(announcements).values({
-        title: title.trim(),
-        message: message.trim(),
-        category: finalCategory,
-        productId: productId ? Number(productId) : null,
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
-        showPopup: showPopup !== undefined ? Boolean(showPopup) : true,
-        priority: Number(priority) || 0,
-        targetAudience: targetAudience || "all",
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-      }).returning();
+      const insertRes = await pool.query(
+        `INSERT INTO announcements (
+          title, message, category, product_id, is_active, show_popup, priority, target_audience, expires_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING 
+          id, title, message, category, product_id as "productId",
+          is_active as "isActive", show_popup as "showPopup", priority,
+          target_audience as "targetAudience", created_at as "createdAt", expires_at as "expiresAt"`,
+        [
+          String(title).trim(),
+          String(message).trim(),
+          finalCategory,
+          productId ? Number(productId) : null,
+          isActive !== undefined ? Boolean(isActive) : true,
+          showPopup !== undefined ? Boolean(showPopup) : true,
+          Number(priority) || 0,
+          targetAudience || "all",
+          expiresAt ? new Date(expiresAt) : null,
+        ]
+      );
 
-      res.status(201).json(created);
+      res.status(201).json(insertRes.rows[0]);
     } catch (err: any) {
+      console.error("[admin/announcements insert error]:", err?.message);
       res.status(500).json({ message: "Failed to create announcement", error: err?.message });
     }
   });
@@ -196,27 +207,44 @@ export function registerAnnouncementRoutes(app: Express) {
   /** PATCH /api/admin/announcements/:id — Update announcement */
   app.patch("/api/admin/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
+      await ensureAnnouncementsTable();
       const id = parseInt(req.params.id, 10);
       if (!id || isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-      const updates: any = {};
       const { title, message, category, productId, isActive, showPopup, priority, targetAudience, expiresAt } = req.body || {};
 
-      if (title !== undefined) updates.title = title.trim();
-      if (message !== undefined) updates.message = message.trim();
-      if (category !== undefined) updates.category = category;
-      if (productId !== undefined) updates.productId = productId ? Number(productId) : null;
-      if (isActive !== undefined) updates.isActive = Boolean(isActive);
-      if (showPopup !== undefined) updates.showPopup = Boolean(showPopup);
-      if (priority !== undefined) updates.priority = Number(priority) || 0;
-      if (targetAudience !== undefined) updates.targetAudience = targetAudience;
-      if (expiresAt !== undefined) updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+      const currentRes = await pool.query("SELECT * FROM announcements WHERE id = $1 LIMIT 1", [id]);
+      if (!currentRes.rows.length) {
+        return res.status(404).json({ message: "Announcement not found" });
+      }
+      const cur = currentRes.rows[0];
 
-      const [updated] = await db.update(announcements).set(updates).where(eq(announcements.id, id)).returning();
-      if (!updated) return res.status(404).json({ message: "Announcement not found" });
+      const newTitle = title !== undefined ? String(title).trim() : cur.title;
+      const newMessage = message !== undefined ? String(message).trim() : cur.message;
+      const newCategory = category !== undefined ? category : cur.category;
+      const newProductId = productId !== undefined ? (productId ? Number(productId) : null) : cur.product_id;
+      const newIsActive = isActive !== undefined ? Boolean(isActive) : cur.is_active;
+      const newShowPopup = showPopup !== undefined ? Boolean(showPopup) : cur.show_popup;
+      const newPriority = priority !== undefined ? Number(priority) : cur.priority;
+      const newTargetAudience = targetAudience !== undefined ? targetAudience : cur.target_audience;
+      const newExpiresAt = expiresAt !== undefined ? (expiresAt ? new Date(expiresAt) : null) : cur.expires_at;
 
-      res.json(updated);
+      const updateRes = await pool.query(
+        `UPDATE announcements SET
+          title = $1, message = $2, category = $3, product_id = $4,
+          is_active = $5, show_popup = $6, priority = $7,
+          target_audience = $8, expires_at = $9
+        WHERE id = $10
+        RETURNING 
+          id, title, message, category, product_id as "productId",
+          is_active as "isActive", show_popup as "showPopup", priority,
+          target_audience as "targetAudience", created_at as "createdAt", expires_at as "expiresAt"`,
+        [newTitle, newMessage, newCategory, newProductId, newIsActive, newShowPopup, newPriority, newTargetAudience, newExpiresAt, id]
+      );
+
+      res.json(updateRes.rows[0]);
     } catch (err: any) {
+      console.error("[admin/announcements update error]:", err?.message);
       res.status(500).json({ message: "Failed to update announcement", error: err?.message });
     }
   });
@@ -224,13 +252,16 @@ export function registerAnnouncementRoutes(app: Express) {
   /** DELETE /api/admin/announcements/:id — Delete announcement */
   app.delete("/api/admin/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
+      await ensureAnnouncementsTable();
       const id = parseInt(req.params.id, 10);
       if (!id || isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
-      await db.delete(announcements).where(eq(announcements.id, id));
+      await pool.query("DELETE FROM announcements WHERE id = $1", [id]);
       res.json({ success: true, message: "Announcement deleted" });
     } catch (err: any) {
+      console.error("[admin/announcements delete error]:", err?.message);
       res.status(500).json({ message: "Failed to delete announcement", error: err?.message });
     }
   });
 }
+

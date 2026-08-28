@@ -26,9 +26,11 @@ export default function AdminAdvertisements() {
   const [priority, setPriority] = useState<number>(0);
   const [targetAudience, setTargetAudience] = useState("all");
 
-  const { data: announcements = [], isLoading } = useQuery<AnnouncementItem[]>({
+  const { data: announcements = [], isLoading, refetch } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/admin/announcements"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/admin/announcements"),
+    refetchInterval: 5000,
+    staleTime: 0,
   });
 
   const { data: products = [] } = useQuery<Product[]>({
