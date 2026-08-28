@@ -298,29 +298,337 @@ export function registerAuthJwtRoutes(app: Express) {
     }
   });
 
-  /** POST /api/auth/otp/send — Send OTP to Email or Phone */
-  app.post("/api/auth/otp/send", otpRateLimit, async (req: Request, res: Response) => {
-    const { email, phone } = req.body || {};
-    if (!email && !phone) return res.status(400).json({ message: "Provide email or phone to send OTP" });
+  /** POST /api/auth/login/initiate — Step 1 of Login: Checks user existence & password, sends 2FA OTP */
+  app.post("/api/auth/login/initiate", authRateLimit, async (req: Request, res: Response) => {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
 
-    const targetEmail = email ? email.toLowerCase().trim() : null;
-    let user: typeof users.$inferSelect | undefined;
+    const cleanEmail = email.toLowerCase().trim();
+    const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
 
-    if (targetEmail) {
-      [user] = await db.select().from(users).where(eq(users.email, targetEmail)).limit(1);
-      if (!user) {
-        // Auto-create user for new email
-        const username = targetEmail.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now().toString(36);
-        const [newUser] = await db.insert(users).values({
-          name: targetEmail.split("@")[0], email: targetEmail, username, password: "", role: "customer", status: "active",
-        }).returning();
-        await db.insert(customerProfiles).values({ userId: newUser.id });
-        await ensureReferralCode(newUser.id).catch(() => {});
-        user = newUser;
+    if (!user) {
+      await auditLog("login_failed", { req, action: `Login attempt for non-existent email: ${cleanEmail}` });
+      return res.status(404).json({
+        message: "No account found with this email. Please sign up first.",
+        notFound: true,
+      });
+    }
+
+    if (user.status === "blocked") {
+      return res.status(403).json({ message: "Your account is currently suspended. Please contact support." });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      await auditLog("login_failed", { userId: user.id, req, action: `Wrong password for email: ${cleanEmail}` });
+      return res.status(401).json({ message: "Incorrect password. Please try again or use Forgot Password." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await db.insert(otpCodes).values({
+      userId: user.id,
+      phone: user.phone || cleanEmail,
+      purpose: "login_2fa",
+      codeHash,
+      expiresAt,
+    });
+
+    const jwt = (await import("jsonwebtoken")).default;
+    const loginToken = jwt.sign(
+      { userId: user.id, email: user.email, type: "login_2fa" },
+      process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+      { expiresIn: "10m" }
+    );
+
+    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
+    const html = buildOtpEmailHtml(otp, user.name);
+    const text = buildOtpPlainText(otp, user.name);
+
+    await sendRealEmail({
+      to: cleanEmail,
+      subject: `🔑 Your Verification OTP Code: ${otp}`,
+      html,
+      text,
+    });
+
+    await auditLog("login_otp_sent", { userId: user.id, req, action: `2FA Login OTP sent to ${cleanEmail}` });
+    console.log(`[LOGIN 2FA OTP] ${cleanEmail} -> OTP: ${otp}`);
+
+    return res.json({
+      success: true,
+      requireOtp: true,
+      loginToken,
+      email: cleanEmail,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}`,
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    });
+  });
+
+  /** POST /api/auth/login/verify-otp — Step 2 of Login: Verifies 2FA OTP & logs user in */
+  app.post("/api/auth/login/verify-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { loginToken, email, code, platform, deviceId } = req.body || {};
+    if (!code || (!loginToken && !email)) {
+      return res.status(400).json({ message: "Verification code and login token required" });
+    }
+
+    let targetUserId: number | null = null;
+    let targetEmail: string = email ? email.toLowerCase().trim() : "";
+
+    if (loginToken) {
+      const jwt = (await import("jsonwebtoken")).default;
+      try {
+        const decoded: any = jwt.verify(loginToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        if (decoded.type === "login_2fa" && decoded.userId) {
+          targetUserId = decoded.userId;
+          targetEmail = decoded.email || targetEmail;
+        }
+      } catch (err: any) {
+        return res.status(400).json({ message: "Login session expired. Please enter your password again." });
       }
     }
 
+    const [user] = targetUserId
+      ? await db.select().from(users).where(eq(users.id, targetUserId)).limit(1)
+      : await db.select().from(users).where(eq(users.email, targetEmail)).limit(1);
+
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const activeOtps = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.userId, user.id), isNull(otpCodes.verifiedAt), gt(otpCodes.expiresAt, new Date())))
+      .limit(10);
+
+    let matchedOtpId: number | null = null;
+    for (const row of activeOtps) {
+      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
+      if (isMatch) {
+        matchedOtpId = row.id;
+        break;
+      }
+    }
+
+    if (!matchedOtpId) {
+      await auditLog("otp_failed", { userId: user.id, req, action: `Invalid 2FA login OTP provided` });
+      return res.status(400).json({ message: "Invalid or expired OTP code. Please check your inbox or Spam folder." });
+    }
+
+    await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
+
+    if (req.session) {
+      req.session.userId = user.id;
+      req.session.role = user.role;
+    }
+
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: platform || "web",
+      deviceId,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    await auditLog("login_success", { userId: user.id, req, action: `2FA Login successful via ${platform || "web"}` });
+
+    return res.json({
+      message: "Login successful!",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        customerStars: user.customerStars,
+        isPrimaryAdmin: user.isPrimaryAdmin,
+      },
+      ...tokens,
+    });
+  });
+
+  /** POST /api/auth/signup/initiate — Step 1 of Signup: Validates mandatory fields, checks user doesn't exist, sends OTP */
+  app.post("/api/auth/signup/initiate", authRateLimit, async (req: Request, res: Response) => {
+    const { name, email, phone, password } = req.body || {};
+
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ message: "Please enter your full name (minimum 2 characters)." });
+    }
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ message: "Please enter a valid email address." });
+    }
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      return res.status(400).json({ message: "Please enter a valid 10-digit Indian mobile number." });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long." });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const [existing] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+    if (existing) {
+      return res.status(409).json({
+        message: "An account already exists with this email. Please log in instead.",
+        exists: true,
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Record OTP for email
+    await db.insert(otpCodes).values({
+      phone: cleanEmail,
+      purpose: "signup",
+      codeHash,
+      expiresAt,
+    });
+
+    const jwt = (await import("jsonwebtoken")).default;
+    const signupToken = jwt.sign(
+      {
+        name: name.trim(),
+        email: cleanEmail,
+        phone: cleanPhone,
+        passwordHash,
+        type: "signup_verify",
+      },
+      process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+      { expiresIn: "10m" }
+    );
+
+    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
+    const html = buildOtpEmailHtml(otp, name.trim());
+    const text = buildOtpPlainText(otp, name.trim());
+
+    await sendRealEmail({
+      to: cleanEmail,
+      subject: `🔑 Your FarmFreshFarmer Registration Code: ${otp}`,
+      html,
+      text,
+    });
+
+    console.log(`[SIGNUP OTP] ${cleanEmail} -> OTP: ${otp}`);
+
+    return res.json({
+      success: true,
+      requireOtp: true,
+      signupToken,
+      email: cleanEmail,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}`,
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    });
+  });
+
+  /** POST /api/auth/signup/verify-otp — Step 2 of Signup: Verifies OTP, creates account in DB & logs user in */
+  app.post("/api/auth/signup/verify-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { signupToken, code, platform, deviceId } = req.body || {};
+    if (!signupToken || !code) {
+      return res.status(400).json({ message: "Signup token and verification code are required" });
+    }
+
+    const jwt = (await import("jsonwebtoken")).default;
+    let payload: any;
+    try {
+      payload = jwt.verify(signupToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+    } catch (err: any) {
+      return res.status(400).json({ message: "Registration session expired. Please fill in the sign-up form again." });
+    }
+
+    if (payload.type !== "signup_verify" || !payload.email || !payload.passwordHash) {
+      return res.status(400).json({ message: "Invalid registration token payload." });
+    }
+
+    const { name, email, phone, passwordHash } = payload;
+
+    // Check OTP
+    const activeOtps = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.phone, email), isNull(otpCodes.verifiedAt), gt(otpCodes.expiresAt, new Date())))
+      .limit(10);
+
+    let matchedOtpId: number | null = null;
+    for (const row of activeOtps) {
+      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
+      if (isMatch) {
+        matchedOtpId = row.id;
+        break;
+      }
+    }
+
+    if (!matchedOtpId) {
+      return res.status(400).json({ message: "Invalid or expired OTP code. Please check your inbox or Spam folder." });
+    }
+
+    await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
+
+    // Ensure account doesn't already exist
+    let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user) {
+      const username = email.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now().toString(36);
+      const [newUser] = await db.insert(users).values({
+        name,
+        email,
+        username,
+        password: passwordHash,
+        phone,
+        role: "customer",
+        status: "active",
+        emailVerified: true,
+      }).returning();
+
+      await db.insert(customerProfiles).values({ userId: newUser.id });
+      await ensureReferralCode(newUser.id).catch(() => {});
+      user = newUser;
+    }
+
+    if (req.session) {
+      req.session.userId = user.id;
+      req.session.role = user.role;
+    }
+
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: platform || "web",
+      deviceId,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    await auditLog("register_success", { userId: user.id, req, action: `Registration & OTP verification complete via ${platform || "web"}` });
+
+    return res.status(201).json({
+      message: "Account created successfully! Welcome to FarmFreshFarmer.",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        customerStars: user.customerStars,
+      },
+      ...tokens,
+    });
+  });
+
+  /** POST /api/auth/otp/send — Send OTP to Email (Direct fallback) */
+  app.post("/api/auth/otp/send", otpRateLimit, async (req: Request, res: Response) => {
+    const { email, phone } = req.body || {};
+    if (!email && !phone) return res.status(400).json({ message: "Provide email to send OTP" });
+
+    const targetEmail = email ? email.toLowerCase().trim() : null;
+    let [user] = targetEmail
+      ? await db.select().from(users).where(eq(users.email, targetEmail)).limit(1)
+      : [];
+
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email. Please sign up first.", notFound: true });
+    }
     if (user.status === "blocked") return res.status(403).json({ message: "Account is suspended." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -334,15 +642,15 @@ export function registerAuthJwtRoutes(app: Express) {
       expiresAt,
     });
 
-    if (targetEmail) {
-      const { sendRealEmail, buildOtpEmailHtml } = await import("../services/email");
-      const html = buildOtpEmailHtml(otp, user.name);
-      await sendRealEmail({
-        to: targetEmail,
-        subject: `🔑 Your Verification OTP Code: ${otp}`,
-        html,
-      });
-    }
+    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
+    const html = buildOtpEmailHtml(otp, user.name);
+    const text = buildOtpPlainText(otp, user.name);
+    await sendRealEmail({
+      to: targetEmail || user.email,
+      subject: `🔑 Your Verification OTP Code: ${otp}`,
+      html,
+      text,
+    });
 
     await auditLog("otp_sent", { userId: user.id, req, action: `OTP sent to ${targetEmail || phone}` });
     console.log(`[OTP VERIFICATION CODE] ${targetEmail || phone} -> OTP CODE: ${otp}`);
@@ -354,10 +662,10 @@ export function registerAuthJwtRoutes(app: Express) {
     });
   });
 
-  /** POST /api/auth/otp/verify — Verify OTP & Log In */
+  /** POST /api/auth/otp/verify — Verify OTP & Log In (Direct fallback) */
   app.post("/api/auth/otp/verify", authRateLimit, async (req: Request, res: Response) => {
     const { email, phone, code, platform, deviceId } = req.body || {};
-    if (!code || (!email && !phone)) return res.status(400).json({ message: "Email/Phone and 6-digit OTP code required" });
+    if (!code || (!email && !phone)) return res.status(400).json({ message: "Email and 6-digit OTP code required" });
 
     const targetEmail = email ? email.toLowerCase().trim() : null;
     const [user] = targetEmail
@@ -374,7 +682,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let matchedOtpId: number | null = null;
     for (const row of activeOtps) {
-      const isMatch = await bcrypt.compare(code.trim(), row.codeHash);
+      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
       if (isMatch) {
         matchedOtpId = row.id;
         break;
@@ -383,7 +691,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     if (!matchedOtpId) {
       await auditLog("otp_failed", { userId: user.id, req, action: `Invalid OTP code provided` });
-      return res.status(400).json({ message: "Invalid or expired OTP code. Please try again." });
+      return res.status(400).json({ message: "Invalid or expired OTP code. Please check your Spam folder or request a new code." });
     }
 
     await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
