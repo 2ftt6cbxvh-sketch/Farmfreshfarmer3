@@ -156,7 +156,7 @@ export function PhoneVerificationModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border border-emerald-500/30 shadow-2xl">
         {/* Invisible reCAPTCHA container */}
-        <div id="recaptcha-container-modal" />
+        <div id="recaptcha-container-modal" className="hidden invisible pointer-events-none w-0 h-0 overflow-hidden absolute -left-[9999px] -top-[9999px]" />
 
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-3">
