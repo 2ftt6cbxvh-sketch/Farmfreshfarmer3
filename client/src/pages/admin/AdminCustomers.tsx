@@ -8,8 +8,9 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle, Lock, Unlock } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/lib/store";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface Customer {
   id: number; name: string; email: string; phone: string | null; status: string;
@@ -19,6 +20,7 @@ interface Customer {
   isPermanentlyLocked?: boolean;
   failedLoginAttempts?: number;
   lockoutUntil?: string | null;
+  isVerified?: boolean;
 }
 
 export default function AdminCustomers() {
@@ -89,6 +91,21 @@ export default function AdminCustomers() {
     },
   });
 
+  const verifyUserMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/users/${id}/verify-badge`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: data.message || "Customer verification updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Verification update failed", description: err?.message, variant: "destructive" });
+    },
+  });
+
   return (
     <AdminLayout title="Customers">
       <p className="text-sm text-muted-foreground mb-4">All registered customers, their order history, loyalty stars, and referral performance.</p>
@@ -113,7 +130,10 @@ export default function AdminCustomers() {
               {customers.map((c) => (
                 <tr key={c.id} className="border-t border-card-border" data-testid={`row-customer-${c.id}`}>
                   <td className="p-3">
-                    <p className="font-medium">{c.name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-medium">{c.name}</p>
+                      {c.isVerified && <VerifiedBadge size="sm" />}
+                    </div>
                     <p className="text-xs text-muted-foreground">{c.email}</p>
                   </td>
                   <td className="p-3">
@@ -141,6 +161,11 @@ export default function AdminCustomers() {
                   <td className="p-3">
                     <div className="flex flex-col gap-1">
                       <Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge>
+                      {c.isVerified && (
+                        <Badge className="text-[9px] bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1 w-fit">
+                          <BadgeCheck size={9} /> Verified
+                        </Badge>
+                      )}
                       {(c.isPermanentlyLocked || c.status === "locked") && (
                         <Badge className="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
                           <Lock size={9} /> Locked
@@ -150,6 +175,23 @@ export default function AdminCustomers() {
                   </td>
                   <td className="p-3">
                     <div className="flex justify-end items-center gap-1.5">
+                      {isSuperAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => verifyUserMut.mutate(c.id)}
+                          disabled={verifyUserMut.isPending}
+                          title={c.isVerified ? "Remove verification badge" : "Verify genuine customer with Blue Badge"}
+                          className={`h-8 px-2.5 text-xs font-bold rounded-lg flex items-center gap-1 ${
+                            c.isVerified
+                              ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
+                              : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
+                          }`}
+                        >
+                          <BadgeCheck size={12} /> {c.isVerified ? "Verified" : "Verify"}
+                        </Button>
+                      )}
+
                       {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
                         <Button
                           variant="outline"

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
   Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
-  ExternalLink, Crown, CheckCircle2
+  ExternalLink, Crown, CheckCircle2, Megaphone
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
@@ -35,6 +35,7 @@ const NAV = [
     { href: "/admin/payments", label: "Payments", icon: CreditCard },
   ]},
   { section: "Growth", items: [
+    { href: "/admin/advertisements", label: "Advertisements & Ads 📢", icon: Megaphone },
     { href: "/admin/customers", label: "Customers", icon: Users },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/coupons", label: "Coupons", icon: Ticket },

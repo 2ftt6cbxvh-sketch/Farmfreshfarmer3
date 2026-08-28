@@ -689,10 +689,10 @@ export type StarDiscountRule = typeof starDiscountRules.$inferSelect;
 /* ============================ OTP CODES ========================== */
 export const otpCodes = pgTable("otp_codes", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  phone: varchar("phone", { length: 32 }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  phone: varchar("phone", { length: 255 }).notNull(),
   codeHash: text("code_hash").notNull(), // bcrypt hash of 6-digit code
-  purpose: varchar("purpose", { length: 32 }).notNull().default("verify"), // verify | login | reset
+  purpose: varchar("purpose", { length: 32 }).notNull().default("verify"), // verify | login | reset | signup
   attempts: integer("attempts").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
@@ -937,4 +937,27 @@ export const insertSupportTicketSchema = createInsertSchema(supportTickets, {
 
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+
+/* =========================== ANNOUNCEMENTS & ADS ================== */
+export const announcements = pgTable("announcements", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  category: varchar("category", { length: 32 }).notNull().default("advertisement"), // warning (yellow) | critical (red) | advertisement (green)
+  productId: integer("product_id").references(() => products.id, { onDelete: "set null" }),
+  isActive: boolean("is_active").notNull().default(true),
+  showPopup: boolean("show_popup").notNull().default(true),
+  priority: integer("priority").notNull().default(0),
+  targetAudience: varchar("target_audience", { length: 32 }).notNull().default("all"), // all | customers | unverified
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+}, (t) => ({
+  categoryIdx: index("announcements_category_idx").on(t.category),
+  isActiveIdx: index("announcements_is_active_idx").on(t.isActive),
+}));
+
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({ id: true, createdAt: true });
+export type Announcement = typeof announcements.$inferSelect;
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+
 

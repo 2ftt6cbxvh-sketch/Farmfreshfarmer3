@@ -146,6 +146,22 @@ export async function runAutoMigrations(): Promise<void> {
         ALTER TABLE chatbot_sessions ADD COLUMN IF NOT EXISTS permission_scope VARCHAR(64);
         ALTER TABLE live_chat_messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(32) NOT NULL DEFAULT 'text';
         ALTER TABLE live_chat_messages ADD COLUMN IF NOT EXISTS metadata JSONB;
+        ALTER TABLE otp_codes ALTER COLUMN user_id DROP NOT NULL;
+        ALTER TABLE otp_codes ALTER COLUMN phone TYPE VARCHAR(255);
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
+        CREATE TABLE IF NOT EXISTS announcements (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          category VARCHAR(32) NOT NULL DEFAULT 'advertisement',
+          product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          show_popup BOOLEAN NOT NULL DEFAULT TRUE,
+          priority INTEGER NOT NULL DEFAULT 0,
+          target_audience VARCHAR(32) NOT NULL DEFAULT 'all',
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMP WITH TIME ZONE
+        );
       `);
       console.log('[db] auto-migrations completed in single batch');
     } catch (e: any) {

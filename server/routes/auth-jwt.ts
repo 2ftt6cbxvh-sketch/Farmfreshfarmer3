@@ -70,7 +70,27 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
 
     const [existing] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
-    if (existing) return res.status(409).json({ message: "Email is already registered" });
+    if (existing) return res.status(409).json({ message: "An account already exists with this email. Please log in instead." });
+
+    if (phone) {
+      const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
+      if (cleanPhone.length === 10) {
+        const [existingPhone] = await db.select().from(users).where(
+          or(
+            eq(users.phone, cleanPhone),
+            eq(users.phone, `+91${cleanPhone}`),
+            eq(users.phone, `+91 ${cleanPhone}`),
+            eq(users.phone, `91${cleanPhone}`)
+          )
+        ).limit(1);
+        if (existingPhone) {
+          return res.status(409).json({
+            message: "It seems this mobile number already exists. Please sign in with your registered email.",
+            phoneExists: true,
+          });
+        }
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const username = cleanEmail.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now().toString(36);
@@ -478,6 +498,21 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(409).json({
         message: "An account already exists with this email. Please log in instead.",
         exists: true,
+      });
+    }
+
+    const [existingPhone] = await db.select().from(users).where(
+      or(
+        eq(users.phone, cleanPhone),
+        eq(users.phone, `+91${cleanPhone}`),
+        eq(users.phone, `+91 ${cleanPhone}`),
+        eq(users.phone, `91${cleanPhone}`)
+      )
+    ).limit(1);
+    if (existingPhone) {
+      return res.status(409).json({
+        message: "It seems this mobile number already exists. Please sign in with your registered email.",
+        phoneExists: true,
       });
     }
 

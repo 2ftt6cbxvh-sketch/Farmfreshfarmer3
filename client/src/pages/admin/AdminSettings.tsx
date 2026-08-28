@@ -724,6 +724,7 @@ const DELIVERY_KEYS = [
 ];
 const STORE_KEYS = [
   { key: "store_name", label: "Store Name / Brand Title", type: "text" as const },
+  { key: "require_superadmin_verification_to_order", label: "Require Super Admin Blue Badge verification to place orders (Security Gate)", type: "bool" as const },
   { key: "store_city", label: "Primary Operating City (e.g. Visakhapatnam / Vijayawada)", type: "text" as const },
   { key: "store_state", label: "Operating State Jurisdiction (e.g. Andhra Pradesh)", type: "text" as const },
   { key: "governing_court_city", label: "Governing Law Court Jurisdiction City (e.g. Visakhapatnam)", type: "text" as const },

@@ -16,6 +16,7 @@ import {
   Ticket, User, Phone, Mail, Clock, CheckCircle2, AlertCircle, MessageSquare,
   Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar, Trash2
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface StarDiscountRule {
   id: number;
@@ -281,6 +282,7 @@ export default function Account() {
                   <h1 className="font-serif text-xl sm:text-2xl font-black text-foreground">
                     {user.name || "Valued Customer"}
                   </h1>
+                  {user.isVerified && <VerifiedBadge size="md" />}
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black text-white bg-gradient-to-r ${starTier.color} shadow-xs`}>
                     <Crown size={12} /> {starTier.badge}
                   </span>

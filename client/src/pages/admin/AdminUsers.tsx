@@ -11,8 +11,9 @@ import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Shield, Crown, Search, UserCheck, ExternalLink,
-  Phone, Mail, CheckCircle2, ShieldAlert, Trash2, AlertTriangle, Lock, Unlock
+  Phone, Mail, CheckCircle2, ShieldAlert, Trash2, AlertTriangle, Lock, Unlock, BadgeCheck
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 export default function AdminUsers() {
   const { toast } = useToast();
@@ -57,6 +58,21 @@ export default function AdminUsers() {
     },
     onError: (err: any) => {
       toast({ title: "Unlock Failed", description: err.message || "Could not unlock user", variant: "destructive" });
+    },
+  });
+
+  const verifyUserMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/users/${id}/verify-badge`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      toast({ title: data.message || "Verification status updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Verification update failed", description: err?.message, variant: "destructive" });
     },
   });
 
@@ -161,10 +177,11 @@ export default function AdminUsers() {
                     <tr key={u.id} className="hover:bg-secondary/30 transition-colors">
                       <td className="p-3.5 text-muted-foreground font-mono text-xs font-bold">#{u.id}</td>
                       <td className="p-3.5 font-bold text-foreground">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {isSuperAdmin && <Crown size={14} className="text-amber-400" />}
                           {isStaff && <Shield size={14} className="text-blue-400" />}
                           <span>{u.name}</span>
+                          {u.isVerified && <VerifiedBadge size="sm" />}
                         </div>
                       </td>
                       <td className="p-3.5 text-xs text-foreground font-medium">{u.email}</td>
@@ -173,6 +190,11 @@ export default function AdminUsers() {
                           <Badge variant="outline" className="text-[10px] font-black uppercase">
                             {isSuperAdmin ? "Executive Admin" : u.role}
                           </Badge>
+                          {u.isVerified && (
+                            <Badge className="text-[10px] bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1">
+                              <BadgeCheck size={10} /> Verified
+                            </Badge>
+                          )}
                           {(u.isPermanentlyLocked || u.status === "locked") && (
                             <Badge className="text-[10px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1">
                               <Lock size={10} /> Permanently Locked
@@ -186,6 +208,22 @@ export default function AdminUsers() {
                         </div>
                       </td>
                       <td className="p-3.5 text-right flex items-center justify-end gap-2">
+                        {isSuperAdminLoggedIn && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-7 text-xs font-bold flex items-center gap-1 ${
+                              u.isVerified
+                                ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
+                                : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
+                            }`}
+                            onClick={() => verifyUserMut.mutate(u.id)}
+                            disabled={verifyUserMut.isPending}
+                            title={u.isVerified ? "Remove Super Admin verification" : "Verify user with Blue Badge"}
+                          >
+                            <BadgeCheck size={12} /> {u.isVerified ? "Verified" : "Verify"}
+                          </Button>
+                        )}
                         {(u.isPermanentlyLocked || u.status === "locked" || (u.lockoutUntil && new Date(u.lockoutUntil) > new Date()) || (u.failedLoginAttempts || 0) > 0) && (
                           <Button
                             variant="outline"

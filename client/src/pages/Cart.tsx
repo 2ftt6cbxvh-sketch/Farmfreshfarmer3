@@ -265,6 +265,14 @@ export default function Cart() {
     },
   });
 
+  const { data: requireVerificationSetting } = useQuery<{ value: string }>({
+    queryKey: ["/api/settings/require_superadmin_verification_to_order"],
+    queryFn: () => apiGet<{ value: string }>("/api/settings/require_superadmin_verification_to_order").catch(() => ({ value: "false" })),
+  });
+
+  const isVerificationMandatory = requireVerificationSetting?.value === "true";
+  const isPendingSuperAdminVerification = Boolean(user && !user.isVerified && isVerificationMandatory && user.role === "customer" && !user.isPrimaryAdmin);
+
   // Subscription items in cart (strictly local Visakhapatnam delivery)
   const subscriptionCartItems = items.filter((cartItem) => {
     const isPlan = (allPlans || []).some((p: any) =>
@@ -483,6 +491,14 @@ export default function Cart() {
   const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;
 
   function handleCheckout() {
+    if (isPendingSuperAdminVerification) {
+      toast({
+        title: "🔒 Account Pending Verification",
+        description: "Your account is pending Super Admin review. Order placement will be unlocked once your profile is verified with the Blue Badge.",
+        variant: "destructive",
+      });
+      return;
+    }
     if ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) {
       toast({
         title: "Cannot Deliver Subscriptions Out-of-Station",
@@ -1079,11 +1095,20 @@ export default function Cart() {
               <Button
                 className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
                 onClick={handleCheckout}
-                disabled={!isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
+                disabled={isPendingSuperAdminVerification || !isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
                 data-testid="button-place-order"
               >
                 {placeOrder.isPending || initiatePayment.isPending ? (
                   "Placing order…"
+                ) : isPendingSuperAdminVerification ? (
+                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                    <span className="font-black text-amber-500 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                      🔒 Account Pending Super Admin Verification
+                    </span>
+                    <span className="text-[10px] font-bold text-muted-foreground">
+                      Orders unlock once your profile is verified with the Blue Badge
+                    </span>
+                  </div>
                 ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
                   <div className="flex flex-col items-center justify-center gap-0.5 w-full">
                     <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">

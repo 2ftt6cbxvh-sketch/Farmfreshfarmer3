@@ -9,6 +9,7 @@ import LockdownOverlay from "@/components/LockdownOverlay";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { IntroLoader } from "@/components/IntroLoader";
 import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
+import { BroadcastPopupModal } from "@/components/BroadcastPopupModal";
 
 // Eager load core customer landing & discovery pages for instant initial load
 import Home from "@/pages/Home";
@@ -65,6 +66,7 @@ const AdminGST = React.lazy(() => import("@/pages/admin/AdminGST"));
 const AdminLiveChat = React.lazy(() => import("@/pages/admin/AdminLiveChat").then(m => ({ default: m.AdminLiveChat })));
 const AdminTickets = React.lazy(() => import("@/pages/admin/AdminTickets"));
 const AdminRefunds = React.lazy(() => import("@/pages/admin/AdminRefunds"));
+const AdminAdvertisements = React.lazy(() => import("@/pages/admin/AdminAdvertisements"));
 
 // Lazy load Delivery Partner pages
 const DeliveryPartnerPortal = React.lazy(() => import("@/pages/DeliveryPartnerPortal"));
@@ -178,6 +180,8 @@ function AppRouter() {
         <Route path="/admin/staff" component={AdminStaff} />
         <Route path="/admin/delivery-partners" component={AdminDeliveryPartners} />
         <Route path="/admin/gst" component={AdminGST} />
+        <Route path="/admin/advertisements" component={AdminAdvertisements} />
+        <Route path="/admin/announcements" component={AdminAdvertisements} />
         <Route path="/partner-portal" component={DeliveryPartnerPortal} />
         <Route path="/admin/settings" component={AdminSettings} />
 
@@ -293,6 +297,7 @@ function AppContent() {
         <AuthProvider>
           <TierThemeSync />
           <StarBumpCelebrationModal />
+          <BroadcastPopupModal />
           <CartProvider>
             <Toaster />
             <Router>

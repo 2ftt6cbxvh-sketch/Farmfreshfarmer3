@@ -14,6 +14,8 @@ import type { Category } from "@/lib/types";
 import { DietDot } from "./DietDot";
 import { imgUrl } from "@/lib/queryClient";
 import { getStarTheme } from "@/lib/starTheme";
+import { NotificationBell } from "./NotificationBell";
+import { VerifiedBadge } from "./VerifiedBadge";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -473,6 +475,7 @@ export function Header() {
                       </div>
                     )}
                     <span className="hidden sm:inline max-w-[90px] truncate">{user.name || "Account"}</span>
+                    {user.isVerified && <VerifiedBadge size="sm" />}
                     <ChevronDown size={11} className="text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
@@ -480,7 +483,10 @@ export function Header() {
                 <DropdownMenuContent align="end" className="w-60 rounded-2xl border border-emerald-500/30 bg-card/98 backdrop-blur-2xl p-2 shadow-2xl z-50">
                   <DropdownMenuLabel className="p-2.5 font-normal rounded-xl bg-secondary/50 mb-1 border border-border/50">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-xs font-black text-foreground leading-none truncate">{user.name || "User"}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-xs font-black text-foreground leading-none truncate">{user.name || "User"}</p>
+                        {user.isVerified && <VerifiedBadge size="sm" />}
+                      </div>
                       <p className="text-[11px] leading-none text-muted-foreground truncate">{user.email || user.phone || ""}</p>
                       <div className="pt-1.5 flex items-center gap-1.5">
                         <span
@@ -557,6 +563,9 @@ export function Header() {
                 <span className="hidden sm:inline">Login</span>
               </Link>
             )}
+
+            {/* 🔔 Notifications & Announcements Bell */}
+            <NotificationBell />
 
             {/* Animated Dynamic Cart Button */}
             <Link

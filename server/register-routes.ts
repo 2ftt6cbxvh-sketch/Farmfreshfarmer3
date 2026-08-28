@@ -70,6 +70,7 @@ import { registerAdminDeliveryPartnerRoutes } from "./routes/admin/delivery-part
 import { registerDeliveryPartnerPortalRoutes } from "./routes/delivery-partner-portal";
 import { registerPerkRoutes } from "./routes/admin/perks";
 import { registerHeroShowcaseRoutes } from "./routes/admin/hero-showcase";
+import { registerAnnouncementRoutes } from "./routes/announcements";
 import gstRouter from "./routes/admin/gst";
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
@@ -1157,10 +1158,18 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
     const userId = extractUserId(req);
 
-    // Require phone number for order and auto-save to user profile
-    const incomingPhone = String(req.body.phone || "").trim();
     if (userId) {
       const u = await storage.users.get(userId);
+      const requireVerification = (await storage.settings.get("require_superadmin_verification_to_order")) === "true";
+      if (requireVerification && !u?.isVerified && !u?.isPrimaryAdmin && u?.role !== "admin") {
+        return res.status(403).json({
+          message: "🔒 Account Verification Required: Your account is pending Super Admin verification before you can place orders.",
+          verificationRequired: true,
+        });
+      }
+
+      // Require phone number for order and auto-save to user profile
+      const incomingPhone = String(req.body.phone || "").trim();
       if (incomingPhone && (!u?.phone || u.phone.trim() !== incomingPhone)) {
         try {
           await db.update(users).set({ phone: incomingPhone }).where(eq(users.id, userId));
@@ -1768,6 +1777,24 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     return res.json({
       success: true,
       message: result.message,
+    });
+  }));
+
+  /** POST /api/admin/users/:id/verify-badge — Toggle Super Admin Blue Verification Badge */
+  app.post("/api/admin/users/:id/verify-badge", requireAdmin, h(async (req, res) => {
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId || isNaN(targetId)) return res.status(400).json({ message: "Invalid user ID" });
+
+    const [target] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
+    if (!target) return res.status(404).json({ message: "User not found" });
+
+    const newVerifiedState = !target.isVerified;
+    await db.update(users).set({ isVerified: newVerifiedState, updatedAt: new Date() }).where(eq(users.id, targetId));
+
+    res.json({
+      success: true,
+      isVerified: newVerifiedState,
+      message: newVerifiedState ? `User ${target.name || target.email} verified with Blue Tick Badge! 🏅` : `Verification removed for ${target.name || target.email}.`,
     });
   }));
 
@@ -2537,6 +2564,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   // Password reset & Admin GST routes
   registerPasswordResetRoutes(app);
   registerAdminContentRoutes(app);
+  registerAnnouncementRoutes(app);
   app.use("/api/admin", gstRouter);
 
   // Telegram Security Bot webhook endpoint (Super Admin Remote Lockdown & Controls)
