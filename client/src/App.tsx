@@ -19,57 +19,78 @@ import ProductDetail from "@/pages/ProductDetail";
 import Cart from "@/pages/Cart";
 import Login from "@/pages/Login";
 
+// Helper to auto-recover when newer chunks are deployed
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T } | any>
+): React.LazyExoticComponent<T> {
+  return React.lazy(async () => {
+    try {
+      return await factory();
+    } catch (err: any) {
+      console.warn("[Chunk Load Error] Fetching fresh deployment...", err);
+      const reloadKey = "fff_chunk_retry_" + window.location.pathname;
+      const lastRetry = parseInt(sessionStorage.getItem(reloadKey) || "0", 10);
+      if (!lastRetry || Date.now() - lastRetry > 8000) {
+        sessionStorage.setItem(reloadKey, String(Date.now()));
+        window.location.reload();
+        return new Promise(() => {}) as any;
+      }
+      throw err;
+    }
+  });
+}
+
 // Lazy load secondary customer pages
-const Orders = React.lazy(() => import("@/pages/Orders"));
-const PaymentSimulate = React.lazy(() => import("@/pages/PaymentSimulate"));
-const PaymentCallback = React.lazy(() => import("@/pages/PaymentCallback"));
-const PaymentSuccess = React.lazy(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentSuccess })));
-const PaymentFailure = React.lazy(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentFailure })));
-const MySubscriptions = React.lazy(() => import("@/pages/MySubscriptions"));
-const MyReferrals = React.lazy(() => import("@/pages/MyReferrals"));
-const Account = React.lazy(() => import("@/pages/Account"));
-const ForgotPassword = React.lazy(() => import("@/pages/ForgotPassword"));
-const NotFound = React.lazy(() => import("@/pages/not-found"));
+const Orders = lazyWithRetry(() => import("@/pages/Orders"));
+const PaymentSimulate = lazyWithRetry(() => import("@/pages/PaymentSimulate"));
+const PaymentCallback = lazyWithRetry(() => import("@/pages/PaymentCallback"));
+const PaymentSuccess = lazyWithRetry(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentSuccess })));
+const PaymentFailure = lazyWithRetry(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentFailure })));
+const MySubscriptions = lazyWithRetry(() => import("@/pages/MySubscriptions"));
+const MyReferrals = lazyWithRetry(() => import("@/pages/MyReferrals"));
+const Account = lazyWithRetry(() => import("@/pages/Account"));
+const ForgotPassword = lazyWithRetry(() => import("@/pages/ForgotPassword"));
+const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 // Lazy load Legal pages
-const TermsPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.TermsPage })));
-const PrivacyPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.PrivacyPage })));
-const RefundPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.RefundPage })));
-const ReturnPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.ReturnPage })));
-const ShippingPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.ShippingPage })));
-const GrievancePage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.GrievancePage })));
+const TermsPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.TermsPage })));
+const PrivacyPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.PrivacyPage })));
+const RefundPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.RefundPage })));
+const ReturnPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.ReturnPage })));
+const ShippingPage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.ShippingPage })));
+const GrievancePage = lazyWithRetry(() => import("@/pages/LegalPages").then(m => ({ default: m.GrievancePage })));
 
 // Lazy load Admin pages
-const AdminDashboard = React.lazy(() => import("@/pages/admin/AdminDashboard"));
-const AdminProducts = React.lazy(() => import("@/pages/admin/AdminProducts"));
-const AdminCategories = React.lazy(() => import("@/pages/admin/AdminCategories"));
-const AdminApprovals = React.lazy(() => import("@/pages/admin/AdminApprovals"));
-const AdminInventory = React.lazy(() => import("@/pages/admin/AdminInventory"));
-const AdminOrders = React.lazy(() => import("@/pages/admin/AdminOrders"));
-const AdminSubscriptions = React.lazy(() => import("@/pages/admin/AdminSubscriptions"));
-const AdminCustomers = React.lazy(() => import("@/pages/admin/AdminCustomers"));
-const AdminReviews = React.lazy(() => import("@/pages/admin/AdminReviews"));
-const AdminCoupons = React.lazy(() => import("@/pages/admin/AdminCoupons"));
-const AdminDiscounts = React.lazy(() => import("@/pages/admin/AdminDiscounts"));
-const AdminStarDiscountRules = React.lazy(() => import("@/pages/admin/AdminStarDiscountRules"));
-const AdminReferrals = React.lazy(() => import("@/pages/admin/AdminReferrals"));
-const AdminPayments = React.lazy(() => import("@/pages/admin/AdminPayments"));
-const AdminSettings = React.lazy(() => import("@/pages/admin/AdminSettings"));
-const AdminSecurity = React.lazy(() => import("@/pages/admin/AdminSecurity"));
-const AdminWarehouses = React.lazy(() => import("@/pages/admin/AdminWarehouses"));
-const AdminDelivery = React.lazy(() => import("@/pages/admin/AdminDelivery"));
-const AdminLogin = React.lazy(() => import("@/pages/admin/AdminLogin"));
-const AdminUsers = React.lazy(() => import("@/pages/admin/AdminUsers"));
-const AdminStaff = React.lazy(() => import("@/pages/admin/AdminStaff"));
-const AdminDeliveryPartners = React.lazy(() => import("@/pages/admin/AdminDeliveryPartners"));
-const AdminGST = React.lazy(() => import("@/pages/admin/AdminGST"));
-const AdminLiveChat = React.lazy(() => import("@/pages/admin/AdminLiveChat").then(m => ({ default: m.AdminLiveChat })));
-const AdminTickets = React.lazy(() => import("@/pages/admin/AdminTickets"));
-const AdminRefunds = React.lazy(() => import("@/pages/admin/AdminRefunds"));
-const AdminAdvertisements = React.lazy(() => import("@/pages/admin/AdminAdvertisements"));
+const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/AdminDashboard"));
+const AdminProducts = lazyWithRetry(() => import("@/pages/admin/AdminProducts"));
+const AdminCategories = lazyWithRetry(() => import("@/pages/admin/AdminCategories"));
+const AdminApprovals = lazyWithRetry(() => import("@/pages/admin/AdminApprovals"));
+const AdminInventory = lazyWithRetry(() => import("@/pages/admin/AdminInventory"));
+const AdminOrders = lazyWithRetry(() => import("@/pages/admin/AdminOrders"));
+const AdminSubscriptions = lazyWithRetry(() => import("@/pages/admin/AdminSubscriptions"));
+const AdminCustomers = lazyWithRetry(() => import("@/pages/admin/AdminCustomers"));
+const AdminReviews = lazyWithRetry(() => import("@/pages/admin/AdminReviews"));
+const AdminCoupons = lazyWithRetry(() => import("@/pages/admin/AdminCoupons"));
+const AdminDiscounts = lazyWithRetry(() => import("@/pages/admin/AdminDiscounts"));
+const AdminStarDiscountRules = lazyWithRetry(() => import("@/pages/admin/AdminStarDiscountRules"));
+const AdminReferrals = lazyWithRetry(() => import("@/pages/admin/AdminReferrals"));
+const AdminPayments = lazyWithRetry(() => import("@/pages/admin/AdminPayments"));
+const AdminSettings = lazyWithRetry(() => import("@/pages/admin/AdminSettings"));
+const AdminSecurity = lazyWithRetry(() => import("@/pages/admin/AdminSecurity"));
+const AdminWarehouses = lazyWithRetry(() => import("@/pages/admin/AdminWarehouses"));
+const AdminDelivery = lazyWithRetry(() => import("@/pages/admin/AdminDelivery"));
+const AdminLogin = lazyWithRetry(() => import("@/pages/admin/AdminLogin"));
+const AdminUsers = lazyWithRetry(() => import("@/pages/admin/AdminUsers"));
+const AdminStaff = lazyWithRetry(() => import("@/pages/admin/AdminStaff"));
+const AdminDeliveryPartners = lazyWithRetry(() => import("@/pages/admin/AdminDeliveryPartners"));
+const AdminGST = lazyWithRetry(() => import("@/pages/admin/AdminGST"));
+const AdminLiveChat = lazyWithRetry(() => import("@/pages/admin/AdminLiveChat").then(m => ({ default: m.AdminLiveChat })));
+const AdminTickets = lazyWithRetry(() => import("@/pages/admin/AdminTickets"));
+const AdminRefunds = lazyWithRetry(() => import("@/pages/admin/AdminRefunds"));
+const AdminAdvertisements = lazyWithRetry(() => import("@/pages/admin/AdminAdvertisements"));
 
 // Lazy load Delivery Partner pages
-const DeliveryPartnerPortal = React.lazy(() => import("@/pages/DeliveryPartnerPortal"));
+const DeliveryPartnerPortal = lazyWithRetry(() => import("@/pages/DeliveryPartnerPortal"));
 
 function RouteFallback() {
   return (
