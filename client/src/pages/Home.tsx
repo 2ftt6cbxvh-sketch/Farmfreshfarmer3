@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet, imgUrl } from "@/lib/queryClient";
 import {
   ArrowRight, Star, ShieldCheck, Zap, Package, Sparkles, ChevronRight,
-  Award, Truck, HeartHandshake, Leaf, CheckCircle2, Clock
+  Award, Truck, HeartHandshake, Leaf, CheckCircle2, Clock, Megaphone
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
@@ -14,6 +14,7 @@ import { DietDot } from "@/components/DietDot";
 import { TiltCard } from "@/components/TiltCard";
 import type { Category, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { AnnouncementItem } from "@/components/NotificationBell";
 
 const CAT_IMAGES: Record<string, string> = {
   fruits: "/images/cat-fruits.jpg",
@@ -104,6 +105,20 @@ export default function Home() {
   });
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
 
+  // Live ads from admin — refetch every 10s for instant visibility
+  const { data: activeAds = [] } = useQuery<AnnouncementItem[]>({
+    queryKey: ["/api/announcements/active"],
+    queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
+    staleTime: 0,
+    refetchInterval: 10000,
+  });
+  const [adIdx, setAdIdx] = useState(0);
+  useEffect(() => {
+    if (activeAds.length <= 1) return;
+    const t = setInterval(() => setAdIdx((i) => (i + 1) % activeAds.length), 4000);
+    return () => clearInterval(t);
+  }, [activeAds.length]);
+
   const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
   const isStaff = Boolean(!isSuperAdmin && user && user.role !== "customer");
   const homeStarsCount = isSuperAdmin
@@ -138,6 +153,29 @@ export default function Home() {
           </span>
         </div>
       )}
+
+      {/* ── 🔊 Live Ad / Broadcast Ticker Banner (always visible when ads exist) ── */}
+      {activeAds.length > 0 && (() => {
+        const ad = activeAds[adIdx % activeAds.length];
+        const isCritical = ad.category === "critical";
+        const isWarning = ad.category === "warning";
+        const bgColor = isCritical
+          ? "bg-red-950/90 border-red-500/50 text-red-200"
+          : isWarning
+          ? "bg-amber-950/90 border-amber-500/50 text-amber-200"
+          : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200";
+        const icon = isCritical ? "🚨" : isWarning ? "⚠️" : "📢";
+        return (
+          <div className={`w-full border-b ${bgColor} py-2 px-4 flex items-center justify-center gap-2 text-xs font-bold transition-all animate-in fade-in duration-300`}>
+            <span className="shrink-0 text-sm">{icon}</span>
+            <span className="font-black truncate max-w-[140px] sm:max-w-none">{ad.title}:</span>
+            <span className="truncate max-w-[180px] sm:max-w-lg opacity-90">{ad.message}</span>
+            {activeAds.length > 1 && (
+              <span className="ml-auto shrink-0 text-[10px] opacity-60">{adIdx + 1}/{activeAds.length}</span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── LUXURY OPENING HERO SECTION WITH BALANCED PARALLAX & 3D TILT ── */}
       <section className="relative overflow-hidden pt-10 pb-20 sm:py-24 bg-gradient-to-b from-emerald-950/25 via-background to-background">

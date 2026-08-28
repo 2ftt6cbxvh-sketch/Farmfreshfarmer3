@@ -18,37 +18,52 @@ export function BroadcastPopupModal() {
     if (cart) addToCart = cart.add;
   } catch {}
   const [activePopup, setActivePopup] = useState<AnnouncementItem | null>(null);
+  const [shownIds, setShownIds] = useState<number[]>([]);
 
   const { data: announcements = [] } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchInterval: 10000,
   });
 
   useEffect(() => {
     if (!announcements.length) return;
 
-    // Find the highest priority active announcement with showPopup === true that has not been dismissed yet
+    // Find the highest priority active announcement with showPopup === true that has not been shown this session
     const unshown = announcements.find((item) => {
       if (!item.showPopup) return false;
-      const dismissedKey = `dismissed_popup_${item.id}`;
-      return !localStorage.getItem(dismissedKey);
+      // Use session-scoped tracking (not localStorage) so new ads always show on new visit
+      if (shownIds.includes(item.id)) return false;
+      // Also check localStorage dismiss for a 24h grace period
+      const dismissKey = `dismissed_popup_${item.id}`;
+      const dismissedAt = localStorage.getItem(dismissKey);
+      if (dismissedAt) {
+        // Re-show after 24 hours
+        const elapsed = Date.now() - Number(dismissedAt);
+        if (elapsed < 24 * 60 * 60 * 1000) return false;
+        // Expired — clear it so it shows again
+        localStorage.removeItem(dismissKey);
+      }
+      return true;
     });
 
-    if (unshown) {
+    if (unshown && !activePopup) {
       // Delay slightly for smooth page entrance
       const timer = setTimeout(() => {
         setActivePopup(unshown);
-      }, 1000);
+        setShownIds((prev) => [...prev, unshown.id]);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [announcements]);
+  }, [announcements, shownIds, activePopup]);
 
   if (!activePopup) return null;
 
   const handleClose = () => {
     if (activePopup) {
-      localStorage.setItem(`dismissed_popup_${activePopup.id}`, "true");
+      // Store timestamp so ad re-shows after 24 hours
+      localStorage.setItem(`dismissed_popup_${activePopup.id}`, String(Date.now()));
     }
     setActivePopup(null);
   };

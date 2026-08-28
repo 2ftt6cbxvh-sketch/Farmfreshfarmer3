@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Bell, AlertTriangle, ShieldAlert, Sparkles, X, CheckCircle2,
-  ExternalLink, ShoppingBag, ArrowRight, ShieldCheck
+  ExternalLink, ShoppingBag, ArrowRight, ShieldCheck, Package
 } from "lucide-react";
 import { apiGet, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
@@ -50,7 +50,8 @@ export function NotificationBell() {
   const { data: announcements = [] } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
-    refetchInterval: 30000,
+    refetchInterval: 10000,
+    staleTime: 0,
   });
 
   const { data: requireVerificationSetting } = useQuery<{ value: string }>({
