@@ -62,7 +62,6 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
           user.role === "admin" ||
           user.is_primary_admin ||
           user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-          user.email?.toLowerCase() === "gp61080@gmail.com" ||
           user.id === 1) &&
         user.status !== "blocked" &&
         user.status !== "locked" &&

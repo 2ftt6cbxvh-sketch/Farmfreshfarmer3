@@ -36,7 +36,6 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
     const isPrimary = Boolean(
       user.isPrimaryAdmin === true ||
       user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-      user.email?.toLowerCase() === "gp61080@gmail.com" ||
       user.id === 1
     );
 
