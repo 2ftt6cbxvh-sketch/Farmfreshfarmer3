@@ -883,7 +883,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
         <div
-          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[9998] flex flex-col items-end gap-2 pointer-events-auto"
+          className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[9998] flex flex-col items-end gap-2 pointer-events-auto"
           style={{ animation: 'laxFloat 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite' }}
         >
           {/* Animated Speech bubble */}
