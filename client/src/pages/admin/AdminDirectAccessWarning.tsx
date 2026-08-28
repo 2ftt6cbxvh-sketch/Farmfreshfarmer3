@@ -4,7 +4,19 @@ import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert, ArrowLeft, ShieldX, Terminal, Sparkles, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function AdminDirectAccessWarning() {
+export function AdminDirectAccessWarning({
+  title = "Direct Admin URL Intercepted",
+  subtitle = "Direct browser URL navigation to administrative routes is disabled. Access to the master control portal is restricted strictly to the encrypted Stealth Gateway.",
+  targetRoute = "/admin/*",
+  policy = "Stealth Gateway Keycard Enforced",
+  onDismiss,
+}: {
+  title?: string;
+  subtitle?: string;
+  targetRoute?: string;
+  policy?: string;
+  onDismiss?: () => void;
+} = {}) {
   const [, navigate] = useLocation();
   const [incidentId, setIncidentId] = useState("");
 
@@ -27,7 +39,7 @@ export function AdminDirectAccessWarning() {
         {/* Top Warning Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-black uppercase tracking-widest mx-auto animate-pulse">
           <ShieldAlert size={14} />
-          <span>{isLockdownStrict ? "Production Lockdown Active • Direct Access Prohibited" : "Testing Mode Active • Stealth Gateway Required"}</span>
+          <span>Access Restricted • Security Firewall Active</span>
         </div>
 
         {/* Big Alert Icon */}
@@ -38,10 +50,10 @@ export function AdminDirectAccessWarning() {
         {/* Warning Title & Message */}
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Direct Admin URL Intercepted
+            {title}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
-            Direct browser URL navigation to administrative routes is disabled. Access to the master control portal is restricted strictly to the encrypted Stealth Gateway.
+            {subtitle}
           </p>
         </div>
 
@@ -55,8 +67,8 @@ export function AdminDirectAccessWarning() {
           </div>
           <div className="space-y-1 text-slate-400">
             <p>• Incident Reference: <span className="text-red-300 font-bold">{incidentId || "SEC-SYS-LOG"}</span></p>
-            <p>• Target Route: <span className="text-slate-200">/admin/*</span></p>
-            <p>• Security Policy: <span className="text-amber-400">Stealth Gateway Keycard Enforced</span></p>
+            <p>• Target Route: <span className="text-slate-200">{targetRoute}</span></p>
+            <p>• Security Policy: <span className="text-amber-400">{policy}</span></p>
             <p>• System Response: <span className="text-emerald-400">Access Intercepted &amp; Quarantined</span></p>
           </div>
         </div>
@@ -64,7 +76,10 @@ export function AdminDirectAccessWarning() {
         {/* Action Buttons */}
         <div className="pt-2 flex flex-col gap-3">
           <Button
-            onClick={() => navigate("/")}
+            onClick={() => {
+              if (onDismiss) onDismiss();
+              else navigate("/");
+            }}
             className="w-full h-11 bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold rounded-xl gap-2 shadow-lg shadow-red-950/60"
           >
             <ArrowLeft size={16} />

@@ -13,11 +13,14 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest, apiGet } from "@/lib/queryClient";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 import { getRecaptchaToken } from "@/lib/recaptcha";
+import { AdminDirectAccessWarning } from "./admin/AdminDirectAccessWarning";
 
 export default function Login() {
   const { user, login, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  const [showFullScreenThreat, setShowFullScreenThreat] = useState(false);
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -105,11 +108,7 @@ export default function Login() {
     const cleanStaffEmail = staffEmail.trim().toLowerCase();
 
     if (cleanStaffEmail === "admin@farmfreshfarmer.com") {
-      toast({
-        title: "🚫 Access Denied",
-        description: "Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
-        variant: "destructive",
-      });
+      setShowFullScreenThreat(true);
       return;
     }
 
@@ -137,7 +136,12 @@ export default function Login() {
       toast({ title: "Welcome back, " + (u.name || "Staff Member") });
       navigate("/admin");
     } catch (err: any) {
-      toast({ title: "🚫 Access Denied", description: err?.message || "Invalid credentials.", variant: "destructive" });
+      const msg = String(err?.message || "");
+      if (msg.includes("Master credentials") || msg.includes("Chief Executive") || msg.includes("Access Denied") || cleanStaffEmail === "admin@farmfreshfarmer.com") {
+        setShowFullScreenThreat(true);
+        return;
+      }
+      toast({ title: "🚫 Access Denied", description: msg || "Invalid credentials.", variant: "destructive" });
     } finally {
       setStaffBusy(false);
     }
@@ -176,7 +180,9 @@ export default function Login() {
   // ----------------------------------------------------
   async function handleLoginInitiate(e: React.FormEvent) {
     e.preventDefault();
-    if (!loginEmail.trim() || !loginEmail.includes("@")) {
+    const cleanLoginEmail = loginEmail.trim().toLowerCase();
+
+    if (!cleanLoginEmail || !cleanLoginEmail.includes("@")) {
       toast({ title: "Please enter a valid email address", variant: "destructive" });
       return;
     }
@@ -185,11 +191,16 @@ export default function Login() {
       return;
     }
 
+    if (cleanLoginEmail === "admin@farmfreshfarmer.com") {
+      setShowFullScreenThreat(true);
+      return;
+    }
+
     setBusy(true);
     try {
       const recaptchaToken = await getRecaptchaToken("login");
       const res = await apiRequest("POST", "/api/auth/login/initiate", {
-        email: loginEmail.trim().toLowerCase(),
+        email: cleanLoginEmail,
         password: loginPassword,
         recaptchaToken,
       });
@@ -206,6 +217,10 @@ export default function Login() {
       });
     } catch (err: any) {
       const errorMsg = String(err?.message || "");
+      if (errorMsg.includes("Master credentials") || errorMsg.includes("Chief Executive") || errorMsg.includes("Access Denied") || cleanLoginEmail === "admin@farmfreshfarmer.com") {
+        setShowFullScreenThreat(true);
+        return;
+      }
       if (errorMsg.toLowerCase().includes("lock") || errorMsg.includes("24 hours") || errorMsg.includes("temporary") || errorMsg.includes("permanently")) {
         setIsAccountLocked(true);
         toast({
@@ -542,6 +557,25 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (showFullScreenThreat) {
+    return (
+      <AdminDirectAccessWarning
+        title="Master Credentials Intercepted"
+        subtitle="Chief Executive Super Admin credentials cannot be authenticated from public customer or staff interfaces. Access attempt has been intercepted, logged, and quarantined under Enterprise Zero-Trust Policy."
+        targetRoute="Public / Customer Portal"
+        policy="Executive Zero-Trust Clearance Required"
+        onDismiss={() => {
+          setShowFullScreenThreat(false);
+          setLoginEmail("");
+          setLoginPassword("");
+          setStaffEmail("");
+          setStaffPassword("");
+          setShowStaffModal(false);
+        }}
+      />
+    );
   }
 
   if (user) {
