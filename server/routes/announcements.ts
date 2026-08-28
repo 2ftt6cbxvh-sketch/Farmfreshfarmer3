@@ -1,9 +1,33 @@
 import type { Express, Request, Response, NextFunction } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { announcements, products, users } from "@shared/schema";
 import { eq, desc, and, or, isNull, gt } from "drizzle-orm";
 
 const STAFF_ROLES = ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"];
+
+async function ensureAnnouncementsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        category VARCHAR(32) NOT NULL DEFAULT 'advertisement',
+        product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        show_popup BOOLEAN NOT NULL DEFAULT TRUE,
+        priority INTEGER NOT NULL DEFAULT 0,
+        target_audience VARCHAR(32) NOT NULL DEFAULT 'all',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS announcements_category_idx ON announcements(category);
+      CREATE INDEX IF NOT EXISTS announcements_is_active_idx ON announcements(is_active);
+    `);
+  } catch (e: any) {
+    console.warn("[announcements table ensure notice]:", e?.message);
+  }
+}
 
 async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   let userId: number | undefined =
@@ -53,9 +77,13 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 export function registerAnnouncementRoutes(app: Express) {
+  // Ensure database table exists
+  ensureAnnouncementsTable().catch(() => {});
+
   /** GET /api/announcements/active — Get active announcements and ads for visitors & users */
   app.get("/api/announcements/active", async (req: Request, res: Response) => {
     try {
+      await ensureAnnouncementsTable();
       const now = new Date();
       const rows = await db
         .select({
@@ -103,6 +131,7 @@ export function registerAnnouncementRoutes(app: Express) {
   /** GET /api/admin/announcements — Admin list of all announcements */
   app.get("/api/admin/announcements", requireAdmin, async (_req: Request, res: Response) => {
     try {
+      await ensureAnnouncementsTable();
       const rows = await db
         .select({
           id: announcements.id,
@@ -137,6 +166,7 @@ export function registerAnnouncementRoutes(app: Express) {
   /** POST /api/admin/announcements — Create a new announcement or ad */
   app.post("/api/admin/announcements", requireAdmin, async (req: Request, res: Response) => {
     try {
+      await ensureAnnouncementsTable();
       const { title, message, category, productId, isActive, showPopup, priority, targetAudience, expiresAt } = req.body || {};
       if (!title || !message) {
         return res.status(400).json({ message: "Title and message are required" });

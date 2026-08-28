@@ -27,10 +27,40 @@ app.use(
 
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+function sanitizeInput(obj: any): any {
+  if (!obj || typeof obj !== "object") {
+    if (typeof obj === "string") {
+      return obj
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/javascript\s*:/gi, "blocked:")
+        .replace(/vbscript\s*:/gi, "blocked:")
+        .replace(/data:text\/html/gi, "blocked:");
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeInput);
+  }
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+    clean[k] = sanitizeInput(v);
+  }
+  return clean;
+}
+
+// Global Anti-Injection & XSS Protection Middleware
+app.use((req, _res, next) => {
+  if (req.body) req.body = sanitizeInput(req.body);
+  if (req.query) req.query = sanitizeInput(req.query);
+  next();
+});
+
 // Strict Production Security Headers & Content Security Policy (CSP)
 app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");

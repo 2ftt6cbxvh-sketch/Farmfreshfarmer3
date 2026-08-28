@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import { IntroLoader } from "@/components/IntroLoader";
 import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
 import { BroadcastPopupModal } from "@/components/BroadcastPopupModal";
+import { BlockedUserOverlay } from "@/components/BlockedUserOverlay";
 
 // Core customer discovery & checkout pages
 import Home from "@/pages/Home";
@@ -317,6 +318,7 @@ function AppContent() {
       <IntroLoader />
       <TooltipProvider>
         <AuthProvider>
+          <BlockedUserOverlay />
           <TierThemeSync />
           <StarBumpCelebrationModal />
           <CartProvider>

@@ -123,6 +123,8 @@ function publicUser(u: any) {
     profilePhoto: u.profilePhoto || null,
     phone: u.phone,
     address: u.address,
+    status: u.status || "active",
+    isPermanentlyLocked: Boolean(u.isPermanentlyLocked),
   };
 }
 

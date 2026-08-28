@@ -18,6 +18,11 @@ export function imgUrl(src?: string | null): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    if (res.status === 403 && (text.includes("blocked") || text.includes("suspended") || text.includes("Account is blocked"))) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("farmfresh:user_blocked"));
+      }
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

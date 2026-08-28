@@ -74,14 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
 
-    // Poll /api/me periodically when tab is visible to prevent background battery/GPU drain
+    const onUserBlocked = () => {
+      setUser((prev) => (prev ? { ...prev, status: "blocked" } : null));
+    };
+
+    window.addEventListener("farmfresh:user_blocked", onUserBlocked);
+
+    // Poll /api/me periodically when tab is visible (every 4s for instant status sync)
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (localStorage.getItem("accessToken") || localStorage.getItem("token")) {
         refresh();
       }
-    }, 8000);
-    return () => clearInterval(interval);
+    }, 4000);
+
+    return () => {
+      window.removeEventListener("farmfresh:user_blocked", onUserBlocked);
+      clearInterval(interval);
+    };
   }, []);
 
   async function login(email: string, password: string) {

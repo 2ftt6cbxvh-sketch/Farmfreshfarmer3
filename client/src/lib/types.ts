@@ -22,6 +22,9 @@ export interface AuthUser {
   name: string;
   email: string;
   role: string;
+  status?: string;
+  isVerified?: boolean;
+  permissions?: string[];
   phone?: string | null;
   address?: string | null;
   profilePhoto?: string | null;
@@ -30,6 +33,7 @@ export interface AuthUser {
   starRating?: number;
   experienceRank?: string;
   customTitle?: string;
+  isPermanentlyLocked?: boolean;
 }
 
 // Effective price after the product's own discount
