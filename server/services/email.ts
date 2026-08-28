@@ -11,6 +11,7 @@ export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  text?: string;
 }
 
 export async function getSmtpCredentials(): Promise<{
@@ -45,7 +46,7 @@ export async function getSmtpCredentials(): Promise<{
       smtpPort: dbPort || envPort,
       smtpUser: user,
       smtpPass: dbPass || envPass,
-      fromEmail: dbFrom || envFrom || (user ? `FarmFreshFarmer <${user}>` : "orders@farmfreshfarmer.com"),
+      fromEmail: dbFrom || envFrom || (user ? `FarmFreshFarmer <${user}>` : "admin@farmfreshfarmer.com"),
     };
   } catch {
     return {
@@ -54,14 +55,16 @@ export async function getSmtpCredentials(): Promise<{
       smtpPort: envPort,
       smtpUser: envUser,
       smtpPass: envPass,
-      fromEmail: envFrom || (envUser ? `FarmFreshFarmer <${envUser}>` : "orders@farmfreshfarmer.com"),
+      fromEmail: envFrom || (envUser ? `FarmFreshFarmer <${envUser}>` : "admin@farmfreshfarmer.com"),
     };
   }
 }
 
 export async function sendRealEmailWithResult(opts: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
   const creds = await getSmtpCredentials();
-  const { to, subject, html } = opts;
+  const { to, subject, html, text } = opts;
+
+  const plainText = text || html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
   // 1. Check if Resend API Key is configured
   if (creds.resendApiKey) {
@@ -73,10 +76,12 @@ export async function sendRealEmailWithResult(opts: SendEmailOptions): Promise<{
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: creds.fromEmail || "FarmFreshFarmer <orders@farmfreshfarmer.com>",
+          from: creds.fromEmail || "FarmFreshFarmer <admin@farmfreshfarmer.com>",
           to: [to],
+          reply_to: creds.smtpUser || "assistance.farmfresh@gmail.com",
           subject,
           html,
+          text: plainText,
         }),
       });
 
@@ -100,16 +105,18 @@ export async function sendRealEmailWithResult(opts: SendEmailOptions): Promise<{
       // @ts-ignore - nodemailer loaded dynamically
       const nodemailer = await import("nodemailer");
       const port = parseInt(creds.smtpPort || "587", 10);
+      const isSecure = port === 465;
       const transporter = nodemailer.createTransport({
         host: creds.smtpHost.trim(),
         port,
-        secure: port === 465,
+        secure: isSecure,
         auth: {
           user: creds.smtpUser.trim(),
           pass: creds.smtpPass.trim(),
         },
         tls: {
           rejectUnauthorized: false,
+          minVersion: "TLSv1.2",
         },
         connectionTimeout: 15000,
         greetingTimeout: 15000,
@@ -119,8 +126,14 @@ export async function sendRealEmailWithResult(opts: SendEmailOptions): Promise<{
       await transporter.sendMail({
         from: creds.fromEmail || `"FarmFreshFarmer" <${creds.smtpUser.trim()}>`,
         to,
+        replyTo: creds.smtpUser.trim(),
         subject,
+        text: plainText,
         html,
+        headers: {
+          "X-Entity-Ref-ID": `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          "X-Auto-Response-Suppress": "OOF, AutoReply",
+        },
       });
 
       console.log(`[EMAIL DISPATCHED VIA SMTP] To: ${to} | Subject: ${subject}`);
@@ -143,44 +156,71 @@ export async function sendRealEmail(opts: SendEmailOptions): Promise<boolean> {
   return res.success;
 }
 
+/** Helper: Generate Plain Text for OTP Code */
+export function buildOtpPlainText(otpCode: string, name = "Valued Customer"): string {
+  return `Hello ${name},\n\nYour FarmFreshFarmer verification code is: ${otpCode}\n\nThis OTP is valid for 10 minutes.\nNever share this code with anyone.\n\nFarmFreshFarmer - Fresh Organic Produce\nhttps://farmfreshfarmer.com`;
+}
+
 /** Helper: Generate HTML Template for OTP Code Email */
 export function buildOtpEmailHtml(otpCode: string, name = "Valued Customer"): string {
   return `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background-color: #061c10; color: #ffffff; padding: 36px 28px; border-radius: 24px; border: 1px solid #16a34a; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-      <div style="text-align: center; margin-bottom: 28px;">
-        <h1 style="color: #4ade80; font-size: 28px; margin: 0; font-family: Georgia, serif; font-weight: bold;">🌿 FarmFreshFarmer</h1>
-        <p style="color: #a7f3d0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-top: 6px; font-weight: 600;">Fresh Organic Produce · Directly From Local Farmers</p>
-      </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your FarmFreshFarmer Verification Code</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed;">
+        <tr>
+          <td align="center" style="padding: 24px 12px;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+              
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background: linear-gradient(135deg, #14532d 0%, #15803d 100%); padding: 28px 24px; color: #ffffff;">
+                  <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">🌿 FarmFreshFarmer</h1>
+                  <p style="margin: 6px 0 0; font-size: 12px; color: #bbf7d0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Fresh Organic Produce</p>
+                </td>
+              </tr>
 
-      <div style="background-color: #0f172a; padding: 28px 24px; border-radius: 20px; border: 1px solid #334155; text-align: center; margin-bottom: 24px;">
-        <h2 style="color: #ffffff; font-size: 22px; margin-top: 0; font-weight: bold;">Your Verification Code (OTP)</h2>
-        <p style="color: #e2e8f0; font-size: 15px; margin-bottom: 24px; line-height: 1.6;">
-          Hello <strong style="color: #4ade80;">${name}</strong>,<br/>
-          Welcome to <strong>FarmFreshFarmer</strong>! Use the 6-digit One-Time Password (OTP) below to authorize your account action:
-        </p>
+              <!-- Body -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  <h2 style="margin: 0 0 12px; font-size: 18px; color: #1e293b; font-weight: 700;">Account Verification</h2>
+                  <p style="margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+                    Hello <strong>${name}</strong>,<br>
+                    Use the 6-digit verification code below to complete your authentication:
+                  </p>
 
-        <div style="background-color: #15803d; color: #ffffff; font-size: 36px; font-weight: 900; letter-spacing: 10px; padding: 18px 28px; border-radius: 16px; display: inline-block; font-family: 'Courier New', monospace; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
-          ${otpCode}
-        </div>
+                  <!-- OTP Code Box -->
+                  <div style="text-align: center; margin: 24px 0;">
+                    <div style="display: inline-block; background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 12px; padding: 14px 32px; font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #15803d;">
+                      ${otpCode}
+                    </div>
+                  </div>
 
-        <p style="color: #94a3b8; font-size: 13px; margin-top: 20px; line-height: 1.5;">
-          ⏱️ This OTP code is valid for <strong>10 minutes</strong>.<br/>
-          🔒 For your security, never share this code with anyone, including FarmFresh staff.
-        </p>
-      </div>
+                  <p style="margin: 20px 0 0; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center;">
+                    ⏱️ Valid for <strong>10 minutes</strong>. Do not share this code with anyone.
+                  </p>
+                </td>
+              </tr>
 
-      <div style="background-color: #092615; padding: 16px 20px; border-radius: 14px; border: 1px solid #15803d; margin-bottom: 24px; text-align: left;">
-        <p style="color: #86efac; font-size: 12px; margin: 0 0 6px 0; font-weight: bold;">🛡️ Security Notice:</p>
-        <p style="color: #cbd5e1; font-size: 11px; margin: 0; line-height: 1.5;">
-          If you did not request this OTP code or attempt to log in to FarmFreshFarmer, please ignore this email or reach out to our security support team immediately.
-        </p>
-      </div>
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+                  <p style="margin: 0 0 4px;">Sent securely by FarmFreshFarmer · <a href="https://farmfreshfarmer.com" style="color: #16a34a; text-decoration: none;">farmfreshfarmer.com</a></p>
+                  <p style="margin: 0;">If you did not request this code, you can safely ignore this email.</p>
+                </td>
+              </tr>
 
-      <div style="text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #1e293b; padding-top: 20px;">
-        <p style="margin: 0 0 6px 0;">Need help? Visit <a href="https://farmfreshfarmer.com" style="color: #4ade80; text-decoration: none;">farmfreshfarmer.com</a> or contact support.</p>
-        <p style="margin: 0;">© ${new Date().getFullYear()} FarmFreshFarmer Inc. All rights reserved.</p>
-      </div>
-    </div>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 }
 
