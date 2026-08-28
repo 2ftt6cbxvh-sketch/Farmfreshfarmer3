@@ -366,20 +366,27 @@ export default function AdminDeliveryPartners() {
 
       {/* Add / Edit Delivery Partner Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-card w-full max-w-xl rounded-3xl p-6 shadow-2xl border border-emerald-500/30 my-8 space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6 overflow-hidden">
+          <div className="bg-card w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl border border-emerald-500/30 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="sticky top-0 z-10 bg-card px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-emerald-400" />
                 <h3 className="text-lg font-extrabold text-foreground font-serif">
                   {editPartner ? `Edit Delivery Partner: ${editPartner.name}` : "Add New Delivery Partner"}
                 </h3>
               </div>
-              <button onClick={() => setModalOpen(false)} className="text-muted-foreground hover:text-foreground text-sm font-bold">✕</button>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer font-bold text-sm"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="overflow-y-auto p-6 space-y-4 flex-1 overscroll-contain">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-muted-foreground">Partner Type *</label>
                   <select
@@ -534,20 +541,25 @@ export default function AdminDeliveryPartners() {
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-xs font-bold">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold text-xs shadow-md">
-                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : editPartner ? "Save Partner Changes" : "Create Delivery Partner"}
-                </Button>
-              </div>
-            </form>
-          </div>
+            {/* Sticky Footer */}
+            <div className="sticky bottom-0 z-10 bg-card px-6 py-4 border-t border-border flex items-center justify-end gap-3 shrink-0">
+              <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-xs font-bold">
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-extrabold text-xs shadow-md px-5"
+              >
+                {createMutation.isPending || updateMutation.isPending ? "Saving..." : editPartner ? "Save Partner Changes" : "Create Delivery Partner"}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
-    </AdminLayout>
-  );
+      </div>
+    )}
+  </AdminLayout>
+);
 }

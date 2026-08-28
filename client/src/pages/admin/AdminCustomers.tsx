@@ -300,16 +300,25 @@ export default function AdminCustomers() {
 
       {/* Super Admin Manual Customer Edit Modal */}
       {editTarget !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4" onClick={() => setEditTarget(null)}>
-          <div className="bg-card border border-amber-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 text-amber-400">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <Pencil size={20} className="text-amber-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6 overflow-hidden" onClick={() => setEditTarget(null)}>
+          <div className="bg-card border border-amber-500/40 rounded-3xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3 text-amber-400">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <Pencil size={20} className="text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground">Edit Customer Details</h3>
+                  <p className="text-xs text-amber-400 font-semibold">Super Admin Manual Override (No OTP Required)</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-extrabold text-foreground">Edit Customer Details</h3>
-                <p className="text-xs text-amber-400 font-semibold">Super Admin Manual Override (No OTP Required)</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer font-bold text-sm"
+              >
+                ✕
+              </button>
             </div>
 
             <form
@@ -323,8 +332,9 @@ export default function AdminCustomers() {
                   isVerified: editVerified,
                 });
               }}
-              className="space-y-3.5 pt-2"
+              className="flex flex-col flex-1 overflow-hidden min-h-0"
             >
+              <div className="overflow-y-auto p-6 space-y-3.5 flex-1 overscroll-contain">
               <div className="space-y-1">
                 <Label className="text-xs font-bold text-foreground">Full Name</Label>
                 <div className="relative">
@@ -384,8 +394,9 @@ export default function AdminCustomers() {
                   className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
                 />
               </div>
+              </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="sticky bottom-0 z-10 bg-card p-4 border-t border-border flex gap-2 shrink-0">
                 <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditTarget(null)}>
                   Cancel
                 </Button>
