@@ -100,6 +100,8 @@ export default function Account() {
     refetchInterval: 5000,
   });
 
+  const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
+
   async function handlePhotoUpload(file: File) {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -202,7 +204,6 @@ export default function Account() {
   const isSuperAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.id === 1);
   const isStaffRole = !isSuperAdmin && user.role !== "customer";
   
-  const { data: publicSettings } = useQuery<any>({ queryKey: ["/api/settings/public"] });
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
 
   const starsCount = isSuperAdmin

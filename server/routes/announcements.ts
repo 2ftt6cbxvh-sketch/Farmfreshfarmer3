@@ -76,9 +76,10 @@ export function registerAnnouncementRoutes(app: Express) {
         )
         .orderBy(desc(announcements.priority), desc(announcements.createdAt));
 
-      res.json(rows);
+      res.json(rows || []);
     } catch (err: any) {
-      res.status(500).json({ message: "Failed to fetch active announcements", error: err?.message });
+      console.warn("[announcements/active notice]:", err?.message);
+      res.json([]);
     }
   });
 
