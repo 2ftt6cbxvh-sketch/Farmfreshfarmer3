@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
-import { ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound } from "lucide-react";
+import { ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound, Crown } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -219,12 +219,12 @@ export default function AdminLogin() {
         ) : !step2fa ? (
           <>
             <div className="flex justify-center mb-4">
-              <span className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-lg">
-                <ShieldCheck size={26} />
+              <span className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 shadow-lg">
+                <Crown size={28} />
               </span>
             </div>
-            <h1 className="font-serif text-2xl font-bold text-center">Staff & Admin Login</h1>
-            <p className="text-sm text-muted-foreground text-center mt-1">FarmFreshFarmer Secure Gateway</p>
+            <h1 className="font-serif text-2xl font-bold text-center text-foreground">Chief Executive Super Admin Portal</h1>
+            <p className="text-xs text-muted-foreground text-center mt-1">Restricted High-Clearance Master Gateway</p>
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <Label htmlFor="admin-email">Email Address</Label>

@@ -63,20 +63,9 @@ export function AdminDirectAccessWarning() {
 
         {/* Action Buttons */}
         <div className="pt-2 flex flex-col gap-3">
-          {!isLockdownStrict && (
-            <Button
-              onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
-              className="w-full h-11 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold rounded-xl gap-2 shadow-lg shadow-emerald-950/60"
-            >
-              <KeyRound size={16} />
-              <span>🛠️ Open Testing Admin Gateway Portal</span>
-            </Button>
-          )}
-
           <Button
             onClick={() => navigate("/")}
-            variant="outline"
-            className="w-full h-11 border-slate-700 hover:bg-slate-900 text-slate-300 font-bold rounded-xl gap-2 shadow-lg"
+            className="w-full h-11 bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold rounded-xl gap-2 shadow-lg shadow-red-950/60"
           >
             <ArrowLeft size={16} />
             <span>Return to FarmFreshFarmer Store</span>

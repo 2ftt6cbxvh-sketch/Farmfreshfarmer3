@@ -197,7 +197,7 @@ function StealthGatewayLockdownToggleCard() {
       toast({
         title: vars ? "🔒 Production Hardened Mode Active" : "🛠️ Testing Mode (Relaxed) Active",
         description: vars
-          ? "Direct /admin and /admin/login URLs are now strictly intercepted with full-screen security threat quarantine. Super Admins can only log in via /aIhHYTdgagthawsWGHSgs."
+          ? "Direct /admin and /admin/login URLs are now strictly intercepted with full-screen security threat quarantine. Super Admins can only log in via your Private Executive Gateway."
           : "Direct admin access is now relaxed for testing.",
       });
     },
@@ -238,7 +238,7 @@ function StealthGatewayLockdownToggleCard() {
                   : "🛠️ Testing Mode: Relaxed gateway entry enabled for development & testing."}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Secret Master Gateway URL: <code className="text-emerald-400 font-mono">/aIhHYTdgagthawsWGHSgs</code>
+                Executive Access: <span className="text-emerald-400 font-semibold">Private Stealth Gateway Active</span>
               </p>
             </div>
             <Button

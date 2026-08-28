@@ -72,6 +72,77 @@ export default function Login() {
   const [showForgotConfirmPwd, setShowForgotConfirmPwd] = useState(false);
   const [forgotDevOtp, setForgotDevOtp] = useState<string | null>(null);
 
+  // ===================== STAFF & SUB-ADMIN MODAL =====================
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
+  const [staffStep2fa, setStaffStep2fa] = useState(false);
+  const [staffTempToken, setStaffTempToken] = useState("");
+  const [staffMaskedTelegram, setStaffMaskedTelegram] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffOtpCode, setStaffOtpCode] = useState("");
+  const [staffBusy, setStaffBusy] = useState(false);
+
+  async function handleStaffLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setStaffBusy(true);
+    try {
+      const res: any = await login(staffEmail.trim().toLowerCase(), staffPassword);
+      if (res?.require2fa) {
+        setStaffStep2fa(true);
+        setStaffTempToken(res.tempToken);
+        setStaffMaskedTelegram(res.maskedTelegram || "your Telegram");
+        setStaffName(res.staffName || "Staff Member");
+        toast({ title: "🔐 2FA Telegram OTP Dispatched", description: `Enter the 6-digit code sent to Telegram (${res.maskedTelegram}).` });
+        return;
+      }
+      const u = res;
+      if (u.role === "delivery_partner") {
+        toast({ title: "Welcome back, Delivery Partner!" });
+        navigate("/partner-portal");
+        return;
+      }
+      if (!["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(u.role)) {
+        toast({ title: "Not an authorized staff account", description: "Use valid staff credentials to sign in.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Welcome back, " + (u.name || "Staff Member") });
+      navigate("/admin");
+    } catch (err: any) {
+      toast({ title: "Staff Sign In Failed", description: err?.message || "Invalid credentials.", variant: "destructive" });
+    } finally {
+      setStaffBusy(false);
+    }
+  }
+
+  async function handleStaffVerify2fa(e: React.FormEvent) {
+    e.preventDefault();
+    if (!staffOtpCode || staffOtpCode.trim().length !== 6) {
+      toast({ title: "Invalid Code", description: "Please enter the 6-digit code from Telegram.", variant: "destructive" });
+      return;
+    }
+    setStaffBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/login/verify-otp", {
+        tempToken: staffTempToken,
+        otp: staffOtpCode.trim(),
+      });
+      const data = await res.json();
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      if (data.user) {
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+        setUser(data.user);
+      }
+      toast({ title: "✨ 2FA Verified!", description: `Welcome back, ${data.user?.name || staffName}!` });
+      navigate("/admin");
+    } catch (err: any) {
+      toast({ title: "2FA Verification Failed", description: err?.message || "Invalid or expired OTP code.", variant: "destructive" });
+    } finally {
+      setStaffBusy(false);
+    }
+  }
+
   // ----------------------------------------------------
   // LOGIN FLOW
   // ----------------------------------------------------
@@ -873,10 +944,10 @@ export default function Login() {
               <div className="text-center pt-1">
                 <button
                   type="button"
-                  onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
+                  onClick={() => setShowStaffModal(true)}
                   className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
                 >
-                  <span>🔐 Admin &amp; Partner Logins</span>
+                  <span>🔐 Staff &amp; Delivery Partner Login</span>
                 </button>
               </div>
             </div>
@@ -1049,6 +1120,107 @@ export default function Login() {
                     {busy ? "Resetting Password…" : "Update Password & Log In"}
                   </Button>
                 </form>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 🛡️ Staff & Delivery Partner Sign In Modal (Sub-admins & Partners Only) */}
+        {showStaffModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+            <div className="w-full max-w-md bg-card border border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStaffModal(false);
+                  setStaffStep2fa(false);
+                  setStaffOtpCode("");
+                }}
+                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-secondary transition"
+              >
+                ✕
+              </button>
+
+              {!staffStep2fa ? (
+                <>
+                  <div className="text-center space-y-1">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30 mb-2">
+                      <ShieldCheck size={26} />
+                    </div>
+                    <h2 className="text-xl font-serif font-bold text-foreground">Staff &amp; Partner Portal</h2>
+                    <p className="text-xs text-muted-foreground">Sub-Admins, Managers &amp; Delivery Partners</p>
+                  </div>
+
+                  <form onSubmit={handleStaffLogin} className="space-y-4 pt-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-foreground">Staff Email Address</Label>
+                      <Input
+                        type="email"
+                        placeholder="staff@farmfreshfarmer.com"
+                        value={staffEmail}
+                        onChange={(e) => setStaffEmail(e.target.value)}
+                        required
+                        className="rounded-xl font-mono text-xs h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-foreground">Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="Enter password"
+                        value={staffPassword}
+                        onChange={(e) => setStaffPassword(e.target.value)}
+                        required
+                        className="rounded-xl text-xs h-11"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={staffBusy || !staffEmail || !staffPassword}
+                      className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-lg"
+                    >
+                      {staffBusy ? "Authenticating Staff..." : "Sign In to Staff Portal 🚀"}
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <div className="text-center space-y-1">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto border border-sky-500/40 mb-2">
+                      <Smartphone size={26} />
+                    </div>
+                    <h2 className="text-xl font-serif font-bold text-foreground">2FA Telegram Verification</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Hello <b>{staffName}</b>, enter the 6-digit code sent to Telegram ({staffMaskedTelegram}).
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleStaffVerify2fa} className="space-y-4 pt-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold text-sky-400">6-Digit One-Time Passcode</Label>
+                      <Input
+                        type="text"
+                        maxLength={6}
+                        placeholder="123456"
+                        value={staffOtpCode}
+                        onChange={(e) => setStaffOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        required
+                        autoFocus
+                        className="rounded-xl text-center font-mono text-xl tracking-widest font-bold h-12 border-sky-500/40"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={staffBusy || staffOtpCode.length !== 6}
+                      className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl text-xs shadow-lg"
+                    >
+                      {staffBusy ? "Verifying Token..." : "Verify & Unlock Access 🔓"}
+                    </Button>
+                  </form>
+                </>
               )}
             </div>
           </div>

@@ -108,9 +108,9 @@ export default function ResetPassword() {
             <Button
               variant="outline"
               className="w-full h-10 border-slate-700 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold"
-              onClick={() => navigate("/aIhHYTdgagthawsWGHSgs")}
+              onClick={() => navigate("/login")}
             >
-              <span>Staff / Super Admin Portal</span>
+              <span>Back to Customer Portal</span>
             </Button>
           </div>
         </Card>
