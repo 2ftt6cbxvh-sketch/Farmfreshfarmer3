@@ -12,21 +12,10 @@ import { eq, ne, and, sql } from "drizzle-orm";
 /** Helper: Ensure user is authenticated AND is Primary Admin */
 async function requirePrimaryAdmin(req: Request, res: Response, next: NextFunction) {
   try {
-    // Ensure permissions, is_primary_admin, is_verified, star_rating, and experience_rank columns exist
-    try {
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INT NOT NULL DEFAULT 5`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) DEFAULT 'Specialist'`);
-      await db.execute(sql`UPDATE users SET is_verified = TRUE, star_rating = 5, experience_rank = 'Super Admin' WHERE email = 'admin@farmfreshfarmer.com' OR is_primary_admin = TRUE`);
-    } catch {}
-
     let userId: number | undefined = (req.session as any)?.userId;
-    let userRole: string | undefined = (req.session as any)?.role;
 
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || req.cookies?.admin_token);
     if (token) {
       const jwt = (await import("jsonwebtoken")).default;
       try {
@@ -44,9 +33,17 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
       return res.status(403).json({ message: "Forbidden: Active account required" });
     }
 
-    const STAFF_PERM_ROLES = ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"];
-    if (!STAFF_PERM_ROLES.includes(user.role) && !user.isPrimaryAdmin) {
-      return res.status(403).json({ message: "Forbidden: Staff privileges required" });
+    const isPrimary = Boolean(
+      user.isPrimaryAdmin === true ||
+      user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user.email?.toLowerCase() === "gp61080@gmail.com" ||
+      user.id === 1
+    );
+
+    if (!isPrimary) {
+      return res.status(403).json({
+        message: "⛔ ACCESS DENIED: Only the Chief Super Admin is authorized to create, configure, or manage Sub-Admin credentials and permissions.",
+      });
     }
 
     if (req.session) {
