@@ -12,7 +12,11 @@ import { Button } from "@/components/ui/button";
 import type { AnnouncementItem } from "./NotificationBell";
 
 export function BroadcastPopupModal() {
-  const { add: addToCart } = useCart();
+  let addToCart: any = () => {};
+  try {
+    const cart = useCart();
+    if (cart) addToCart = cart.add;
+  } catch {}
   const [activePopup, setActivePopup] = useState<AnnouncementItem | null>(null);
 
   const { data: announcements = [] } = useQuery<AnnouncementItem[]>({

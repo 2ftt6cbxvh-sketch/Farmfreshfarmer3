@@ -297,8 +297,8 @@ function AppContent() {
         <AuthProvider>
           <TierThemeSync />
           <StarBumpCelebrationModal />
-          <BroadcastPopupModal />
           <CartProvider>
+            <BroadcastPopupModal />
             <Toaster />
             <Router>
               <ScrollToTop />
