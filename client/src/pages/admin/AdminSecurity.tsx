@@ -173,6 +173,146 @@ function ChiefAdminTotpCard() {
   );
 }
 
+function EmergencyBreakGlassCodesCard() {
+  const { toast } = useToast();
+  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
+
+  const { data: statusData, refetch } = useQuery({
+    queryKey: ["/api/admin/emergency-codes/status"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/emergency-codes/status")).json(),
+  });
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/emergency-codes/generate");
+      const data = await res.json();
+      setGeneratedCodes(data.codes || []);
+      refetch();
+      toast({
+        title: "🛡️ 10 Emergency Recovery Codes Generated!",
+        description: "Save these codes offline immediately. They will NEVER be shown again.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Failed to generate emergency codes",
+        description: err?.message || "Super Admin authorization required.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!generatedCodes.length) return;
+    const content = `FARMFRESHFARMER — CHIEF SUPER ADMIN EMERGENCY RECOVERY CODES
+================================================================
+Generated: ${new Date().toISOString()}
+Account: admin@farmfreshfarmer.com
+Security: Break-Glass Disaster Recovery
+
+Use these single-use codes to log in or reset your password if your phone,
+laptop, or Authenticator app is lost or compromised.
+
+${generatedCodes.map((c, i) => `[${i + 1}] ${c}`).join("\n")}
+
+================================================================
+STORE THIS FILE OFFLINE (USB / SAFE VAULT / PRINTED PAPER).
+`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `FarmFreshFarmer-Emergency-Backup-Codes-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "📁 Emergency Codes Downloaded as Text File" });
+  };
+
+  const handleCopy = () => {
+    if (!generatedCodes.length) return;
+    navigator.clipboard.writeText(generatedCodes.join("\n"));
+    toast({ title: "📋 10 Emergency Codes Copied to Clipboard" });
+  };
+
+  return (
+    <Card className="border-amber-500/40 bg-card shadow-xl overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-amber-950/30 via-card to-card border-b border-amber-500/20">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-foreground font-serif">
+            <ShieldAlert className="w-5 h-5 text-amber-400" />
+            <span>Chief Admin "Break-Glass" Emergency Recovery Codes</span>
+          </CardTitle>
+          {statusData?.configured ? (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+              {statusData.remainingCodes} CODES REMAINING
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-amber-400 border-amber-500/40">
+              NOT GENERATED
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Zero-Knowledge Emergency Recovery Kit: If you lose your laptop, phone, or 2FA device, enter one of these 10 offline single-use codes to regain instant access and revoke lost sessions.
+        </p>
+      </CardHeader>
+      <CardContent className="p-6 space-y-4">
+        {generatedCodes.length > 0 ? (
+          <div className="space-y-4 p-5 rounded-2xl bg-slate-950 border border-amber-500/40">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                ⚠️ Save These 10 Single-Use Backup Codes (Shown Once):
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleCopy} className="text-xs font-bold h-8 border-slate-700">
+                  Copy All
+                </Button>
+                <Button size="sm" onClick={handleDownload} className="text-xs font-bold h-8 bg-amber-600 hover:bg-amber-500 text-white">
+                  Download .TXT
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {generatedCodes.map((code, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl bg-black/60 border border-slate-800 font-mono text-xs font-bold text-amber-300 text-center tracking-widest select-all">
+                  <span className="text-slate-500 mr-2">{idx + 1}.</span>
+                  {code}
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-center">
+              🔒 Stored in database ONLY as bcrypt salted hashes. Even if Neon or Vercel is breached, plaintext codes cannot be derived.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/30 border border-card-border">
+            <div>
+              <p className="text-xs font-bold text-foreground">
+                {statusData?.configured ? `Active Recovery Pool: ${statusData.remainingCodes} Unused Codes Available` : "No Emergency Backup Codes Active"}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Generating fresh codes will permanently invalidate any previously generated batch.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-extrabold text-xs h-10 px-5 rounded-xl shadow-lg shrink-0"
+            >
+              {generating ? "Generating Hashes..." : "Generate 10 Emergency Recovery Codes 🛡️"}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminSecurity() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -471,6 +611,9 @@ export default function AdminSecurity() {
 
       {/* Super Admin Password Change with TOTP & Old Password Validation */}
       <SuperAdminPasswordUpdateCard />
+
+      {/* Chief Super Admin Offline Break-Glass Emergency Recovery Codes */}
+      <EmergencyBreakGlassCodesCard />
 
       {/* 1. Super Admin Security Bot Controller */}
       <Card className="border-red-500/30 bg-card shadow-xl overflow-hidden">

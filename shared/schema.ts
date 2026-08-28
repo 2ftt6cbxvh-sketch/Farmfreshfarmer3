@@ -960,4 +960,32 @@ export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
 export type Announcement = typeof announcements.$inferSelect;
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 
+/* ===================== PASSWORD RESET TOKENS ===================== */
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("token_hash", { length: 128 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  used: boolean("used").notNull().default(false),
+  ipAddress: varchar("ip_address", { length: 64 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  tokenHashIdx: uniqueIndex("password_reset_tokens_hash_idx").on(t.tokenHash),
+  userIdIdx: index("password_reset_tokens_user_id_idx").on(t.userId),
+}));
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
+/* ==================== EMERGENCY RECOVERY CODES ==================== */
+export const emergencyRecoveryCodes = pgTable("emergency_recovery_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  used: boolean("used").notNull().default(false),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  usedIp: varchar("used_ip", { length: 64 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdIdx: index("emergency_recovery_codes_user_id_idx").on(t.userId),
+}));
+export type EmergencyRecoveryCode = typeof emergencyRecoveryCodes.$inferSelect;

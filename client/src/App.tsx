@@ -27,6 +27,7 @@ import MySubscriptions from "@/pages/MySubscriptions";
 import MyReferrals from "@/pages/MyReferrals";
 import Account from "@/pages/Account";
 import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
 // Legal pages
@@ -163,6 +164,8 @@ function AppRouter() {
         <Route path="/cart" component={Cart} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/reset-password/" component={ResetPassword} />
         <Route path="/orders" component={Orders} />
         <Route path="/payment/simulate" component={PaymentSimulate} />
         <Route path="/payment/callback" component={PaymentCallback} />
