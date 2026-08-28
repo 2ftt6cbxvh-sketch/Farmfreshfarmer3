@@ -17,33 +17,20 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
       const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-      if (decoded.userId) {
-        userId = decoded.userId;
-        role = decoded.role;
+      if (decoded.userId || decoded.sub) {
+        userId = Number(decoded.userId || decoded.sub);
       }
-    } catch (e: any) {
-      try {
-        const jwt = (await import("jsonwebtoken")).default;
-        const decodedUnverified = jwt.decode(token) as any;
-        if (decodedUnverified?.userId) {
-          userId = decodedUnverified.userId;
-          role = decodedUnverified.role;
-        }
-      } catch {}
-    }
+    } catch (e: any) {}
   }
 
   const ADMIN_ROLES = ["admin", "superadmin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"];
-  if (role && ADMIN_ROLES.includes(role)) {
-    return (next as any)();
-  }
 
   if (userId) {
     const { db } = await import("../../db");
     const { users } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
-    const [user] = await db.select().from(users).where(eq(users.id, Number(userId)));
-    if (user && (user.isPrimaryAdmin || ADMIN_ROLES.includes(user.role) || user.email.toLowerCase().includes("admin") || user.id === 1)) {
+    const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
+    if (user && (ADMIN_ROLES.includes(user.role) || user.isPrimaryAdmin) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
       if (req.session) {
         req.session.userId = user.id;
         req.session.role = user.role;

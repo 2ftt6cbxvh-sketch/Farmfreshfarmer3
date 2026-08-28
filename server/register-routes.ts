@@ -268,20 +268,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (token) {
         try {
           const jwt = (await import("jsonwebtoken")).default;
-          let decoded: any;
-          try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-          } catch {
-            decoded = jwt.decode(token) as any;
-          }
-          if (decoded?.role && STAFF_ROLES.includes(decoded.role)) {
-            adminValid = true;
-            req.session.userId = decoded.userId || decoded.sub;
-            req.session.role = decoded.role;
-          } else if (decoded?.userId) {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          if (decoded && (decoded.userId || decoded.sub)) {
+            const uid = Number(decoded.userId || decoded.sub);
             const { storage } = await import("./storage");
-            const user = await storage.users.get(decoded.userId);
-            if (user && STAFF_ROLES.includes(user.role)) {
+            const user = await storage.users.get(uid);
+            if (user && STAFF_ROLES.includes(user.role) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
               adminValid = true;
               req.session.userId = user.id;
               req.session.role = user.role;
@@ -593,14 +585,15 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      let decoded: any;
-      try { decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any; }
-      catch { decoded = jwt.decode(token) as any; }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
       if (decoded) {
         if (!uid) uid = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId ?? decoded.sub);
         if (!userRole) userRole = decoded.role;
         if (decoded.email?.toLowerCase() === "admin@farmfreshfarmer.com" || decoded.isPrimaryAdmin === true) {
-          return true;
+          const [adminDbUser] = uid ? await db.select().from(users).where(eq(users.id, Number(uid))).limit(1) : [];
+          if (adminDbUser && (adminDbUser.isPrimaryAdmin || adminDbUser.email.toLowerCase() === "admin@farmfreshfarmer.com")) {
+            return true;
+          }
         }
       }
     } catch {}
@@ -1068,12 +1061,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (token) {
       try {
         const jwt = require("jsonwebtoken");
-        let decoded: any;
-        try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
-        } catch {
-          decoded = jwt.decode(token);
-        }
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
         if (decoded?.userId || decoded?.sub) {
           return Number(decoded.userId || decoded.sub);
         }
@@ -1700,10 +1688,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       try {
         const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
         currentUserId = decoded?.userId || decoded?.sub;
-      } catch {
-        const decoded: any = jwt.decode(token);
-        currentUserId = decoded?.userId || decoded?.sub;
-      }
+      } catch {}
     }
 
     const [adminUser] = currentUserId ? await db.select().from(users).where(eq(users.id, Number(currentUserId))).limit(1) : [];

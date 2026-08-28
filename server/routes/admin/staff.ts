@@ -31,19 +31,8 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
       const jwt = (await import("jsonwebtoken")).default;
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-        if (decoded?.userId) userId = decoded.userId;
-        if (decoded?.role) userRole = decoded.role;
-      } catch (e: any) {
-        try {
-          const decodedUnverified = jwt.decode(token) as any;
-          if (decodedUnverified?.userId) userId = decodedUnverified.userId;
-          if (decodedUnverified?.role) userRole = decodedUnverified.role;
-        } catch {}
-      }
-    }
-
-    if (userRole && ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"].includes(userRole)) {
-      return next();
+        if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
+      } catch (e: any) {}
     }
 
     if (!userId) {
@@ -51,13 +40,22 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
     }
 
     const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
-    if (!user) {
-      // If valid session or admin path, allow
-      return next();
+    if (!user || user.status === "blocked" || user.status === "locked" || user.isPermanentlyLocked) {
+      return res.status(403).json({ message: "Forbidden: Active account required" });
+    }
+
+    const STAFF_PERM_ROLES = ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"];
+    if (!STAFF_PERM_ROLES.includes(user.role) && !user.isPrimaryAdmin) {
+      return res.status(403).json({ message: "Forbidden: Staff privileges required" });
+    }
+
+    if (req.session) {
+      req.session.userId = user.id;
+      req.session.role = user.role;
     }
 
     (req as any).currentUser = user;
-    next();
+    return next();
   } catch (err: any) {
     return res.status(401).json({ message: "Invalid authentication token", error: err?.message });
   }

@@ -19,20 +19,11 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: Function) 
       const jwt = (await import("jsonwebtoken")).default;
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-        userId = decoded?.userId || decoded?.sub;
-        role = decoded?.role || role;
-      } catch (e: any) {
-        try {
-          const decodedUnverified = jwt.decode(token) as any;
-          if (decodedUnverified?.userId || decodedUnverified?.sub) {
-            userId = decodedUnverified.userId || decodedUnverified.sub;
-            role = decodedUnverified.role || role;
-          }
-        } catch {}
-      }
+        userId = Number(decoded?.userId || decoded?.sub);
+      } catch (e: any) {}
     }
 
-    if (!userId && role !== "admin") {
+    if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
 
@@ -40,6 +31,10 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: Function) 
     if (userId) {
       const [found] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
       user = found;
+    }
+
+    if (!user || (!STAFF_ROLES.includes(user.role) && user.role !== "admin") || user.status === "blocked" || user.status === "locked" || user.isPermanentlyLocked) {
+      return res.status(403).json({ message: "Forbidden: Admin privileges required" });
     }
 
     const isPrimary =

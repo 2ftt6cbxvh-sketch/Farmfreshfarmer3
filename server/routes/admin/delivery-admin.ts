@@ -20,21 +20,11 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      let decoded: any;
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-      } catch {
-        decoded = jwt.decode(token) as any;
-      }
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
       if (decoded?.userId || decoded?.sub) {
-        userId = decoded.userId || decoded.sub;
-        role = decoded.role;
+        userId = Number(decoded.userId || decoded.sub);
       }
     } catch (e) {}
-  }
-
-  if (role && STAFF_ROLES.includes(role)) {
-    return (next as any)();
   }
 
   if (userId) {
@@ -42,7 +32,7 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
     const { users } = await import("@shared/schema");
     const { eq } = await import("drizzle-orm");
     const [user] = await db.select().from(users).where(eq(users.id, Number(userId)));
-    if (user && STAFF_ROLES.includes(user.role)) {
+    if (user && STAFF_ROLES.includes(user.role) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
       if (req.session) {
         req.session.userId = user.id;
         req.session.role = user.role;

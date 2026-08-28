@@ -19,27 +19,14 @@ async function requireAdmin(req: Request, res: Response, next: Function) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
       if (decoded.userId || decoded.sub) {
-        userId = decoded.userId || decoded.sub;
-        role = decoded.role;
+        userId = Number(decoded.userId || decoded.sub);
       }
-    } catch (e) {
-      try {
-        const decodedUnverified = jwt.decode(token) as any;
-        if (decodedUnverified?.userId || decodedUnverified?.sub) {
-          userId = decodedUnverified.userId || decodedUnverified.sub;
-          role = decodedUnverified.role;
-        }
-      } catch {}
-    }
-  }
-
-  if (role && STAFF_ROLES.includes(role)) {
-    return (next as any)();
+    } catch (e) {}
   }
 
   if (userId) {
-    const [user] = await db.select().from(users).where(eq(users.id, Number(userId)));
-    if (user && STAFF_ROLES.includes(user.role)) {
+    const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
+    if (user && STAFF_ROLES.includes(user.role) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
       if (req.session) {
         req.session.userId = user.id;
         req.session.role = user.role;

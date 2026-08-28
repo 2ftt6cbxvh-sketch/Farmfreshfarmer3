@@ -88,18 +88,16 @@ export async function lockdownMiddleware(req: Request, res: Response, next: Next
         try {
           const jwt = (await import("jsonwebtoken")).default;
           const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
-          if (decoded.email === "admin@farmfreshfarmer.com" || decoded.role === "superadmin") {
-            isSuperAdmin = true;
-          }
-        } catch {
-          try {
-            const jwt = (await import("jsonwebtoken")).default;
-            const decodedUnverified = jwt.decode(token) as any;
-            if (decodedUnverified?.email === "admin@farmfreshfarmer.com" || decodedUnverified?.role === "superadmin") {
+          if (decoded && (decoded.userId || decoded.sub)) {
+            const { db } = await import("../db");
+            const { users } = await import("@shared/schema");
+            const { eq } = await import("drizzle-orm");
+            const [user] = await db.select().from(users).where(eq(users.id, Number(decoded.userId || decoded.sub))).limit(1);
+            if (user && (user.email === "admin@farmfreshfarmer.com" || user.isPrimaryAdmin || user.role === "superadmin")) {
               isSuperAdmin = true;
             }
-          } catch {}
-        }
+          }
+        } catch {}
       }
 
       if (!isSuperAdmin && req.session?.userId) {

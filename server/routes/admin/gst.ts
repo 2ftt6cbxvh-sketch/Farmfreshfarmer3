@@ -18,27 +18,23 @@ async function requireAdmin(req: any, res: any, next: any) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
       if (decoded.userId || decoded.sub) {
-        userId = decoded.userId || decoded.sub;
-        role = decoded.role;
+        userId = Number(decoded.userId || decoded.sub);
         req.user = decoded;
       }
-    } catch (e) {
-      try {
-        const decoded = jwt.decode(token) as any;
-        if (decoded?.userId || decoded?.sub) {
-          userId = decoded.userId || decoded.sub;
-          role = decoded.role;
-          req.user = decoded;
-        }
-      } catch {}
-    }
+    } catch (e) {}
   }
 
-  if (userId && role && STAFF_ROLES.includes(role)) {
-    req.session = req.session || {};
-    req.session.userId = userId;
-    req.session.role = role;
-    return next();
+  if (userId) {
+    const { db } = await import("../../db");
+    const { users } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const [user] = await db.select().from(users).where(eq(users.id, Number(userId))).limit(1);
+    if (user && STAFF_ROLES.includes(user.role) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
+      req.session = req.session || {};
+      req.session.userId = user.id;
+      req.session.role = user.role;
+      return next();
+    }
   }
 
   return res.status(401).json({ message: "Admin authentication required" });

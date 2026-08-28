@@ -30,18 +30,15 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      let decoded: any;
-      try { decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any; }
-      catch { decoded = jwt.decode(token) as any; }
-      if (decoded?.role && STAFF_ROLES.includes(decoded.role)) {
-        req.session.userId = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : decoded.userId ?? decoded.sub;
-        req.session.role = decoded.role;
-        return next();
-      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
       if (decoded?.userId || decoded?.sub) {
-        const uid = decoded.userId ?? decoded.sub;
-        const [user] = await db.select().from(users).where(eq(users.id, typeof uid === "string" ? parseInt(uid, 10) : uid));
-        if (user && STAFF_ROLES.includes(user.role)) { req.session.userId = user.id; req.session.role = user.role; return next(); }
+        const uid = Number(decoded.userId || decoded.sub);
+        const [user] = await db.select().from(users).where(eq(users.id, uid)).limit(1);
+        if (user && STAFF_ROLES.includes(user.role) && user.status !== "blocked" && user.status !== "locked" && !user.isPermanentlyLocked) {
+          req.session.userId = user.id;
+          req.session.role = user.role;
+          return next();
+        }
       }
     } catch { /* fall through */ }
   }

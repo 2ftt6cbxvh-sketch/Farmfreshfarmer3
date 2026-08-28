@@ -21,15 +21,13 @@ async function requireStaffOrAdmin(req: Request, res: Response, next: NextFuncti
   if (token) {
     try {
       const jwt = (await import('jsonwebtoken')).default;
-      let decoded: any;
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
-      } catch {
-        decoded = jwt.decode(token) as any;
-      }
-      if (decoded?.role && ALLOWED_STAFF_ROLES.includes(decoded.role)) {
-        (req as any).user = { id: decoded.userId || decoded.sub, name: decoded.name || decoded.username || 'Staff Rep', role: decoded.role };
-        return next();
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret');
+      if (decoded?.userId || decoded?.sub) {
+        const [u] = await db.select().from(users).where(eq(users.id, Number(decoded.userId || decoded.sub))).limit(1);
+        if (u && ALLOWED_STAFF_ROLES.includes(u.role) && u.status !== 'blocked' && u.status !== 'locked' && !u.isPermanentlyLocked) {
+          (req as any).user = u;
+          return next();
+        }
       }
     } catch {}
   }
