@@ -115,7 +115,7 @@ export default function ForgotPassword() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="Email address..."
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="bg-slate-950 border-slate-800 focus:border-green-500 text-white rounded-xl"
@@ -147,7 +147,7 @@ export default function ForgotPassword() {
                 <Input
                   id="otp"
                   type="text"
-                  placeholder="123456"
+                  placeholder="OTP code..."
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -168,7 +168,7 @@ export default function ForgotPassword() {
                   <Input
                     id="new-pwd"
                     type={showNewPwd ? "text" : "password"}
-                    placeholder="Minimum 6 characters"
+                    placeholder="Password..."
                     minLength={6}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -191,7 +191,7 @@ export default function ForgotPassword() {
                   <Input
                     id="confirm-pwd"
                     type={showConfirmPwd ? "text" : "password"}
-                    placeholder="Confirm new password"
+                    placeholder="Confirm password..."
                     minLength={6}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

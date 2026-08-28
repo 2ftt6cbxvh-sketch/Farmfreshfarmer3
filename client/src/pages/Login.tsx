@@ -485,7 +485,7 @@ export default function Login() {
                       <Input
                         id="login-email"
                         type="email"
-                        placeholder="you@gmail.com"
+                        placeholder="Email address..."
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         required
@@ -515,7 +515,7 @@ export default function Login() {
                         <Input
                           id="login-pwd"
                           type={showLoginPassword ? "text" : "password"}
-                          placeholder="Enter your password"
+                          placeholder="Password..."
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           required
@@ -564,7 +564,7 @@ export default function Login() {
                       <Input
                         id="login-otp"
                         type="text"
-                        placeholder="123456"
+                        placeholder="OTP code..."
                         maxLength={6}
                         value={loginOtpCode}
                         onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -618,7 +618,7 @@ export default function Login() {
                       <Input
                         id="signup-name"
                         type="text"
-                        placeholder="John Doe"
+                        placeholder="Name..."
                         value={signupName}
                         onChange={(e) => setSignupName(e.target.value)}
                         required
@@ -634,7 +634,7 @@ export default function Login() {
                       <Input
                         id="signup-email"
                         type="email"
-                        placeholder="you@gmail.com"
+                        placeholder="Email address..."
                         value={signupEmail}
                         onChange={(e) => setSignupEmail(e.target.value)}
                         required
@@ -652,7 +652,7 @@ export default function Login() {
                         <Input
                           id="signup-phone"
                           type="tel"
-                          placeholder="9876543210"
+                          placeholder="Mobile number..."
                           value={signupPhone}
                           onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                           required
@@ -670,7 +670,7 @@ export default function Login() {
                         <Input
                           id="signup-password"
                           type={showSignupPassword ? "text" : "password"}
-                          placeholder="Create password"
+                          placeholder="Password..."
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
                           required
@@ -696,7 +696,7 @@ export default function Login() {
                         <Input
                           id="signup-confirm-pwd"
                           type={showSignupConfirmPassword ? "text" : "password"}
-                          placeholder="Confirm password"
+                          placeholder="Confirm password..."
                           value={signupConfirmPassword}
                           onChange={(e) => setSignupConfirmPassword(e.target.value)}
                           required
@@ -749,7 +749,7 @@ export default function Login() {
                       <Input
                         id="signup-otp"
                         type="text"
-                        placeholder="123456"
+                        placeholder="OTP code..."
                         maxLength={6}
                         value={signupOtpCode}
                         onChange={(e) => setSignupOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -841,7 +841,7 @@ export default function Login() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">+91</span>
                   <input
                     type="tel"
-                    placeholder="10-digit mobile number"
+                    placeholder="Mobile number..."
                     value={googlePhone}
                     onChange={(e) => setGooglePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     className="w-full rounded-2xl border border-input bg-background pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
@@ -886,7 +886,7 @@ export default function Login() {
                     <Input
                       id="forgot-email"
                       type="email"
-                      placeholder="you@gmail.com"
+                      placeholder="Email address..."
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       required
@@ -925,7 +925,7 @@ export default function Login() {
                     <Input
                       id="forgot-otp"
                       type="text"
-                      placeholder="123456"
+                      placeholder="OTP code..."
                       maxLength={6}
                       value={forgotOtpCode}
                       onChange={(e) => setForgotOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -946,7 +946,7 @@ export default function Login() {
                       <Input
                         id="forgot-new-pwd"
                         type={showForgotNewPwd ? "text" : "password"}
-                        placeholder="Minimum 6 characters"
+                        placeholder="Password..."
                         minLength={6}
                         value={forgotNewPassword}
                         onChange={(e) => setForgotNewPassword(e.target.value)}
@@ -969,7 +969,7 @@ export default function Login() {
                       <Input
                         id="forgot-confirm-pwd"
                         type={showForgotConfirmPwd ? "text" : "password"}
-                        placeholder="Confirm new password"
+                        placeholder="Confirm password..."
                         minLength={6}
                         value={forgotConfirmPassword}
                         onChange={(e) => setForgotConfirmPassword(e.target.value)}
