@@ -8,9 +8,11 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Customer {
   id: number; name: string; email: string; phone: string | null; status: string;
@@ -31,6 +33,11 @@ export default function AdminCustomers() {
   const [starEditId, setStarEditId] = useState<number | null>(null);
   const [starEditVal, setStarEditVal] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [editTarget, setEditTarget] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editVerified, setEditVerified] = useState(false);
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/admin/customers"],
@@ -46,6 +53,22 @@ export default function AdminCustomers() {
       toast({ title: "Customer status updated" });
     },
     onError: () => toast({ title: "Could not update status", variant: "destructive" }),
+  });
+
+  const updateCustomerMut = useMutation({
+    mutationFn: async ({ id, name, email, phone, isVerified }: { id: number; name: string; email: string; phone: string; isVerified: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/customers/${id}`, { name, email, phone, isVerified });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Customer Details Updated", description: data.message || "Saved successfully." });
+      setEditTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update customer", variant: "destructive" });
+    },
   });
 
   const setStarsMut = useMutation({
@@ -192,6 +215,24 @@ export default function AdminCustomers() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => {
+                            setEditTarget(c);
+                            setEditName(c.name || "");
+                            setEditEmail(c.email || "");
+                            setEditPhone(c.phone || "");
+                            setEditVerified(Boolean(c.isVerified));
+                          }}
+                          title="Manually edit customer phone, email & details (Super Admin Override)"
+                          className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1"
+                        >
+                          <Pencil size={12} /> Edit
+                        </Button>
+                      )}
+
+                      {isSuperAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => verifyUserMut.mutate(c.id)}
                           disabled={verifyUserMut.isPending}
                           title={c.isVerified ? "Remove verification badge" : "Verify genuine customer with Blue Badge"}
@@ -246,6 +287,110 @@ export default function AdminCustomers() {
               {customers.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No customers yet.</td></tr>}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Super Admin Manual Customer Edit Modal */}
+      {editTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4" onClick={() => setEditTarget(null)}>
+          <div className="bg-card border border-amber-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <Pencil size={20} className="text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-foreground">Edit Customer Details</h3>
+                <p className="text-xs text-amber-400 font-semibold">Super Admin Manual Override (No OTP Required)</p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateCustomerMut.mutate({
+                  id: editTarget.id,
+                  name: editName,
+                  email: editEmail,
+                  phone: editPhone,
+                  isVerified: editVerified,
+                });
+              }}
+              className="space-y-3.5 pt-2"
+            >
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-foreground">Full Name</Label>
+                <div className="relative">
+                  <UserIcon size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="pl-9 rounded-xl text-xs font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-foreground">Email Address</Label>
+                <div className="relative">
+                  <Mail size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="pl-9 rounded-xl text-xs font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-foreground">Mobile Phone Number</Label>
+                <div className="relative">
+                  <Phone size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                  <Input
+                    type="tel"
+                    maxLength={10}
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="9876543210"
+                    className="pl-9 rounded-xl text-xs font-mono font-bold"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">10-digit Indian mobile number without +91</p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1">
+                    Verified Customer Blue Badge
+                    <VerifiedBadge size="sm" />
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Authorize customer for order placement</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={editVerified}
+                  onChange={(e) => setEditVerified(e.target.checked)}
+                  className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                  disabled={updateCustomerMut.isPending}
+                >
+                  {updateCustomerMut.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

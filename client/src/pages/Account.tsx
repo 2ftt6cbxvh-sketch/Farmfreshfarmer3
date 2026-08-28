@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
+import { EmailVerificationModal } from "@/components/EmailVerificationModal";
 
 interface StarDiscountRule {
   id: number;
@@ -72,6 +73,7 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState<ChatSessionHistory | null>(null);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false);
 
   const { data: ticketData, isLoading: ticketsLoading, refetch: refetchTickets } = useQuery<{ tickets: SupportTicket[] }>({
     queryKey: ["/api/support-tickets/my", user?.email, user?.id],
@@ -126,7 +128,6 @@ export default function Account() {
       // Save directly to user profile
       const saveRes = await apiRequest("PATCH", "/api/user/profile", {
         name,
-        phone,
         address,
         profilePhoto: photoUrl,
       });
@@ -143,20 +144,28 @@ export default function Account() {
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+
+    const cleanEnteredPhone = phone.replace(/\D/g, "").slice(-10);
+    const cleanSavedPhone = user?.phone ? user.phone.replace(/\D/g, "").slice(-10) : "";
+
+    // If phone number is being changed or added, require SMS OTP verification!
+    if (cleanEnteredPhone && cleanEnteredPhone !== cleanSavedPhone) {
+      setBusy(false);
+      toast({
+        title: "🔒 Mobile Verification Required",
+        description: "Phone number changes require 6-digit SMS OTP verification to prove ownership.",
+      });
+      setShowVerifyModal(true);
+      return;
+    }
+
     try {
-      const res = await apiRequest("PATCH", "/api/user/profile", { name, phone, address, profilePhoto });
+      const res = await apiRequest("PATCH", "/api/user/profile", { name, address, profilePhoto });
       const data = await res.json();
-      setUser(data.user || { ...user, name, phone, address, profilePhoto });
-      toast({ title: "Profile Updated Successfully!" });
+      setUser(data.user || { ...user, name, address, profilePhoto });
+      toast({ title: "Profile Details Saved!" });
     } catch (err: any) {
-      try {
-        const phoneRes = await apiRequest("PATCH", "/api/user/phone", { phone });
-        const phoneData = await phoneRes.json();
-        setUser(phoneData.user || { ...user, phone, profilePhoto });
-        toast({ title: "Phone number updated successfully!" });
-      } catch (innerErr: any) {
-        toast({ title: "Failed to update profile", description: err.message, variant: "destructive" });
-      }
+      toast({ title: "Failed to update profile", description: err.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -676,26 +685,54 @@ export default function Account() {
                   </div>
 
                   <div>
-                    <Label htmlFor="emailAddress" className="text-xs font-bold">Email Address</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="emailAddress" className="text-xs font-bold">Email Address</Label>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailVerifyModal(true)}
+                        className="text-[11px] font-bold text-emerald-500 hover:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Shield size={11} /> Change Email (OTP)
+                      </button>
+                    </div>
                     <Input
                       id="emailAddress"
                       value={user.email}
                       disabled
-                      className="mt-1 rounded-xl text-xs bg-muted/40 cursor-not-allowed"
+                      className="mt-1 rounded-xl text-xs bg-muted/40 cursor-not-allowed font-medium text-foreground"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="mobilePhone" className="text-xs font-bold">Mobile Phone Number (for WhatsApp/SMS updates)</Label>
-                  <Input
-                    id="mobilePhone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. 9876543210"
-                    required
-                    className="mt-1 rounded-xl text-xs"
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mobilePhone" className="text-xs font-bold">Mobile Phone Number (for WhatsApp/SMS updates)</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowVerifyModal(true)}
+                      className="text-[11px] font-bold text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Smartphone size={11} /> {user.phone ? "Change Phone (SMS OTP)" : "Verify Mobile (SMS OTP)"}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-border text-muted-foreground shrink-0">
+                      🇮🇳 +91
+                    </span>
+                    <Input
+                      id="mobilePhone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="e.g. 9876543210"
+                      required
+                      className="rounded-xl text-xs font-mono font-bold tracking-wider"
+                    />
+                  </div>
+                  {user.isVerified && (
+                    <p className="text-[10px] text-sky-400 font-semibold mt-1 flex items-center gap-1">
+                      <CheckCircle2 size={11} /> Mobile Number Verified with Blue Badge
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -777,7 +814,13 @@ export default function Account() {
           open={showVerifyModal}
           onOpenChange={setShowVerifyModal}
           mode="verify_account"
-          defaultPhone={user.phone || ""}
+          defaultPhone={phone || user.phone || ""}
+        />
+
+        {/* 📧 Email OTP Verification Modal */}
+        <EmailVerificationModal
+          open={showEmailVerifyModal}
+          onOpenChange={setShowEmailVerifyModal}
         />
       </div>
     </Layout>

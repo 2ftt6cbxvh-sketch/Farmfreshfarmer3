@@ -1115,29 +1115,32 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   }));
 
   app.patch('/api/user/phone', requireAuth as any, h(async (req, res) => {
-    const { phone } = req.body || {};
-    if (!phone || !/^[6-9][0-9]{9}$/.test(phone.replace(/\s/g, ''))) {
-      return res.status(400).json({ message: 'Please enter a valid 10-digit Indian mobile number' });
-    }
-    const userId = extractUserId(req) || req.session.userId!;
-    const updated = await db.update(users).set({ phone: phone.trim() }).where(eq(users.id, userId)).returning();
-    res.json({ user: publicUser(updated[0]) });
+    return res.status(403).json({
+      message: '🔒 Phone number changes require SMS OTP verification. Please use the Verify Phone dialog.',
+      requireOtp: true,
+    });
   }));
 
   app.patch('/api/user/profile', requireAuth as any, h(async (req, res) => {
     const { name, phone, address, profilePhoto } = req.body || {};
     const userId = extractUserId(req) || req.session.userId!;
+    const currentUser = await storage.users.get(userId);
 
     const updates: Record<string, any> = {};
-    if (typeof name === 'string') updates.name = name.trim();
-    if (typeof phone === 'string' && phone.trim()) {
-      if (!/^[6-9][0-9]{9}$/.test(phone.replace(/\s/g, ''))) {
-        return res.status(400).json({ message: 'Please enter a valid 10-digit Indian mobile number' });
-      }
-      updates.phone = phone.trim();
-    }
+    if (typeof name === 'string' && name.trim()) updates.name = name.trim();
     if (typeof address === 'string') updates.address = address.trim();
     if (typeof profilePhoto === 'string') updates.profilePhoto = profilePhoto;
+
+    if (typeof phone === 'string' && phone.trim()) {
+      const cleanNew = phone.replace(/\D/g, '').slice(-10);
+      const cleanOld = currentUser?.phone ? currentUser.phone.replace(/\D/g, '').slice(-10) : '';
+      if (cleanNew !== cleanOld && cleanNew.length === 10) {
+        return res.status(403).json({
+          message: '🔒 Mobile number changes require SMS OTP verification. Please verify your new phone number via OTP.',
+          requireOtp: true,
+        });
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: 'No profile updates provided' });
@@ -2276,6 +2279,39 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const status = String(req.body.status || "");
     if (!["active", "blocked"].includes(status)) return res.status(400).json({ message: "Invalid status" });
     res.json(await storage.users.updateStatus(Number(req.params.id), status));
+  }));
+
+  /** PATCH /api/admin/customers/:id — Super Admin manual edit of customer details (phone, email, name, verified status) without OTP */
+  app.patch("/api/admin/customers/:id", requireAdmin, h(async (req, res) => {
+    const isSuperAdmin =
+      req.session?.userId === 1 ||
+      req.session?.role === "admin" ||
+      (req as any).user?.isPrimaryAdmin ||
+      (req as any).user?.email?.toLowerCase() === "admin@farmfreshfarmer.com";
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Only Super Admin is authorized to manually update customer phone and email details without OTP." });
+    }
+
+    const id = Number(req.params.id);
+    const { name, email, phone, isVerified } = req.body || {};
+    const updates: Record<string, any> = {};
+
+    if (typeof name === "string" && name.trim()) updates.name = name.trim();
+    if (typeof email === "string" && email.trim()) updates.email = email.trim().toLowerCase();
+    if (phone !== undefined) {
+      const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+      updates.phone = cleanPhone || null;
+    }
+    if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No customer fields provided for update." });
+    }
+
+    const [updated] = await db.update(users).set({ ...updates, updatedAt: new Date() }).where(eq(users.id, id)).returning();
+    if (!updated) return res.status(404).json({ message: "Customer not found." });
+
+    res.json({ message: "Customer profile details manually updated successfully by Super Admin.", customer: updated });
   }));
 
   /* ===================== ADMIN: review moderation ================= */

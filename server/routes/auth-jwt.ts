@@ -857,4 +857,131 @@ export function registerAuthJwtRoutes(app: Express) {
       message: unlockResult.message || "🎉 Account unlocked successfully! All rate limits cleared and Blue Badge activated.",
     });
   });
+
+  /** POST /api/user/email/send-otp — Send 6-digit OTP to new email address for verified email update */
+  app.post("/api/user/email/send-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { newEmail } = req.body || {};
+    if (!newEmail || !newEmail.includes("@")) {
+      return res.status(400).json({ message: "Please enter a valid new email address." });
+    }
+
+    const cleanNewEmail = String(newEmail).toLowerCase().trim();
+
+    // Verify authenticated user
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let userId = (req.session as any)?.userId;
+    if (token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
+      } catch {}
+    }
+    if (!userId) {
+      return res.status(401).json({ message: "Please log in to update your email address." });
+    }
+
+    // Check if new email is already taken by another user
+    const [existing] = await db.select().from(users).where(eq(users.email, cleanNewEmail)).limit(1);
+    if (existing && existing.id !== userId) {
+      return res.status(409).json({ message: "This email address is already in use by another account." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await db.insert(otpCodes).values({
+      phone: cleanNewEmail,
+      purpose: "email_update",
+      codeHash,
+      expiresAt,
+    });
+
+    const [currentUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const userName = currentUser?.name || "Valued User";
+
+    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
+    const html = buildOtpEmailHtml(otp, userName);
+    const text = buildOtpPlainText(otp, userName);
+
+    await sendRealEmail({
+      to: cleanNewEmail,
+      subject: `📧 Verify Your New Email Address: ${otp}`,
+      html,
+      text,
+    });
+
+    return res.json({
+      success: true,
+      message: `A 6-digit verification OTP has been sent to ${cleanNewEmail}. Please enter the code to confirm.`,
+    });
+  });
+
+  /** POST /api/user/email/verify-otp — Verify OTP & update email address in database */
+  app.post("/api/user/email/verify-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { newEmail, otp } = req.body || {};
+    if (!newEmail || !otp || String(otp).trim().length < 6) {
+      return res.status(400).json({ message: "New email and 6-digit OTP code are required." });
+    }
+
+    const cleanNewEmail = String(newEmail).toLowerCase().trim();
+
+    // Verify authenticated user
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let userId = (req.session as any)?.userId;
+    if (token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
+      } catch {}
+    }
+    if (!userId) {
+      return res.status(401).json({ message: "Please log in to update your email address." });
+    }
+
+    // Verify OTP code
+    const now = new Date();
+    const rows = await db
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.phone, cleanNewEmail), eq(otpCodes.purpose, "email_update"), gt(otpCodes.expiresAt, now)))
+      .orderBy(desc(otpCodes.id))
+      .limit(1);
+
+    if (!rows.length) {
+      return res.status(400).json({ message: "Verification code expired or not found. Please request a new OTP." });
+    }
+
+    const valid = await bcrypt.compare(String(otp).trim(), rows[0].codeHash);
+    if (!valid) {
+      return res.status(400).json({ message: "Incorrect OTP code. Please check the code sent to your email." });
+    }
+
+    // Consume OTP code
+    await db.delete(otpCodes).where(eq(otpCodes.id, rows[0].id));
+
+    // Update user's email address in DB
+    const [updated] = await db
+      .update(users)
+      .set({ email: cleanNewEmail, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return res.json({
+      success: true,
+      email: cleanNewEmail,
+      user: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        isVerified: Boolean(updated.isVerified),
+      },
+      message: "🎉 Email address updated successfully!",
+    });
+  });
 }
