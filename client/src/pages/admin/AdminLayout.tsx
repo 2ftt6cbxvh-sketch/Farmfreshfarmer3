@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
 import AdminLogin from "./AdminLogin";
 import Forbidden403 from "../Forbidden403";
+import { AdminDirectAccessWarning } from "./AdminDirectAccessWarning";
 import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
 
 const NAV = [
@@ -249,8 +250,12 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
 
   if (!adminUser || !isStaffOrAdmin) {
-    if (location !== "/admin/login" && location !== "/admin") {
-      return <Forbidden403 />;
+    const isUnlocked = typeof window !== "undefined" && (
+      sessionStorage.getItem("fff_stealth_gateway_unlocked") === "true" ||
+      localStorage.getItem("fff_stealth_gateway_unlocked") === "true"
+    );
+    if (!isUnlocked) {
+      return <AdminDirectAccessWarning />;
     }
     return <AdminLogin />;
   }
