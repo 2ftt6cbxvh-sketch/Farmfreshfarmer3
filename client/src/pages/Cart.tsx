@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface CouponResult {
   valid: boolean;
@@ -1024,8 +1025,42 @@ export default function Cart() {
                 <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" className="mt-1 font-medium" />
               </div>
               <div>
-                <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground">Phone number</Label>
-                <Input id="ck-phone" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="input-phone" className="mt-1 font-medium" />
+                <div className="flex items-center justify-between mb-1">
+                  <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <span>Phone number</span>
+                    {user?.isVerified && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-sky-500 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full">
+                        <VerifiedBadge size="sm" />
+                        <span>Verified ✓</span>
+                      </span>
+                    )}
+                  </Label>
+                  {user && !user.isVerified && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCartVerifyModal(true)}
+                      className="text-[11px] font-extrabold text-sky-500 hover:text-sky-400 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Smartphone size={12} />
+                      <span>⚡ Verify Phone</span>
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="ck-phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    data-testid="input-phone"
+                    placeholder="10-digit mobile number"
+                    className={`font-medium ${user?.isVerified ? "pr-10 border-sky-500/50 bg-sky-500/5" : ""}`}
+                  />
+                  {user?.isVerified && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+                      <VerifiedBadge size="sm" />
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground flex items-center justify-between">
@@ -1097,18 +1132,18 @@ export default function Cart() {
               {isPendingSuperAdminVerification && (
                 <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-center space-y-2 mb-2 animate-in fade-in duration-200">
                   <p className="text-xs font-black text-sky-400 flex items-center justify-center gap-1.5">
-                    🔒 Super Admin Verification Required
+                    🔒 Mobile Number Verification Required
                   </p>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Verify your mobile number via SMS OTP to instantly activate your 🏅 Blue Badge and unlock checkout!
+                    Please verify your phone number via SMS OTP to unlock checkout and get your 🏅 Blue Badge!
                   </p>
                   <Button
                     type="button"
                     size="sm"
                     onClick={() => setShowCartVerifyModal(true)}
-                    className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 gap-1.5"
+                    className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 gap-1.5 cursor-pointer"
                   >
-                    <Smartphone size={14} /> Instant Verify Mobile & Unlock
+                    <Smartphone size={14} /> Click Here to Verify Phone Number
                   </Button>
                 </div>
               )}
@@ -1122,12 +1157,18 @@ export default function Cart() {
                 {placeOrder.isPending || initiatePayment.isPending ? (
                   "Placing order…"
                 ) : isPendingSuperAdminVerification ? (
-                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCartVerifyModal(true);
+                    }}
+                    className="flex flex-col items-center justify-center gap-0.5 w-full cursor-pointer py-1"
+                  >
                     <span className="font-black text-amber-500 dark:text-amber-300 flex items-center gap-1.5 text-xs">
-                      🔒 Account Pending Super Admin Verification
+                      🔒 Please Verify Phone Number to Place Order
                     </span>
-                    <span className="text-[10px] font-bold text-muted-foreground">
-                      Click 'Instant Verify Mobile' above or wait for Super Admin approval
+                    <span className="text-[11px] font-extrabold text-sky-400 dark:text-sky-300 underline">
+                      Click here to verify phone number via SMS OTP →
                     </span>
                   </div>
                 ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
