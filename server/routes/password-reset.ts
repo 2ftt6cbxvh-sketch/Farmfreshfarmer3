@@ -382,6 +382,21 @@ export function registerPasswordResetRoutes(app: Express) {
         return res.status(403).json({ message: "Invalid emergency login credentials" });
       }
 
+      // 1. Check if user is locked out
+      const now = Date.now();
+      if (user.is_permanently_locked || user.status === "locked" || user.status === "blocked") {
+        return res.status(423).json({
+          message: "🔒 Account is locked due to multiple failed authentication attempts. Use Telegram /unlock command or Super Admin approval.",
+        });
+      }
+
+      if (user.lockout_until && new Date(user.lockout_until).getTime() > now) {
+        const remainingSec = Math.ceil((new Date(user.lockout_until).getTime() - now) / 1000);
+        return res.status(429).json({
+          message: `⏳ Account is temporarily locked. Try again in ${remainingSec} seconds.`,
+        });
+      }
+
       const recCodesRes = await pool.query(
         "SELECT id, code_hash FROM emergency_recovery_codes WHERE user_id = $1 AND used = FALSE",
         [user.id]
@@ -396,7 +411,28 @@ export function registerPasswordResetRoutes(app: Express) {
         }
       }
 
+      const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+
       if (!matchedCodeId) {
+        const failRef = `SEC-EMRG-FAIL-${Date.now().toString().slice(-4)}`;
+        // Record failed incident in security audit logs
+        await pool.query(
+          `INSERT INTO security_audit_logs (event_type, action_taken, ip, platform, user_agent)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            "master_credential_intercepted",
+            `[${failRef}] Failed Break-Glass Emergency Code Attempt | Route: /api/admin/emergency-login | Target: ${cleanEmail}`,
+            ip.slice(0, 64),
+            "web",
+            userAgent.slice(0, 500),
+          ]
+        ).catch(() => {});
+
+        await sendTelegramAlert(
+          `⚠️ <b>FAILED BREAK-GLASS EMERGENCY ATTEMPT [<code>${failRef}</code>]</b>\n\nAn invalid offline recovery code was entered for Chief Super Admin (<code>${cleanEmail}</code>).\n• IP: <code>${ip}</code>\n• Device: ${userAgent.slice(0, 60)}\n• Timestamp: ${new Date().toISOString()}`
+        ).catch(() => {});
+
         return res.status(400).json({ message: "Invalid or already used Emergency Recovery Code" });
       }
 
@@ -405,6 +441,23 @@ export function registerPasswordResetRoutes(app: Express) {
         "UPDATE emergency_recovery_codes SET used = TRUE, used_at = NOW(), used_ip = $1 WHERE id = $2",
         [String(req.ip || "").slice(0, 64), matchedCodeId]
       );
+
+      const authRef = `SEC-EMRG-AUTH-${Date.now().toString().slice(-4)}`;
+      const remainingCount = recCodesRes.rows.length - 1;
+
+      // Log successful break-glass recovery to security audit logs
+      await pool.query(
+        `INSERT INTO security_audit_logs (event_type, action_taken, ip, platform, user_agent, user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          "login_success",
+          `[${authRef}] Break-Glass Emergency Recovery Login Succeeded | Code Consumed | Remaining Codes: ${remainingCount}`,
+          ip.slice(0, 64),
+          "web",
+          userAgent.slice(0, 500),
+          user.id,
+        ]
+      ).catch(() => {});
 
       // Issue Super Admin session & token pair
       if (req.session) {
@@ -420,12 +473,13 @@ export function registerPasswordResetRoutes(app: Express) {
       });
 
       await sendTelegramAlert(
-        `🚨 <b>BREAK-GLASS EMERGENCY LOGIN USED</b>\n\nChief Super Admin logged in via Single-Use Emergency Recovery Code.\n• IP: <code>${req.ip || "unknown"}</code>\n• Remaining codes: ${recCodesRes.rows.length - 1}`
+        `🚨 <b>BREAK-GLASS EMERGENCY LOGIN USED [<code>${authRef}</code>]</b>\n\nChief Super Admin logged in via Single-Use Emergency Recovery Code.\n• IP: <code>${ip}</code>\n• Remaining codes: ${remainingCount}`
       ).catch(() => {});
 
       return res.json({
         success: true,
         message: "🛡️ Break-Glass Emergency Authentication successful! Welcome back, Chief Super Admin.",
+        incidentRef: authRef,
         user: {
           id: user.id,
           name: user.name,
