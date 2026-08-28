@@ -29,7 +29,6 @@ export default function AdminAdvertisements() {
   const { data: announcements = [], isLoading, refetch } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/admin/announcements"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/admin/announcements"),
-    refetchInterval: 5000,
     staleTime: 0,
   });
 
@@ -62,9 +61,25 @@ export default function AdminAdvertisements() {
       const res = await apiRequest("PATCH", `/api/admin/announcements/${id}`, { isActive });
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async ({ id, isActive }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/announcements"] });
+      const previous = queryClient.getQueryData<AnnouncementItem[]>(["/api/admin/announcements"]);
+      queryClient.setQueryData<AnnouncementItem[]>(["/api/admin/announcements"], (old = []) =>
+        old.map((a) => (a.id === id ? { ...a, isActive } : a))
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["/api/admin/announcements"], context.previous);
+      }
+      toast({ title: "Update Failed", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/announcements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/announcements/active"] });
+    },
+    onSuccess: () => {
       toast({ title: "Status updated" });
     },
   });
@@ -74,9 +89,25 @@ export default function AdminAdvertisements() {
       const res = await apiRequest("DELETE", `/api/admin/announcements/${id}`);
       return res.json();
     },
-    onSuccess: () => {
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/announcements"] });
+      const previous = queryClient.getQueryData<AnnouncementItem[]>(["/api/admin/announcements"]);
+      queryClient.setQueryData<AnnouncementItem[]>(["/api/admin/announcements"], (old = []) =>
+        old.filter((a) => a.id !== id)
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["/api/admin/announcements"], context.previous);
+      }
+      toast({ title: "Delete Failed", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/announcements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/announcements/active"] });
+    },
+    onSuccess: () => {
       toast({ title: "🗑️ Announcement Deleted" });
     },
   });

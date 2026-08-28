@@ -3,7 +3,9 @@ import { pool } from "../db";
 
 const STAFF_ROLES = ["admin", "superadmin", "subadmin", "manager_admin", "warehouse_admin", "custom_subadmin"];
 
+let tableEnsured = false;
 async function ensureAnnouncementsTable(): Promise<void> {
+  if (tableEnsured) return;
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS announcements (
@@ -22,6 +24,7 @@ async function ensureAnnouncementsTable(): Promise<void> {
       CREATE INDEX IF NOT EXISTS announcements_category_idx ON announcements(category);
       CREATE INDEX IF NOT EXISTS announcements_is_active_idx ON announcements(is_active);
     `);
+    tableEnsured = true;
   } catch (e: any) {
     console.warn("[announcements table ensure notice]:", e?.message);
   }
