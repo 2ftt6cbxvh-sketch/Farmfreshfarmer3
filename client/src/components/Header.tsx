@@ -418,27 +418,32 @@ export function Header() {
                 title={`${currentHeaderStarTheme.label} (${starsCount} Stars)`}
               >
                 {/* Visual Stars */}
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: Math.max(1, Math.min(starsCount, 6)) }).map((_, i) => (
+                {starsCount === 0 ? (
+                  <span className="text-xs font-black tracking-tight text-muted-foreground flex items-center gap-1">
+                    <span>⭐</span> 0★
+                  </span>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: Math.min(starsCount, 6) }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`text-xs leading-none ${currentHeaderStarTheme.starColor} ${currentHeaderStarTheme.glowClass} ${
+                            starsCount === 6 ? "animate-pulse" : ""
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
                     <span
-                      key={i}
-                      className={`text-xs leading-none ${currentHeaderStarTheme.starColor} ${currentHeaderStarTheme.glowClass} ${
-                        starsCount === 6 ? "animate-pulse" : ""
-                      }`}
+                      className="text-xs font-black tracking-tight ml-0.5"
+                      style={{ color: currentHeaderStarTheme.fillColor }}
                     >
-                      ★
+                      {starsCount === 6 ? "👑 6★" : `${starsCount}★`}
                     </span>
-                  ))}
-                  {starsCount === 0 && (
-                    <span className="text-[11px] font-extrabold text-muted-foreground">0★</span>
-                  )}
-                </div>
-                <span
-                  className="text-xs font-black tracking-tight ml-0.5"
-                  style={{ color: currentHeaderStarTheme.fillColor }}
-                >
-                  {starsCount === 6 ? "👑 6★" : `${starsCount}★`}
-                </span>
+                  </>
+                )}
               </div>
             )}
 
