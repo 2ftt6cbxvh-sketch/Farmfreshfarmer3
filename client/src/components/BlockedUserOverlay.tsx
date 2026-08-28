@@ -1,11 +1,31 @@
 import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert, Mail, Phone, LogOut, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/store";
+import { apiGet } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 
 export function BlockedUserOverlay() {
   const { user, logout } = useAuth();
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  const { data: publicSettings } = useQuery<any>({
+    queryKey: ["/api/settings/public"],
+    queryFn: () => apiGet<any>("/api/settings/public"),
+    staleTime: 60000,
+  });
+
+  const supportEmail =
+    publicSettings?.contact_email ||
+    publicSettings?.support_email ||
+    "support@farmfreshfarmer.com";
+
+  const supportPhone =
+    publicSettings?.contact_phone ||
+    publicSettings?.support_phone ||
+    "+91 79897 93669";
+
+  const cleanTel = supportPhone.replace(/[^\d+]/g, "");
 
   const isBlocked = Boolean(
     user && (user.status === "blocked" || user.status === "locked" || user.isPermanentlyLocked)
@@ -36,7 +56,7 @@ export function BlockedUserOverlay() {
 
   if (!isBlocked || !user) return null;
 
-  const mailtoUrl = `mailto:support@farmfreshfarmer.com?subject=Account%20Suspension%20Appeal%20-%20${encodeURIComponent(
+  const mailtoUrl = `mailto:${encodeURIComponent(supportEmail)}?subject=Account%20Suspension%20Appeal%20-%20${encodeURIComponent(
     user.email || ""
   )}&body=Hello%20FarmFreshFarmer%20Admin,%0A%0AMy%20account%20(${encodeURIComponent(
     user.email || ""
@@ -112,7 +132,7 @@ export function BlockedUserOverlay() {
             </a>
 
             <a
-              href="tel:+918886366669"
+              href={`tel:${cleanTel}`}
               className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all cursor-pointer"
             >
               <Phone size={15} />
