@@ -277,6 +277,13 @@ export function registerAuthJwtRoutes(app: Express) {
 
       if (user.status === "blocked") return res.status(403).json({ message: "Account is blocked. Please contact support." });
 
+      const isSuperAdminUser = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
+      if (isSuperAdminUser) {
+        return res.status(403).json({
+          message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
+        });
+      }
+
       try {
         await db.insert(oauthAccounts).values({
           userId: user.id,
@@ -341,6 +348,19 @@ export function registerAuthJwtRoutes(app: Express) {
 
     if (user.status === "blocked") {
       return res.status(403).json({ message: "Your account is currently suspended. Please contact support." });
+    }
+
+    const isMasterAdmin = Boolean(user.isPrimaryAdmin || cleanEmail === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
+    if (isMasterAdmin) {
+      return res.status(403).json({
+        message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
+      });
+    }
+
+    if (user.role && user.role !== "customer") {
+      return res.status(403).json({
+        message: "🚫 Staff and delivery partner accounts must sign in using the 'Staff & Delivery Partner Login' button.",
+      });
     }
 
     if (!user.password || user.password.trim() === "") {
@@ -430,6 +450,13 @@ export function registerAuthJwtRoutes(app: Express) {
       : await db.select().from(users).where(eq(users.email, targetEmail)).limit(1);
 
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMasterAdmin = Boolean(user.isPrimaryAdmin || user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
+    if (isMasterAdmin) {
+      return res.status(403).json({
+        message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
+      });
+    }
 
     const activeOtps = await db
       .select()
