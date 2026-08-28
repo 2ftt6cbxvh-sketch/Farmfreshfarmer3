@@ -152,7 +152,20 @@ export default function AdminCustomers() {
                       <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
                     </button>
                   </td>
-                  <td className="p-3 text-muted-foreground">{c.phone || "—"}</td>
+                  <td className="p-3">
+                    {c.phone ? (
+                      <div className="flex items-center gap-1.5 font-mono text-xs">
+                        <span className="text-foreground font-medium">{c.phone}</span>
+                        {c.isVerified && (
+                          <span title="Mobile Number Verified via SMS OTP" className="inline-flex items-center gap-0.5 text-[10px] font-black text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded-md border border-sky-500/20">
+                            ✓ Verified
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="p-3">{c.totalOrders}</td>
                   <td className="p-3 font-medium">{formatINR(Number(c.totalSpent))}</td>
                   <td className="p-3">{c.hasCompletedFirstOrder ? <Badge variant="default">Yes</Badge> : <Badge variant="outline">No</Badge>}</td>
