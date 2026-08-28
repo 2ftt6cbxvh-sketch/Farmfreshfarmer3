@@ -1129,46 +1129,41 @@ export default function Cart() {
                 </RadioGroup>
               </div>
 
-              {isPendingSuperAdminVerification && (
-                <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-center space-y-2 mb-2 animate-in fade-in duration-200">
-                  <p className="text-xs font-black text-sky-400 flex items-center justify-center gap-1.5">
-                    🔒 Mobile Number Verification Required
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Please verify your phone number via SMS OTP to unlock checkout and get your 🏅 Blue Badge!
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setShowCartVerifyModal(true)}
-                    className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 gap-1.5 cursor-pointer"
-                  >
-                    <Smartphone size={14} /> Click Here to Verify Phone Number
-                  </Button>
-                </div>
-              )}
-
               <Button
-                className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
-                onClick={handleCheckout}
-                disabled={isPendingSuperAdminVerification || !isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
+                className={`w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center ${
+                  isPendingSuperAdminVerification
+                    ? "bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white border-0 shadow-blue-500/25 active:scale-98"
+                    : "disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
+                }`}
+                onClick={() => {
+                  if (isPendingSuperAdminVerification) {
+                    setShowCartVerifyModal(true);
+                  } else {
+                    handleCheckout();
+                  }
+                }}
+                disabled={(!isPendingSuperAdminVerification && (!isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart))) || placeOrder.isPending || initiatePayment.isPending}
                 data-testid="button-place-order"
               >
                 {placeOrder.isPending || initiatePayment.isPending ? (
                   "Placing order…"
                 ) : isPendingSuperAdminVerification ? (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowCartVerifyModal(true);
-                    }}
-                    className="flex flex-col items-center justify-center gap-0.5 w-full cursor-pointer py-1"
-                  >
-                    <span className="font-black text-amber-500 dark:text-amber-300 flex items-center gap-1.5 text-xs">
-                      🔒 Please Verify Phone Number to Place Order
+                  <div className="flex flex-col items-center justify-center gap-1 w-full py-0.5">
+                    <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
+                      <Smartphone size={16} />
+                      <span>🔒 Click Here to Verify Phone Number & Pay</span>
+                    </div>
+                    <span className="text-[10px] font-medium text-sky-100/90">
+                      Instant 6-digit SMS OTP · Unlocks checkout & gives 🏅 Blue Badge
                     </span>
-                    <span className="text-[11px] font-extrabold text-sky-400 dark:text-sky-300 underline">
-                      Click here to verify phone number via SMS OTP →
+                  </div>
+                ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
+                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                    <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">
+                      ⚠️ Remove Subscription to Proceed with International Shipping
+                    </span>
+                    <span className="text-[10px] font-bold text-red-800/90 dark:text-red-300/90">
+                      Subscriptions are local fresh harvest only (Visakhapatnam)
                     </span>
                   </div>
                 ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
