@@ -373,9 +373,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/login", h(async (req, res) => {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ message: "Missing credentials" });
-    let user: any = null;
+    if (!email) return res.status(400).json({ message: "Missing credentials" });
     const cleanEmail = String(email).toLowerCase().trim();
+    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true";
+
+    // Immediate Access Denied for Master Admin without checking password or DB
+    if (cleanEmail === "admin@farmfreshfarmer.com" && !isFromStealthGateway) {
+      return res.status(403).json({
+        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
+      });
+    }
+
+    if (!password) return res.status(400).json({ message: "Missing password" });
+
+    let user: any = null;
     try {
       user = await storage.users.getByEmail(cleanEmail);
     } catch (dbErr: any) {
@@ -415,6 +426,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
+    if (user && (user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1)) && !isFromStealthGateway) {
+      return res.status(403).json({
+        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
+      });
+    }
+
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ message: "Wrong email or password" });
     }
@@ -423,9 +440,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     // Strict Executive Super Admin Stealth Gateway Enforcement
-    const isStealthLockdown = (await storage.settings.get("stealth_admin_lockdown")) === "true";
     const isSuperAdmin = user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1);
-    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true";
 
     if (isSuperAdmin && !isFromStealthGateway) {
       return res.status(403).json({

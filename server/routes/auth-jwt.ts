@@ -331,11 +331,21 @@ export function registerAuthJwtRoutes(app: Express) {
   /** POST /api/auth/login/initiate — Step 1 of Login: Checks user existence & password, sends 2FA OTP */
   app.post("/api/auth/login/initiate", authRateLimit, requireRecaptcha, async (req: Request, res: Response) => {
     const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail === "admin@farmfreshfarmer.com") {
+      return res.status(403).json({
+        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
 
     if (!user) {
