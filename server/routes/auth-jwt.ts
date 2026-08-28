@@ -353,7 +353,7 @@ export function registerAuthJwtRoutes(app: Express) {
     const isMasterAdmin = Boolean(user.isPrimaryAdmin || cleanEmail === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
     if (isMasterAdmin) {
       return res.status(403).json({
-        message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
+        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
       });
     }
 

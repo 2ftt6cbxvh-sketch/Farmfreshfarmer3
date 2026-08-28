@@ -15,7 +15,7 @@ import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 import { getRecaptchaToken } from "@/lib/recaptcha";
 
 export default function Login() {
-  const { user, setUser } = useAuth();
+  const { user, login, setUser } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -102,9 +102,20 @@ export default function Login() {
 
   async function handleStaffLogin(e: React.FormEvent) {
     e.preventDefault();
+    const cleanStaffEmail = staffEmail.trim().toLowerCase();
+
+    if (cleanStaffEmail === "admin@farmfreshfarmer.com") {
+      toast({
+        title: "🚫 Access Denied",
+        description: "Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setStaffBusy(true);
     try {
-      const res: any = await login(staffEmail.trim().toLowerCase(), staffPassword);
+      const res: any = await login(cleanStaffEmail, staffPassword);
       if (res?.require2fa) {
         setStaffStep2fa(true);
         setStaffTempToken(res.tempToken);
@@ -126,7 +137,7 @@ export default function Login() {
       toast({ title: "Welcome back, " + (u.name || "Staff Member") });
       navigate("/admin");
     } catch (err: any) {
-      toast({ title: "Staff Sign In Failed", description: err?.message || "Invalid credentials.", variant: "destructive" });
+      toast({ title: "🚫 Access Denied", description: err?.message || "Invalid credentials.", variant: "destructive" });
     } finally {
       setStaffBusy(false);
     }

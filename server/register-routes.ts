@@ -427,9 +427,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const isSuperAdmin = user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1);
     const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true";
 
-    if (isStealthLockdown && isSuperAdmin && !isFromStealthGateway) {
+    if (isSuperAdmin && !isFromStealthGateway) {
       return res.status(403).json({
-        message: "🚫 Master credentials cannot be used on public portals. Please use your designated private access portal.",
+        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
       });
     }
 
