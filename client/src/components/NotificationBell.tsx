@@ -92,7 +92,7 @@ export function NotificationBell() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-[9999]" ref={dropdownRef}>
       {/* 🔔 Animated Bell Button */}
       <button
         onClick={handleToggle}
@@ -123,7 +123,7 @@ export function NotificationBell() {
 
       {/* 📋 Notification Drop Box Modal */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-card border border-card-border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-card/98 backdrop-blur-2xl border border-card-border shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between p-3.5 bg-secondary/70 border-b border-card-border">
             <div className="flex items-center gap-2">

@@ -214,13 +214,13 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full transition-all duration-300">
       {/* ── Main Floating Glassmorphic Navigation Bar ── */}
       <div
-        className={`w-full backdrop-blur-xl transition-all duration-300 border-b ${
+        className={`w-full backdrop-blur-xl transition-all duration-300 border-b relative z-30 ${
           scrolled
             ? "bg-background/95 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.25)] border-emerald-500/30 py-2.5"
             : "bg-background/90 shadow-sm border-emerald-500/20 py-3"
         }`}
       >
-        <div className="mx-auto max-w-7xl px-2.5 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-6" style={{ position: 'relative', zIndex: 10 }}>
+        <div className="mx-auto max-w-7xl px-2.5 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-6 relative z-40">
           {/* 🌟 Logo & Brand Wordmark — Ultra-Crisp, High-Contrast Luminous Badge 🌟 */}
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 shrink min-w-0 group select-none">
             <div className="relative w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-white dark:bg-emerald-950/80 p-1 sm:p-1.5 shadow-[0_4px_16px_rgba(16,185,129,0.35)] border-2 border-emerald-400/80 group-hover:scale-105 group-hover:shadow-[0_6px_22px_rgba(16,185,129,0.5)] transition-all duration-300 flex items-center justify-center shrink-0">
@@ -755,7 +755,7 @@ export function Header() {
       </div>
 
       {/* ── 🌟 CENTERED CATEGORY RIBBON (Centered on Desktop/Tablet, Smooth Scroll on Mobile) 🌟 ── */}
-      <div className="w-full bg-card/75 dark:bg-zinc-950/70 backdrop-blur-md border-b border-border/60 overflow-x-auto no-scrollbar py-2">
+      <div className="w-full bg-card/75 dark:bg-zinc-950/70 backdrop-blur-md border-b border-border/60 overflow-x-auto no-scrollbar py-2 relative z-10">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-start md:justify-center gap-2 min-w-max">
           {categories.map((c) => {
             const isActive = location === `/category/${c.slug}`;
