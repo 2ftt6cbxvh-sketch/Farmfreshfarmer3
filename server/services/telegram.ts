@@ -994,6 +994,13 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
+
+    if (target === "admin@farmfreshfarmer.com" || target === "admin") {
+      const reply = `⛔ <b>ACTION PROHIBITED FOR ROOT MASTER ADMIN</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nChief Executive Super Admin credentials CANNOT be unlocked via Telegram command.\n\n🛡️ <b>Required Recovery Path:</b>\nIf you forgot your password or are locked out, you must use your <b>Offline Break-Glass Emergency Recovery Secret Code</b> at the Private Stealth Gateway or Password Reset flow.`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+
     const { unlockUserAccount } = await import("./lockout");
     const res = await unlockUserAccount(target, "Super Admin (Telegram)");
     if (res.success && res.user) {
@@ -1001,7 +1008,7 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
       await sendRawTelegramMessage(botToken, senderChatId, reply);
       return { handled: true, reply };
     }
-    const reply = `⚠️ Account not found: <code>${target}</code>`;
+    const reply = res.message || `⚠️ Account not found: <code>${target}</code>`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
   }

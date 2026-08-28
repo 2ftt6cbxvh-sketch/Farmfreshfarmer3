@@ -382,20 +382,7 @@ export function registerPasswordResetRoutes(app: Express) {
         return res.status(403).json({ message: "Invalid emergency login credentials" });
       }
 
-      // 1. Check if user is locked out
-      const now = Date.now();
-      if (user.is_permanently_locked || user.status === "locked" || user.status === "blocked") {
-        return res.status(423).json({
-          message: "🔒 Account is locked due to multiple failed authentication attempts. Use Telegram /unlock command or Super Admin approval.",
-        });
-      }
-
-      if (user.lockout_until && new Date(user.lockout_until).getTime() > now) {
-        const remainingSec = Math.ceil((new Date(user.lockout_until).getTime() - now) / 1000);
-        return res.status(429).json({
-          message: `⏳ Account is temporarily locked. Try again in ${remainingSec} seconds.`,
-        });
-      }
+      // Note: If account is locked or password is forgotten, Break-Glass Emergency Code is the exclusive recovery key.
 
       const recCodesRes = await pool.query(
         "SELECT id, code_hash FROM emergency_recovery_codes WHERE user_id = $1 AND used = FALSE",
@@ -441,6 +428,12 @@ export function registerPasswordResetRoutes(app: Express) {
         "UPDATE emergency_recovery_codes SET used = TRUE, used_at = NOW(), used_ip = $1 WHERE id = $2",
         [String(req.ip || "").slice(0, 64), matchedCodeId]
       );
+
+      // Restore account from any lockout and reset failure attempts to 0
+      await pool.query(
+        "UPDATE users SET failed_login_attempts = 0, lockout_tier = 0, lockout_until = NULL, is_permanently_locked = FALSE, status = 'active', updated_at = NOW() WHERE id = $1",
+        [user.id]
+      ).catch(() => {});
 
       // Security Hardening: Immediately revoke all existing active refresh tokens across all devices
       await pool.query("UPDATE refresh_tokens SET revoked = TRUE, revoked_at = NOW() WHERE user_id = $1", [user.id]).catch(() => {});

@@ -210,6 +210,20 @@ export async function unlockUserAccount(
     return { success: false, message: `User not found: ${userIdOrEmail}` };
   }
 
+  // Strict Policy: Root Master Admin CANNOT be unlocked via standard or Telegram commands
+  const isMasterAdmin = Boolean(
+    targetUser.isPrimaryAdmin ||
+    targetUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    (targetUser.role === "admin" && targetUser.id === 1)
+  );
+
+  if (isMasterAdmin) {
+    return {
+      success: false,
+      message: "⛔ Access Prohibited: Chief Executive Super Admin credentials CANNOT be unlocked via Telegram or generic unlock commands. You must use your Offline Break-Glass Emergency Recovery Secret Code at the Private Stealth Gateway.",
+    };
+  }
+
   await db.update(users).set({
     failedLoginAttempts: 0,
     lockoutTier: 0,
