@@ -39,14 +39,23 @@ export default function ForgotPassword() {
       if (data.devOtp) setDevOtp(data.devOtp);
       toast({
         title: "🔑 Reset OTP Sent!",
-        description: `Check your inbox (${email}). If not found in Primary, check your Spam folder!`,
+        description: `Check your inbox (${email}). If not in Primary, check your Spam folder!`,
       });
     } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Could not find an account with this email.",
-        variant: "destructive",
-      });
+      const errMsg = String(err?.message || "");
+      if (errMsg.includes("No account") || errMsg.includes("sign up") || errMsg.includes("404")) {
+        toast({
+          title: "Account Not Found",
+          description: "No account found with this email. Redirecting to Sign Up...",
+        });
+        navigate("/login");
+      } else {
+        toast({
+          title: "Error",
+          description: errMsg || "Could not find an account with this email.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

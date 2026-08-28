@@ -87,7 +87,7 @@ export function registerPasswordResetRoutes(app: Express) {
     const cleanEmail = email.toLowerCase().trim();
     const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
     if (!user) {
-      return res.status(404).json({ message: "No account found with this email address." });
+      return res.status(404).json({ message: "No account found with this email. Please sign up first." });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

@@ -354,11 +354,23 @@ export default function Login() {
         description: `Check your inbox (${forgotEmail}). If not in Primary, check your Spam folder!`,
       });
     } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Could not send reset OTP. Check your email.",
-        variant: "destructive",
-      });
+      const errMsg = String(err?.message || "");
+      if (errMsg.includes("No account") || errMsg.includes("sign up") || errMsg.includes("404")) {
+        toast({
+          title: "Account Not Found",
+          description: "No account found with this email. Please sign up first.",
+        });
+        setShowForgotModal(false);
+        setSignupEmail(forgotEmail.trim().toLowerCase());
+        setMode("signup");
+        setSignupStep("form");
+      } else {
+        toast({
+          title: "Error",
+          description: errMsg || "Could not send reset OTP. Check your email.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setBusy(false);
     }
