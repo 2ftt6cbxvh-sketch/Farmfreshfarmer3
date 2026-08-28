@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound } from "lucide-react";
 import { useAuth } from "@/lib/store";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
+import { AdminDirectAccessWarning } from "./AdminDirectAccessWarning";
 
 export default function AdminLogin() {
   const { login, setUser } = useAuth();
@@ -15,6 +16,18 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("admin@farmfreshfarmer.com");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Stealth Access Check (Direct URL Navigation Interceptor)
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [checkingUnlock, setCheckingUnlock] = useState(true);
+
+  useEffect(() => {
+    const unlocked =
+      sessionStorage.getItem("fff_stealth_gateway_unlocked") === "true" ||
+      localStorage.getItem("fff_stealth_gateway_unlocked") === "true";
+    setIsUnlocked(unlocked);
+    setCheckingUnlock(false);
+  }, []);
 
   // 2FA Challenge State
   const [step2fa, setStep2fa] = useState(false);
@@ -147,6 +160,14 @@ export default function AdminLogin() {
     } finally {
       setResending(false);
     }
+  }
+
+  if (!checkingUnlock && !isUnlocked) {
+    return <AdminDirectAccessWarning />;
+  }
+
+  if (checkingUnlock) {
+    return <div className="min-h-screen bg-black" />;
   }
 
   return (

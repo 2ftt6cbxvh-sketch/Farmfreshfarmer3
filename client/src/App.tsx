@@ -64,6 +64,7 @@ import AdminTickets from "@/pages/admin/AdminTickets";
 import AdminRefunds from "@/pages/admin/AdminRefunds";
 import AdminAdvertisements from "@/pages/admin/AdminAdvertisements";
 import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
+import StealthPassage from "@/pages/admin/StealthPassage";
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -179,6 +180,10 @@ function AppRouter() {
         <Route path="/profile" component={Account} />
         <Route path="/my-orders" component={Orders} />
         <Route path="/help" component={GrievancePage} />
+
+        {/* Stealth Gateway Portal */}
+        <Route path="/aIhHYTdgagthawsWGHSgs" component={StealthPassage} />
+        <Route path="/aIhHYTdgagthawsWGHSgs/" component={StealthPassage} />
 
         {/* Admin & Partner Portal Routes */}
         <Route path="/admin/login" component={AdminLogin} />
