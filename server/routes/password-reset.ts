@@ -354,4 +354,93 @@ export function registerPasswordResetRoutes(app: Express) {
       return res.status(500).json({ message: "Failed to fetch recovery status" });
     }
   });
+
+  /**
+   * POST /api/admin/emergency-login
+   * Ultimate Break-Glass Master Recovery:
+   * Logs in Chief Super Admin if password is forgotten AND all 2FA devices are lost.
+   * Validates 1 single-use offline recovery code, consumes it, and opens Super Admin access.
+   */
+  app.post("/api/admin/emergency-login", authRateLimit, async (req: Request, res: Response) => {
+    try {
+      await ensureSecurityTables();
+      const { email, recoveryCode } = req.body || {};
+      if (!email || !recoveryCode) {
+        return res.status(400).json({ message: "Chief Admin email and Emergency Recovery Code are required" });
+      }
+
+      const cleanEmail = String(email).toLowerCase().trim();
+      const rawRecCode = String(recoveryCode).trim().toUpperCase();
+
+      const userRes = await pool.query(
+        "SELECT * FROM users WHERE email = $1 AND (is_primary_admin = TRUE OR email = 'admin@farmfreshfarmer.com' OR id = 1) LIMIT 1",
+        [cleanEmail]
+      );
+      const user = userRes.rows[0];
+
+      if (!user) {
+        return res.status(403).json({ message: "Invalid emergency login credentials" });
+      }
+
+      const recCodesRes = await pool.query(
+        "SELECT id, code_hash FROM emergency_recovery_codes WHERE user_id = $1 AND used = FALSE",
+        [user.id]
+      );
+
+      let matchedCodeId: number | null = null;
+      for (const recRow of recCodesRes.rows) {
+        const matches = await bcrypt.compare(rawRecCode, recRow.code_hash);
+        if (matches) {
+          matchedCodeId = recRow.id;
+          break;
+        }
+      }
+
+      if (!matchedCodeId) {
+        return res.status(400).json({ message: "Invalid or already used Emergency Recovery Code" });
+      }
+
+      // Mark single-use code as consumed permanently
+      await pool.query(
+        "UPDATE emergency_recovery_codes SET used = TRUE, used_at = NOW(), used_ip = $1 WHERE id = $2",
+        [String(req.ip || "").slice(0, 64), matchedCodeId]
+      );
+
+      // Issue Super Admin session & token pair
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.role = user.role;
+      }
+
+      const { issueTokenPair } = await import("../services/token");
+      const tokens = await issueTokenPair(user.id, user.role, {
+        platform: "web",
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      await sendTelegramAlert(
+        `🚨 <b>BREAK-GLASS EMERGENCY LOGIN USED</b>\n\nChief Super Admin logged in via Single-Use Emergency Recovery Code.\n• IP: <code>${req.ip || "unknown"}</code>\n• Remaining codes: ${recCodesRes.rows.length - 1}`
+      ).catch(() => {});
+
+      return res.json({
+        success: true,
+        message: "🛡️ Break-Glass Emergency Authentication successful! Welcome back, Chief Super Admin.",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isPrimaryAdmin: true,
+          isVerified: true,
+          starRating: 6,
+          experienceRank: "Super Admin",
+        },
+        ...tokens,
+      });
+    } catch (err: any) {
+      console.error("[emergency-login error]:", err);
+      return res.status(500).json({ message: "Emergency login failed. Please try again." });
+    }
+  });
 }
