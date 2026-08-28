@@ -1,17 +1,28 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   X, AlertTriangle, ShieldAlert, Sparkles, ShoppingBag,
   ArrowRight, Check, Star
 } from "lucide-react";
 import { apiGet, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
-import { useCart } from "@/lib/store";
+import { useCart, useAuth } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import type { AnnouncementItem } from "./NotificationBell";
 
 export function BroadcastPopupModal() {
+  const [location] = useLocation();
+  const { user } = useAuth();
+
+  const isAdminRoute =
+    location.startsWith("/admin") ||
+    location.startsWith("/subadmin") ||
+    location.startsWith("/delivery-partner") ||
+    location.startsWith("/delivery-admin") ||
+    location.startsWith("/manager") ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
+
   let addToCart: any = () => {};
   try {
     const cart = useCart();
@@ -25,10 +36,11 @@ export function BroadcastPopupModal() {
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
     staleTime: 0,
     refetchInterval: 10000,
+    enabled: !isAdminRoute,
   });
 
   useEffect(() => {
-    if (!announcements.length) return;
+    if (isAdminRoute || !announcements.length) return;
 
     // Find the highest priority active announcement with showPopup === true that has not been shown this session
     const unshown = announcements.find((item) => {
@@ -56,9 +68,9 @@ export function BroadcastPopupModal() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [announcements, shownIds, activePopup]);
+  }, [announcements, shownIds, activePopup, isAdminRoute]);
 
-  if (!activePopup) return null;
+  if (isAdminRoute || !activePopup) return null;
 
   const handleClose = () => {
     if (activePopup) {
