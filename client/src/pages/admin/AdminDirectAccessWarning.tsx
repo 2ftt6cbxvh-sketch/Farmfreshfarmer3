@@ -9,16 +9,18 @@ export function AdminDirectAccessWarning({
   subtitle = "Direct browser URL navigation to administrative routes is disabled. Access to the master control portal is restricted strictly to the encrypted Stealth Gateway.",
   targetRoute = "/admin/*",
   policy = "Stealth Gateway Keycard Enforced",
+  incidentId: initialIncidentId,
   onDismiss,
 }: {
   title?: string;
   subtitle?: string;
   targetRoute?: string;
   policy?: string;
+  incidentId?: string;
   onDismiss?: () => void;
 } = {}) {
   const [, navigate] = useLocation();
-  const [incidentId, setIncidentId] = useState("");
+  const [incidentId, setIncidentId] = useState(initialIncidentId || "");
 
   const { data: settings } = useQuery<{ stealth_admin_lockdown?: boolean }>({
     queryKey: ["/api/settings/public"],
@@ -28,10 +30,21 @@ export function AdminDirectAccessWarning({
   const isLockdownStrict = settings?.stealth_admin_lockdown === true;
 
   useEffect(() => {
-    const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const timestamp = Date.now().toString().slice(-4);
-    setIncidentId(`SEC-${randomHex}-${timestamp}`);
-  }, []);
+    const refId = initialIncidentId || `SEC-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+    setIncidentId(refId);
+
+    // Fire and forget logging to server with exact Reference ID
+    fetch("/api/admin/security/log-incident", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        incidentRef: refId,
+        title,
+        targetRoute,
+        policy,
+      }),
+    }).catch((err) => console.warn("[log-incident note]", err));
+  }, [initialIncidentId, title, targetRoute, policy]);
 
   return (
     <div style={{ colorScheme: "dark" }} className="min-h-screen bg-black flex flex-col items-center justify-center p-4 sm:p-6 text-foreground select-none">

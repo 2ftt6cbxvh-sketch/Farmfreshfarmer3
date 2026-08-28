@@ -122,6 +122,47 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.status(400).json({ message: "Invalid 6-digit TOTP verification code. Check Apple Passwords or Authenticator App." });
   });
 
+  /** POST /api/admin/security/log-incident — Log intercepted security incident with Reference Number */
+  app.post("/api/admin/security/log-incident", async (req: Request, res: Response) => {
+    try {
+      const { incidentRef, title, targetRoute, policy, email } = req.body || {};
+      const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
+      const userAgent = req.headers["user-agent"] || "unknown";
+
+      const cleanRef = incidentRef ? String(incidentRef).trim() : `SEC-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      const actionText = `[${cleanRef}] ${title || "Security Threat Intercepted"} | Route: ${targetRoute || "/login"} | Policy: ${policy || "Zero-Trust Clearance"} | Target: ${email || "admin@farmfreshfarmer.com"}`;
+
+      await db.insert(securityAuditLogs).values({
+        eventType: "master_credential_intercepted",
+        actionTaken: actionText,
+        ip: ip.slice(0, 64),
+        platform: "web",
+        userAgent: userAgent.slice(0, 500),
+      });
+
+      // Dispatch Telegram Security Alert
+      const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../../services/telegram");
+      if (await isTelegramSecurityConfigured()) {
+        await sendTelegramSecurityAlert(
+          `🚨 <b>SECURITY INCIDENT LOGGED: <code>${cleanRef}</code></b>\n\n` +
+          `• <b>Type</b>: ${title || "Master Credentials Intercepted"}\n` +
+          `• <b>Route</b>: <code>${targetRoute || "/login"}</code>\n` +
+          `• <b>Target Identity</b>: <code>${email || "admin@farmfreshfarmer.com"}</code>\n` +
+          `• <b>Policy</b>: ${policy || "Executive Zero-Trust Clearance"}\n` +
+          `• <b>IP Address</b>: <code>${ip}</code>\n` +
+          `• <b>Device</b>: ${userAgent.slice(0, 70)}\n` +
+          `• <b>Timestamp</b>: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}\n\n` +
+          `🔒 <b>Action</b>: Quarantined & Blocked under IT Act 2000 & BNS 2023.`
+        );
+      }
+
+      return res.json({ success: true, incidentRef: cleanRef });
+    } catch (err: any) {
+      console.error("[log-incident] error:", err);
+      return res.status(500).json({ message: "Failed to log incident" });
+    }
+  });
+
   /** POST /api/admin/security/unauthorized-attempt — Trigger Telegram Alert when someone hits /admin directly */
   app.post("/api/admin/security/unauthorized-attempt", async (req: Request, res: Response) => {
     const { path } = req.body || {};

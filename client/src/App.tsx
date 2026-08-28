@@ -182,8 +182,8 @@ function AppRouter() {
         <Route path="/help" component={GrievancePage} />
 
         {/* Secret Master Stealth Admin Gateway (Obfuscated from Inspector & Scanners) */}
-        <Route path={"/" + atob("YUltSFlUZGdhZ3RoYXdzV0dIU2dz")} component={AdminLogin} />
-        <Route path={"/" + atob("YUltSFlUZGdhZ3RoYXdzV0dIU2dz") + "/"} component={AdminLogin} />
+        <Route path={"/" + atob("YUloSFlUZGdhZ3RoYXdzV0dIU2dz")} component={AdminLogin} />
+        <Route path={"/" + atob("YUloSFlUZGdhZ3RoYXdzV0dIU2dz") + "/"} component={AdminLogin} />
 
         {/* Intercept & Block Direct /admin/login with Full-Screen Security Warning */}
         <Route path="/admin/login" component={AdminDirectAccessWarning} />

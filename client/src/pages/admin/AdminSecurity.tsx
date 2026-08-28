@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus } from "lucide-react";
+import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus, Copy, Check, Search, Terminal, ShieldX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 
@@ -619,6 +619,39 @@ export default function AdminSecurity() {
     return "secondary";
   };
 
+  const [incidentSearch, setIncidentSearch] = useState("");
+  const [copiedRef, setCopiedRef] = useState<string | null>(null);
+
+  const copyIncidentRef = (ref: string) => {
+    navigator.clipboard.writeText(ref);
+    setCopiedRef(ref);
+    toast({ title: "Copied!", description: `Reference ${ref} copied to clipboard.` });
+    setTimeout(() => setCopiedRef(null), 2000);
+  };
+
+  const threatIncidents = (auditData?.logs || []).filter((log: any) => {
+    const isThreat =
+      log.eventType === "master_credential_intercepted" ||
+      log.eventType === "threat_interception" ||
+      (log.actionTaken && log.actionTaken.includes("[SEC-"));
+    if (!isThreat) return false;
+    if (!incidentSearch.trim()) return true;
+    const q = incidentSearch.toLowerCase().trim();
+    return (
+      (log.actionTaken && log.actionTaken.toLowerCase().includes(q)) ||
+      (log.ip && log.ip.toLowerCase().includes(q)) ||
+      (log.email && log.email.toLowerCase().includes(q))
+    );
+  });
+
+  const generalAuditLogs = (auditData?.logs || []).filter((log: any) => {
+    const isThreat =
+      log.eventType === "master_credential_intercepted" ||
+      log.eventType === "threat_interception" ||
+      (log.actionTaken && log.actionTaken.includes("[SEC-"));
+    return !isThreat;
+  });
+
   return (
     <AdminLayout title="Security Dashboard">
       <div className="space-y-6">
@@ -1044,9 +1077,116 @@ export default function AdminSecurity() {
         </CardContent>
       </Card>
 
-      {/* Audit Log */}
+      {/* Dedicated Security Incident & Threat Interceptions Log */}
+      <Card className="border-red-500/40 bg-card shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-red-950/40 via-card to-card border-b border-red-500/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-foreground font-serif text-lg">
+                <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />
+                <span>Intercepted Threats &amp; Security Incident Log</span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Real-time record of quarantined credential attacks, stealth gateway interceptions, and security policy enforcements.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search Incident Ref (e.g. SEC-1GAOP7)..."
+                  value={incidentSearch}
+                  onChange={(e) => setIncidentSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs font-mono rounded-lg border-red-500/30 bg-background/80"
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => qc.invalidateQueries({ queryKey: ["/api/admin/security/audit-log"] })}
+                className="h-8 border-red-500/30 hover:bg-red-500/10 text-xs px-2.5 rounded-lg text-red-400 gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0 sm:p-4">
+          <Table>
+            <TableHeader className="bg-secondary/30">
+              <TableRow>
+                <TableHead className="text-xs font-bold text-red-400">Incident Reference</TableHead>
+                <TableHead className="text-xs font-bold text-foreground">Threat Type &amp; Details</TableHead>
+                <TableHead className="text-xs font-bold text-foreground">IP Address</TableHead>
+                <TableHead className="text-xs font-bold text-foreground">Status</TableHead>
+                <TableHead className="text-xs font-bold text-foreground">Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {threatIncidents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-xs">
+                    {incidentSearch ? `No threat incidents matching "${incidentSearch}"` : "No threat incidents recorded yet. System defenses operational."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                threatIncidents.map((log: any) => {
+                  const refMatch = log.actionTaken?.match(/\[(SEC-[A-Z0-9]+-\d+)\]/);
+                  const incidentRef = refMatch ? refMatch[1] : (log.actionTaken?.includes("[") ? log.actionTaken.split("]")[0].replace("[", "") : `SEC-LOG-${log.id}`);
+                  const detailText = log.actionTaken ? log.actionTaken.replace(/\[SEC-[A-Z0-9]+-\d+\]\s*/, "") : "Master Credentials Intercepted";
+
+                  return (
+                    <TableRow key={log.id} className="hover:bg-red-950/20 transition-colors border-b border-red-500/10">
+                      <TableCell className="font-mono text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="destructive" className="font-mono font-bold bg-red-900/60 text-red-200 border-red-500/40 text-[11px] px-2 py-0.5 shadow-sm">
+                            {incidentRef}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => copyIncidentRef(incidentRef)}
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                            title="Copy Incident Reference"
+                          >
+                            {copiedRef === incidentRef ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs max-w-xs">
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-foreground">{log.eventType === "master_credential_intercepted" ? "Master Credentials Intercepted" : log.eventType}</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight">{detailText}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{log.ip || "—"}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] uppercase tracking-wider font-bold">
+                          Quarantined &amp; Blocked
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* General System & Auth Audit Log */}
       <Card>
-        <CardHeader><CardTitle>Security Audit Log</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center justify-between">
+            <span>General System Audit Log</span>
+            <span className="text-xs font-normal text-muted-foreground">({generalAuditLogs.length} events)</span>
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -1060,10 +1200,10 @@ export default function AdminSecurity() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(auditData?.logs || []).length === 0 ? (
+              {generalAuditLogs.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No audit events yet</TableCell></TableRow>
               ) : (
-                (auditData?.logs || []).map((log: any) => (
+                generalAuditLogs.map((log: any) => (
                   <TableRow key={log.id}>
                     <TableCell><Badge variant={eventBadgeColor(log.eventType)}>{log.eventType}</Badge></TableCell>
                     <TableCell className="text-sm">{log.email || (log.userId ? `#${log.userId}` : "—")}</TableCell>
