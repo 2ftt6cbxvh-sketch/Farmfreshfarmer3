@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 
 interface CouponResult {
   valid: boolean;
@@ -272,6 +273,7 @@ export default function Cart() {
 
   const isVerificationMandatory = requireVerificationSetting?.value === "true";
   const isPendingSuperAdminVerification = Boolean(user && !user.isVerified && isVerificationMandatory && user.role === "customer" && !user.isPrimaryAdmin);
+  const [showCartVerifyModal, setShowCartVerifyModal] = useState(false);
 
   // Subscription items in cart (strictly local Visakhapatnam delivery)
   const subscriptionCartItems = items.filter((cartItem) => {
@@ -1092,6 +1094,25 @@ export default function Cart() {
                 </RadioGroup>
               </div>
 
+              {isPendingSuperAdminVerification && (
+                <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-center space-y-2 mb-2 animate-in fade-in duration-200">
+                  <p className="text-xs font-black text-sky-400 flex items-center justify-center gap-1.5">
+                    🔒 Super Admin Verification Required
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Verify your mobile number via SMS OTP to instantly activate your 🏅 Blue Badge and unlock checkout!
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowCartVerifyModal(true)}
+                    className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 gap-1.5"
+                  >
+                    <Smartphone size={14} /> Instant Verify Mobile & Unlock
+                  </Button>
+                </div>
+              )}
+
               <Button
                 className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
                 onClick={handleCheckout}
@@ -1106,7 +1127,7 @@ export default function Cart() {
                       🔒 Account Pending Super Admin Verification
                     </span>
                     <span className="text-[10px] font-bold text-muted-foreground">
-                      Orders unlock once your profile is verified with the Blue Badge
+                      Click 'Instant Verify Mobile' above or wait for Super Admin approval
                     </span>
                   </div>
                 ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
@@ -1140,6 +1161,14 @@ export default function Cart() {
           </div>
         </div>
       </div>
+
+      {/* 📱 Firebase Phone Verification Modal */}
+      <PhoneVerificationModal
+        open={showCartVerifyModal}
+        onOpenChange={setShowCartVerifyModal}
+        mode="verify_account"
+        defaultPhone={phone || user?.phone || ""}
+      />
     </Layout>
   );
 }

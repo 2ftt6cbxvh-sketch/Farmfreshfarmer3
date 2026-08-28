@@ -14,9 +14,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useQuery } from "@tanstack/react-query";
 import {
   Ticket, User, Phone, Mail, Clock, CheckCircle2, AlertCircle, MessageSquare,
-  Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar, Trash2
+  Star, Crown, Shield, Sparkles, MapPin, Eye, ExternalLink, RefreshCw, Calendar, Trash2, Smartphone
 } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 
 interface StarDiscountRule {
   id: number;
@@ -70,6 +71,7 @@ export default function Account() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedTranscript, setSelectedTranscript] = useState<ChatSessionHistory | null>(null);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
 
   const { data: ticketData, isLoading: ticketsLoading, refetch: refetchTickets } = useQuery<{ tickets: SupportTicket[] }>({
     queryKey: ["/api/support-tickets/my", user?.email, user?.id],
@@ -303,17 +305,28 @@ export default function Account() {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                refetchTickets();
-                refetchChats();
-              }}
-              className="self-start sm:self-center gap-1.5 text-xs font-bold"
-            >
-              <RefreshCw size={13} className={ticketsLoading || chatsLoading ? "animate-spin" : ""} /> Refresh Data
-            </Button>
+            <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+              {!user.isVerified && user.role === "customer" && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowVerifyModal(true)}
+                  className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
+                >
+                  <Smartphone size={14} /> Get Verified (Blue Badge 🏅)
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  refetchTickets();
+                  refetchChats();
+                }}
+                className="gap-1.5 text-xs font-bold rounded-xl"
+              >
+                <RefreshCw size={13} className={ticketsLoading || chatsLoading ? "animate-spin" : ""} /> Refresh Data
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -759,6 +772,14 @@ export default function Account() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 📱 Firebase Mobile Verification Modal */}
+        <PhoneVerificationModal
+          open={showVerifyModal}
+          onOpenChange={setShowVerifyModal}
+          mode="verify_account"
+          defaultPhone={user.phone || ""}
+        />
       </div>
     </Layout>
   );

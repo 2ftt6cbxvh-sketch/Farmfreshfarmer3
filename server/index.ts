@@ -27,6 +27,30 @@ app.use(
 
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Strict Production Security Headers & Content Security Policy (CSP)
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://apis.google.com https://accounts.google.com https://*.gstatic.com https://*.firebaseapp.com https://*.firebaseio.com https://checkout.razorpay.com https://*.razorpay.com https://*.phonepe.com https://challenges.cloudflare.com https://cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https: res.cloudinary.com https://images.unsplash.com https://*.googleusercontent.com https://lh3.googleusercontent.com",
+    "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://api.ipify.org http://ip-api.com https://api.telegram.org wss: ws:",
+    "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://challenges.cloudflare.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join("; ");
+
+  res.setHeader("Content-Security-Policy", csp);
+  next();
+});
+
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",

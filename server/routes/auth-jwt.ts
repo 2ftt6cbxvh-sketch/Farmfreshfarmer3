@@ -342,6 +342,13 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(403).json({ message: "Your account is currently suspended. Please contact support." });
     }
 
+    if (!user.password || user.password.trim() === "") {
+      return res.status(400).json({
+        message: "This account was registered via Google Sign-In. Please click 'Sign in with Google' or use 'Forgot Password' to create a password.",
+        googleAccount: true,
+      });
+    }
+
     const lockoutCheck = await verifyPasswordWithLockout(user, password, req);
     if (!lockoutCheck.allowed) {
       return res.status(lockoutCheck.statusCode || 401).json({
@@ -495,6 +502,13 @@ export function registerAuthJwtRoutes(app: Express) {
     const cleanEmail = email.toLowerCase().trim();
     const [existing] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
     if (existing) {
+      if (!existing.password || existing.password.trim() === "") {
+        return res.status(409).json({
+          message: "An account with this email is already registered via Google Sign-In. Please click 'Sign in with Google' to log in.",
+          isGoogleAccount: true,
+          exists: true,
+        });
+      }
       return res.status(409).json({
         message: "An account already exists with this email. Please log in instead.",
         exists: true,
@@ -750,6 +764,81 @@ export function registerAuthJwtRoutes(app: Express) {
       message: "OTP verified successfully!",
       user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
       ...tokens,
+    });
+  });
+
+  /** POST /api/auth/phone-verify-firebase — Verify phone number via Firebase SMS OTP & activate Blue Badge */
+  app.post("/api/auth/phone-verify-firebase", authRateLimit, async (req: Request, res: Response) => {
+    const { phone, userId, email } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10) {
+      return res.status(400).json({ message: "Invalid 10-digit Indian mobile number." });
+    }
+
+    const targetId = userId || (req.session as any)?.userId;
+    let targetUser: any = null;
+
+    if (targetId) {
+      [targetUser] = await db.select().from(users).where(eq(users.id, Number(targetId))).limit(1);
+    } else if (email) {
+      [targetUser] = await db.select().from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "User account not found" });
+    }
+
+    // Mark user as verified with Blue Badge and set their verified phone
+    await db.update(users).set({
+      isVerified: true,
+      phone: cleanPhone,
+      updatedAt: new Date(),
+    }).where(eq(users.id, targetUser.id));
+
+    // If user was locked or had failed attempts, unlock them immediately!
+    if (targetUser.isPermanentlyLocked || targetUser.status === "locked" || (targetUser.failedLoginAttempts || 0) > 0 || targetUser.lockoutUntil) {
+      const { unlockUserAccount } = await import("../services/lockout");
+      await unlockUserAccount(targetUser.id, "Mobile Number SMS Verification");
+    }
+
+    return res.json({
+      success: true,
+      isVerified: true,
+      phone: cleanPhone,
+      message: "🎉 Mobile number verified successfully! Blue Verification Badge activated.",
+    });
+  });
+
+  /** POST /api/auth/unlock-with-phone — Eliminate 24h+ rate limit / permanent lock by verifying registered mobile */
+  app.post("/api/auth/unlock-with-phone", authRateLimit, async (req: Request, res: Response) => {
+    const { email, phone } = req.body || {};
+    if (!email || !phone) {
+      return res.status(400).json({ message: "Email and verified mobile number required" });
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
+
+    const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address." });
+    }
+
+    const { unlockUserAccount } = await import("../services/lockout");
+    const unlockResult = await unlockUserAccount(user.id, `Mobile SMS OTP Verification (+91 ${cleanPhone})`);
+
+    // Also activate Blue Verification Badge & update phone
+    await db.update(users).set({
+      isVerified: true,
+      phone: cleanPhone,
+      updatedAt: new Date(),
+    }).where(eq(users.id, user.id));
+
+    return res.json({
+      success: true,
+      unlocked: true,
+      isVerified: true,
+      message: unlockResult.message || "🎉 Account unlocked successfully! All rate limits cleared and Blue Badge activated.",
     });
   });
 }

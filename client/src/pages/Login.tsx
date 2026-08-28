@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Lock, Mail, Phone, User as UserIcon, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, apiGet } from "@/lib/queryClient";
+import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 
 export default function Login() {
   const { setUser } = useAuth();
@@ -58,6 +59,10 @@ export default function Login() {
   // ===================== FORGOT PASSWORD MODAL =====================
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState<"email" | "otp">("email");
+
+  // ===================== PHONE LOCKOUT UNLOCK MODAL =====================
+  const [showUnlockPhoneModal, setShowUnlockPhoneModal] = useState(false);
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotOtpCode, setForgotOtpCode] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
@@ -99,7 +104,19 @@ export default function Login() {
       });
     } catch (err: any) {
       const errorMsg = String(err?.message || "");
-      if (errorMsg.includes("sign up first") || errorMsg.includes("No account found") || errorMsg.includes("404")) {
+      if (errorMsg.toLowerCase().includes("lock") || errorMsg.includes("24 hours") || errorMsg.includes("temporary") || errorMsg.includes("permanently")) {
+        setIsAccountLocked(true);
+        toast({
+          title: "🔒 Account Locked / Rate Limited",
+          description: errorMsg || "Account is temporarily locked. You can instant unlock by verifying your mobile number!",
+          variant: "destructive",
+        });
+      } else if (errorMsg.includes("Google Sign-In") || errorMsg.includes("googleAccount")) {
+        toast({
+          title: "Google Account Detected",
+          description: "This account was registered via Google. Please click 'Sign in with Google' or reset your password.",
+        });
+      } else if (errorMsg.includes("sign up first") || errorMsg.includes("No account found") || errorMsg.includes("404")) {
         toast({
           title: "Account Not Found",
           description: "No account is registered with this email. Switching to Sign Up!",
@@ -112,7 +129,7 @@ export default function Login() {
       } else if (errorMsg.includes("Incorrect password") || errorMsg.includes("401")) {
         toast({
           title: "Incorrect Password",
-          description: "Please check your password or use 'Forgot Password' below.",
+          description: errorMsg || "Please check your password or use 'Forgot Password' below.",
           variant: "destructive",
         });
       } else {
@@ -542,6 +559,25 @@ export default function Login() {
                         </button>
                       </div>
                     </div>
+
+                    {isAccountLocked && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 text-center animate-in fade-in duration-200">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-black text-amber-400">
+                          <Lock size={15} className="text-amber-400" />
+                          <span>Account Rate Limited / Locked</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Verify your mobile number via Firebase SMS OTP to instantly eliminate the 24h+ lockout and unlock your account.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={() => setShowUnlockPhoneModal(true)}
+                          className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 gap-1.5"
+                        >
+                          <Unlock size={14} /> Instant Unlock via Mobile SMS OTP
+                        </Button>
+                      </div>
+                    )}
 
                     <Button
                       type="submit"
@@ -1010,6 +1046,18 @@ export default function Login() {
             </div>
           </div>
         )}
+
+        {/* 📱 Firebase Mobile SMS Unlock Modal */}
+        <PhoneVerificationModal
+          open={showUnlockPhoneModal}
+          onOpenChange={setShowUnlockPhoneModal}
+          mode="unlock_lockout"
+          targetEmail={loginEmail}
+          onSuccess={() => {
+            setIsAccountLocked(false);
+            setLoginStep("credentials");
+          }}
+        />
       </Layout>
     </GoogleOAuthProvider>
   );
