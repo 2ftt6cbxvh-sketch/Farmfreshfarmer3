@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "../db";
 import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, orders, carts } from "@shared/schema";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { eq, and, or, gt, isNull, sql, desc } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
 import { ensureReferralCode } from "../engine/referral";
