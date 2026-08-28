@@ -52,9 +52,14 @@ export default function ForgotPassword() {
           {submitted ? (
             <div className="text-center space-y-4 py-4">
               <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto animate-bounce" />
-              <p className="text-sm text-slate-300">
-                Check your inbox! We've sent a single-use password reset link to <span className="font-semibold text-white">{email}</span>.
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-300">
+                  Check your inbox! We've sent password reset instructions to <span className="font-semibold text-white">{email}</span>.
+                </p>
+                <div className="p-3 rounded-xl bg-green-950/40 border border-green-500/30 text-xs text-amber-300">
+                  📬 If you don't see the email in your Primary Inbox, <strong>please check your Spam / Junk folder</strong>.
+                </div>
+              </div>
               <Button variant="outline" className="w-full border-slate-700 hover:bg-slate-800" onClick={() => setSubmitted(false)}>
                 Try another email
               </Button>

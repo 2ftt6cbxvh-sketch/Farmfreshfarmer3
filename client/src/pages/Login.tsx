@@ -57,7 +57,7 @@ export default function Login() {
       if (data.devOtp) setDevOtp(data.devOtp);
       toast({
         title: "🔑 Verification OTP Code Sent!",
-        description: `Check your email inbox (${email}). ${data.devOtp ? `(DEV CODE: ${data.devOtp})` : ""}`,
+        description: `Check your inbox (${email}). If not found in Primary, please check your Spam / Junk folder! ${data.devOtp ? `(DEV: ${data.devOtp})` : ""}`,
       });
     } catch (err: any) {
       toast({ title: "Could not send OTP", description: err.message || "Please try again.", variant: "destructive" });
@@ -320,6 +320,13 @@ export default function Login() {
                     </Button>
                   ) : (
                     <div className="space-y-3 pt-1">
+                      <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-0.5">
+                        <p className="text-xs font-extrabold text-emerald-400">📬 6-Digit OTP Sent!</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Please check your email inbox. <strong className="text-amber-400 font-bold">If not in Primary, check your Spam / Junk folder.</strong>
+                        </p>
+                      </div>
+
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <Label htmlFor="otp-code" className="text-xs font-bold text-emerald-400">Enter 6-Digit OTP Code</Label>
@@ -528,6 +535,12 @@ export default function Login() {
                 </Button>
               ) : (
                 <div className="space-y-3 pt-1">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-0.5">
+                    <p className="text-[11px] text-muted-foreground">
+                      Reset OTP sent! <strong className="text-amber-400 font-semibold">Please check your Spam folder if not in Primary.</strong>
+                    </p>
+                  </div>
+
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <Label htmlFor="forgot-otp-code" className="text-xs font-bold text-emerald-400">6-Digit OTP Code</Label>

@@ -1689,6 +1689,84 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json(users.map((u) => ({ ...u, password: undefined })));
   }));
 
+  /** DELETE /api/admin/users/:id/permanent — Super Admin Only: Permanently delete user and associated records */
+  app.delete("/api/admin/users/:id/permanent", requireAdmin, h(async (req, res) => {
+    const sessionUserId = req.session?.userId;
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let currentUserId = sessionUserId;
+    if (!currentUserId && token) {
+      const jwt = (await import("jsonwebtoken")).default;
+      try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        currentUserId = decoded?.userId || decoded?.sub;
+      } catch {
+        const decoded: any = jwt.decode(token);
+        currentUserId = decoded?.userId || decoded?.sub;
+      }
+    }
+
+    const [adminUser] = currentUserId ? await db.select().from(users).where(eq(users.id, Number(currentUserId))).limit(1) : [];
+    const isSuperAdmin = Boolean(adminUser?.isPrimaryAdmin || adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com");
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Forbidden: Only the Master/Super Admin can permanently delete user accounts." });
+    }
+
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId || isNaN(targetId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const [targetUser] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (targetUser.isPrimaryAdmin || targetUser.email?.toLowerCase() === "admin@farmfreshfarmer.com") {
+      return res.status(400).json({ message: "Cannot delete the Master Admin root account." });
+    }
+
+    if (targetUser.id === adminUser?.id) {
+      return res.status(400).json({ message: "You cannot delete your own logged-in account." });
+    }
+
+    // Cascade delete related records
+    const {
+      customerProfiles,
+      cartItems,
+      otpCodes,
+      refreshTokens,
+      referralCodes,
+      referralTransactions,
+      referralRewards,
+      deliveryPartners,
+      supportSessions,
+      supportMessages,
+      reviews,
+    } = await import("@shared/schema");
+
+    await db.delete(customerProfiles).where(eq(customerProfiles.userId, targetId)).catch(() => {});
+    await db.delete(cartItems).where(eq(cartItems.userId, targetId)).catch(() => {});
+    await db.delete(otpCodes).where(eq(otpCodes.userId, targetId)).catch(() => {});
+    await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId)).catch(() => {});
+    await db.delete(referralCodes).where(eq(referralCodes.userId, targetId)).catch(() => {});
+    await db.delete(referralTransactions).where(eq(referralTransactions.referrerUserId, targetId)).catch(() => {});
+    await db.delete(referralTransactions).where(eq(referralTransactions.referredUserId, targetId)).catch(() => {});
+    await db.delete(referralRewards).where(eq(referralRewards.userId, targetId)).catch(() => {});
+    await db.delete(deliveryPartners).where(eq(deliveryPartners.userId, targetId)).catch(() => {});
+    await db.delete(supportMessages).where(eq(supportMessages.senderId, targetId)).catch(() => {});
+    await db.delete(supportSessions).where(eq(supportSessions.customerId, targetId)).catch(() => {});
+    await db.delete(reviews).where(eq(reviews.userId, targetId)).catch(() => {});
+    
+    // Finally delete from users table
+    await db.delete(users).where(eq(users.id, targetId));
+
+    res.json({
+      success: true,
+      message: `User ${targetUser.name || targetUser.email} (ID #${targetId}) permanently purged from the database. 🗑️`,
+    });
+  }));
+
   /* ============================= REFERRAL ========================== */
   app.get("/api/referral/summary", requireAuth, h(async (req, res) => {
     res.json(await referralSummary(req.session.userId!));

@@ -8,6 +8,8 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Trash2, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/lib/store";
 
 interface Customer {
   id: number; name: string; email: string; phone: string | null; status: string;
@@ -18,8 +20,12 @@ interface Customer {
 
 export default function AdminCustomers() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = Boolean(currentUser?.isPrimaryAdmin || currentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com");
+
   const [starEditId, setStarEditId] = useState<number | null>(null);
   const [starEditVal, setStarEditVal] = useState<number>(0);
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/admin/customers"],
@@ -47,6 +53,22 @@ export default function AdminCustomers() {
       setStarEditId(null);
     },
     onError: () => toast({ title: "Could not update stars", variant: "destructive" }),
+  });
+
+  const deleteUserMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/users/${id}/permanent`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "🗑️ Account Deleted", description: data.message || "Customer permanently deleted from database." });
+      setDeleteTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Deletion Failed", description: err.message || "Could not delete customer", variant: "destructive" });
+    },
   });
 
   return (
@@ -79,7 +101,7 @@ export default function AdminCustomers() {
                   <td className="p-3">
                     <button
                       onClick={() => { setStarEditId(c.id); setStarEditVal(c.customerStars || 0); }}
-                      className="flex flex-col gap-0.5 group p-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/15 transition-all text-left"
+                      className="flex flex-col gap-0.5 group p-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/15 transition-all text-left cursor-pointer"
                       title="Click to edit loyalty stars"
                     >
                       <div className="flex items-center gap-1 font-extrabold text-xs text-blue-400">
@@ -100,15 +122,28 @@ export default function AdminCustomers() {
                   <td className="p-3">{formatINR(Number(c.referralBalance))}</td>
                   <td className="p-3"><Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge></td>
                   <td className="p-3">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
                         data-testid={`button-toggle-block-${c.id}`}
+                        className="rounded-lg text-xs"
                       >
                         {c.status === "blocked" ? "Unblock" : "Block"}
                       </Button>
+
+                      {isSuperAdmin && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteTarget(c)}
+                          title="Permanently delete customer from DB (Super Admin Only)"
+                          className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg transition-all"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -116,6 +151,45 @@ export default function AdminCustomers() {
               {customers.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No customers yet.</td></tr>}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Permanent Deletion Confirmation Modal */}
+      {deleteTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-card border border-red-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 text-red-400">
+              <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-foreground">Permanent Account Deletion</h3>
+                <p className="text-xs text-red-400 font-semibold">Super Admin Action</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete customer <strong className="text-foreground">{deleteTarget.name}</strong> (<span className="text-emerald-400">{deleteTarget.email}</span>)?
+            </p>
+
+            <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-[11px] text-red-300 leading-relaxed">
+              ⚠️ <strong>Warning:</strong> This will completely remove this user, their cart items, customer profile, and authentication records from the database. This action <strong>cannot</strong> be undone.
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 font-bold"
+                onClick={() => deleteUserMut.mutate(deleteTarget.id)}
+                disabled={deleteUserMut.isPending}
+              >
+                {deleteUserMut.isPending ? "Deleting…" : "Yes, Delete Permanently"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
