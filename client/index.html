@@ -38,12 +38,14 @@
                            msg.indexOf('Failed to load module script') !== -1 ||
                            msg.indexOf('Loading chunk') !== -1 ||
                            msg.indexOf('Failed to fetch') !== -1 ||
-                           (isScriptOrCss && targetSrc.indexOf('/assets/') !== -1);
+                           msg.indexOf('404') !== -1 ||
+                           (isScriptOrCss && targetSrc.indexOf('/assets/') !== -1) ||
+                           (target && target.tagName === 'SCRIPT');
           
           if (isChunkErr) {
             var reloadKey = 'fff_chunk_reload_ts';
             var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
-            if (Date.now() - lastReload > 3000) {
+            if (Date.now() - lastReload > 2000) {
               sessionStorage.setItem(reloadKey, String(Date.now()));
               if ('caches' in window) {
                 caches.keys().then(function(names) {
