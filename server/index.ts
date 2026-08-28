@@ -37,12 +37,12 @@ app.use((req, res, next) => {
 
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://apis.google.com https://accounts.google.com https://*.gstatic.com https://*.firebaseapp.com https://*.firebaseio.com https://checkout.razorpay.com https://*.razorpay.com https://*.phonepe.com https://challenges.cloudflare.com https://cdnjs.cloudflare.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://apis.google.com https://accounts.google.com https://*.gstatic.com https://www.google.com https://www.gstatic.com/recaptcha/ https://www.google.com/recaptcha/ https://*.firebaseapp.com https://*.firebaseio.com https://checkout.razorpay.com https://*.razorpay.com https://*.phonepe.com https://challenges.cloudflare.com https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https: res.cloudinary.com https://images.unsplash.com https://*.googleusercontent.com https://lh3.googleusercontent.com",
-    "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://api.ipify.org http://ip-api.com https://api.telegram.org wss: ws:",
-    "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://challenges.cloudflare.com",
+    "connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.google.com/recaptcha/ https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://api.ipify.org http://ip-api.com https://api.telegram.org wss: ws:",
+    "frame-src 'self' https://accounts.google.com https://www.google.com/recaptcha/ https://recaptcha.google.com https://*.firebaseapp.com https://api.phonepe.com https://mercury-t2.phonepe.com https://api.razorpay.com https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
   ].join("; ");

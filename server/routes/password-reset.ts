@@ -9,6 +9,7 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { authRateLimit } from "../middleware/rate-limit";
+import { requireRecaptcha } from "../middleware/recaptcha";
 import { hashPassword } from "../services/argon2";
 import { sendTelegramAlert } from "../services/telegram";
 import { sendRealEmail, buildResetPasswordHtml } from "../services/email";
@@ -80,7 +81,7 @@ export function registerPasswordResetRoutes(app: Express) {
   });
 
   /** POST /api/auth/forgot-password/otp/send — Send 6-digit OTP for Password Reset */
-  app.post("/api/auth/forgot-password/otp/send", authRateLimit, async (req: Request, res: Response) => {
+  app.post("/api/auth/forgot-password/otp/send", authRateLimit, requireRecaptcha, async (req: Request, res: Response) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ message: "Email address is required" });
 

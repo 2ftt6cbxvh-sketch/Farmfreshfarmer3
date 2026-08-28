@@ -6,6 +6,7 @@ import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, or
 import { eq, and, or, gt, isNull, sql, desc } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
+import { requireRecaptcha } from "../middleware/recaptcha";
 import { ensureReferralCode } from "../engine/referral";
 import { verifyPasswordWithLockout } from "../services/lockout";
 
@@ -321,7 +322,7 @@ export function registerAuthJwtRoutes(app: Express) {
   });
 
   /** POST /api/auth/login/initiate — Step 1 of Login: Checks user existence & password, sends 2FA OTP */
-  app.post("/api/auth/login/initiate", authRateLimit, async (req: Request, res: Response) => {
+  app.post("/api/auth/login/initiate", authRateLimit, requireRecaptcha, async (req: Request, res: Response) => {
     const { email, password } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
@@ -482,7 +483,7 @@ export function registerAuthJwtRoutes(app: Express) {
   });
 
   /** POST /api/auth/signup/initiate — Step 1 of Signup: Validates mandatory fields, checks user doesn't exist, sends OTP */
-  app.post("/api/auth/signup/initiate", authRateLimit, async (req: Request, res: Response) => {
+  app.post("/api/auth/signup/initiate", authRateLimit, requireRecaptcha, async (req: Request, res: Response) => {
     const { name, email, phone, password } = req.body || {};
 
     if (!name || name.trim().length < 2) {

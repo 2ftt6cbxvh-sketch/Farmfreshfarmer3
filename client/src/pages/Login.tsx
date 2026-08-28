@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, apiGet } from "@/lib/queryClient";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
+import { getRecaptchaToken } from "@/lib/recaptcha";
 
 export default function Login() {
   const { setUser } = useAuth();
@@ -87,9 +88,11 @@ export default function Login() {
 
     setBusy(true);
     try {
+      const recaptchaToken = await getRecaptchaToken("login");
       const res = await apiRequest("POST", "/api/auth/login/initiate", {
         email: loginEmail.trim().toLowerCase(),
         password: loginPassword,
+        recaptchaToken,
       });
       const data = await res.json();
 
@@ -219,11 +222,13 @@ export default function Login() {
 
     setBusy(true);
     try {
+      const recaptchaToken = await getRecaptchaToken("signup");
       const res = await apiRequest("POST", "/api/auth/signup/initiate", {
         name: signupName.trim(),
         email: signupEmail.trim().toLowerCase(),
         phone: cleanPhone,
         password: signupPassword,
+        recaptchaToken,
       });
       const data = await res.json();
 
@@ -360,8 +365,10 @@ export default function Login() {
     }
     setBusy(true);
     try {
+      const recaptchaToken = await getRecaptchaToken("forgot_password");
       const res = await apiRequest("POST", "/api/auth/forgot-password/otp/send", {
         email: forgotEmail.trim().toLowerCase(),
+        recaptchaToken,
       });
       const data = await res.json();
       setForgotStep("otp");
