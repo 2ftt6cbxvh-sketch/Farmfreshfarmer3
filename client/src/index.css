@@ -555,3 +555,10 @@ html[data-tier="green"].dark, html[data-tier="green"] .dark {
   transform-style: preserve-3d;
   backface-visibility: hidden;
 }
+
+/* ── Hide floating Google reCAPTCHA badge from overlapping UI buttons ── */
+.grecaptcha-badge {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

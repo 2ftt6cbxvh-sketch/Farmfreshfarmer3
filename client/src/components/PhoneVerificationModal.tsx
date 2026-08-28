@@ -197,13 +197,6 @@ export function PhoneVerificationModal({
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-start gap-2.5 text-sky-400">
-              <Sparkles size={16} className="shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed">
-                Google Firebase Phone Auth sends a secure 6-digit SMS OTP. Upon verification, your account receives the verified 🏅 <b>Blue Badge</b> immediately.
-              </p>
-            </div>
-
             <DialogFooter className="pt-2">
               <Button
                 type="submit"
