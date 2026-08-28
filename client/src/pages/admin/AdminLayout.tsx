@@ -1,13 +1,15 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, apiGet } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
-  Shield, ShieldCheck, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
+  Shield, ShieldCheck, ShieldAlert, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
   ExternalLink, Crown, CheckCircle2, Megaphone
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
@@ -57,6 +59,88 @@ const NAV = [
 ];
 
 const FLAT_NAV = NAV.flatMap((s) => s.items);
+
+function SidebarEnvironmentMasterSwitch({ isPrimaryAdmin }: { isPrimaryAdmin: boolean }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({
+    queryKey: ["/api/admin/settings"],
+    queryFn: () => apiGet<Record<string, string>>("/api/admin/settings"),
+    enabled: isPrimaryAdmin,
+  });
+
+  const { data: staff2faConfig, isLoading: staff2faLoading } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/admin/staff/2fa-config"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/staff/2fa-config")).json(),
+    enabled: isPrimaryAdmin,
+  });
+
+  const isLockdown = settingsData?.stealth_admin_lockdown === "true";
+  const isStaff2fa = staff2faConfig?.enabled === true;
+  const isProduction = isLockdown && isStaff2fa;
+
+  const masterToggleMutation = useMutation({
+    mutationFn: async (targetProduction: boolean) => {
+      await apiRequest("POST", "/api/admin/settings", {
+        stealth_admin_lockdown: targetProduction ? "true" : "false",
+      });
+      await apiRequest("POST", "/api/admin/staff/2fa-config", {
+        enabled: targetProduction,
+      });
+      return targetProduction;
+    },
+    onSuccess: (targetProduction) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      qc.invalidateQueries({ queryKey: ["/api/settings/public"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/staff/2fa-config"] });
+      toast({
+        title: targetProduction ? "🔒 Production Ready Mode Active" : "🛠️ Testing Mode Active",
+        description: targetProduction
+          ? "Stealth Gateway & Staff 2FA are fully enforced. Direct /admin access is quarantined."
+          : "Direct /admin access & staff logins are relaxed for testing.",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to switch mode", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (!isPrimaryAdmin) return null;
+
+  return (
+    <div className="mx-3 my-2 p-2.5 rounded-2xl border transition-all shadow-md bg-gradient-to-br from-secondary/50 via-card to-background border-border/80">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border ${
+            isProduction
+              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+              : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+          }`}>
+            {isProduction ? <ShieldCheck size={15} /> : <ShieldAlert size={15} />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-tight truncate text-foreground flex items-center gap-1">
+              <span>{isProduction ? "Production Mode" : "Testing Mode"}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isProduction ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+            </p>
+            <p className="text-[9px] text-muted-foreground truncate font-medium">
+              {isProduction ? "🔒 Secret URL + Staff 2FA" : "🛠️ Relaxed Direct Entry"}
+            </p>
+          </div>
+        </div>
+
+        <Switch
+          checked={isProduction}
+          disabled={masterToggleMutation.isPending || settingsLoading || staff2faLoading}
+          onCheckedChange={(val) => masterToggleMutation.mutate(val)}
+          className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-amber-600 shrink-0 cursor-pointer"
+          title={isProduction ? "Switch to Testing Mode" : "Switch to Production Ready Mode"}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function AdminLayout({ children, title }: { children: ReactNode; title: string }) {
   const { user, loading, logout } = useAuth();
@@ -362,6 +446,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
             );
           })()}
         </div>
+
+        {/* 👑 Chief Executive Admin Unified Environment Switch (Production Ready vs Testing Mode) */}
+        <SidebarEnvironmentMasterSwitch isPrimaryAdmin={isPrimaryAdmin} />
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-4" data-testid="nav-sidebar">
           {navToDisplay.map((section) => (

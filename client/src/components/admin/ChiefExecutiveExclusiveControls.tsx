@@ -109,6 +109,65 @@ export function ChiefExecutiveExclusiveControls() {
       </CardHeader>
 
       <CardContent className="p-5 sm:p-6 space-y-6">
+        {/* Unified Master 1-Click Platform Mode Switch */}
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-md ${
+          isLockdownActive && isStaff2faActive
+            ? "bg-gradient-to-r from-emerald-950/40 via-emerald-900/20 to-card border-emerald-500/50"
+            : "bg-gradient-to-r from-amber-950/40 via-amber-900/20 to-card border-amber-500/50"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+              isLockdownActive && isStaff2faActive
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+            }`}>
+              {isLockdownActive && isStaff2faActive ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-extrabold text-foreground font-serif">
+                  {isLockdownActive && isStaff2faActive
+                    ? "🛡️ Production Ready Mode (All Hardened Protections Active)"
+                    : "🛠️ Testing Mode (Relaxed for Development)"}
+                </h3>
+                <Badge className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                  isLockdownActive && isStaff2faActive
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                }`}>
+                  {isLockdownActive && isStaff2faActive ? "🟢 PRODUCTION READY" : "🟡 TESTING MODE"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isLockdownActive && isStaff2faActive
+                  ? "Stealth Gateway isolation + 2FA OTP for all staff members are fully active."
+                  : "Direct /admin access & staff sign-in are relaxed for quick local/staging testing."}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={async () => {
+              const targetState = !(isLockdownActive && isStaff2faActive);
+              await toggleLockdownMutation.mutateAsync(targetState);
+              await toggleStaff2faMutation.mutateAsync(targetState);
+            }}
+            disabled={toggleLockdownMutation.isPending || toggleStaff2faMutation.isPending}
+            className={`font-extrabold text-xs rounded-xl shadow-lg cursor-pointer h-10 px-5 shrink-0 ${
+              isLockdownActive && isStaff2faActive
+                ? "bg-amber-600 hover:bg-amber-500 text-white"
+                : "bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white"
+            }`}
+          >
+            {toggleLockdownMutation.isPending || toggleStaff2faMutation.isPending
+              ? "Switching Platform Mode..."
+              : isLockdownActive && isStaff2faActive
+              ? "Switch to Testing Mode 🛠️"
+              : "Turn On Production Ready Mode 🔒"}
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* TOGGLE 1: Stealth Gateway & Private Admin URL Lockdown */}
           <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 ${
