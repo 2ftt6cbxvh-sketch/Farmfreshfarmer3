@@ -5,7 +5,10 @@ import type { Request, Response, NextFunction } from "express";
  * In development or when RECAPTCHA_SECRET_KEY is not configured, it passes through gracefully.
  */
 export async function requireRecaptcha(req: Request, res: Response, next: NextFunction) {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY || process.env.GOOGLE_RECAPTCHA_SECRET_KEY;
+  const secretKey =
+    process.env.RECAPTCHA_SECRET_KEY ||
+    process.env.GOOGLE_RECAPTCHA_SECRET_KEY ||
+    "6Lc5e50tAAAAAFNK2XaEur30t-ebmkoh78DCv8jm";
   if (!secretKey) {
     return next();
   }

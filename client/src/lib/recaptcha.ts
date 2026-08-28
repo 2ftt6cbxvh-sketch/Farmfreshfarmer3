@@ -4,7 +4,7 @@
 const RECAPTCHA_SITE_KEY =
   import.meta.env.VITE_RECAPTCHA_SITE_KEY ||
   import.meta.env.VITE_GOOGLE_RECAPTCHA_SITE_KEY ||
-  "";
+  "6Lc5e50tAAAAAE279aMBv0x-5TWdLJlIK2BexH5p";
 
 let scriptLoaded = false;
 
