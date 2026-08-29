@@ -26,6 +26,7 @@ export interface AnnouncementItem {
     slug: string;
     price: string | number;
     originalPrice?: string | number;
+    discountPercent?: string | number;
     image?: string;
     categorySlug?: string;
     unit?: string;
@@ -279,9 +280,28 @@ export function NotificationBell() {
                         )}
                         <div className="min-w-0">
                           <p className="text-xs font-bold truncate text-white">{item.product.name}</p>
-                          <p className="text-[11px] font-black text-emerald-400">
-                            {formatINR(Number(item.product.price))}
-                          </p>
+                          {(() => {
+                            const baseP = Number(item.product.price) || 0;
+                            const disc = Number(item.product.discountPercent || 0);
+                            const effPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                            return (
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-xs font-black text-emerald-400">
+                                  {formatINR(effPrice)}
+                                </span>
+                                {disc > 0 && (
+                                  <span className="text-[10px] text-slate-400 line-through font-semibold">
+                                    {formatINR(baseP)}
+                                  </span>
+                                )}
+                                {disc > 0 && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/30">
+                                    {Math.round(disc)}% OFF
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -295,9 +315,16 @@ export function NotificationBell() {
                         </Link>
                         <Button
                           size="sm"
-                          className="h-7 px-2.5 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
+                          className="h-7 px-2.5 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg cursor-pointer"
                           onClick={() => {
-                            addToCart(item.product as any);
+                            const baseP = Number(item.product!.price) || 0;
+                            const disc = Number(item.product!.discountPercent || 0);
+                            const effPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                            addToCart({
+                              ...(item.product as any),
+                              price: effPrice,
+                              discountPercent: disc,
+                            });
                             setIsOpen(false);
                           }}
                         >
