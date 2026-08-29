@@ -1039,10 +1039,10 @@ export default function Cart() {
                   <dd className="font-mono font-bold text-foreground">{formatINR(quote ? quote.subtotal : subtotal)}</dd>
                 </div>
 
-                {displayDiscounts > 0 && (
+                {totalOrderSavings > 0 && (
                   <div className="flex justify-between items-center text-emerald-400 font-bold">
                     <dt>Total discount savings</dt>
-                    <dd className="font-mono">- {formatINR(displayDiscounts)}</dd>
+                    <dd className="font-mono">- {formatINR(totalOrderSavings)}</dd>
                   </div>
                 )}
 
