@@ -2801,5 +2801,12 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     });
   });
 
+  // Explicit DB schema migration endpoint (triggers all ALTER TABLE and CREATE TABLE statements)
+  app.get("/api/admin/system/migrate", h(async (_req, res) => {
+    const { runAutoMigrations } = await import("./db");
+    await runAutoMigrations();
+    return res.json({ success: true, message: "Auto-migrations executed successfully on production database." });
+  }));
+
   return httpServer;
 }
