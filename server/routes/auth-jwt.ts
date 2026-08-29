@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "../db";
 import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, orders, carts } from "@shared/schema";
-import { eq, and, or, gt, isNull, sql, desc } from "drizzle-orm";
+import { eq, ne, and, or, gt, isNull, sql, desc } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
 import { requireRecaptcha } from "../middleware/recaptcha";
@@ -1110,6 +1110,96 @@ export function registerAuthJwtRoutes(app: Express) {
     });
   });
 
+  /** Helper to find existing user by 10-digit phone number (checking standard, +91, 91 formats) */
+  async function findUserByPhone(phone: string, excludeUserId?: number) {
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10) return null;
+
+    const [existing] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        isVerified: users.isVerified,
+      })
+      .from(users)
+      .where(
+        and(
+          or(
+            eq(users.phone, cleanPhone),
+            eq(users.phone, `+91${cleanPhone}`),
+            eq(users.phone, `+91 ${cleanPhone}`),
+            eq(users.phone, `91${cleanPhone}`),
+            sql`RIGHT(REGEXP_REPLACE(${users.phone}, '[^0-9]', '', 'g'), 10) = ${cleanPhone}`
+          ),
+          excludeUserId ? ne(users.id, excludeUserId) : undefined
+        )
+      )
+      .limit(1);
+
+    return existing || null;
+  }
+
+  /** POST /api/auth/phone/check-availability — Pre-check before sending SMS OTP to prevent duplicate phone numbers */
+  const handlePhoneAvailabilityCheck = async (req: Request, res: Response) => {
+    const { phone, userId, email, mode } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      return res.status(400).json({
+        available: false,
+        message: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.",
+      });
+    }
+
+    let currentUserId: number | undefined = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!currentUserId && email) {
+      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+      if (u) currentUserId = u.id;
+    }
+
+    // In unlock_lockout mode, the phone MUST match the account being unlocked
+    if (mode === "unlock_lockout") {
+      if (!currentUserId) {
+        return res.status(400).json({ available: false, message: "User account required for unlock." });
+      }
+      const [targetUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
+      if (!targetUser) {
+        return res.status(404).json({ available: false, message: "User account not found." });
+      }
+      if (targetUser.phone) {
+        const targetClean = String(targetUser.phone).replace(/\D/g, "").slice(-10);
+        if (targetClean.length === 10 && targetClean !== cleanPhone) {
+          return res.status(400).json({
+            available: false,
+            message: "The entered mobile number does not match the registered phone on this account.",
+          });
+        }
+      }
+      return res.json({ available: true, cleanPhone });
+    }
+
+    // For standard verification: Check if this phone number already belongs to ANY other user
+    const existing = await findUserByPhone(cleanPhone, currentUserId);
+    if (existing) {
+      const maskedEmail = existing.email ? existing.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + "*".repeat(Math.max(1, b.length)) + c) : "another registered user";
+      return res.status(409).json({
+        available: false,
+        exists: true,
+        message: `⚠️ This mobile number (+91 ${cleanPhone}) is already registered with another account (${maskedEmail}). Each account must have a unique mobile number. Please use your own unique number or sign in with that account.`,
+      });
+    }
+
+    return res.json({
+      available: true,
+      cleanPhone,
+      message: "Mobile number is available for verification.",
+    });
+  };
+
+  app.post("/api/auth/phone/check-availability", authRateLimit, handlePhoneAvailabilityCheck);
+  app.post("/api/auth/check-phone-available", authRateLimit, handlePhoneAvailabilityCheck);
+
   /** POST /api/auth/phone-verify-firebase — Verify phone number via Firebase SMS OTP & activate Blue Badge */
   app.post("/api/auth/phone-verify-firebase", authRateLimit, async (req: Request, res: Response) => {
     const { phone, userId, email } = req.body || {};
@@ -1134,6 +1224,15 @@ export function registerAuthJwtRoutes(app: Express) {
     const sessionUserId = (req.session as any)?.userId;
     if (sessionUserId && targetUser.id !== sessionUserId && (req.session as any)?.role !== "admin") {
       return res.status(403).json({ message: "Unauthorized account verification attempt." });
+    }
+
+    // Verify phone is not registered with another account
+    const existingConflict = await findUserByPhone(cleanPhone, targetUser.id);
+    if (existingConflict) {
+      const maskedEmail = existingConflict.email ? existingConflict.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + "*".repeat(Math.max(1, b.length)) + c) : "another registered user";
+      return res.status(409).json({
+        message: `⚠️ This mobile number (+91 ${cleanPhone}) is already registered with another account (${maskedEmail}). Please use a unique mobile number.`,
+      });
     }
 
     // Mark user as verified with Blue Badge and set their verified phone

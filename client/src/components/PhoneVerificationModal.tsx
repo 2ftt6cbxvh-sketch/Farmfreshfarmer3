@@ -129,7 +129,27 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
-      // Setup invisible reCAPTCHA container
+      // 1. Pre-check phone number availability before sending Firebase SMS OTP
+      const precheckRes = await apiRequest("POST", "/api/auth/phone/check-availability", {
+        phone: cleanPhone,
+        userId: user?.id,
+        email: targetEmail || user?.email,
+        mode,
+      });
+      const precheckData = await precheckRes.json();
+      if (!precheckRes.ok || !precheckData.available) {
+        const errorMsg = precheckData.message || "This mobile number is already linked to another account.";
+        setErrorMessage(errorMsg);
+        toast({
+          title: "Mobile Number Already In Use",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Setup invisible reCAPTCHA container
       const appVerifier = setupRecaptcha("recaptcha-container-modal");
       const confirmation = await sendFirebasePhoneOtp(cleanPhone, appVerifier);
       setConfirmationResult(confirmation);

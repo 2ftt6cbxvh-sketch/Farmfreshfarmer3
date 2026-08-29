@@ -26,7 +26,7 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { apiCache } from "./services/cache";
 import { db, runAutoMigrations } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, ne, and, or, sql } from "drizzle-orm";
 
 // Automatically cap any existing customer stars to maximum of 5 in DB
 db.execute(sql`UPDATE users SET customer_stars = 5 WHERE customer_stars > 5`).catch(() => {});
@@ -1451,15 +1451,34 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       });
     }
 
-    // Require phone number for order and auto-save to user profile
+    // Require phone number for order and auto-save to user profile if unique
     const incomingPhone = String(req.body.phone || u.phone || "").trim();
-    if (incomingPhone && (!u.phone || u.phone.trim() !== incomingPhone)) {
+    const cleanIncoming = incomingPhone.replace(/\D/g, "").slice(-10);
+    if (cleanIncoming && (!u.phone || u.phone.trim() !== cleanIncoming)) {
       try {
-        await db.update(users).set({ phone: incomingPhone }).where(eq(users.id, userId));
+        const [existingConflict] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            and(
+              or(
+                eq(users.phone, cleanIncoming),
+                eq(users.phone, `+91${cleanIncoming}`),
+                eq(users.phone, `+91 ${cleanIncoming}`),
+                sql`RIGHT(REGEXP_REPLACE(${users.phone}, '[^0-9]', '', 'g'), 10) = ${cleanIncoming}`
+              ),
+              ne(users.id, userId)
+            )
+          )
+          .limit(1);
+
+        if (!existingConflict) {
+          await db.update(users).set({ phone: cleanIncoming }).where(eq(users.id, userId));
+        }
       } catch (e) {
         console.warn('[orders] Failed to auto-update phone on user:', e);
       }
-    } else if (!u.phone && !incomingPhone) {
+    } else if (!u.phone && !cleanIncoming) {
       return res.status(400).json({ message: 'Please enter your phone number to receive delivery updates.' });
     }
 
