@@ -129,43 +129,31 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
-      // 1. Pre-check phone number availability before sending Firebase SMS OTP
-      const precheckRes = await apiRequest("POST", "/api/auth/phone/check-availability", {
+      // 1. Dispatch SMS OTP via Fast2SMS Indian Gateway
+      const res = await apiRequest("POST", "/api/auth/phone/send-otp", {
         phone: cleanPhone,
         userId: user?.id,
         email: targetEmail || user?.email,
         mode,
       });
-      const precheckData = await precheckRes.json();
-      if (!precheckRes.ok || !precheckData.available) {
-        const errorMsg = precheckData.message || "This mobile number is already linked to another account.";
-        setErrorMessage(errorMsg);
-        toast({
-          title: "Mobile Number Already In Use",
-          description: errorMsg,
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to dispatch SMS verification code.");
       }
 
-      // 2. Setup invisible reCAPTCHA container
-      const appVerifier = setupRecaptcha("recaptcha-container-modal");
-      const confirmation = await sendFirebasePhoneOtp(cleanPhone, appVerifier);
-      setConfirmationResult(confirmation);
       setStep("otp");
       setErrorMessage(null);
       toast({
         title: "📲 6-Digit SMS Code Sent!",
-        description: `Please check SMS messages on +91 ${cleanPhone}.`,
+        description: `Please check your mobile SMS inbox on +91 ${cleanPhone}.`,
       });
     } catch (err: any) {
-      console.error("[Firebase Phone Auth Error]:", err);
-      const parsed = formatFirebasePhoneError(err);
-      setErrorMessage(parsed.description);
+      console.error("[SMS Auth Error]:", err);
+      const errMsg = err.message || "Failed to send SMS code. Please check your number and try again.";
+      setErrorMessage(errMsg);
       toast({
-        title: parsed.title,
-        description: parsed.description,
+        title: "SMS Dispatch Notice",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {
@@ -184,49 +172,27 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
-      let idToken = "";
-      if (confirmationResult) {
-        const userCredential = await confirmationResult.confirm(otp.trim());
-        idToken = await userCredential.user.getIdToken();
-      }
-
       const cleanPhone = phone.replace(/\D/g, "").slice(-10);
 
-      if (mode === "unlock_lockout") {
-        // Unlock Rate Limit / Locked Account via Mobile OTP
-        const res = await apiRequest("POST", "/api/auth/unlock-with-phone", {
-          email: targetEmail || user?.email,
-          phone: cleanPhone,
-          firebaseToken: idToken,
-          otp: otp.trim(),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to unlock account");
+      const res = await apiRequest("POST", "/api/auth/phone/verify-otp", {
+        userId: user?.id,
+        email: targetEmail || user?.email,
+        phone: cleanPhone,
+        otp: otp.trim(),
+        mode,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Phone verification failed.");
 
-        toast({
-          title: "🔓 Account Unlocked & Verified!",
-          description: "All rate limits cleared and Blue Badge verified!",
-        });
-      } else {
-        // Verify Account & Reward Blue Badge
-        const res = await apiRequest("POST", "/api/auth/phone-verify-firebase", {
-          userId: user?.id,
-          email: user?.email,
-          phone: cleanPhone,
-          firebaseToken: idToken,
-          otp: otp.trim(),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Phone verification failed");
-
-        if (user) {
-          setUser({ ...user, isVerified: true, phone: cleanPhone });
-        }
-        toast({
-          title: "🏅 Blue Badge Activated!",
-          description: "Your mobile number has been verified. Order placement is unlocked!",
-        });
+      if (user) {
+        setUser({ ...user, isVerified: true, phone: cleanPhone });
+        localStorage.setItem("user", JSON.stringify({ ...user, isVerified: true, phone: cleanPhone }));
       }
+
+      toast({
+        title: "🏅 Blue Badge Activated!",
+        description: "Your mobile number has been verified. Order placement is unlocked!",
+      });
 
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
@@ -235,12 +201,12 @@ export function PhoneVerificationModal({
       onOpenChange(false);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      console.error("[Firebase Verify OTP Error]:", err);
-      const parsed = formatFirebasePhoneError(err);
-      setErrorMessage(parsed.description);
+      console.error("[Verify SMS OTP Error]:", err);
+      const errMsg = err.message || "Incorrect verification code. Please check your SMS and try again.";
+      setErrorMessage(errMsg);
       toast({
-        title: parsed.title,
-        description: parsed.description,
+        title: "Verification Failed",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {

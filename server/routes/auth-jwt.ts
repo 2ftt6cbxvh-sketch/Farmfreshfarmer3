@@ -1264,6 +1264,73 @@ export function registerAuthJwtRoutes(app: Express) {
   app.post("/api/auth/phone/check-availability", authRateLimit, handlePhoneAvailabilityCheck);
   app.post("/api/auth/check-phone-available", authRateLimit, handlePhoneAvailabilityCheck);
 
+  /** POST /api/auth/phone/send-otp — Dispatch 6-Digit SMS OTP via Fast2SMS India Gateway */
+  app.post("/api/auth/phone/send-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { phone, userId, email, mode } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      return res.status(400).json({ message: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9." });
+    }
+
+    let targetUserId = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!targetUserId && email) {
+      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+      if (u) targetUserId = u.id;
+    }
+
+    try {
+      const { sendSmsOtp } = await import("../services/sms");
+      const result = await sendSmsOtp(cleanPhone, mode || "phone_verification", targetUserId);
+      return res.json({
+        success: true,
+        phone: cleanPhone,
+        message: result.message,
+        devOtp: result.devOtp,
+      });
+    } catch (err: any) {
+      console.error("[send-otp error]:", err.message);
+      return res.status(400).json({ message: err.message || "Failed to dispatch SMS OTP. Please try again." });
+    }
+  });
+
+  /** POST /api/auth/phone/verify-otp — Verify 6-Digit SMS OTP & Activate Blue Badge */
+  app.post("/api/auth/phone/verify-otp", authRateLimit, async (req: Request, res: Response) => {
+    const { phone, otp, userId, email, mode } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    const code = String(otp || "").trim();
+
+    if (cleanPhone.length !== 10 || code.length !== 6) {
+      return res.status(400).json({ message: "Please enter a valid 10-digit phone number and 6-digit OTP code." });
+    }
+
+    let targetUserId = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!targetUserId && email) {
+      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+      if (u) targetUserId = u.id;
+    }
+
+    try {
+      const { verifySmsOtp } = await import("../services/sms");
+      const result = await verifySmsOtp(cleanPhone, code, mode || "phone_verification", targetUserId);
+
+      if (req.session && result.user) {
+        req.session.userId = result.user.id;
+        req.session.role = result.user.role;
+      }
+
+      return res.json({
+        success: true,
+        isVerified: true,
+        phone: cleanPhone,
+        user: result.user,
+        message: "🎉 Mobile number verified successfully! Blue Verification Badge activated.",
+      });
+    } catch (err: any) {
+      console.error("[verify-otp error]:", err.message);
+      return res.status(400).json({ message: err.message || "Invalid or expired SMS OTP code." });
+    }
+  });
+
   /** POST /api/auth/phone-verify-firebase — Verify phone number via Firebase SMS OTP & activate Blue Badge */
   app.post("/api/auth/phone-verify-firebase", authRateLimit, async (req: Request, res: Response) => {
     const { phone, userId, email } = req.body || {};
