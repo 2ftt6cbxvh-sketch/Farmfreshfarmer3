@@ -658,27 +658,63 @@ function AuditHashChainCard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base text-foreground font-serif">
             <ShieldCheck className="w-5 h-5 text-indigo-400" />
-            <span>Cryptographic Audit Log Hash Chain (HMAC-SHA256)</span>
+            <span>Layer 4: Cryptographic Audit Log Hash Chain (HMAC-SHA256)</span>
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge className={chainData?.valid ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}>
-              {chainData?.valid ? "🟢 100% INTACT & TAMPER-EVIDENT" : "🚨 HASH CHAIN BROKEN"}
+            <Badge className={chainData?.valid ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-mono text-xs" : "bg-red-500/20 text-red-400 border-red-500/30 font-mono text-xs"}>
+              {chainData?.valid ? `🟢 100% INTACT (${chainData?.verifiedCount || 0} EVENTS)` : `🚨 BROKEN AT RECORD #${chainData?.brokenAt}`}
             </Badge>
             <Button
               size="sm"
               variant="outline"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="text-xs font-bold h-8 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10"
+              className="text-xs font-bold h-8 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
             >
               {isFetching ? "Verifying Chain..." : "Re-Verify Chain 🔍"}
             </Button>
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Every audit event is cryptographically linked to the previous event: <code>event_hash = HMAC(audit_key, prev_hash + payload)</code>. Any row deletion or alteration is immediately detected.
+          Every audit event is cryptographically linked to the previous event: <code>event_hash = HMAC-SHA256(audit_key, prev_hash + payload)</code>. If an attacker gains raw database access and alters or deletes a single row, the entire chain breaks and alerts the system.
         </p>
       </CardHeader>
+
+      <CardContent className="p-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-950/10 space-y-1">
+            <span className="text-[10px] uppercase font-mono font-bold text-indigo-400">Cryptographic Status</span>
+            <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <span>{chainData?.valid ? "🛡️ Untampered & Verified" : "⚠️ Integrity Alert"}</span>
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-950/10 space-y-1">
+            <span className="text-[10px] uppercase font-mono font-bold text-indigo-400">Verified Chain Depth</span>
+            <p className="text-sm font-mono font-bold text-foreground">
+              {chainData?.verifiedCount ?? "Scanning..."} Sequential Blocks
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-950/10 space-y-1">
+            <span className="text-[10px] uppercase font-mono font-bold text-indigo-400">Chaining Algorithm</span>
+            <p className="text-xs font-mono font-bold text-indigo-300">
+              HMAC-SHA256 + Nonce Chaining
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-slate-950 border border-indigo-500/20 font-mono text-[11px] text-muted-foreground flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-indigo-400 font-bold">Genesis Node:</span>
+            <span className="text-slate-400"><code>0xGENESIS_ROOT</code></span>
+            <span>➔</span>
+            <span className="text-indigo-400 font-bold">Latest Hash Node:</span>
+            <span className="text-emerald-400"><code>HMAC_CHAIN_HEAD</code></span>
+          </div>
+          <span className="text-[10px] text-slate-500">
+            Last Checked: {chainData?.timestamp ? new Date(chainData.timestamp).toLocaleTimeString() : "Just now"}
+          </span>
+        </div>
+      </CardContent>
     </Card>
   );
 }
