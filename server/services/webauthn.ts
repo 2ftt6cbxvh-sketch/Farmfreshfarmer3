@@ -80,17 +80,26 @@ export async function verifyAndSaveWebAuthnRegistration(
     throw new Error("WebAuthn registration verification failed");
   }
 
-  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  const regInfo = verification.registrationInfo;
+  const credentialID: string = (regInfo as any).credentialID || (regInfo as any).credential?.id || (regInfo as any).id || (response as any).id;
+  const credentialPublicKey = (regInfo as any).credentialPublicKey || (regInfo as any).credential?.publicKey || (regInfo as any).publicKey;
+  const counter: number = Number((regInfo as any).counter ?? (regInfo as any).credential?.counter ?? 0);
+  const credentialDeviceType: string = (regInfo as any).credentialDeviceType || "platform";
+  const credentialBackedUp: boolean = Boolean((regInfo as any).credentialBackedUp);
+
+  const publicKeyBase64 = Buffer.isBuffer(credentialPublicKey) || credentialPublicKey instanceof Uint8Array
+    ? Buffer.from(credentialPublicKey).toString("base64url")
+    : String(credentialPublicKey || "");
 
   // Save credential to DB
   await db.insert(webauthnCredentials).values({
     userId,
-    credentialId: credential.id,
-    publicKey: Buffer.from(credential.publicKey).toString("base64url"),
-    counter: credential.counter,
+    credentialId: String(credentialID),
+    publicKey: publicKeyBase64,
+    counter,
     deviceType: credentialDeviceType,
     backedUp: credentialBackedUp,
-    transports: credential.transports ? JSON.stringify(credential.transports) : null,
+    transports: (response as any).response?.transports ? JSON.stringify((response as any).response.transports) : null,
     nickname,
   });
 
@@ -145,9 +154,9 @@ export async function verifyWebAuthnAssertion(
     expectedOrigin: EXPECTED_ORIGIN,
     expectedRPID: RP_ID,
     requireUserVerification: true,
-    credential: {
-      id: cred.credentialId,
-      publicKey: Buffer.from(cred.publicKey, "base64url"),
+    authenticator: {
+      credentialID: cred.credentialId,
+      credentialPublicKey: Buffer.from(cred.publicKey, "base64url"),
       counter: cred.counter,
       transports: cred.transports
         ? (JSON.parse(cred.transports) as AuthenticatorTransportFuture[])
