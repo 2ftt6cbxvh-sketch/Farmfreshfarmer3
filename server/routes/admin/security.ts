@@ -171,7 +171,7 @@ export function registerAdminSecurityRoutes(app: Express) {
     return res.json({
       valid: result.valid,
       brokenAt: result.brokenAt,
-      verifiedCount: totalRows ? 1 : 0,
+      verifiedCount: result.count,
       timestamp: new Date().toISOString(),
     });
   });

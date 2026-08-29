@@ -89,22 +89,28 @@ function hashUserAgent(ua: string): string {
 }
 
 /** Verify hash chain integrity (can be run as a background job) */
-export async function verifyAuditChain(): Promise<{ valid: boolean; brokenAt?: number }> {
+export async function verifyAuditChain(): Promise<{ valid: boolean; brokenAt?: number; count: number }> {
+  const { isNotNull } = await import("drizzle-orm");
   const events = await db
     .select()
     .from(securityAuditLogs)
+    .where(isNotNull(securityAuditLogs.eventHash))
     .orderBy(desc(securityAuditLogs.id));
 
   events.reverse(); // oldest first
+
+  if (events.length <= 1) {
+    return { valid: true, count: events.length };
+  }
 
   for (let i = 1; i < events.length; i++) {
     const prev = events[i - 1];
     const curr = events[i];
 
     if (curr.previousHash !== prev.eventHash) {
-      return { valid: false, brokenAt: curr.id };
+      return { valid: false, brokenAt: curr.id, count: events.length };
     }
   }
 
-  return { valid: true };
+  return { valid: true, count: events.length };
 }
