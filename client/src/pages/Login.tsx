@@ -52,12 +52,16 @@ export default function Login() {
 
   // ===================== LOGIN STATE =====================
   const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials");
+  const [loginVerificationMethod, setLoginVerificationMethod] = useState<"email" | "whatsapp">("email");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginToken, setLoginToken] = useState("");
   const [loginOtpCode, setLoginOtpCode] = useState("");
   const [loginDevOtp, setLoginDevOtp] = useState<string | null>(null);
+  const [loginTargetUserId, setLoginTargetUserId] = useState<number | null>(null);
+  const [loginWaData, setLoginWaData] = useState<{ code: string; formattedCode: string; waLink: string } | null>(null);
+  const [loginWaPhone, setLoginWaPhone] = useState("");
 
   // ===================== SIGNUP STATE =====================
   const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
@@ -219,7 +223,12 @@ export default function Login() {
         password: loginPassword,
         recaptchaToken,
       });
-      if (data.directLogin || data.accessToken) {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Invalid credentials");
+      }
+
+      if (data.directLogin || (data.accessToken && !data.requireVerification)) {
         if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
         if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
         setUser(data.user || data);
@@ -233,13 +242,18 @@ export default function Login() {
       }
 
       setLoginToken(data.loginToken || "");
+      setLoginTargetUserId(data.userId || null);
+      if (data.phone) setLoginWaPhone(data.phone);
       setLoginStep("otp");
       setLoginOtpCode("");
       if (data.devOtp) setLoginDevOtp(data.devOtp);
 
+      // Auto-initiate WhatsApp session
+      initiateLoginWhatsApp(data.phone, data.userId);
+
       toast({
-        title: "🔑 Verification OTP Code Sent!",
-        description: `Check your inbox (${loginEmail}). If not found in Primary, please check your Spam / Junk folder!`,
+        title: "🛡️ Verification Required",
+        description: "Choose Email OTP or WhatsApp to complete sign-in.",
       });
     } catch (err: any) {
       const errorMsg = String(err?.message || "");
@@ -321,6 +335,66 @@ export default function Login() {
       setBusy(false);
     }
   }
+
+  const initiateLoginWhatsApp = async (phoneNum?: string, userId?: number | null) => {
+    try {
+      const cleanPhone = (phoneNum || loginWaPhone || "").replace(/\D/g, "").slice(-10);
+      const res = await apiRequest("POST", "/api/auth/whatsapp/initiate", {
+        phone: cleanPhone,
+        userId: userId || loginTargetUserId,
+        email: loginEmail.trim().toLowerCase(),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLoginWaData(data);
+      }
+    } catch (err: any) {
+      console.warn("[Login WhatsApp Initiate]:", err.message);
+    }
+  };
+
+  const handleLoginVerifyWhatsApp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPhone = loginWaPhone.replace(/\D/g, "").slice(-10);
+    const cleanCode = (loginWaData?.code || "").replace(/[^0-9]/g, "");
+
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number.", variant: "destructive" });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (loginWaData?.waLink) {
+        window.open(loginWaData.waLink, "_blank", "noopener,noreferrer");
+      }
+
+      const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
+        phone: cleanPhone,
+        code: cleanCode,
+        userId: loginTargetUserId,
+        email: loginEmail.trim().toLowerCase(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "WhatsApp verification failed.");
+
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      setUser(data.user || data);
+
+      toast({
+        title: "🏅 Verification Successful!",
+        description: "Mobile number verified via WhatsApp! Blue badge activated.",
+      });
+
+      const redirectParam = new URLSearchParams(window.location.search).get("redirect");
+      navigate(redirectParam || "/");
+    } catch (err: any) {
+      toast({ title: "Verification Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // ----------------------------------------------------
   // SIGNUP FLOW
@@ -755,64 +829,151 @@ export default function Login() {
                     </Button>
                   </form>
                 ) : (
-                  /* STEP 2: Enter 6-Digit 2FA OTP */
-                  <form onSubmit={handleLoginVerifyOtp} className="space-y-4">
-                    <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-center space-y-0.5">
-                      <p className="text-xs font-extrabold text-red-500 dark:text-red-400">🚨 6-Digit Red Security Code Sent!</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Dispatched to <strong className="text-foreground">{loginEmail}</strong>.<br />
-                        <span className="text-red-400 font-bold">If not in Primary, please check your Spam / Junk folder!</span>
-                      </p>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="login-otp" className="text-xs font-bold text-red-500 dark:text-red-400">Enter 6-Digit Red Security Code</Label>
-                        <button
-                          type="button"
-                          onClick={() => setLoginStep("credentials")}
-                          className="text-[11px] text-red-500 hover:underline cursor-pointer font-bold"
-                        >
-                          Change Credentials
-                        </button>
-                      </div>
-                      <Input
-                        id="login-otp"
-                        type="text"
-                        placeholder="123456"
-                        maxLength={6}
-                        value={loginOtpCode}
-                        onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        required
-                        autoFocus
-                        className="text-center font-mono text-2xl tracking-[0.3em] font-extrabold rounded-xl border-2 border-red-500/50 bg-red-500/10 text-red-500 dark:text-red-400 focus:border-red-500"
-                      />
-                      {loginDevOtp && (
-                        <p className="text-xs text-red-400 mt-1 font-mono text-center bg-red-500/10 py-1 rounded border border-red-500/20">
-                          DEV OTP: {loginDevOtp}
-                        </p>
-                      )}
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={busy || loginOtpCode.length < 6}
-                      className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-lg shadow-red-900/30 cursor-pointer"
-                    >
-                      {busy ? "Verifying Security Code…" : "Verify Security Code & Sign In"}
-                    </Button>
-
-                    <div className="text-center pt-1">
+                  /* STEP 2: Choose Verification Method (Email vs WhatsApp) */
+                  <div className="space-y-4">
+                    {/* Method Switcher */}
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-secondary/50 rounded-2xl border border-border">
                       <button
                         type="button"
-                        onClick={handleLoginInitiate}
-                        disabled={busy}
-                        className="text-xs text-muted-foreground hover:text-red-400 underline font-semibold cursor-pointer"
+                        onClick={() => setLoginVerificationMethod("email")}
+                        className={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          loginVerificationMethod === "email"
+                            ? "bg-red-600 text-white shadow-md"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        Didn't receive code? Resend Red Security Code
+                        <span>✉️ Email OTP</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginVerificationMethod("whatsapp");
+                          initiateLoginWhatsApp();
+                        }}
+                        className={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          loginVerificationMethod === "whatsapp"
+                            ? "bg-emerald-600 text-white shadow-md"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>💬 WhatsApp (1-Tap)</span>
                       </button>
                     </div>
-                  </form>
+
+                    {loginVerificationMethod === "email" ? (
+                      /* EMAIL OTP FORM */
+                      <form onSubmit={handleLoginVerifyOtp} className="space-y-4">
+                        <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-center space-y-0.5">
+                          <p className="text-xs font-extrabold text-red-500 dark:text-red-400">🚨 6-Digit Red Security Code Sent!</p>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            Dispatched to <strong className="text-foreground">{loginEmail}</strong>.<br />
+                            <span className="text-red-400 font-bold">If not in Primary, please check your Spam / Junk folder!</span>
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <Label htmlFor="login-otp" className="text-xs font-bold text-red-500 dark:text-red-400">Enter 6-Digit Red Security Code</Label>
+                            <button
+                              type="button"
+                              onClick={() => setLoginStep("credentials")}
+                              className="text-[11px] text-red-500 hover:underline cursor-pointer font-bold"
+                            >
+                              Change Credentials
+                            </button>
+                          </div>
+                          <Input
+                            id="login-otp"
+                            type="text"
+                            placeholder="123456"
+                            maxLength={6}
+                            value={loginOtpCode}
+                            onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            required
+                            autoFocus
+                            className="text-center font-mono text-2xl tracking-[0.3em] font-extrabold rounded-xl border-2 border-red-500/50 bg-red-500/10 text-red-500 dark:text-red-400 focus:border-red-500"
+                          />
+                          {loginDevOtp && (
+                            <p className="text-xs text-red-400 mt-1 font-mono text-center bg-red-500/10 py-1 rounded border border-red-500/20">
+                              DEV OTP: {loginDevOtp}
+                            </p>
+                          )}
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={busy || loginOtpCode.length < 6}
+                          className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-lg shadow-red-900/30 cursor-pointer"
+                        >
+                          {busy ? "Verifying Security Code…" : "Verify Email & Sign In ➔"}
+                        </Button>
+
+                        <div className="text-center pt-1">
+                          <button
+                            type="button"
+                            onClick={handleLoginInitiate}
+                            disabled={busy}
+                            className="text-xs text-muted-foreground hover:text-red-400 underline font-semibold cursor-pointer"
+                          >
+                            Didn't receive code? Resend Red Security Code
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      /* WHATSAPP VERIFICATION FORM */
+                      <form onSubmit={handleLoginVerifyWhatsApp} className="space-y-4">
+                        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
+                              <ShieldCheck size={15} /> 1-Tap WhatsApp Verification
+                            </span>
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                              Instant &amp; Free
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Enter your 10-digit mobile number. Tap below to send verification message to <b>+91 7989793669</b> and sign in instantly!
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center mb-1">
+                            <Label className="text-xs font-bold text-foreground">Your 10-Digit Mobile Number</Label>
+                            <button
+                              type="button"
+                              onClick={() => setLoginStep("credentials")}
+                              className="text-[11px] text-muted-foreground hover:underline cursor-pointer font-bold"
+                            >
+                              Change Credentials
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
+                              🇮🇳 +91
+                            </span>
+                            <Input
+                              type="tel"
+                              maxLength={10}
+                              value={loginWaPhone}
+                              onChange={(e) => setLoginWaPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                              placeholder="9876543210"
+                              className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
+                              autoFocus
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
+                          className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-lg cursor-pointer"
+                        >
+                          {busy ? "Verifying via WhatsApp…" : `💬 Open WhatsApp & Sign In (${loginWaData?.formattedCode || "FF-Code"}) ➔`}
+                        </Button>
+                      </form>
+                    )}
+                  </div>
                 )}
               </>
             )}

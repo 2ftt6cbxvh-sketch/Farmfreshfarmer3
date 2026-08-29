@@ -670,33 +670,83 @@ export function registerAuthJwtRoutes(app: Express) {
       });
     }
 
-    // Password verified! Log in user directly without repeating OTP on every login
-    req.session.userId = user.id;
-    req.session.role = user.role;
-    const tokens = await issueTokenPair(user.id, user.role, {
-      platform: req.body?.platform || "web",
-      deviceId: req.body?.deviceId,
-      ip: req.ip,
-      userAgent: req.headers["user-agent"],
+    const isFullyVerified = Boolean(
+      (user.isEmailVerified || user.isVerified) &&
+      user.isPhoneVerified &&
+      user.phone &&
+      user.phone.trim().length >= 10
+    );
+
+    // 1. If already fully verified previously -> Direct Login!
+    if (isFullyVerified || user.isPrimaryAdmin) {
+      req.session.userId = user.id;
+      req.session.role = user.role;
+      const tokens = await issueTokenPair(user.id, user.role, {
+        platform: req.body?.platform || "web",
+        deviceId: req.body?.deviceId,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      await auditLog("login_success", { userId: user.id, req, action: `Customer direct login for ${cleanEmail}` });
+
+      return res.json({
+        success: true,
+        directLogin: true,
+        message: "Login successful!",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          isVerified: true,
+        },
+        ...tokens,
+      });
+    }
+
+    // 2. If NOT fully verified yet -> create loginToken & send email OTP for verification options
+    const jwt = (await import("jsonwebtoken")).default;
+    const loginToken = jwt.sign(
+      { userId: user.id, email: user.email, type: "login_2fa" },
+      getJwtSecret(),
+      { expiresIn: "15m" }
+    );
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await db.insert(otpCodes).values({
+      userId: user.id,
+      phone: cleanEmail,
+      purpose: "login_2fa",
+      codeHash,
+      expiresAt,
     });
 
-    await auditLog("login_success", { userId: user.id, req, action: `Customer login success for ${cleanEmail}` });
+    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
+    sendRealEmail({
+      to: cleanEmail,
+      subject: `🔑 Your Verification OTP Code: ${otp}`,
+      html: buildOtpEmailHtml(otp, user.name),
+      text: buildOtpPlainText(otp, user.name),
+    }).catch(() => {});
 
     return res.json({
       success: true,
-      directLogin: true,
-      message: "Login successful!",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        isEmailVerified: Boolean(user.isEmailVerified),
-        isPhoneVerified: Boolean(user.isPhoneVerified),
-        isVerified: Boolean(user.isVerified),
-      },
-      ...tokens,
+      requireVerification: true,
+      loginToken,
+      userId: user.id,
+      email: cleanEmail,
+      phone: user.phone || "",
+      isEmailVerified: Boolean(user.isEmailVerified),
+      isPhoneVerified: Boolean(user.isPhoneVerified),
+      message: "Please verify your account via Email OTP or WhatsApp to complete login.",
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
   });
 
