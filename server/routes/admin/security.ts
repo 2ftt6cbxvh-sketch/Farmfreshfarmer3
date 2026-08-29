@@ -141,19 +141,16 @@ export function registerAdminSecurityRoutes(app: Express) {
         userAgent: userAgent.slice(0, 500),
       });
 
-      // Dispatch Telegram Security Alert
+      // Dispatch Telegram Security Alert with detailed client telemetry & location
       const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../../services/telegram");
       if (await isTelegramSecurityConfigured()) {
         await sendTelegramSecurityAlert(
           `🚨 <b>SECURITY INCIDENT LOGGED: <code>${cleanRef}</code></b>\n\n` +
-          `• <b>Type</b>: ${title || "Master Credentials Intercepted"}\n` +
-          `• <b>Route</b>: <code>${targetRoute || "/login"}</code>\n` +
-          `• <b>Target Identity</b>: <code>${email || "admin@farmfreshfarmer.com"}</code>\n` +
+          `• <b>Type</b>: ${title || "Direct Admin Access Intercepted"}\n` +
+          `• <b>Route</b>: <code>${targetRoute || "/admin"}</code>\n` +
           `• <b>Policy</b>: ${policy || "Executive Zero-Trust Clearance"}\n` +
-          `• <b>IP Address</b>: <code>${ip}</code>\n` +
-          `• <b>Device</b>: ${userAgent.slice(0, 70)}\n` +
-          `• <b>Timestamp</b>: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}\n\n` +
-          `🔒 <b>Action</b>: Quarantined & Blocked under IT Act 2000 & BNS 2023.`
+          `• <b>Action</b>: Quarantined & Access Intercepted.`,
+          req
         );
       }
 
@@ -161,6 +158,18 @@ export function registerAdminSecurityRoutes(app: Express) {
     } catch (err: any) {
       console.error("[log-incident] error:", err);
       return res.status(500).json({ message: "Failed to log incident" });
+    }
+  });
+
+  /** POST /api/telemetry/visitor-ping — Instant fire-and-forget URL visit telemetry */
+  app.post("/api/telemetry/visitor-ping", async (req: Request, res: Response) => {
+    try {
+      const { path } = req.body || {};
+      const { notifyWebsiteVisitor } = await import("../../services/telegram");
+      notifyWebsiteVisitor(req, path).catch(() => {});
+      return res.json({ ok: true });
+    } catch {
+      return res.json({ ok: true });
     }
   });
 
@@ -225,12 +234,9 @@ export function registerAdminSecurityRoutes(app: Express) {
     const alertMessage =
       `⚠️ <b>UNAUTHORISED ADMIN ACCESS ATTEMPT DETECTED!</b>\n` +
       `Path: <code>${path || "/admin"}</code>\n` +
-      `IP Address: <code>${ip}</code>\n` +
-      `User Agent: ${userAgent.slice(0, 60)}\n` +
-      `Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}\n\n` +
-      `🔒 Access Blocked (403 Forbidden). Incident logged under IT Act 2000 & BNS 2023.`;
+      `🔒 Access Blocked (Warning Screen Displayed). Incident logged.`;
 
-    await sendTelegramAlert(alertMessage);
+    await sendTelegramAlert(alertMessage, req);
     return res.json({ logged: true, alertSent: true });
   });
 

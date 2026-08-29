@@ -189,35 +189,92 @@ function AppRouter() {
         <Route path="/admin/login" component={AdminDirectAccessWarning} />
         <Route path="/admin/login/" component={AdminDirectAccessWarning} />
 
-        {/* Admin Portal Protected Routes */}
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/live-chat" component={AdminLiveChat} />
-        <Route path="/admin/tickets" component={AdminTickets} />
-        <Route path="/admin/refunds" component={AdminRefunds} />
-        <Route path="/admin/products" component={AdminProducts} />
-        <Route path="/admin/categories" component={AdminCategories} />
-        <Route path="/admin/approvals" component={AdminApprovals} />
-        <Route path="/admin/inventory" component={AdminInventory} />
-        <Route path="/admin/orders" component={AdminOrders} />
-        <Route path="/admin/subscriptions" component={AdminSubscriptions} />
-        <Route path="/admin/customers" component={AdminCustomers} />
-        <Route path="/admin/reviews" component={AdminReviews} />
-        <Route path="/admin/coupons" component={AdminCoupons} />
-        <Route path="/admin/discounts" component={AdminDiscounts} />
-        <Route path="/admin/star-discount-rules" component={AdminStarDiscountRules} />
-        <Route path="/admin/referrals" component={AdminReferrals} />
-        <Route path="/admin/payments" component={AdminPayments} />
-        <Route path="/admin/security" component={AdminSecurity} />
-        <Route path="/admin/warehouses" component={AdminWarehouses} />
-        <Route path="/admin/delivery" component={AdminDelivery} />
-        <Route path="/admin/users" component={AdminUsers} />
-        <Route path="/admin/staff" component={AdminStaff} />
-        <Route path="/admin/delivery-partners" component={AdminDeliveryPartners} />
-        <Route path="/admin/gst" component={AdminGST} />
-        <Route path="/admin/advertisements" component={AdminAdvertisements} />
-        <Route path="/admin/announcements" component={AdminAdvertisements} />
+        {/* Admin Portal Protected Routes (All wrapped with AdminGuard for seamless warning screen interception) */}
+        <Route path="/admin">
+          {() => <AdminGuard component={AdminDashboard} path="/admin" />}
+        </Route>
+        <Route path="/admin/">
+          {() => <AdminGuard component={AdminDashboard} path="/admin/" />}
+        </Route>
+        <Route path="/admin/live-chat">
+          {() => <AdminGuard component={AdminLiveChat} path="/admin/live-chat" />}
+        </Route>
+        <Route path="/admin/tickets">
+          {() => <AdminGuard component={AdminTickets} path="/admin/tickets" />}
+        </Route>
+        <Route path="/admin/refunds">
+          {() => <AdminGuard component={AdminRefunds} path="/admin/refunds" />}
+        </Route>
+        <Route path="/admin/products">
+          {() => <AdminGuard component={AdminProducts} path="/admin/products" />}
+        </Route>
+        <Route path="/admin/categories">
+          {() => <AdminGuard component={AdminCategories} path="/admin/categories" />}
+        </Route>
+        <Route path="/admin/approvals">
+          {() => <AdminGuard component={AdminApprovals} path="/admin/approvals" />}
+        </Route>
+        <Route path="/admin/inventory">
+          {() => <AdminGuard component={AdminInventory} path="/admin/inventory" />}
+        </Route>
+        <Route path="/admin/orders">
+          {() => <AdminGuard component={AdminOrders} path="/admin/orders" />}
+        </Route>
+        <Route path="/admin/subscriptions">
+          {() => <AdminGuard component={AdminSubscriptions} path="/admin/subscriptions" />}
+        </Route>
+        <Route path="/admin/customers">
+          {() => <AdminGuard component={AdminCustomers} path="/admin/customers" />}
+        </Route>
+        <Route path="/admin/reviews">
+          {() => <AdminGuard component={AdminReviews} path="/admin/reviews" />}
+        </Route>
+        <Route path="/admin/coupons">
+          {() => <AdminGuard component={AdminCoupons} path="/admin/coupons" />}
+        </Route>
+        <Route path="/admin/discounts">
+          {() => <AdminGuard component={AdminDiscounts} path="/admin/discounts" />}
+        </Route>
+        <Route path="/admin/star-discount-rules">
+          {() => <AdminGuard component={AdminStarDiscountRules} path="/admin/star-discount-rules" />}
+        </Route>
+        <Route path="/admin/referrals">
+          {() => <AdminGuard component={AdminReferrals} path="/admin/referrals" />}
+        </Route>
+        <Route path="/admin/payments">
+          {() => <AdminGuard component={AdminPayments} path="/admin/payments" />}
+        </Route>
+        <Route path="/admin/security">
+          {() => <AdminGuard component={AdminSecurity} path="/admin/security" />}
+        </Route>
+        <Route path="/admin/warehouses">
+          {() => <AdminGuard component={AdminWarehouses} path="/admin/warehouses" />}
+        </Route>
+        <Route path="/admin/delivery">
+          {() => <AdminGuard component={AdminDelivery} path="/admin/delivery" />}
+        </Route>
+        <Route path="/admin/users">
+          {() => <AdminGuard component={AdminUsers} path="/admin/users" />}
+        </Route>
+        <Route path="/admin/staff">
+          {() => <AdminGuard component={AdminStaff} path="/admin/staff" />}
+        </Route>
+        <Route path="/admin/delivery-partners">
+          {() => <AdminGuard component={AdminDeliveryPartners} path="/admin/delivery-partners" />}
+        </Route>
+        <Route path="/admin/gst">
+          {() => <AdminGuard component={AdminGST} path="/admin/gst" />}
+        </Route>
+        <Route path="/admin/advertisements">
+          {() => <AdminGuard component={AdminAdvertisements} path="/admin/advertisements" />}
+        </Route>
+        <Route path="/admin/announcements">
+          {() => <AdminGuard component={AdminAdvertisements} path="/admin/announcements" />}
+        </Route>
         <Route path="/partner-portal" component={DeliveryPartnerPortal} />
-        <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/admin/settings">
+          {() => <AdminGuard component={AdminSettings} path="/admin/settings" />}
+        </Route>
 
         {/* Root Home Route */}
         <Route path="/" component={Home} />
@@ -227,6 +284,58 @@ function AppRouter() {
       </Switch>
     </ErrorBoundary>
   );
+}
+
+function AdminGuard({ component: Component, path }: { component: React.ComponentType; path?: string }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-black">Loading…</div>;
+  }
+
+  const storedAdmin = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminUser") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
+  const effectiveUser = (user && user.id) ? user : storedAdmin;
+
+  const STAFF_ROLES = [
+    "admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin",
+    "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer", "superadmin"
+  ];
+
+  const isStaffOrAdmin = Boolean(
+    effectiveUser && (
+      effectiveUser.isPrimaryAdmin === true ||
+      effectiveUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      STAFF_ROLES.includes(effectiveUser.role)
+    )
+  );
+
+  if (!isStaffOrAdmin) {
+    return <AdminDirectAccessWarning targetRoute={path || window.location.pathname} />;
+  }
+
+  return <Component />;
+}
+
+function VisitorTelemetryTracker() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    const path = window.location.pathname + window.location.search;
+    fetch("/api/telemetry/visitor-ping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    }).catch(() => {});
+  }, [location]);
+
+  return null;
 }
 
 function ScrollToTop() {
@@ -337,6 +446,7 @@ function AppContent() {
             <Toaster />
             <Router>
               <ScrollToTop />
+              <VisitorTelemetryTracker />
               <AppRouter />
             </Router>
           </CartProvider>
