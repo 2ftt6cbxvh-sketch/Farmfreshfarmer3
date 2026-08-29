@@ -73,6 +73,7 @@ import { registerHeroShowcaseRoutes } from "./routes/admin/hero-showcase";
 import { registerAnnouncementRoutes } from "./routes/announcements";
 import gstRouter from "./routes/admin/gst";
 import { registerAdminWebAuthnRoutes } from "./routes/admin/webauthn";
+import { registerAdminSessionRoutes } from "./routes/admin/sessions";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -2660,6 +2661,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   // Admin security, warehouses, delivery, staff, partner routes
   registerAdminSecurityRoutes(app);
   registerAdminWebAuthnRoutes(app);
+  registerAdminSessionRoutes(app);
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
   registerStaffRoutes(app);

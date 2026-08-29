@@ -541,6 +541,148 @@ STORE THIS FILE OFFLINE (USB / SAFE VAULT / PRINTED PAPER).
   );
 }
 
+function ActiveSessionsCard() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: sessionsData, refetch } = useQuery<{
+    sessions: Array<{
+      id: number;
+      deviceId: string | null;
+      platform: string;
+      ip: string | null;
+      userAgent: string | null;
+      createdAt: string;
+      expiresAt: string;
+    }>;
+    count: number;
+    currentSessionIp: string;
+  }>({
+    queryKey: ["/api/admin/sessions"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/sessions")).json(),
+  });
+
+  const revokeAllMutation = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/admin/sessions/revoke-others")).json(),
+    onSuccess: (data) => {
+      toast({ title: "🔒 Sessions Revoked", description: data.message });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["/api/admin/sessions"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Revocation Failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const sessions = sessionsData?.sessions || [];
+  const count = sessionsData?.count || 0;
+
+  return (
+    <Card className="border-sky-500/40 bg-card shadow-xl overflow-hidden">
+      <CardHeader className="bg-sky-950/20 border-b border-sky-500/20 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base text-foreground font-serif">
+            <Monitor className="w-5 h-5 text-sky-400" />
+            <span>Active Device Sessions &amp; Token Families</span>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/30 text-xs">
+              {count} ACTIVE {count === 1 ? "SESSION" : "SESSIONS"}
+            </Badge>
+            {count > 1 && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => revokeAllMutation.mutate()}
+                disabled={revokeAllMutation.isPending}
+                className="text-xs font-bold h-8 px-3 rounded-lg"
+              >
+                {revokeAllMutation.isPending ? "Revoking..." : "Revoke All Other Devices 🔒"}
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Monitor connected devices and refresh-token families. 10-minute idle timeout &amp; absolute 12-hour session rotation enforced.
+        </p>
+      </CardHeader>
+
+      <CardContent className="p-5 space-y-3">
+        {sessions.length > 0 ? (
+          <div className="divide-y divide-border/60 rounded-2xl border border-border/80 bg-secondary/10 overflow-hidden">
+            {sessions.map((s, i) => (
+              <div key={s.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center text-sky-400 shrink-0 font-mono text-[10px] font-bold">
+                    #{i + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-foreground truncate flex items-center gap-2">
+                      <span>IP: {s.ip || "Unknown"}</span>
+                      {s.ip === sessionsData?.currentSessionIp && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                          CURRENT DEVICE
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate max-w-md">
+                      Issued: {new Date(s.createdAt).toLocaleString()} • {s.userAgent?.slice(0, 50) || "Browser Session"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No active sessions found.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AuditHashChainCard() {
+  const { data: chainData, refetch, isFetching } = useQuery<{
+    valid: boolean;
+    brokenAt?: number;
+    verifiedCount: number;
+    timestamp: string;
+  }>({
+    queryKey: ["/api/admin/security/audit-chain/verify"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/security/audit-chain/verify")).json(),
+  });
+
+  return (
+    <Card className="border-indigo-500/40 bg-card shadow-xl overflow-hidden">
+      <CardHeader className="bg-indigo-950/20 border-b border-indigo-500/20 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base text-foreground font-serif">
+            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+            <span>Cryptographic Audit Log Hash Chain (HMAC-SHA256)</span>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className={chainData?.valid ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}>
+              {chainData?.valid ? "🟢 100% INTACT & TAMPER-EVIDENT" : "🚨 HASH CHAIN BROKEN"}
+            </Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="text-xs font-bold h-8 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10"
+            >
+              {isFetching ? "Verifying Chain..." : "Re-Verify Chain 🔍"}
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Every audit event is cryptographically linked to the previous event: <code>event_hash = HMAC(audit_key, prev_hash + payload)</code>. Any row deletion or alteration is immediately detected.
+        </p>
+      </CardHeader>
+    </Card>
+  );
+}
+
 export default function AdminSecurity() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -881,6 +1023,12 @@ export default function AdminSecurity() {
 
       {/* Chief Super Admin Offline Break-Glass Emergency Recovery Codes */}
       <EmergencyBreakGlassCodesCard />
+
+      {/* 📱 Active Device Sessions & Token Families */}
+      <ActiveSessionsCard />
+
+      {/* ⛓️ Cryptographic Audit Log Hash Chain Verification */}
+      <AuditHashChainCard />
 
       {/* 1. Super Admin Security Bot Controller */}
       <Card className="border-red-500/30 bg-card shadow-xl overflow-hidden">

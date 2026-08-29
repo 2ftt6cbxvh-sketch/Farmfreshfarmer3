@@ -163,6 +163,57 @@ export function registerAdminSecurityRoutes(app: Express) {
     }
   });
 
+  /** GET /api/admin/security/audit-chain/verify — Cryptographically verify entire HMAC audit hash chain */
+  app.get("/api/admin/security/audit-chain/verify", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
+    const { verifyAuditChain } = await import("../../services/audit");
+    const result = await verifyAuditChain();
+    const [totalRows] = await db.select().from(securityAuditLogs);
+    return res.json({
+      valid: result.valid,
+      brokenAt: result.brokenAt,
+      verifiedCount: totalRows ? 1 : 0,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  /** POST /api/admin/step-up/verify-totp — Satisfy step-up auth challenge via 6-digit TOTP code */
+  app.post("/api/admin/step-up/verify-totp", requirePrimaryAdmin as any, async (req: Request, res: Response) => {
+    const { code } = req.body || {};
+    const { verifyStepUpTotp } = await import("../../middleware/step-up-auth");
+    const success = await verifyStepUpTotp(req, String(code || ""));
+
+    if (success) {
+      return res.json({
+        verified: true,
+        message: "✨ Step-up authentication confirmed. High-risk action authorized for 5 minutes.",
+      });
+    }
+
+    return res.status(400).json({
+      verified: false,
+      message: "Invalid TOTP verification code. Check your Authenticator app.",
+    });
+  });
+
+  /** GET /api/admin/step-up/status — Check current step-up validity duration */
+  app.get("/api/admin/step-up/status", async (req: Request, res: Response) => {
+    const session = req.session as any;
+    const now = Date.now();
+    const lastStepUp = Math.max(
+      Number(session?.stepUpAt || 0),
+      Number(session?.webauthnStepUpAt || 0)
+    );
+    const maxAgeMs = 5 * 60 * 1000;
+    const elapsed = now - lastStepUp;
+    const isValid = lastStepUp > 0 && elapsed <= maxAgeMs;
+    const secondsRemaining = isValid ? Math.floor((maxAgeMs - elapsed) / 1000) : 0;
+
+    return res.json({
+      isStepUpActive: isValid,
+      secondsRemaining,
+    });
+  });
+
   /** POST /api/admin/security/unauthorized-attempt — Trigger Telegram Alert when someone hits /admin directly */
   app.post("/api/admin/security/unauthorized-attempt", async (req: Request, res: Response) => {
     const { path } = req.body || {};
