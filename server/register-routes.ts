@@ -376,6 +376,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const tokens = await issueTokenPair(user.id, user.role, {
       platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
     });
+
+    // Send Welcome & Security Registration Confirmation Email
+    try {
+      const { sendRealEmail, buildWelcomeRegistrationEmailHtml } = await import("./services/email");
+      sendRealEmail({
+        to: lower,
+        subject: "🌿 Welcome to FarmFreshFarmer — Account Created Successfully",
+        html: buildWelcomeRegistrationEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: "web",
+        }),
+      }).catch((e: any) => console.warn("[register welcome email error]", e?.message));
+    } catch {}
+
     res.json({ user: publicUser(user), ...tokens });
   }));
 
@@ -549,6 +564,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const tokens = await issueTokenPair(user.id, user.role, {
       platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
     });
+
+    // Send Security Sign-In Alert Email
+    try {
+      const { sendRealEmail, buildSecurityLoginAlertEmailHtml } = await import("./services/email");
+      sendRealEmail({
+        to: user.email,
+        subject: "🛡️ [Security Alert] New Sign-In to Your FarmFreshFarmer Account",
+        html: buildSecurityLoginAlertEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: "web",
+        }),
+      }).catch((e: any) => console.warn("[login alert email error]", e?.message));
+    } catch {}
+
     res.json({ user: publicUser(user), ...tokens });
   }));
 

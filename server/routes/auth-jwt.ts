@@ -123,6 +123,21 @@ export function registerAuthJwtRoutes(app: Express) {
     });
 
     await auditLog("register_success", { userId: user.id, req, action: `Registration via ${platform || "web"}` });
+
+    // Send Welcome & Security Registration Confirmation Email
+    try {
+      const { sendRealEmail, buildWelcomeRegistrationEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: cleanEmail,
+        subject: "🌿 Welcome to FarmFreshFarmer — Account Created Successfully",
+        html: buildWelcomeRegistrationEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: platform || "web",
+        }),
+      }).catch((e: any) => console.warn("[welcome email error]", e?.message));
+    } catch {}
+
     return res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }, ...tokens });
   });
 
@@ -159,6 +174,21 @@ export function registerAuthJwtRoutes(app: Express) {
     });
 
     await auditLog("login_success", { userId: user.id, req, action: `Login via ${platform || "web"}` });
+
+    // Send Security Sign-In Alert Email
+    try {
+      const { sendRealEmail, buildSecurityLoginAlertEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: user.email,
+        subject: "🛡️ [Security Alert] New Sign-In to Your FarmFreshFarmer Account",
+        html: buildSecurityLoginAlertEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: platform || "web",
+        }),
+      }).catch((e: any) => console.warn("[login alert email error]", e?.message));
+    } catch {}
+
     return res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }, ...tokens });
   });
 
@@ -192,7 +222,7 @@ export function registerAuthJwtRoutes(app: Express) {
         userId = decoded?.userId || decoded?.sub;
       } catch {}
     }
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ message: "Authentication required to change password." });
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (!user) return res.status(401).json({ message: "User not found" });
@@ -204,8 +234,12 @@ export function registerAuthJwtRoutes(app: Express) {
       });
     }
 
-    if (!user.password || !(await bcrypt.compare(String(currentPassword || ""), user.password))) {
-      return res.status(401).json({ message: "Current password incorrect" });
+    // If user already has a password, verify old password
+    if (user.password && user.password.trim() !== "") {
+      const match = await bcrypt.compare(String(currentPassword || ""), user.password);
+      if (!match) {
+        return res.status(400).json({ message: "Incorrect current password. If you forgot it, click 'Forgot Old Password? Verify via Email OTP'." });
+      }
     }
 
     const pwCheck = validatePassword(String(newPassword || ""));
@@ -213,7 +247,144 @@ export function registerAuthJwtRoutes(app: Express) {
 
     const hashedPassword = await bcrypt.hash(String(newPassword), 10);
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
-    return res.json({ message: "Password updated successfully" });
+
+    // Send confirmation email
+    try {
+      const { sendRealEmail, buildPasswordChangedSuccessEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: user.email,
+        subject: "🔒 Your FarmFreshFarmer Password Has Been Changed",
+        html: buildPasswordChangedSuccessEmailHtml(user.name),
+      }).catch((e: any) => console.warn("[password change email error]", e?.message));
+    } catch {}
+
+    await auditLog("password_change_success", { userId: user.id, req, action: "Customer changed password with current password" });
+
+    return res.json({ success: true, message: "Your password has been updated successfully!" });
+  });
+
+  /** POST /api/auth/password-otp/send — Send 6-digit Email OTP to logged-in user who forgot old password */
+  app.post("/api/auth/password-otp/send", async (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let userId: number | undefined = req.session?.userId;
+    if (!userId && token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
+        userId = decoded?.userId || decoded?.sub;
+      } catch {}
+    }
+    if (!userId) return res.status(401).json({ message: "Authentication required." });
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await db.insert(otpCodes).values({
+      userId: user.id,
+      phone: user.email,
+      purpose: "password_change_otp",
+      codeHash,
+      expiresAt,
+    });
+
+    try {
+      const { sendRealEmail, buildPasswordChangeOtpEmailHtml } = await import("../services/email");
+      await sendRealEmail({
+        to: user.email,
+        subject: `🔑 Your Password Verification OTP Code: ${otp}`,
+        html: buildPasswordChangeOtpEmailHtml(user.name, otp),
+      });
+    } catch (e: any) {
+      console.error("[password otp send error]", e);
+      return res.status(500).json({ message: "Failed to dispatch verification email. Please try again." });
+    }
+
+    await auditLog("password_otp_sent", { userId: user.id, req, action: `Password change OTP dispatched to ${user.email}` });
+
+    return res.json({
+      success: true,
+      message: `A 6-digit verification code has been sent to ${user.email}. Valid for 10 minutes.`,
+    });
+  });
+
+  /** POST /api/auth/password-otp/verify-and-update — Verify OTP & set new password */
+  app.post("/api/auth/password-otp/verify-and-update", async (req: Request, res: Response) => {
+    const { otp, newPassword } = req.body || {};
+    if (!otp || !newPassword) {
+      return res.status(400).json({ message: "OTP code and new password are required." });
+    }
+
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+    let userId: number | undefined = req.session?.userId;
+    if (!userId && token) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
+        userId = decoded?.userId || decoded?.sub;
+      } catch {}
+    }
+    if (!userId) return res.status(401).json({ message: "Authentication required." });
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Validate OTP
+    const activeOtps = await db
+      .select()
+      .from(otpCodes)
+      .where(
+        and(
+          eq(otpCodes.userId, user.id),
+          eq(otpCodes.purpose, "password_change_otp"),
+          isNull(otpCodes.verifiedAt),
+          gt(otpCodes.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(otpCodes.id))
+      .limit(5);
+
+    let matchedOtpId: number | null = null;
+    for (const row of activeOtps) {
+      const isMatch = await bcrypt.compare(String(otp).trim(), row.codeHash);
+      if (isMatch) {
+        matchedOtpId = row.id;
+        break;
+      }
+    }
+
+    if (!matchedOtpId) {
+      return res.status(400).json({ message: "Invalid or expired OTP code. Please request a new code." });
+    }
+
+    const pwCheck = validatePassword(String(newPassword));
+    if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
+
+    // Mark OTP as verified
+    await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
+
+    // Update password
+    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+
+    // Send confirmation email
+    try {
+      const { sendRealEmail, buildPasswordChangedSuccessEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: user.email,
+        subject: "🔒 Your FarmFreshFarmer Password Has Been Changed",
+        html: buildPasswordChangedSuccessEmailHtml(user.name),
+      }).catch((e: any) => console.warn("[password change email error]", e?.message));
+    } catch {}
+
+    await auditLog("password_otp_verified_and_changed", { userId: user.id, req, action: "Password updated via Email OTP verification" });
+
+    return res.json({ success: true, message: "Your password has been verified and updated successfully!" });
   });
 
   /** POST /api/auth/google */
@@ -336,6 +507,33 @@ export function registerAuthJwtRoutes(app: Express) {
       }
 
       await auditLog("google_login", { userId: user.id, req, action: `Google Sign-In via ${platform || "web"}` });
+
+      // Send Security Login Alert or Welcome Email
+      try {
+        const { sendRealEmail, buildSecurityLoginAlertEmailHtml, buildWelcomeRegistrationEmailHtml } = await import("../services/email");
+        if (user.password === "" && user.createdAt && (Date.now() - new Date(user.createdAt).getTime()) < 60000) {
+          sendRealEmail({
+            to: user.email,
+            subject: "🌿 Welcome to FarmFreshFarmer — Account Created Successfully",
+            html: buildWelcomeRegistrationEmailHtml(user.name, user.email, {
+              ip: req.ip,
+              userAgent: req.headers["user-agent"],
+              platform: "google",
+            }),
+          }).catch((e: any) => console.warn("[google welcome email error]", e?.message));
+        } else {
+          sendRealEmail({
+            to: user.email,
+            subject: "🛡️ [Security Alert] New Sign-In to Your FarmFreshFarmer Account",
+            html: buildSecurityLoginAlertEmailHtml(user.name, user.email, {
+              ip: req.ip,
+              userAgent: req.headers["user-agent"],
+              platform: "google",
+            }),
+          }).catch((e: any) => console.warn("[google login alert email error]", e?.message));
+        }
+      } catch {}
+
       return res.json({
         user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, profilePhoto: user.profilePhoto },
         ...tokens,
@@ -541,6 +739,20 @@ export function registerAuthJwtRoutes(app: Express) {
 
     await auditLog("login_success", { userId: user.id, req, action: `2FA Login successful via ${platform || "web"}` });
 
+    // Send Security Sign-In Alert Email
+    try {
+      const { sendRealEmail, buildSecurityLoginAlertEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: user.email,
+        subject: "🛡️ [Security Alert] New Sign-In to Your FarmFreshFarmer Account",
+        html: buildSecurityLoginAlertEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: platform || "web",
+        }),
+      }).catch((e: any) => console.warn("[login alert email error]", e?.message));
+    } catch {}
+
     return res.json({
       message: "Login successful!",
       user: {
@@ -730,6 +942,20 @@ export function registerAuthJwtRoutes(app: Express) {
     });
 
     await auditLog("register_success", { userId: user.id, req, action: `Registration & OTP verification complete via ${platform || "web"}` });
+
+    // Send Welcome & Security Registration Confirmation Email
+    try {
+      const { sendRealEmail, buildWelcomeRegistrationEmailHtml } = await import("../services/email");
+      sendRealEmail({
+        to: email,
+        subject: "🌿 Welcome to FarmFreshFarmer — Account Created Successfully",
+        html: buildWelcomeRegistrationEmailHtml(user.name, user.email, {
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          platform: platform || "web",
+        }),
+      }).catch((e: any) => console.warn("[signup welcome email error]", e?.message));
+    } catch {}
 
     return res.status(201).json({
       message: "Account created successfully! Welcome to FarmFreshFarmer.",

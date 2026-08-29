@@ -19,6 +19,7 @@ import {
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 import { EmailVerificationModal } from "@/components/EmailVerificationModal";
+import { AccountPasswordCard } from "@/components/AccountPasswordCard";
 
 interface StarDiscountRule {
   id: number;
@@ -752,6 +753,9 @@ export default function Account() {
                 </Button>
               </form>
             </div>
+
+            {/* Password & Security Card */}
+            <AccountPasswordCard userEmail={user.email} />
           </TabsContent>
         </Tabs>
 
