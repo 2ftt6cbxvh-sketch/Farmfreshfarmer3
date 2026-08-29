@@ -175,13 +175,13 @@ export async function resolveLines(
         { status: 400 }
       );
     }
-    pId = p.id;
+    const pId = p.id;
     name = p.name;
     unit = p.unit ?? i.unit ?? "";
     const rawPrice = Number(p.price) || 0;
     const discPercent = Number(p.discountPercent) || 0;
     unitPrice = discPercent > 0 ? round2(rawPrice * (1 - discPercent / 100)) : rawPrice;
-    gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
+    const gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
 
     const baseAmount = round2(unitPrice * qty);
     const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
