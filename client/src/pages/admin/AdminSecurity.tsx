@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus, Copy, Check, Search, Terminal, ShieldX } from "lucide-react";
+import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Lock, Unlock, KeyRound, Plus, Copy, Check, Search, Terminal, ShieldX, Fingerprint, Smartphone, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 import { ChiefExecutiveExclusiveControls } from "@/components/admin/ChiefExecutiveExclusiveControls";
@@ -167,6 +167,234 @@ function ChiefAdminTotpCard() {
               {verifyMutation.isPending ? "Verifying..." : "Verify & Lock Down Chief Admin"}
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WebAuthnPasskeysCard() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [nickname, setNickname] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const { data: webauthnData, refetch } = useQuery<{
+    credentials: Array<{
+      id: number;
+      credentialId: string;
+      nickname: string;
+      deviceType: string;
+      backedUp: boolean;
+      lastUsedAt: string | null;
+      createdAt: string;
+    }>;
+    count: number;
+  }>({
+    queryKey: ["/api/admin/webauthn/credentials"],
+    queryFn: async () => (await apiRequest("GET", "/api/admin/webauthn/credentials")).json(),
+  });
+
+  const credentials = webauthnData?.credentials || [];
+  const count = webauthnData?.count || 0;
+
+  const handleEnrollPasskey = async () => {
+    setEnrolling(true);
+    try {
+      const optionsRes = await apiRequest("POST", "/api/admin/webauthn/register/options");
+      const options = await optionsRes.json();
+
+      const { startRegistration } = await import("@simplewebauthn/browser");
+      const attResp = await startRegistration({ optionsJSON: options });
+
+      const verifyRes = await apiRequest("POST", "/api/admin/webauthn/register/verify", {
+        response: attResp,
+        nickname: nickname.trim() || (navigator.platform?.includes("Mac") ? "Mac Touch ID" : "Hardware Security Key"),
+      });
+      const verifyData = await verifyRes.json();
+
+      if (verifyData.verified) {
+        toast({
+          title: "🔐 WebAuthn Passkey Enrolled!",
+          description: `Phishing-resistant passkey successfully bound to hardware (Total: ${verifyData.count}).`,
+        });
+        setNickname("");
+        refetch();
+        qc.invalidateQueries({ queryKey: ["/api/admin/webauthn/credentials"] });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Passkey Enrollment Failed",
+        description: err?.message || "User cancelled or hardware not recognized.",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleTestPasskey = async () => {
+    setTesting(true);
+    try {
+      const optionsRes = await apiRequest("POST", "/api/admin/webauthn/auth/options");
+      const options = await optionsRes.json();
+
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      const asseResp = await startAuthentication({ optionsJSON: options });
+
+      const verifyRes = await apiRequest("POST", "/api/admin/webauthn/auth/verify", {
+        response: asseResp,
+      });
+      const verifyData = await verifyRes.json();
+
+      if (verifyData.verified) {
+        toast({
+          title: "✨ WebAuthn Assertion Verified!",
+          description: "Hardware signature matched successfully. Step-up assurance level confirmed.",
+        });
+        refetch();
+      }
+    } catch (err: any) {
+      toast({
+        title: "Passkey Test Failed",
+        description: err?.message || "Authentication cancelled or signature mismatch.",
+        variant: "destructive",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/webauthn/credentials/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Passkey Removed", description: "The backup passkey was deleted." });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["/api/admin/webauthn/credentials"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to Delete", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card className={`shadow-xl transition-all ${count > 0 ? "border-emerald-500/50 bg-card" : "border-amber-500/50 bg-card"}`}>
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2.5 text-foreground font-serif">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+              count > 0
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+            }`}>
+              <Fingerprint className="w-5 h-5" />
+            </div>
+            <div>
+              <span>WebAuthn &amp; FIDO2 Hardware Passkeys</span>
+              <p className="text-xs font-normal text-muted-foreground mt-0.5">
+                Phishing-resistant authentication bound cryptographically to physical devices (Mac Touch ID, Face ID, YubiKey).
+              </p>
+            </div>
+          </CardTitle>
+          <Badge
+            className={`self-start sm:self-auto text-[10px] font-black px-3 py-1 rounded-full border ${
+              count >= 2
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                : count === 1
+                ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+            }`}
+          >
+            {count >= 2
+              ? `🟢 HARDENED (${count} ENROLLED)`
+              : count === 1
+              ? `🟡 1 ENROLLED (ADD BACKUP KEY)`
+              : "⚠️ SETUP REQUIRED"}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        {credentials.length > 0 ? (
+          <div className="space-y-3">
+            <Label className="text-xs font-bold text-foreground">Enrolled Hardware Passkeys ({credentials.length})</Label>
+            <div className="divide-y divide-border/60 rounded-2xl border border-border/80 bg-secondary/20 overflow-hidden">
+              {credentials.map((cred) => (
+                <div key={cred.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-card border border-border flex items-center justify-center text-emerald-400 shrink-0">
+                      {cred.deviceType === "platform" ? <Monitor size={16} /> : <Smartphone size={16} />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate flex items-center gap-2">
+                        <span>{cred.nickname}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                          {cred.deviceType}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                        Enrolled: {new Date(cred.createdAt).toLocaleDateString()} {cred.lastUsedAt && `• Last used: ${new Date(cred.lastUsedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteMutation.mutate(cred.id)}
+                      disabled={deleteMutation.isPending || credentials.length <= 1}
+                      className="h-8 px-2.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                      title={credentials.length <= 1 ? "Cannot delete the only passkey" : "Delete passkey"}
+                    >
+                      <Trash2 size={13} className="mr-1" /> Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200/90 leading-relaxed">
+            <strong>⚠️ Zero WebAuthn Passkeys Enrolled:</strong> Enroll your primary Mac Touch ID / Face ID and a secondary hardware security key (or backup device) to enforce phishing-resistant root administration.
+          </div>
+        )}
+
+        <div className="p-4 rounded-2xl bg-card border border-emerald-500/30 space-y-3">
+          <Label className="text-xs font-bold text-emerald-400 block">Enroll New FIDO2 Passkey / Touch ID</Label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
+              placeholder="Passkey Label (e.g. MacBook Pro Touch ID, YubiKey 5C)"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="text-xs"
+            />
+            <Button
+              onClick={handleEnrollPasskey}
+              disabled={enrolling}
+              className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs shrink-0 cursor-pointer h-10 px-4"
+            >
+              {enrolling ? "Waiting for Biometrics..." : "🔑 Enroll Hardware Passkey"}
+            </Button>
+          </div>
+          {count > 0 && (
+            <div className="pt-2 flex items-center justify-between border-t border-border/40">
+              <span className="text-[11px] text-muted-foreground">Test assertion signature &amp; step-up verification:</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTestPasskey}
+                disabled={testing}
+                className="text-xs font-bold h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                {testing ? "Testing Signature..." : "✨ Test Passkey Verification"}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -644,6 +872,9 @@ export default function AdminSecurity() {
 
       {/* Chief Admin 2FA TOTP & Passkeys */}
       <ChiefAdminTotpCard />
+
+      {/* 🔑 Mandatory Root WebAuthn / FIDO2 Hardware Passkeys */}
+      <WebAuthnPasskeysCard />
 
       {/* Super Admin Password Change with TOTP & Old Password Validation */}
       <SuperAdminPasswordUpdateCard />
