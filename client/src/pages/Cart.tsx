@@ -258,6 +258,8 @@ export default function Cart() {
   const { data: allProducts = [] } = useQuery<any[]>({
     queryKey: ["/api/products"],
     queryFn: () => apiGet<any[]>("/api/products"),
+    refetchInterval: 3000,
+    staleTime: 0,
   });
 
   const { data: allPlans = [] } = useQuery<any[]>({
@@ -345,12 +347,12 @@ export default function Cart() {
     onError: () => setQuote(null),
   });
 
-  // Re-fetch the live quote whenever items/coupon/referral/redeem toggle change.
+  // Re-fetch the live quote whenever items/products/coupon/referral/redeem toggle change.
   useEffect(() => {
     if (items.length === 0) return;
     quoteMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
+  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), allProducts, coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 
@@ -609,7 +611,27 @@ export default function Cart() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm truncate">{i.name}</h3>
                   <p className="text-xs text-muted-foreground">{i.unit}</p>
-                  <p className="text-sm font-bold text-primary mt-1">{formatINR(i.price)}</p>
+                  {(() => {
+                    const prod = (allProducts || []).find((p: any) => p.id === i.productId);
+                    const baseP = prod ? Number(prod.price) : Number(i.price);
+                    const disc = prod ? Number(prod.discountPercent || 0) : 0;
+                    const effPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                    return (
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-sm font-black text-emerald-500">{formatINR(effPrice)}</span>
+                        {disc > 0 && (
+                          <span className="text-xs text-muted-foreground line-through font-semibold">
+                            {formatINR(baseP)}
+                          </span>
+                        )}
+                        {disc > 0 && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            {Math.round(disc)}% OFF
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-col items-end justify-between">
                   <button onClick={() => remove(i.productId)} className="text-muted-foreground hover:text-destructive p-1" aria-label="Remove" data-testid={`button-remove-${i.productId}`}>

@@ -842,21 +842,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const featured = req.query.featured === "1";
     const includeInactive = req.query.includeInactive === "1" || req.query.all === "1";
     
-    // Cache public catalog lists for instantaneous responses
-    if (!includeInactive && !q) {
-      res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
-      const cacheKey = `products:list:${category || "all"}:${featured ? "1" : "0"}`;
-      const data = await apiCache.getOrSet(cacheKey, () => storage.products.list({ category, q, featured, includeInactive: false }), 60, ["products"]);
-      return res.json(data);
-    }
+    // Always serve 100% live, fresh real-time pricing across storefront & checkout
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
 
-    res.json(await storage.products.list({ category, q, featured, includeInactive }));
+    const data = await storage.products.list({ category, q, featured, includeInactive });
+    res.json(data);
   }));
 
   app.get("/api/products/:id", h(async (req, res) => {
     const id = Number(req.params.id);
-    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
-    const p = await apiCache.getOrSet(`products:item:${id}`, () => storage.products.get(id), 60, ["products"]);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    const p = await storage.products.get(id);
     if (!p) return res.status(404).json({ message: "Not found" });
     res.json(p);
   }));

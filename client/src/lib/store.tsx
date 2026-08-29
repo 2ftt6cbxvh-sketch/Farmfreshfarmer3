@@ -227,6 +227,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [items]);
 
+  // Real-time live price synchronizer: checks every 4 seconds and on window focus
+  // so any admin price change or discount update is instantly reflected in the cart & checkout
+  useEffect(() => {
+    if (items.length === 0) return;
+    let isCancelled = false;
+
+    async function syncLivePrices() {
+      try {
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (!res.ok) return;
+        const productsList: Product[] = await res.json();
+        if (isCancelled || !Array.isArray(productsList)) return;
+
+        setItems((currentItems) => {
+          let hasPriceChanged = false;
+          const updated = currentItems.map((item) => {
+            const liveProd = productsList.find((p) => p.id === item.productId);
+            if (!liveProd) return item;
+            const livePrice = effectivePrice(Number(liveProd.price), Number(liveProd.discountPercent || 0));
+            if (item.price !== livePrice || item.name !== liveProd.name || (liveProd.image && item.image !== liveProd.image)) {
+              hasPriceChanged = true;
+              return {
+                ...item,
+                name: liveProd.name,
+                price: livePrice,
+                image: liveProd.image || item.image,
+                unit: liveProd.unit || item.unit,
+              };
+            }
+            return item;
+          });
+
+          return hasPriceChanged ? updated : currentItems;
+        });
+      } catch {}
+    }
+
+    syncLivePrices();
+    const interval = setInterval(syncLivePrices, 4000);
+    window.addEventListener("focus", syncLivePrices);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", syncLivePrices);
+    };
+  }, [items.length]);
+
   // Helper to sync changes to DB for logged in user
   const syncToDb = (updatedItems: CartItem[]) => {
     if (user) {
