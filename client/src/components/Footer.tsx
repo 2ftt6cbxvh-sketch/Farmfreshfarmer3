@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, MapPin, Mail, Instagram, Facebook, GitCommit } from "lucide-react";
+import { Phone, MapPin, Mail, Instagram, Facebook, GitCommit, ShieldCheck } from "lucide-react";
 import { Logo } from "./Logo";
 
 export function Footer() {

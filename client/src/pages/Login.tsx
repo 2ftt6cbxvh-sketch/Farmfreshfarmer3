@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles, Smartphone } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
