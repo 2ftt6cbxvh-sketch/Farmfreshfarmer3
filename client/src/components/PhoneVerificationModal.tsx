@@ -97,6 +97,8 @@ export function PhoneVerificationModal({
   const { toast } = useToast();
 
   const [method, setMethod] = useState<"whatsapp" | "sms">("whatsapp");
+  const [phone, setPhone] = useState(defaultPhone || user?.phone || "");
+  const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
