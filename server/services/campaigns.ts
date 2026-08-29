@@ -9,7 +9,7 @@
  */
 import { randomBytes } from "crypto";
 import { db } from "../db";
-import { coupons, emailCampaigns, users, carts, orders } from "@shared/schema";
+import { coupons, emailCampaigns, users, carts, cartItems, products, orders } from "@shared/schema";
 import { eq, and, gt, sql, desc, isNull, inArray } from "drizzle-orm";
 import { sendRealEmail } from "./email";
 
@@ -319,26 +319,57 @@ export async function getPendingAbandonedCarts() {
     .select({
       cartId: carts.id,
       userId: carts.userId,
-      items: carts.items,
-      updatedAt: carts.updatedAt,
+      createdAt: carts.createdAt,
       userName: users.name,
       userEmail: users.email,
       userPhone: users.phone,
       customerStars: users.customerStars,
+      productId: cartItems.productId,
+      qty: cartItems.qty,
+      productName: products.name,
+      productPrice: products.price,
+      productImage: products.image,
     })
     .from(carts)
     .innerJoin(users, eq(carts.userId, users.id))
+    .innerJoin(cartItems, eq(carts.id, cartItems.cartId))
+    .innerJoin(products, eq(cartItems.productId, products.id))
     .where(
       and(
-        sql`jsonb_array_length(${carts.items}::jsonb) > 0`,
-        sql`${carts.updatedAt} < ${oneHourAgo}`,
-        sql`${carts.updatedAt} > ${sevenDaysAgo}`
+        sql`${carts.createdAt} < ${oneHourAgo}`,
+        sql`${carts.createdAt} > ${sevenDaysAgo}`
       )
     )
-    .orderBy(desc(carts.updatedAt))
-    .limit(50);
+    .orderBy(desc(carts.createdAt))
+    .limit(100);
 
-  return cartRows;
+  // Group items by cart
+  const cartMap = new Map<number, any>();
+  for (const row of cartRows) {
+    if (!row.userId) continue;
+    if (!cartMap.has(row.cartId)) {
+      cartMap.set(row.cartId, {
+        cartId: row.cartId,
+        userId: row.userId,
+        userName: row.userName,
+        userEmail: row.userEmail,
+        userPhone: row.userPhone,
+        customerStars: row.customerStars,
+        updatedAt: row.createdAt,
+        items: [],
+      });
+    }
+    const cart = cartMap.get(row.cartId);
+    cart.items.push({
+      productId: row.productId,
+      name: row.productName,
+      price: Number(row.productPrice) || 0,
+      qty: row.qty,
+      image: row.productImage,
+    });
+  }
+
+  return Array.from(cartMap.values());
 }
 
 /** Dispatch 10% recovery coupon email for a single abandoned cart */
