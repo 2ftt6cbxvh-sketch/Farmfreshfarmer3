@@ -518,11 +518,10 @@ export default function Cart() {
       setShowEmailVerifyModal(true);
       return;
     }
-    const currentPhone = (user.phone || phone || "").replace(/\D/g, "").slice(-10);
-    if (!currentPhone || currentPhone.length < 10) {
+    if (!user.phone || user.phone.trim().length < 10) {
       toast({
-        title: "Mandatory Mobile Phone Required",
-        description: "Please enter your 10-digit mobile number in the delivery form or verify via SMS code.",
+        title: "Mandatory Mobile Phone Verification Required",
+        description: "Please verify your 10-digit mobile number via 6-digit SMS security code before making payment.",
         variant: "destructive",
       });
       setShowCartVerifyModal(true);
@@ -582,10 +581,9 @@ export default function Cart() {
   }
 
   const availableBalance = referralSummary ? Number(referralSummary.availableBalance) : 0;
-  const effectiveUserPhone = (user?.phone || phone || "").replace(/\D/g, "").slice(-10);
-  const isFullyVerified = Boolean(user && user.isVerified && (Boolean(user.phone && user.phone.trim().length >= 10) || effectiveUserPhone.length >= 10));
+  const isFullyVerified = Boolean(user && user.isVerified && user.phone && user.phone.trim().length >= 10);
   const needsEmailVerification = Boolean(user && !user.isVerified);
-  const needsPhoneVerification = Boolean(user && user.isVerified && !user.phone && effectiveUserPhone.length < 10);
+  const needsPhoneVerification = Boolean(user && user.isVerified && (!user.phone || user.phone.trim().length < 10));
 
   return (
     <Layout>

@@ -315,13 +315,22 @@ export default function Account() {
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
-              {!isUserVerified && user.role === "customer" && (
+              {user.role === "customer" && !user.isVerified && (
                 <Button
                   size="sm"
                   onClick={() => setShowEmailVerifyModal(true)}
+                  className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
+                >
+                  <Mail size={14} /> Verify Email (Step 1)
+                </Button>
+              )}
+              {user.role === "customer" && (!user.phone || user.phone.trim().length < 10) && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowVerifyModal(true)}
                   className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
                 >
-                  <Mail size={14} /> Get Verified (Free Security Code 🏅)
+                  <Smartphone size={14} /> Verify Mobile Phone (Step 2)
                 </Button>
               )}
               <Button
