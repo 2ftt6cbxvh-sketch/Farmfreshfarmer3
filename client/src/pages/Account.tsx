@@ -318,10 +318,10 @@ export default function Account() {
               {!isUserVerified && user.role === "customer" && (
                 <Button
                   size="sm"
-                  onClick={() => setShowVerifyModal(true)}
+                  onClick={() => setShowEmailVerifyModal(true)}
                   className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
                 >
-                  <Smartphone size={14} /> Get Verified (Blue Badge 🏅)
+                  <Mail size={14} /> Get Verified (Free Security Code 🏅)
                 </Button>
               )}
               <Button
