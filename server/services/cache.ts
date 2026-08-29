@@ -57,6 +57,11 @@ class FastMemoryCache {
     this.store.delete(key);
   }
 
+  /** Alias for del */
+  delete(key: string): void {
+    this.del(key);
+  }
+
   /**
    * Invalidate all cache entries associated with any of the given tags
    */

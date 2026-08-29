@@ -30,7 +30,12 @@ export default function AdminLogin() {
     }
   }, [user, navigate]);
 
-  // 2FA Challenge State
+  // 3-Layer Super Admin State
+  const [stepSuperAdminTotp, setStepSuperAdminTotp] = useState(false);
+  const [superAdminTotpCode, setSuperAdminTotpCode] = useState("");
+  const [superAdminTempToken, setSuperAdminTempToken] = useState("");
+
+  // 2FA Challenge State for Staff
   const [step2fa, setStep2fa] = useState(false);
   const [tempToken, setTempToken] = useState("");
   const [maskedTelegram, setMaskedTelegram] = useState("");
@@ -42,45 +47,58 @@ export default function AdminLogin() {
   const [isEmergency, setIsEmergency] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
 
+  async function triggerPasskeyVerification(options: any, tempAuthToken: string) {
+    toast({
+      title: "🔑 Layer 3: Hardware Passkey Verification",
+      description: "Touch your Mac Touch ID / Face ID sensor to complete login...",
+    });
+
+    try {
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      const asseResp = await startAuthentication(options);
+
+      const verifyRes = await apiRequest("POST", "/api/login/verify-passkey", {
+        tempAuthToken,
+        response: asseResp,
+      });
+      const verifyData = await verifyRes.json();
+
+      if (verifyData.accessToken) localStorage.setItem("accessToken", verifyData.accessToken);
+      if (verifyData.refreshToken) localStorage.setItem("refreshToken", verifyData.refreshToken);
+      if (verifyData.user) {
+        setUser(verifyData.user);
+        localStorage.setItem("adminUser", JSON.stringify(verifyData.user));
+      }
+      toast({ title: "✨ 3-Layer Security Verified! Welcome back, Chief Super Admin." });
+      navigate("/admin");
+    } catch (passkeyErr: any) {
+      toast({
+        title: "Passkey Verification Failed",
+        description: passkeyErr?.message || "Biometrics cancelled or mismatch.",
+        variant: "destructive",
+      });
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
       const res: any = await login(email.trim().toLowerCase(), password, { isStealthGateway: true });
 
-      if (res?.requirePasskey) {
+      if (res?.requireLayer2Totp) {
+        setStepSuperAdminTotp(true);
+        setSuperAdminTempToken(res.tempToken);
         toast({
-          title: "🔑 Hardware Passkey Verification",
-          description: "Scan your Mac Touch ID / Face ID sensor to sign in...",
+          title: "🔐 Layer 2: Authenticator TOTP Required",
+          description: "Enter the 6-digit code from your Authenticator App.",
         });
+        return;
+      }
 
-        try {
-          const { startAuthentication } = await import("@simplewebauthn/browser");
-          const asseResp = await startAuthentication(res.webauthnOptions);
-
-          const verifyRes = await apiRequest("POST", "/api/login/verify-passkey", {
-            tempAuthToken: res.tempAuthToken,
-            response: asseResp,
-          });
-          const verifyData = await verifyRes.json();
-
-          if (verifyData.accessToken) localStorage.setItem("accessToken", verifyData.accessToken);
-          if (verifyData.refreshToken) localStorage.setItem("refreshToken", verifyData.refreshToken);
-          if (verifyData.user) {
-            setUser(verifyData.user);
-            localStorage.setItem("adminUser", JSON.stringify(verifyData.user));
-          }
-          toast({ title: "✨ Biometric Signature Verified! Welcome back, Chief Admin." });
-          navigate("/admin");
-          return;
-        } catch (passkeyErr: any) {
-          toast({
-            title: "Passkey Verification Failed",
-            description: passkeyErr?.message || "Biometrics cancelled or mismatch.",
-            variant: "destructive",
-          });
-          return;
-        }
+      if (res?.requirePasskey) {
+        await triggerPasskeyVerification(res.webauthnOptions, res.tempAuthToken);
+        return;
       }
 
       if (res?.require2fa) {
@@ -109,6 +127,45 @@ export default function AdminLogin() {
       navigate("/admin");
     } catch (err: any) {
       toast({ title: "Login failed", description: err?.message || "Wrong email or password.", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifySuperAdminTotp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!superAdminTotpCode || superAdminTotpCode.length !== 6) {
+      toast({ title: "Invalid Code", description: "Enter 6-digit TOTP code.", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/login/admin-verify-totp", {
+        tempToken: superAdminTempToken,
+        totpCode: superAdminTotpCode.trim(),
+      });
+      const data = await res.json();
+
+      if (data.requirePasskey) {
+        setStepSuperAdminTotp(false);
+        await triggerPasskeyVerification(data.webauthnOptions, data.tempAuthToken);
+        return;
+      }
+
+      if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      if (data.user) {
+        setUser(data.user);
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+      }
+      toast({ title: "Welcome back, Chief Admin!" });
+      navigate("/admin");
+    } catch (err: any) {
+      toast({
+        title: "Layer 2 Verification Failed",
+        description: err?.message || "Invalid or expired TOTP code.",
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -222,21 +279,23 @@ export default function AdminLogin() {
                 <ShieldAlert size={28} />
               </span>
             </div>
-            <h1 className="font-serif text-2xl font-bold text-center text-foreground">Break-Glass Master Login</h1>
+            <h1 className="font-serif text-2xl font-bold text-center text-amber-400">Chief Admin Emergency Break-Glass</h1>
             <p className="text-xs text-muted-foreground text-center mt-1">
-              Disaster Recovery Portal: Log in immediately using your offline single-use Emergency Backup Code.
+              Single-Use Zero-Knowledge Recovery Protocol. Use if you lost your phone/YubiKey/hardware devices.
             </p>
 
             <form onSubmit={handleEmergencyLogin} className="mt-6 space-y-4">
               <div>
-                <Label htmlFor="emergency-email" className="text-xs font-bold text-foreground">Chief Admin Email</Label>
+                <Label htmlFor="emergency-email" className="text-xs font-bold text-muted-foreground">
+                  Master Email Address *
+                </Label>
                 <Input
                   id="emergency-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="rounded-xl mt-1 font-mono text-sm"
+                  className="rounded-xl mt-1"
                 />
               </div>
 
@@ -274,6 +333,64 @@ export default function AdminLogin() {
                   className="text-xs text-muted-foreground hover:text-foreground font-semibold"
                 >
                   ← Back to Standard Admin Login
+                </button>
+              </div>
+            </form>
+          </>
+        ) : stepSuperAdminTotp ? (
+          <>
+            <div className="flex justify-center mb-4">
+              <span className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-400 shadow-lg">
+                <KeyRound size={28} />
+              </span>
+            </div>
+            <div className="text-center space-y-1">
+              <span className="bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                Layer 2 of 3 • Authenticator 2FA
+              </span>
+              <h1 className="font-serif text-2xl font-bold text-foreground">Chief Admin 2FA TOTP</h1>
+              <p className="text-xs text-muted-foreground">
+                Enter the live 6-digit code from your Authenticator app (Apple Passwords / Google Authenticator).
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifySuperAdminTotp} className="mt-6 space-y-4">
+              <div>
+                <Label htmlFor="admin-totp-input" className="text-xs font-bold text-purple-300 flex items-center justify-between">
+                  <span>6-Digit Authenticator Code</span>
+                  <span className="text-[10px] text-muted-foreground">30s Rolling Window</span>
+                </Label>
+                <Input
+                  id="admin-totp-input"
+                  type="text"
+                  maxLength={6}
+                  value={superAdminTotpCode}
+                  onChange={(e) => setSuperAdminTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="• • • • • •"
+                  required
+                  autoFocus
+                  className="rounded-xl mt-1 text-center font-mono text-xl tracking-widest font-black border-purple-500/40 focus:ring-purple-500"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 font-extrabold text-white shadow-lg"
+                disabled={busy || superAdminTotpCode.length !== 6}
+              >
+                {busy ? "Validating Code…" : "✨ Verify TOTP & Proceed to Biometrics ➔"}
+              </Button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStepSuperAdminTotp(false);
+                    setSuperAdminTotpCode("");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                >
+                  ← Back to Password Login
                 </button>
               </div>
             </form>

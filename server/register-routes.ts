@@ -481,16 +481,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
     }
 
-    // Strict Phishing-Resistant WebAuthn Enforcement for Chief Super Admin
+    // ── 3-LAYER AUTHENTICATION PIPELINE FOR CHIEF SUPER ADMIN ──
+    // Layer 1: Master Email + Master Password verified
     if (isSuperAdmin) {
+      const hasTotp = Boolean(user.totpSecret);
+      const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
+
+      apiCache.set(`admin_login_flow_${tempToken}`, {
+        userId: user.id,
+        email: user.email,
+        layer1Verified: true,
+        layer2Verified: !hasTotp,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      }, 300);
+
+      // If TOTP is configured, enforce Layer 2 first
+      if (hasTotp) {
+        return res.json({
+          requireLayer2Totp: true,
+          tempToken,
+          message: "Layer 2: Please enter your 6-digit Authenticator TOTP code.",
+        });
+      }
+
+      // If no TOTP configured, check for Layer 3 (Hardware Passkey)
       const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
       const passkeyCount = await countWebAuthnCredentials(user.id);
 
       if (passkeyCount > 0) {
         const options = await generateWebAuthnAuthOptions(user.id);
-        const tempAuthToken = (await import("crypto")).randomBytes(32).toString("hex");
-
-        apiCache.set(`passkey_auth_${tempAuthToken}`, {
+        apiCache.set(`passkey_auth_${tempToken}`, {
           userId: user.id,
           challenge: options.challenge,
           expiresAt: Date.now() + 5 * 60 * 1000,
@@ -498,9 +518,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
         return res.json({
           requirePasskey: true,
-          tempAuthToken,
+          tempAuthToken: tempToken,
           webauthnOptions: options,
-          message: "Touch ID / Hardware Passkey verification required.",
+          message: "Layer 3: Touch ID / Hardware Passkey verification required.",
         });
       }
     }
@@ -530,7 +550,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ user: publicUser(user), ...tokens });
   }));
 
-  /** POST /api/login/verify-passkey — Verify Super Admin WebAuthn / Touch ID assertion */
+  /** POST /api/login/admin-verify-totp — Verify Layer 2 6-digit TOTP code for Super Admin */
+  app.post("/api/login/admin-verify-totp", h(async (req, res) => {
+    const { tempToken, totpCode } = req.body || {};
+    if (!tempToken || !totpCode) {
+      return res.status(400).json({ message: "Session token and 6-digit TOTP code are required." });
+    }
+
+    const flowData = apiCache.get(`admin_login_flow_${tempToken}`) as any;
+    if (!flowData || Date.now() > flowData.expiresAt || !flowData.layer1Verified) {
+      return res.status(400).json({ message: "Login challenge expired. Please enter password again." });
+    }
+
+    const { storage } = await import("./storage");
+    const user = await storage.users.get(flowData.userId);
+    if (!user || !user.totpSecret) {
+      return res.status(400).json({ message: "TOTP not configured for this account." });
+    }
+
+    const { verifyTotpCode } = await import("./services/totp");
+    const isTotpValid = verifyTotpCode(user.totpSecret, String(totpCode).trim());
+    if (!isTotpValid) {
+      return res.status(400).json({ message: "Invalid 6-digit TOTP code. Please check your Authenticator app." });
+    }
+
+    flowData.layer2Verified = true;
+    apiCache.set(`admin_login_flow_${tempToken}`, flowData, 300);
+
+    // Layer 2 Passed! Now proceed to Layer 3: Hardware Passkey (Touch ID)
+    const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
+    const passkeyCount = await countWebAuthnCredentials(user.id);
+
+    if (passkeyCount > 0) {
+      const options = await generateWebAuthnAuthOptions(user.id);
+      apiCache.set(`passkey_auth_${tempToken}`, {
+        userId: user.id,
+        challenge: options.challenge,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      }, 300);
+
+      return res.json({
+        requirePasskey: true,
+        tempAuthToken: tempToken,
+        webauthnOptions: options,
+        message: "Layer 3: Scan your Mac Touch ID / Face ID sensor to complete login.",
+      });
+    }
+
+    // If no passkeys configured, complete login
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    (req.session as any).mfaVerified = true;
+    apiCache.del(`admin_login_flow_${tempToken}`);
+
+    const { issueTokenPair } = await import("./services/token");
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: "web",
+      ip: (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1",
+      userAgent: req.headers["user-agent"],
+    });
+
+    return res.json({ user: publicUser(user), ...tokens });
+  }));
+
+  /** POST /api/login/verify-passkey — Verify Super Admin WebAuthn / Touch ID assertion (Layer 3) */
   app.post("/api/login/verify-passkey", h(async (req, res) => {
     const { tempAuthToken, response } = req.body || {};
     if (!tempAuthToken || !response) {
@@ -546,7 +629,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { verifyWebAuthnAssertion } = await import("./services/webauthn");
     try {
       await verifyWebAuthnAssertion(sessionData.userId, response, sessionData.challenge);
-      apiCache.delete(`passkey_auth_${tempAuthToken}`);
+      apiCache.del(`passkey_auth_${tempAuthToken}`);
+      apiCache.del(`admin_login_flow_${tempAuthToken}`);
 
       const { storage } = await import("./storage");
       const user = await storage.users.get(sessionData.userId);
@@ -571,7 +655,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         userId: user.id,
         ip: (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1",
         userAgent: req.headers["user-agent"],
-        actionTaken: "Super Admin logged in with hardware Passkey (Touch ID)",
+        actionTaken: "Super Admin logged in with 3-Layer Security (Password + TOTP + Passkey)",
       });
 
       return res.json({ user: publicUser(user), ...tokens });
