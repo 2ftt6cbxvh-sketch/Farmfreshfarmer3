@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle, Sparkles } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle, Sparkles, LogIn, Mail, ShieldCheck } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
+import { EmailVerificationModal } from "@/components/EmailVerificationModal";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface CouponResult {
@@ -267,14 +268,7 @@ export default function Cart() {
     },
   });
 
-  const { data: requireVerificationSetting } = useQuery<{ value: string }>({
-    queryKey: ["/api/settings/require_superadmin_verification_to_order"],
-    queryFn: () => apiGet<{ value: string }>("/api/settings/require_superadmin_verification_to_order").catch(() => ({ value: "false" })),
-  });
-
-  const isVerificationMandatory = requireVerificationSetting?.value !== "false";
-  const isPendingSuperAdminVerification = Boolean(!user || !user.isVerified);
-  const [showCartVerifyModal, setShowCartVerifyModal] = useState(false);
+  const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;
 
   // Subscription items in cart (strictly local Visakhapatnam delivery)
   const subscriptionCartItems = items.filter((cartItem) => {
@@ -491,15 +485,26 @@ export default function Cart() {
     },
   });
 
-  const isServiceable = isInternationalDelivery || !deliveryRes || deliveryRes.serviceable !== false;
+  const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false);
+  const [showCartVerifyModal, setShowCartVerifyModal] = useState(false);
 
   function handleCheckout() {
-    if (isPendingSuperAdminVerification) {
+    if (!user) {
       toast({
-        title: "🔒 Account Pending Verification",
-        description: "Your account is pending Super Admin review. Order placement will be unlocked once your profile is verified with the Blue Badge.",
+        title: "Account Login Required",
+        description: "Please sign in or register to complete your order.",
         variant: "destructive",
       });
+      navigate("/login?redirect=/cart");
+      return;
+    }
+    if (!user.isVerified) {
+      toast({
+        title: "Email Verification Required",
+        description: "Please verify your email address via 6-digit OTP before making payment.",
+        variant: "destructive",
+      });
+      setShowEmailVerifyModal(true);
       return;
     }
     if ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) {
@@ -872,342 +877,350 @@ export default function Cart() {
               </dl>
             </div>
 
-            <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
-              <h2 className="font-semibold text-foreground">Delivery details</h2>
-
-              {/* International / Out-of-Station Delivery Toggle Switch */}
-              <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
-                <div className="flex items-center gap-3 pr-2">
-                  <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                    <Globe size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-foreground flex items-center gap-1.5">
-                      <span>✈️ International / Out-of-Station Shipping</span>
-                    </p>
-                    <p className="text-[10px] text-slate-600 dark:text-muted-foreground font-medium">
-                      Turn on to ship to any city, state, or international country (bypasses {activeRadiusKm}km local warehouse radius limit).
-                    </p>
-                  </div>
+            {!user ? (
+              <div className="rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-950/40 via-card to-background p-6 space-y-4 shadow-xl text-center">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-md">
+                  <LogIn size={28} />
                 </div>
-                <Switch
-                  checked={isInternationalDelivery}
-                  onCheckedChange={handleToggleInternational}
-                  data-testid="switch-international-delivery"
-                />
+                <div className="space-y-1.5">
+                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                    Account Required for Checkout
+                  </span>
+                  <h3 className="font-serif text-xl font-bold text-foreground">Sign In to Complete Order</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Your fresh items are safely preserved in your cart! Please sign in or create an account to proceed with delivery and payments.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => navigate("/login?redirect=/cart")}
+                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-sm rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <LogIn size={16} />
+                  <span>Sign In / Register to Checkout</span>
+                  <span>➔</span>
+                </Button>
               </div>
-
-              {/* Specific Subscription conflict warning under toggle */}
-              {hasSubscriptionInCart && (
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/40 text-amber-950 dark:text-amber-200 text-xs space-y-2 shadow-sm animate-fade-in">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400">
-                    <AlertTriangle size={16} className="shrink-0 text-amber-500" />
-                    <span>Subscriptions are Local Fresh Harvest Delivery Only (Visakhapatnam)</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-300 font-medium">
-                    Weekly subscription boxes contain fresh perishable vegetables/fruits harvested locally and cannot be delivered out of station or internationally.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleRemoveSubscriptionItems}
-                    className="w-full text-xs font-bold border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-500/20 h-auto py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer whitespace-normal leading-tight"
-                    data-testid="button-remove-sub-delivery-card"
-                  >
-                    <Trash2 size={13} className="shrink-0" />
-                    <span>Remove Subscription Box ({subscriptionCartItems.length}) &amp; Enable Out-of-Station Shipping</span>
-                  </Button>
+            ) : !user.isVerified ? (
+              <div className="rounded-2xl border-2 border-sky-500/50 bg-gradient-to-br from-sky-950/40 via-card to-background p-6 space-y-4 shadow-xl text-center">
+                <div className="w-14 h-14 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center mx-auto shadow-md">
+                  <Mail size={28} />
                 </div>
-              )}
-
-              {localOnlyConflictItems.length > 0 && !hasSubscriptionInCart && (
-                <div className="p-4 rounded-2xl bg-red-500/10 dark:bg-red-950/40 border border-red-500/50 text-red-950 dark:text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
-                  <div className="flex items-center gap-2 font-extrabold text-red-700 dark:text-red-400">
-                    <AlertTriangle size={18} />
-                    <span>Cannot Enable Out-of-Station Shipping</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-red-900 dark:text-red-200 font-medium">
-                    Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse {activeRadiusKm}km Area Only</strong> (fresh produce/raw items not eligible for express courier):
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1 font-extrabold text-red-950 dark:text-white">
-                    {localOnlyConflictItems.map((it) => (
-                      <li key={it.productId}>{it.name} ({it.unit})</li>
-                    ))}
-                  </ul>
-                  <p className="text-[11px] text-red-800 dark:text-red-300 font-medium">
-                    Please remove these local-only items from your cart to proceed with International / Out-of-Station Shipping.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={handleRemoveLocalOnlyItems}
-                    className="w-full h-auto py-2.5 px-3 text-[11px] font-black leading-tight whitespace-normal text-center gap-1.5 cursor-pointer mt-1 rounded-xl flex items-center justify-center shadow-md"
-                  >
-                    <Trash2 size={14} className="shrink-0" />
-                    <span>Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery</span>
-                  </Button>
-                </div>
-              )}
-
-              {isInternationalDelivery && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-950 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-2">
-                  <span>✈️ International / Out-of-Station Shipping Mode Active — Orders dispatched via partnered express global or local courier.</span>
-                </div>
-              )}
-
-              {/* Enhanced 3D Glass Delivery Breakdown Card */}
-              {deliveryRes && deliveryRes.serviceable !== false && (
-                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-4 text-sm shadow-lg backdrop-blur-md relative overflow-hidden group">
-                  <div className="flex items-center justify-between font-bold text-emerald-950 dark:text-emerald-400 mb-2 relative z-10">
-                    <span className="flex items-center gap-1.5 font-extrabold">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                      🏢 {deliveryRes.warehouseName || "Assigned Warehouse"}
-                    </span>
-                    <span className="text-emerald-950 dark:text-emerald-300 font-black">⏱️ {deliveryRes.etaMinutes} mins</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1.5 pt-2 text-emerald-900 dark:text-emerald-200/90 border-t border-emerald-500/30 relative z-10 text-xs font-medium">
-                    <div>📍 Customer Area: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.locationArea || "Current Location"}</span></div>
-                    <div>⏱️ ETA Breakdown: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.packingTimeMinutes || 30}m packing + {deliveryRes.travelTimeMinutes || 0}m travel</span></div>
-                    <div>🚚 Delivery Fee: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free Delivery"}</span></div>
-                  </div>
-                </div>
-              )}
-              {/* Red Alert Card for Non-Serviceable Locations (Hidden when International Shipping is ON) */}
-              {!isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false && (
-                <div className="rounded-2xl border border-red-500/40 bg-red-500/10 dark:bg-red-950/60 p-4 space-y-2 text-red-950 dark:text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
-                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold text-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span>Delivery Unavailable for this Location</span>
-                  </div>
-                  <p className="text-xs text-red-900 dark:text-red-300 font-medium">
-                    We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please enter a serviceable PIN code or turn on International Shipping above.
+                <div className="space-y-1.5">
+                  <span className="bg-sky-500/20 text-sky-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-sky-500/30">
+                    Email OTP Verification Required
+                  </span>
+                  <h3 className="font-serif text-xl font-bold text-foreground">Verify Your Email Address</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    To secure customer orders and receive live delivery tracking, please verify your email address (<b>{user.email}</b>) with a 6-digit OTP code.
                   </p>
                 </div>
-              )}
+                <Button
+                  onClick={() => setShowEmailVerifyModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black text-sm rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Mail size={16} />
+                  <span>⚡ Verify Email ({user.email}) via OTP ➔</span>
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-card-border bg-card p-4 space-y-3">
+                <h2 className="font-semibold text-foreground">Delivery details</h2>
 
-              {/* Dedicated PIN Code Input Field with Detect Location Button */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground">
-                    PIN Code / Postal Code
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDetectLocation}
-                    disabled={resolveGpsMutation.isPending}
-                    className="h-6 px-2.5 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <Navigation size={12} className={resolveGpsMutation.isPending ? "animate-spin" : "animate-pulse"} />
-                    <span>{resolveGpsMutation.isPending ? "Detecting…" : "Detect My Location"}</span>
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    id="ck-pincode"
-                    type="text"
-                    placeholder="e.g. 522502"
-                    maxLength={6}
-                    value={inputPincode}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                      setInputPincode(val);
-                      if (val.length === 6) {
-                        handleCheckPincode(val);
-                      }
-                    }}
-                    className="font-mono text-sm font-extrabold rounded-xl border-emerald-500/40 bg-background text-foreground tracking-widest"
-                    data-testid="input-checkout-pincode"
+                {/* International / Out-of-Station Delivery Toggle Switch */}
+                <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-secondary/40 border border-emerald-500/30 flex items-center justify-between shadow-md">
+                  <div className="flex items-center gap-3 pr-2">
+                    <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-foreground flex items-center gap-1.5">
+                        <span>✈️ International / Out-of-Station Shipping</span>
+                      </p>
+                      <p className="text-[10px] text-slate-600 dark:text-muted-foreground font-medium">
+                        Turn on to ship to any city, state, or international country (bypasses {activeRadiusKm}km local warehouse radius limit).
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={isInternationalDelivery}
+                    onCheckedChange={handleToggleInternational}
+                    data-testid="switch-international-delivery"
                   />
-                  <Button
-                    type="button"
-                    onClick={() => handleCheckPincode(inputPincode)}
-                    disabled={resolvePincodeMutation.isPending || inputPincode.length < 6}
-                    className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all shrink-0"
-                  >
-                    {resolvePincodeMutation.isPending ? "Checking…" : "Update PIN"}
-                  </Button>
                 </div>
-              </div>
 
-              <div>
-                <Label htmlFor="ck-name" className="text-xs font-bold text-foreground">Full name</Label>
-                <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" className="mt-1 font-medium" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <span>Phone number</span>
-                    {user?.isVerified && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-sky-500 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full">
-                        <VerifiedBadge size="sm" />
-                        <span>Verified ✓</span>
-                      </span>
-                    )}
-                  </Label>
-                  {user && !user.isVerified && (
-                    <button
+                {/* Specific Subscription conflict warning under toggle */}
+                {hasSubscriptionInCart && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/40 text-amber-950 dark:text-amber-200 text-xs space-y-2 shadow-sm animate-fade-in">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-400">
+                      <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+                      <span>Subscriptions are Local Fresh Harvest Delivery Only (Visakhapatnam)</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-300 font-medium">
+                      Weekly subscription boxes contain fresh perishable vegetables/fruits harvested locally and cannot be delivered out of station or internationally.
+                    </p>
+                    <Button
                       type="button"
-                      onClick={() => setShowCartVerifyModal(true)}
-                      className="text-[11px] font-extrabold text-sky-500 hover:text-sky-400 hover:underline cursor-pointer flex items-center gap-1"
+                      variant="outline"
+                      onClick={handleRemoveSubscriptionItems}
+                      className="w-full text-xs font-bold border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-500/20 h-auto py-2 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer whitespace-normal leading-tight"
+                      data-testid="button-remove-sub-delivery-card"
                     >
-                      <Smartphone size={12} />
-                      <span>⚡ Verify Phone</span>
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <Input
-                    id="ck-phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    data-testid="input-phone"
-                    placeholder="10-digit mobile number"
-                    className={`font-medium ${user?.isVerified ? "pr-10 border-sky-500/50 bg-sky-500/5" : ""}`}
-                  />
-                  {user?.isVerified && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
-                      <VerifiedBadge size="sm" />
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>City / Area / District</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Auto-detected location</span>
-                </Label>
-                <Input
-                  id="ck-city-area"
-                  value={cityArea}
-                  onChange={(e) => setCityArea(e.target.value)}
-                  placeholder="e.g. Narsipatnam, Visakhapatnam"
-                  className="mt-1 font-extrabold bg-secondary/40 text-foreground"
-                  data-testid="input-city-area"
-                />
-              </div>
-              <div>
-                <Label htmlFor="ck-street-address" className="text-xs font-bold text-foreground">
-                  Complete Address (Door No, Street Name, Landmark)
-                </Label>
-                <Textarea
-                  id="ck-street-address"
-                  value={streetAddress}
-                  onChange={(e) => setStreetAddress(e.target.value)}
-                  placeholder="Enter complete address"
-                  className="mt-1 font-medium min-h-[75px]"
-                  data-testid="input-street-address"
-                />
-              </div>
+                      <Trash2 size={13} className="shrink-0" />
+                      <span>Remove Subscription Box ({subscriptionCartItems.length}) &amp; Enable Out-of-Station Shipping</span>
+                    </Button>
+                  </div>
+                )}
 
-              {deliveryEnabled && (
-                <div>
-                  <Label htmlFor="ck-city" className="text-xs">Delivery city</Label>
-                  <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger id="ck-city" className="mt-1" data-testid="select-city">
-                      <SelectValue placeholder="Select your city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {deliveryRules!.cities.map((c) => (
-                        <SelectItem key={c.name} value={c.name} data-testid={`city-option-${c.name}`}>
-                          {c.name}{c.freeAbove > 0 ? ` · Free above ${formatINR(c.freeAbove)}` : ""}
-                        </SelectItem>
+                {localOnlyConflictItems.length > 0 && !hasSubscriptionInCart && (
+                  <div className="p-4 rounded-2xl bg-red-500/10 dark:bg-red-950/40 border border-red-500/50 text-red-950 dark:text-red-200 text-xs space-y-2.5 shadow-lg animate-fade-in">
+                    <div className="flex items-center gap-2 font-extrabold text-red-700 dark:text-red-400">
+                      <AlertTriangle size={18} />
+                      <span>Cannot Enable Out-of-Station Shipping</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-red-900 dark:text-red-200 font-medium">
+                      Your cart contains <strong>{localOnlyConflictItems.length} item(s)</strong> restricted to <strong>Local Warehouse {activeRadiusKm}km Area Only</strong> (fresh produce/raw items not eligible for express courier):
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 font-extrabold text-red-950 dark:text-white">
+                      {localOnlyConflictItems.map((it) => (
+                        <li key={it.productId}>{it.name} ({it.unit})</li>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">Delivery charge is applied based on your city and cart value.</p>
-                </div>
-              )}
+                    </ul>
+                    <p className="text-[11px] text-red-800 dark:text-red-300 font-medium">
+                      Please remove these local-only items from your cart to proceed with International / Out-of-Station Shipping.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleRemoveLocalOnlyItems}
+                      className="w-full h-auto py-2.5 px-3 text-[11px] font-black leading-tight whitespace-normal text-center gap-1.5 cursor-pointer mt-1 rounded-xl flex items-center justify-center shadow-md"
+                    >
+                      <Trash2 size={14} className="shrink-0" />
+                      <span>Remove Local-Only Items ({localOnlyConflictItems.length}) & Activate Out-of-Station Delivery</span>
+                    </Button>
+                  </div>
+                )}
 
-              <div>
-                <Label className="text-xs mb-2 block">Payment method</Label>
-                <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-2" data-testid="radio-payment-method">
-                  {codEnabled && (
-                    <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
-                      <RadioGroupItem value="COD" id="pay-cod" data-testid="radio-payment-cod" />
-                      <Label htmlFor="pay-cod" className="flex items-center gap-2 cursor-pointer text-sm">
-                        <Wallet size={15} /> Cash on Delivery
-                      </Label>
+                {isInternationalDelivery && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-950 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-2">
+                    <span>✈️ International / Out-of-Station Shipping Mode Active — Orders dispatched via partnered express global or local courier.</span>
+                  </div>
+                )}
+
+                {/* Enhanced 3D Glass Delivery Breakdown Card */}
+                {deliveryRes && deliveryRes.serviceable !== false && (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/40 p-4 text-sm shadow-lg backdrop-blur-md relative overflow-hidden group">
+                    <div className="flex items-center justify-between font-bold text-emerald-950 dark:text-emerald-400 mb-2 relative z-10">
+                      <span className="flex items-center gap-1.5 font-extrabold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        🏢 {deliveryRes.warehouseName || "Assigned Warehouse"}
+                      </span>
+                      <span className="text-emerald-950 dark:text-emerald-300 font-black">⏱️ {deliveryRes.etaMinutes} mins</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
-                    <RadioGroupItem value="PHONEPE" id="pay-phonepe" data-testid="radio-payment-phonepe" />
-                    <Label htmlFor="pay-phonepe" className="flex items-center gap-2 cursor-pointer text-sm">
-                      <Smartphone size={15} /> Pay with PhonePe
+                    <div className="grid grid-cols-1 gap-1.5 pt-2 text-emerald-900 dark:text-emerald-200/90 border-t border-emerald-500/30 relative z-10 text-xs font-medium">
+                      <div>📍 Customer Area: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.locationArea || "Current Location"}</span></div>
+                      <div>⏱️ ETA Breakdown: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{deliveryRes.packingTimeMinutes || 30}m packing + {deliveryRes.travelTimeMinutes || 0}m travel</span></div>
+                      <div>🚚 Delivery Fee: <span className="font-extrabold text-emerald-950 dark:text-emerald-100">{effectiveDeliveryFee > 0 ? formatINR(effectiveDeliveryFee) : "Free Delivery"}</span></div>
+                    </div>
+                  </div>
+                )}
+                {/* Red Alert Card for Non-Serviceable Locations (Hidden when International Shipping is ON) */}
+                {!isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false && (
+                  <div className="rounded-2xl border border-red-500/40 bg-red-500/10 dark:bg-red-950/60 p-4 space-y-2 text-red-950 dark:text-red-200 backdrop-blur-xl animate-mobile-drawer shadow-lg">
+                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-extrabold text-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                      <span>Delivery Unavailable for this Location</span>
+                    </div>
+                    <p className="text-xs text-red-900 dark:text-red-300 font-medium">
+                      We cannot deliver to <strong>{deliveryRes.locationArea || deliveryRes.pincode || "this location"}</strong> right now. Please enter a serviceable PIN code or turn on International Shipping above.
+                    </p>
+                  </div>
+                )}
+
+                {/* Dedicated PIN Code Input Field with Detect Location Button */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground">
+                      PIN Code / Postal Code
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDetectLocation}
+                      disabled={resolveGpsMutation.isPending}
+                      className="h-6 px-2.5 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <Navigation size={12} className={resolveGpsMutation.isPending ? "animate-spin" : "animate-pulse"} />
+                      <span>{resolveGpsMutation.isPending ? "Detecting…" : "Detect My Location"}</span>
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      id="ck-pincode"
+                      type="text"
+                      placeholder="e.g. 522502"
+                      maxLength={6}
+                      value={inputPincode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                        setInputPincode(val);
+                        if (val.length === 6) {
+                          handleCheckPincode(val);
+                        }
+                      }}
+                      className="font-mono text-sm font-extrabold rounded-xl border-emerald-500/40 bg-background text-foreground tracking-widest"
+                      data-testid="input-checkout-pincode"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => handleCheckPincode(inputPincode)}
+                      disabled={resolvePincodeMutation.isPending || inputPincode.length < 6}
+                      className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all shrink-0"
+                    >
+                      {resolvePincodeMutation.isPending ? "Checking…" : "Update PIN"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="ck-name" className="text-xs font-bold text-foreground">Full name</Label>
+                  <Input id="ck-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-name" className="mt-1 font-medium" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <span>Phone number</span>
+                      {user?.phone && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-sky-500 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full">
+                          <VerifiedBadge size="sm" />
+                          <span>Saved ✓</span>
+                        </span>
+                      )}
                     </Label>
                   </div>
-                </RadioGroup>
-              </div>
+                  <div className="relative">
+                    <Input
+                      id="ck-phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      data-testid="input-phone"
+                      placeholder="10-digit mobile number"
+                      className="font-medium"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>City / Area / District</span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold">Auto-detected location</span>
+                  </Label>
+                  <Input
+                    id="ck-city-area"
+                    value={cityArea}
+                    onChange={(e) => setCityArea(e.target.value)}
+                    placeholder="e.g. Narsipatnam, Visakhapatnam"
+                    className="mt-1 font-extrabold bg-secondary/40 text-foreground"
+                    data-testid="input-city-area"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ck-street-address" className="text-xs font-bold text-foreground">
+                    Complete Address (Door No, Street Name, Landmark)
+                  </Label>
+                  <Textarea
+                    id="ck-street-address"
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
+                    placeholder="Enter complete address"
+                    className="mt-1 font-medium min-h-[75px]"
+                    data-testid="input-street-address"
+                  />
+                </div>
 
-              <Button
-                className={`w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center ${
-                  isPendingSuperAdminVerification
-                    ? "bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white border-0 shadow-blue-500/25 active:scale-98"
-                    : "disabled:opacity-100 disabled:bg-amber-500/20 disabled:text-amber-950 dark:disabled:text-amber-200 disabled:border disabled:border-amber-500/50"
-                }`}
-                onClick={() => {
-                  if (isPendingSuperAdminVerification) {
-                    setShowCartVerifyModal(true);
-                  } else {
-                    handleCheckout();
-                  }
-                }}
-                disabled={(!isPendingSuperAdminVerification && (!isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart))) || placeOrder.isPending || initiatePayment.isPending}
-                data-testid="button-place-order"
-              >
-                {placeOrder.isPending || initiatePayment.isPending ? (
-                  "Placing order…"
-                ) : isPendingSuperAdminVerification ? (
-                  <div className="flex flex-col items-center justify-center gap-1 w-full py-0.5">
-                    <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
-                      <Smartphone size={16} />
-                      <span>🔒 Click Here to Verify Phone Number & Pay</span>
-                    </div>
-                    <span className="text-[10px] font-medium text-sky-100/90">
-                      Instant 6-digit SMS OTP · Unlocks checkout & gives 🏅 Blue Badge
-                    </span>
+                {deliveryEnabled && (
+                  <div>
+                    <Label htmlFor="ck-city" className="text-xs">Delivery city</Label>
+                    <Select value={city} onValueChange={setCity}>
+                      <SelectTrigger id="ck-city" className="mt-1" data-testid="select-city">
+                        <SelectValue placeholder="Select your city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {deliveryRules!.cities.map((c) => (
+                          <SelectItem key={c.name} value={c.name} data-testid={`city-option-${c.name}`}>
+                            {c.name}{c.freeAbove > 0 ? ` · Free above ${formatINR(c.freeAbove)}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Delivery charge is applied based on your city and cart value.</p>
                   </div>
-                ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
-                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
-                    <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">
-                      ⚠️ Remove Subscription to Proceed with International Shipping
-                    </span>
-                    <span className="text-[10px] font-bold text-red-800/90 dark:text-red-300/90">
-                      Subscriptions are local fresh harvest only (Visakhapatnam)
-                    </span>
-                  </div>
-                ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
-                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
-                    <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">
-                      ⚠️ Remove Subscription to Proceed with International Shipping
-                    </span>
-                    <span className="text-[10px] font-bold text-red-800/90 dark:text-red-300/90">
-                      Subscriptions are local fresh harvest only (Visakhapatnam)
-                    </span>
-                  </div>
-                ) : !isServiceable ? (
-                  <div className="flex flex-col items-center justify-center gap-0.5 w-full">
-                    <span className="font-black text-amber-950 dark:text-amber-300 flex items-center gap-1.5 text-xs">
-                      🔒 Delivery Unavailable for this Location
-                    </span>
-                    <span className="text-[10px] font-bold text-amber-900/90 dark:text-amber-300/90">
-                      Change PIN code above or enable International Shipping
-                    </span>
-                  </div>
-                ) : (
-                  `Place order · ${formatINR(displayTotal)}`
                 )}
-              </Button>
-              {!user && (
-                <p className="text-xs text-muted-foreground text-center">
-                  <Link href="/login" className="text-primary underline">Log in</Link> to track your orders.
-                </p>
-              )}
-            </div>
+
+                <div>
+                  <Label className="text-xs mb-2 block">Payment method</Label>
+                  <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="space-y-2" data-testid="radio-payment-method">
+                    {codEnabled && (
+                      <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
+                        <RadioGroupItem value="COD" id="pay-cod" data-testid="radio-payment-cod" />
+                        <Label htmlFor="pay-cod" className="flex items-center gap-2 cursor-pointer text-sm">
+                          <Wallet size={15} /> Cash on Delivery
+                        </Label>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 rounded-lg border border-input p-2 hover-elevate">
+                      <RadioGroupItem value="PHONEPE" id="pay-phonepe" data-testid="radio-payment-phonepe" />
+                      <Label htmlFor="pay-phonepe" className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Smartphone size={15} /> Pay with PhonePe
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <Button
+                  className="w-full h-auto py-3.5 px-4 text-xs font-extrabold rounded-2xl shadow-lg transition-all cursor-pointer whitespace-normal leading-snug text-center bg-gradient-to-r from-emerald-600 via-primary to-green-500 hover:from-emerald-500 hover:to-green-400 text-white disabled:opacity-50"
+                  onClick={handleCheckout}
+                  disabled={!isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
+                  data-testid="button-place-order"
+                >
+                  {placeOrder.isPending || initiatePayment.isPending ? (
+                    "Placing order…"
+                  ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
+                    <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                      <span className="font-black text-red-700 dark:text-red-300 flex items-center gap-1.5 text-xs">
+                        ⚠️ Remove Subscription to Proceed with International Shipping
+                      </span>
+                      <span className="text-[10px] font-bold text-red-800/90 dark:text-red-300/90">
+                        Subscriptions are local fresh harvest only (Visakhapatnam)
+                      </span>
+                    </div>
+                  ) : !isServiceable ? (
+                    <div className="flex flex-col items-center justify-center gap-0.5 w-full">
+                      <span className="font-black text-amber-950 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                        🔒 Delivery Unavailable for this Location
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-900/90 dark:text-amber-300/90">
+                        Change PIN code above or enable International Shipping
+                      </span>
+                    </div>
+                  ) : (
+                    `Place order · ${formatINR(displayTotal)}`
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* 📧 Email Verification Modal */}
+      <EmailVerificationModal
+        open={showEmailVerifyModal}
+        onOpenChange={setShowEmailVerifyModal}
+        initialEmail={user?.email}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+        }}
+      />
 
       {/* 📱 Firebase Phone Verification Modal */}
       <PhoneVerificationModal

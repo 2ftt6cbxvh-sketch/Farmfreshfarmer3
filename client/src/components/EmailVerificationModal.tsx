@@ -13,50 +13,59 @@ import { Mail, KeyRound, RefreshCw, AlertCircle, CheckCircle2, ShieldCheck } fro
 interface EmailVerificationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (newEmail: string) => void;
+  initialEmail?: string;
+  onSuccess?: (verifiedEmail: string) => void;
 }
 
 export function EmailVerificationModal({
   open,
   onOpenChange,
+  initialEmail,
   onSuccess,
 }: EmailVerificationModalProps) {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
 
-  const [newEmail, setNewEmail] = useState("");
+  const [newEmail, setNewEmail] = useState(initialEmail || user?.email || "");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open && (initialEmail || user?.email)) {
+      setNewEmail(initialEmail || user?.email || "");
+    }
+  }, [open, initialEmail, user?.email]);
+
   const handleSendEmailOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
 
-    const cleanEmail = newEmail.trim().toLowerCase();
+    const cleanEmail = (newEmail || user?.email || "").trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes("@") || cleanEmail.length < 5) {
       const msg = "Please enter a valid email address.";
       setErrorMessage(msg);
       return toast({ title: "Invalid Email", description: msg, variant: "destructive" });
     }
 
-    if (cleanEmail === user?.email?.toLowerCase()) {
-      const msg = "Please enter a different email address from your current one.";
-      setErrorMessage(msg);
-      return toast({ title: "Same Email", description: msg, variant: "destructive" });
-    }
-
     setLoading(true);
     try {
-      const res = await apiRequest("POST", "/api/user/email/send-otp", { newEmail: cleanEmail });
+      let res: Response;
+      if (cleanEmail === user?.email?.toLowerCase()) {
+        // Send OTP to existing email
+        res = await apiRequest("POST", "/api/auth/otp/send", { email: cleanEmail });
+      } else {
+        // Send OTP to new email
+        res = await apiRequest("POST", "/api/user/email/send-otp", { newEmail: cleanEmail });
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to dispatch email verification code.");
 
       setStep("otp");
       toast({
         title: "📧 6-Digit Email Code Sent!",
-        description: `Check your inbox on ${cleanEmail}.`,
+        description: `Check your inbox / spam folder on ${cleanEmail}.`,
       });
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to send verification code. Please try again.");
@@ -82,30 +91,38 @@ export function EmailVerificationModal({
 
     setLoading(true);
     try {
-      const cleanEmail = newEmail.trim().toLowerCase();
-      const res = await apiRequest("POST", "/api/user/email/verify-otp", {
-        newEmail: cleanEmail,
-        otp: otp.trim(),
-      });
+      const cleanEmail = (newEmail || user?.email || "").trim().toLowerCase();
+      let res: Response;
+      if (cleanEmail === user?.email?.toLowerCase()) {
+        res = await apiRequest("POST", "/api/auth/otp/verify", {
+          email: cleanEmail,
+          code: otp.trim(),
+        });
+      } else {
+        res = await apiRequest("POST", "/api/user/email/verify-otp", {
+          newEmail: cleanEmail,
+          otp: otp.trim(),
+        });
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Invalid OTP code.");
 
       if (user) {
-        setUser({ ...user, email: cleanEmail });
+        setUser({ ...user, email: cleanEmail, isVerified: true });
+        localStorage.setItem("user", JSON.stringify({ ...user, email: cleanEmail, isVerified: true }));
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
 
       toast({
-        title: "🎉 Email Address Updated!",
-        description: `Your account email is now ${cleanEmail}.`,
+        title: "🎉 Email Verified Successfully!",
+        description: `Your account email (${cleanEmail}) is now verified. You can proceed with order placement & payment.`,
       });
 
       onOpenChange(false);
       if (onSuccess) onSuccess(cleanEmail);
       setStep("email");
-      setNewEmail("");
       setOtp("");
     } catch (err: any) {
       setErrorMessage(err.message || "Invalid verification code. Please try again.");

@@ -1377,28 +1377,37 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
       return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
     }
-    const userId = extractUserId(req);
+    const userId = extractUserId(req) || req.session?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "🔒 Account Login Required: Please sign in or register to place your order.",
+        loginRequired: true,
+      });
+    }
 
-    if (userId) {
-      const u = await storage.users.get(userId);
-      if (!u?.isVerified) {
-        return res.status(403).json({
-          message: "🔒 Phone Verification Required: Please verify your mobile number via SMS OTP to place orders.",
-          verificationRequired: true,
-        });
-      }
+    const u = await storage.users.get(userId);
+    if (!u) {
+      return res.status(401).json({ message: "User account not found. Please log in again." });
+    }
 
-      // Require phone number for order and auto-save to user profile
-      const incomingPhone = String(req.body.phone || "").trim();
-      if (incomingPhone && (!u?.phone || u.phone.trim() !== incomingPhone)) {
-        try {
-          await db.update(users).set({ phone: incomingPhone }).where(eq(users.id, userId));
-        } catch (e) {
-          console.warn('[orders] Failed to auto-update phone on user:', e);
-        }
-      } else if (!u?.phone && !incomingPhone) {
-        return res.status(400).json({ message: 'Please enter your phone number to receive delivery updates.' });
+    if (!u.isVerified) {
+      return res.status(403).json({
+        message: "🔒 Email Verification Required: Please verify your email via 6-digit OTP before proceeding with payment.",
+        emailVerificationRequired: true,
+        email: u.email,
+      });
+    }
+
+    // Require phone number for order and auto-save to user profile
+    const incomingPhone = String(req.body.phone || u.phone || "").trim();
+    if (incomingPhone && (!u.phone || u.phone.trim() !== incomingPhone)) {
+      try {
+        await db.update(users).set({ phone: incomingPhone }).where(eq(users.id, userId));
+      } catch (e) {
+        console.warn('[orders] Failed to auto-update phone on user:', e);
       }
+    } else if (!u.phone && !incomingPhone) {
+      return res.status(400).json({ message: 'Please enter your phone number to receive delivery updates.' });
     }
 
     const isInternational = Boolean(req.body.isInternational);
@@ -2763,20 +2772,38 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   /* ============================= PAYMENTS ========================= */
   // Initiate a payment for an existing order (e.g. retry after COD->PhonePe,
   // or paying a generated subscription cycle order).
-  app.post("/api/payments/initiate", requireAuth, h(async (req, res) => {
+  const handlePaymentInitiate = async (req: any, res: any) => {
     const orderId = Number(req.body.orderId);
     const order = await storage.orders.get(orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
-    if (req.session.role !== "admin" && order.userId !== req.session.userId) {
+
+    const userId = extractUserId(req) || req.session?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Account login required to initiate payment." });
+    }
+
+    const u = await storage.users.get(userId);
+    if (!u?.isVerified && req.session?.role !== "admin") {
+      return res.status(403).json({
+        message: "🔒 Email Verification Required: Please verify your email via 6-digit OTP before making payment.",
+        emailVerificationRequired: true,
+      });
+    }
+
+    if (req.session?.role !== "admin" && order.userId !== userId) {
       return res.status(403).json({ message: "Forbidden" });
     }
+
     const pay = await initiatePayment({
       amountRupees: Number(order.total),
       target: { orderId: order.id, userId: order.userId },
       customerName: order.customerName,
     });
     res.json(pay);
-  }));
+  };
+
+  app.post("/api/payments/initiate", requireAuth, h(handlePaymentInitiate));
+  app.post("/api/payments/phonepe/initiate", requireAuth, h(handlePaymentInitiate));
 
   // Redirect target after PhonePe checkout: verify + reconcile, then report.
   app.get("/api/payments/status/:merchantOrderId", h(async (req, res) => {
