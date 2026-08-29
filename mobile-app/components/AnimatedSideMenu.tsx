@@ -297,7 +297,7 @@ export function AnimatedSideMenu({
                   {isDark ? '🌕 Dark Mode' : '☀️ Light Mode'}
                 </Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v10.0.0</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: mutedColor }}>v10.1.0</Text>
             </View>
           </ScrollView>
         </Animated.View>

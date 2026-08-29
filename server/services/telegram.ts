@@ -878,7 +878,7 @@ ${defaultDetails}
   return results.some((r) => r === true);
 }
 
-export async function notifyDeploymentIfNewVersion(currentVersion = "v10.0.0") {
+export async function notifyDeploymentIfNewVersion(currentVersion = "v10.1.0") {
   try {
     const { storage } = await import("../storage");
     const lastNotified = await storage.settings.get("last_notified_deploy_version");

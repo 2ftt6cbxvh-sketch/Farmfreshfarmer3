@@ -93,11 +93,15 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-sidebar-border py-4 text-center text-xs text-sidebar-foreground/60 flex items-center justify-center gap-2 flex-wrap px-4">
+      <div className="border-t border-sidebar-border py-4 text-center text-xs text-sidebar-foreground/60 flex items-center justify-center gap-2.5 flex-wrap px-4">
         <span>© {new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</span>
         <span className="inline-flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
           <GitCommit size={10} />
-          v10.0.0
+          App v10.1.0
+        </span>
+        <span className="inline-flex items-center gap-1 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">
+          <ShieldCheck size={10} />
+          Security v10.1.0 (Zero-Trust)
         </span>
       </div>
     </footer>

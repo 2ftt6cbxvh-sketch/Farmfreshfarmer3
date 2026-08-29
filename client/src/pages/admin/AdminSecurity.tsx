@@ -971,14 +971,22 @@ export default function AdminSecurity() {
   return (
     <AdminLayout title="Security Dashboard">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <p className="text-muted-foreground text-sm">Monitor sessions, audit logs, and control platform lockdown.</p>
           </div>
-          <Badge variant={isLocked ? "destructive" : "default"} className="text-sm px-3 py-1">
-            {isLocked ? <ShieldAlert className="w-4 h-4 mr-1 inline" /> : <ShieldCheck className="w-4 h-4 mr-1 inline" />}
-            {isLocked ? "LOCKED" : "ONLINE"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-black px-2.5 py-1 rounded-full shadow-xs">
+              App v10.1.0
+            </span>
+            <span className="bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-black px-2.5 py-1 rounded-full shadow-xs">
+              🛡️ Security Core v10.1.0 (Zero-Trust)
+            </span>
+            <Badge variant={isLocked ? "destructive" : "default"} className="text-sm px-3 py-1">
+              {isLocked ? <ShieldAlert className="w-4 h-4 mr-1 inline" /> : <ShieldCheck className="w-4 h-4 mr-1 inline" />}
+              {isLocked ? "LOCKED" : "ONLINE"}
+            </Badge>
+          </div>
         </div>
 
       {/* Lockdown Control */}
@@ -1178,7 +1186,7 @@ export default function AdminSecurity() {
 
             <Button
               variant="outline"
-              onClick={() => broadcastUpdateMutation.mutate({ version: "v10.0.0" })}
+              onClick={() => broadcastUpdateMutation.mutate({ version: "v10.1.0" })}
               disabled={broadcastUpdateMutation.isPending || !telegramData?.security?.configured}
               className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
             >
