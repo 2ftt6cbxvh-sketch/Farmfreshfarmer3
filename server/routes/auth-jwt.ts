@@ -1079,10 +1079,15 @@ export function registerAuthJwtRoutes(app: Express) {
 
     await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
 
-    // Persist verified status in PostgreSQL database
+    const isFullyVerified = Boolean(user.isPhoneVerified || user.isPrimaryAdmin);
+    // Persist email verified status in PostgreSQL database
     const [updatedUser] = await db
       .update(users)
-      .set({ isVerified: true, updatedAt: new Date() })
+      .set({
+        isEmailVerified: true,
+        isVerified: isFullyVerified,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, user.id))
       .returning();
 
@@ -1104,7 +1109,9 @@ export function registerAuthJwtRoutes(app: Express) {
         email: updatedUser?.email || user.email,
         role: updatedUser?.role || user.role,
         phone: updatedUser?.phone || user.phone,
-        isVerified: true,
+        isEmailVerified: true,
+        isPhoneVerified: Boolean(updatedUser?.isPhoneVerified),
+        isVerified: Boolean(updatedUser?.isVerified),
       },
       ...tokens,
     });
@@ -1457,10 +1464,13 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let updatedUser: any = null;
     if (targetUserId) {
+      const [existingTarget] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+      const isFullyVerified = Boolean(existingTarget?.isEmailVerified || existingTarget?.isPrimaryAdmin);
       const [user] = await db
         .update(users)
         .set({
-          isVerified: true,
+          isPhoneVerified: true,
+          isVerified: isFullyVerified,
           phone: cleanPhone,
           updatedAt: new Date(),
         })

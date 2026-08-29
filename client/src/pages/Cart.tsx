@@ -509,19 +509,19 @@ export default function Cart() {
       navigate("/login?redirect=/cart");
       return;
     }
-    if (!user.isVerified) {
+    if (!user.isEmailVerified) {
       toast({
-        title: "Mandatory Email Verification Required",
+        title: "Mandatory Step 1: Email Verification Required",
         description: "Please verify your email address via 6-digit red security code before making payment.",
         variant: "destructive",
       });
       setShowEmailVerifyModal(true);
       return;
     }
-    if (!user.phone || user.phone.trim().length < 10) {
+    if (!user.isPhoneVerified) {
       toast({
-        title: "Mandatory Mobile Phone Verification Required",
-        description: "Please verify your 10-digit mobile number via 6-digit SMS security code before making payment.",
+        title: "Mandatory Step 2: Mobile Phone Verification Required",
+        description: "Please verify your 10-digit mobile number via WhatsApp or SMS before placing your order.",
         variant: "destructive",
       });
       setShowCartVerifyModal(true);
@@ -581,9 +581,9 @@ export default function Cart() {
   }
 
   const availableBalance = referralSummary ? Number(referralSummary.availableBalance) : 0;
-  const isFullyVerified = Boolean(user && user.isVerified && user.phone && user.phone.trim().length >= 10);
-  const needsEmailVerification = Boolean(user && !user.isVerified);
-  const needsPhoneVerification = Boolean(user && user.isVerified && (!user.phone || user.phone.trim().length < 10));
+  const isFullyVerified = Boolean(isSuperAdmin || (user && user.isEmailVerified && user.isPhoneVerified));
+  const needsEmailVerification = Boolean(user && !user.isEmailVerified);
+  const needsPhoneVerification = Boolean(user && user.isEmailVerified && !user.isPhoneVerified);
 
   return (
     <Layout>

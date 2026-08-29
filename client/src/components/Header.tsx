@@ -120,8 +120,7 @@ export function Header() {
     ? Math.max(0, Math.min(6, Number(user?.starRating) ?? 5))
     : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
 
-  const currentHeaderStarTheme = getStarTheme(user ? starsCount : 0, isStarThemeEnabled);
-  const isUserVerified = Boolean(isSuperAdmin || user?.isVerified);
+  const isUserVerified = Boolean(isSuperAdmin || (user?.isEmailVerified && user?.isPhoneVerified) || (user?.isVerified && user?.isPhoneVerified));
 
   // Close search suggestions on route change
   useEffect(() => {

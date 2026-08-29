@@ -253,7 +253,7 @@ export default function Account() {
     ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Bronze Tier`, discount: dynamicDiscountLabel, color: "from-[#a66020] via-[#cd7f32] to-[#804010]" }
     : { name: "Green Tier Member", badge: `🌿 ${starsCount}★ Green Tier`, discount: dynamicDiscountLabel, color: "from-emerald-500 to-teal-600" };
 
-  const isUserVerified = Boolean(isSuperAdmin || user.isVerified);
+  const isUserVerified = Boolean(isSuperAdmin || (user.isEmailVerified && user.isPhoneVerified) || (user.isVerified && user.isPhoneVerified));
 
   return (
     <Layout>
@@ -300,8 +300,16 @@ export default function Account() {
                   {isUserVerified && <VerifiedBadge size="md" />}
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
-                  <span>✉️ {user.email}</span>
-                  {user.phone && <span>📞 {user.phone}</span>}
+                  <span className="flex items-center gap-1">
+                    ✉️ {user.email}
+                    {user.isEmailVerified ? <span className="text-emerald-500 font-bold text-[10px]">✓</span> : <span className="text-red-400 font-bold text-[10px]">(Unverified)</span>}
+                  </span>
+                  {user.phone && (
+                    <span className="flex items-center gap-1">
+                      📞 {user.phone}
+                      {user.isPhoneVerified ? <span className="text-emerald-500 font-bold text-[10px]">✓</span> : <span className="text-red-400 font-bold text-[10px]">(Unverified)</span>}
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black text-white bg-gradient-to-r ${starTier.color} shadow-xs`}>
@@ -315,7 +323,7 @@ export default function Account() {
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
-              {user.role === "customer" && !user.isVerified && (
+              {user.role === "customer" && !user.isEmailVerified && (
                 <Button
                   size="sm"
                   onClick={() => setShowEmailVerifyModal(true)}
@@ -324,13 +332,13 @@ export default function Account() {
                   <Mail size={14} /> Verify Email (Step 1)
                 </Button>
               )}
-              {user.role === "customer" && (!user.phone || user.phone.trim().length < 10) && (
+              {user.role === "customer" && !user.isPhoneVerified && (
                 <Button
                   size="sm"
                   onClick={() => setShowVerifyModal(true)}
-                  className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
+                  className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
                 >
-                  <Smartphone size={14} /> Verify Mobile Phone (Step 2)
+                  <Smartphone size={14} /> Verify Mobile via WhatsApp (Step 2)
                 </Button>
               )}
               <Button

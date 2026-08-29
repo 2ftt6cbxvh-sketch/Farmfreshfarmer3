@@ -24,6 +24,8 @@ export interface AuthUser {
   role: string;
   status?: string;
   isVerified?: boolean;
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
   permissions?: string[];
   phone?: string | null;
   address?: string | null;

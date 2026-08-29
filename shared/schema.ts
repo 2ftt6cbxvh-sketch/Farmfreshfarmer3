@@ -45,6 +45,8 @@ export const users = pgTable("users", {
   permissions: text("permissions"), // JSON array of allowed menu routes e.g. ["/admin", "/admin/orders"]
   isPrimaryAdmin: boolean("is_primary_admin").notNull().default(false),
   isVerified: boolean("is_verified").notNull().default(false),
+  isEmailVerified: boolean("is_email_verified").notNull().default(false),
+  isPhoneVerified: boolean("is_phone_verified").notNull().default(false),
   starRating: integer("star_rating").notNull().default(5),
   experienceRank: varchar("experience_rank", { length: 64 }).notNull().default("Specialist"),
   customerStars: integer("customer_stars").notNull().default(0),

@@ -181,10 +181,13 @@ export async function verifySmsOtp(
         )
       );
 
+    const [existingTarget] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
+    const isFullyVerified = Boolean(existingTarget?.isEmailVerified || existingTarget?.isPrimaryAdmin);
     const [user] = await db
       .update(users)
       .set({
-        isVerified: true,
+        isPhoneVerified: true,
+        isVerified: isFullyVerified,
         phone: cleanPhone,
         updatedAt: new Date(),
       })
