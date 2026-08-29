@@ -37,9 +37,19 @@ export function BroadcastPopupModal() {
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
     staleTime: 0,
-    refetchInterval: 10000,
+    refetchInterval: 2000, // Poll every 2 seconds for instant sync
     enabled: !isAdminRoute,
   });
+
+  // Auto-dismiss immediately if the active ad is deleted or turned off by admin
+  useEffect(() => {
+    if (activePopup) {
+      const stillActive = announcements.some((a) => a.id === activePopup.id && Boolean(a.isActive) && Boolean(a.showPopup));
+      if (!stillActive) {
+        setActivePopup(null);
+      }
+    }
+  }, [announcements, activePopup]);
 
   useEffect(() => {
     if (isAdminRoute || !announcements.length) return;

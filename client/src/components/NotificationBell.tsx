@@ -58,7 +58,7 @@ export function NotificationBell() {
   const { data: allAnnouncements = [] } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
-    refetchInterval: 10000,
+    refetchInterval: 2000,
     staleTime: 0,
   });
 
