@@ -125,7 +125,7 @@ export const routesReadyPromise = (async () => {
   // Send Telegram deploy/update alert to Super Admins on server boot
   try {
     const { notifyDeploymentIfNewVersion } = await import("./services/telegram");
-    notifyDeploymentIfNewVersion("v8.1.5").catch(() => {});
+    notifyDeploymentIfNewVersion("v10.0.0").catch(() => {});
   } catch {}
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

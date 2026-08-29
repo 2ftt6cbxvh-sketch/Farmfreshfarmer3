@@ -361,7 +361,7 @@ export function registerAdminSecurityRoutes(app: Express) {
     try {
       const { sendTelegramDeployNotification } = await import("../../services/telegram");
       const { version, details } = req.body || {};
-      const ver = version || "v8.1.1";
+      const ver = version || "v10.0.0";
       const sent = await sendTelegramDeployNotification(ver, details);
       if (sent) {
         return res.json({ message: `🚀 Update notification for ${ver} broadcasted to all configured Super Admins!` });

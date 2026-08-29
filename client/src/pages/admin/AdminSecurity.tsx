@@ -1142,7 +1142,7 @@ export default function AdminSecurity() {
 
             <Button
               variant="outline"
-              onClick={() => broadcastUpdateMutation.mutate({ version: "v8.1.1" })}
+              onClick={() => broadcastUpdateMutation.mutate({ version: "v10.0.0" })}
               disabled={broadcastUpdateMutation.isPending || !telegramData?.security?.configured}
               className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 font-bold rounded-xl text-xs py-4 px-5 cursor-pointer"
             >
