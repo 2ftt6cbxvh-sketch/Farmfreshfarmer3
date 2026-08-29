@@ -35,7 +35,11 @@ import {
   Gift,
   Phone,
   FileText,
+  Copy,
+  Trash2,
+  Tag,
 } from "lucide-react";
+import type { Coupon } from "@/lib/types";
 
 interface AbandonedCartItem {
   cartId: number;
@@ -124,6 +128,18 @@ export default function AdminMarketing() {
   const [vaultPrefix, setVaultPrefix] = useState("RCV10");
   const [vaultEmail, setVaultEmail] = useState("");
   const [vaultHours, setVaultHours] = useState("48");
+  const [copiedVaultCode, setCopiedVaultCode] = useState<string | null>(null);
+
+  // Query: All Coupons for Vault table
+  const { data: allCoupons = [], refetch: refetchCoupons, isLoading: couponsLoading } = useQuery<Coupon[]>({
+    queryKey: ["/api/coupons"],
+    queryFn: () => apiGet<Coupon[]>("/api/coupons"),
+    refetchInterval: 15000,
+  });
+
+  const oneTimeVaultCoupons = useMemo(() => {
+    return allCoupons.filter((c) => c.isOneTime || c.campaignCategory === "abandoned_cart_recovery");
+  }, [allCoupons]);
 
   // Query: Customers for Searchable Dropdown
   const { data: customers = [] } = useQuery<CustomerOption[]>({
@@ -440,6 +456,27 @@ export default function AdminMarketing() {
         description: err.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // Mutation: Toggle Coupon Status
+  const toggleCouponMutation = useMutation({
+    mutationFn: async (c: Coupon) => {
+      await apiRequest("PATCH", `/api/coupons/${c.id}`, { active: !c.active });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+    },
+  });
+
+  // Mutation: Delete Coupon
+  const deleteCouponMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/coupons/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
+      toast({ title: "Coupon deleted from vault" });
     },
   });
 
@@ -1230,6 +1267,180 @@ export default function AdminMarketing() {
                     {createSecureCouponMutation.isPending ? "Generating..." : "⚡ Generate 1-Time Secure Code"}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Generated 1-Time Coupons Table */}
+            <Card className="rounded-3xl border-card-border bg-card">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base font-extrabold flex items-center gap-2">
+                    <KeyRound size={18} className="text-emerald-500" /> Active &amp; Consumed 1-Time Vault Codes ({oneTimeVaultCoupons.length})
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Live list of all single-use cryptographic coupons, abandoned cart recovery codes, and their real-time usage status.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchCoupons()}
+                  disabled={couponsLoading}
+                  className="h-8 text-xs rounded-xl cursor-pointer"
+                >
+                  <RefreshCw size={12} className={`mr-1.5 ${couponsLoading ? "animate-spin" : ""}`} /> Refresh Vault
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {oneTimeVaultCoupons.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground space-y-2">
+                    <KeyRound size={28} className="mx-auto opacity-40 mb-1" />
+                    <p className="text-xs font-bold">No 1-time coupons generated yet.</p>
+                    <p className="text-[11px]">Generate a code above or send a 10% Abandoned Cart Recovery email to see codes here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-secondary/60 text-left border-b border-card-border">
+                        <tr>
+                          <th className="p-3 font-bold">Coupon Code</th>
+                          <th className="p-3 font-bold">Discount</th>
+                          <th className="p-3 font-bold">Locked Recipient</th>
+                          <th className="p-3 font-bold">Usage Status</th>
+                          <th className="p-3 font-bold">Expires In</th>
+                          <th className="p-3 font-bold">Source / Campaign</th>
+                          <th className="p-3 font-bold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-card-border">
+                        {oneTimeVaultCoupons.map((c) => {
+                          const isExpired = c.expiresAt && new Date(c.expiresAt).getTime() < Date.now();
+                          const isConsumed = (c.usedCount || 0) >= (c.maxUses || 1);
+
+                          return (
+                            <tr key={c.id} className="hover:bg-secondary/20 transition-colors">
+                              {/* Code */}
+                              <td className="p-3">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-extrabold text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                                    {c.code}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(c.code);
+                                      setCopiedVaultCode(c.code);
+                                      toast({ title: "Copied!", description: `Code ${c.code} copied.` });
+                                      setTimeout(() => setCopiedVaultCode(null), 2000);
+                                    }}
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    title="Copy Code"
+                                  >
+                                    {copiedVaultCode === c.code ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                                  </Button>
+                                </div>
+                              </td>
+
+                              {/* Discount */}
+                              <td className="p-3 font-bold text-foreground">
+                                {Number(c.discountPercent)}% OFF
+                              </td>
+
+                              {/* Locked Recipient */}
+                              <td className="p-3">
+                                {c.restrictedEmail ? (
+                                  <span className="font-mono text-[11px] text-foreground font-semibold flex items-center gap-1">
+                                    <Mail size={12} className="text-emerald-400" /> {c.restrictedEmail}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-[11px]">🌐 Any Customer</span>
+                                )}
+                              </td>
+
+                              {/* Usage Status */}
+                              <td className="p-3">
+                                {isConsumed ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md">
+                                    🔴 Consumed ({c.usedCount || 0}/{c.maxUses || 1})
+                                  </span>
+                                ) : isExpired ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                                    ⏰ Expired
+                                  </span>
+                                ) : c.active ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                    🟢 Active ({c.usedCount || 0}/{c.maxUses || 1})
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">
+                                    ⚪ Disabled
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Expiry */}
+                              <td className="p-3 text-muted-foreground text-[11px]">
+                                {c.expiresAt ? (
+                                  <div className="flex items-center gap-1">
+                                    <Clock size={11} />
+                                    <span>{new Date(c.expiresAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</span>
+                                  </div>
+                                ) : (
+                                  "Never"
+                                )}
+                              </td>
+
+                              {/* Campaign Source */}
+                              <td className="p-3">
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {c.campaignCategory === "abandoned_cart_recovery" ? "🛒 Cart Recovery" : c.campaignCategory || "Vault"}
+                                </Badge>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const checkoutLink = `https://farmfreshfarmer.com/cart?coupon=${c.code}`;
+                                      navigator.clipboard.writeText(checkoutLink);
+                                      toast({ title: "🛒 Link Copied!", description: `Checkout link copied: ${checkoutLink}` });
+                                    }}
+                                    className="h-7 text-[11px] font-bold rounded-lg cursor-pointer"
+                                  >
+                                    Copy Link
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleCouponMutation.mutate(c)}
+                                    disabled={isConsumed}
+                                    className="h-7 text-[11px] font-bold rounded-lg cursor-pointer"
+                                  >
+                                    {c.active ? "Disable" : "Enable"}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (confirm(`Delete coupon ${c.code}?`)) deleteCouponMutation.mutate(c.id);
+                                    }}
+                                    className="h-7 w-7 text-muted-foreground hover:text-red-400 cursor-pointer"
+                                  >
+                                    <Trash2 size={13} />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
