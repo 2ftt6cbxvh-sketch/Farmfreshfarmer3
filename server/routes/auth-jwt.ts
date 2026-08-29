@@ -1165,9 +1165,10 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.json({ available: true, cleanPhone });
     }
 
-    // For standard verification: Check if this phone number already belongs to ANY other user
+    // For logged-in users verifying account via SMS OTP:
+    // Allow sending SMS code so user can prove physical SIM ownership
     const existing = await findUserByPhone(cleanPhone, currentUserId);
-    if (existing) {
+    if (existing && !currentUserId) {
       const maskedEmail = existing.email ? existing.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + "*".repeat(Math.max(1, b.length)) + c) : "another registered user";
       return res.status(409).json({
         available: false,
@@ -1179,7 +1180,10 @@ export function registerAuthJwtRoutes(app: Express) {
     return res.json({
       available: true,
       cleanPhone,
-      message: "Mobile number is available for verification.",
+      isReclaiming: Boolean(existing),
+      message: existing
+        ? `📱 A 6-digit SMS verification code will be sent to +91 ${cleanPhone}. Entering the code will link this mobile number to your account.`
+        : "Mobile number is available for verification.",
     });
   };
 
@@ -1286,21 +1290,29 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(403).json({ message: "Unauthorized account verification attempt." });
     }
 
-    // Verify phone is not registered with another account
-    const existingConflict = await findUserByPhone(cleanPhone, targetUser.id);
-    if (existingConflict) {
-      const maskedEmail = existingConflict.email ? existingConflict.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + "*".repeat(Math.max(1, b.length)) + c) : "another registered user";
-      return res.status(409).json({
-        message: `⚠️ This mobile number (+91 ${cleanPhone}) is already registered with another account (${maskedEmail}). Please use a unique mobile number.`,
-      });
-    }
+    // Clear phone from any older/conflicting account since this user proved ownership via 6-digit SMS OTP
+    await db
+      .update(users)
+      .set({ phone: null, updatedAt: new Date() })
+      .where(
+        and(
+          or(
+            eq(users.phone, cleanPhone),
+            eq(users.phone, `+91${cleanPhone}`),
+            eq(users.phone, `+91 ${cleanPhone}`),
+            eq(users.phone, `91${cleanPhone}`),
+            sql`RIGHT(REGEXP_REPLACE(${users.phone}, '[^0-9]', '', 'g'), 10) = ${cleanPhone}`
+          ),
+          ne(users.id, targetUser.id)
+        )
+      );
 
     // Mark user as verified with Blue Badge and set their verified phone
-    await db.update(users).set({
+    const [updatedUser] = await db.update(users).set({
       isVerified: true,
       phone: cleanPhone,
       updatedAt: new Date(),
-    }).where(eq(users.id, targetUser.id));
+    }).where(eq(users.id, targetUser.id)).returning();
 
     // If user was locked or had failed attempts, unlock them immediately!
     if (targetUser.isPermanentlyLocked || targetUser.status === "locked" || (targetUser.failedLoginAttempts || 0) > 0 || targetUser.lockoutUntil) {

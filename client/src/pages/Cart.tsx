@@ -193,6 +193,12 @@ export default function Cart() {
   const [streetAddress, setStreetAddress] = useState(user?.address || "");
 
   useEffect(() => {
+    if (user?.phone && !phone) setPhone(user.phone);
+    if (user?.name && !name) setName(user.name);
+    if (user?.address && !streetAddress) setStreetAddress(user.address);
+  }, [user?.phone, user?.name, user?.address]);
+
+  useEffect(() => {
     if (deliveryRes?.locationArea) {
       setCityArea(deliveryRes.locationArea);
     }
@@ -512,10 +518,11 @@ export default function Cart() {
       setShowEmailVerifyModal(true);
       return;
     }
-    if (!user.phone || user.phone.trim().length < 10) {
+    const currentPhone = (user.phone || phone || "").replace(/\D/g, "").slice(-10);
+    if (!currentPhone || currentPhone.length < 10) {
       toast({
-        title: "Mandatory Mobile Phone Verification Required",
-        description: "Please verify your 10-digit mobile number via 6-digit SMS security code before making payment.",
+        title: "Mandatory Mobile Phone Required",
+        description: "Please enter your 10-digit mobile number in the delivery form or verify via SMS code.",
         variant: "destructive",
       });
       setShowCartVerifyModal(true);
@@ -575,9 +582,10 @@ export default function Cart() {
   }
 
   const availableBalance = referralSummary ? Number(referralSummary.availableBalance) : 0;
-  const isFullyVerified = Boolean(user && user.isVerified && user.phone && user.phone.trim().length >= 10);
+  const effectiveUserPhone = (user?.phone || phone || "").replace(/\D/g, "").slice(-10);
+  const isFullyVerified = Boolean(user && user.isVerified && (Boolean(user.phone && user.phone.trim().length >= 10) || effectiveUserPhone.length >= 10));
   const needsEmailVerification = Boolean(user && !user.isVerified);
-  const needsPhoneVerification = Boolean(user && user.isVerified && (!user.phone || user.phone.trim().length < 10));
+  const needsPhoneVerification = Boolean(user && user.isVerified && !user.phone && effectiveUserPhone.length < 10);
 
   return (
     <Layout>

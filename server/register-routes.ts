@@ -2642,7 +2642,26 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
     if (phone !== undefined) {
       const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
-      updates.phone = cleanPhone || null;
+      if (cleanPhone.length === 10) {
+        // Clear phone from any other account so this customer receives it cleanly
+        await db
+          .update(users)
+          .set({ phone: null, updatedAt: new Date() })
+          .where(
+            and(
+              or(
+                eq(users.phone, cleanPhone),
+                eq(users.phone, `+91${cleanPhone}`),
+                eq(users.phone, `+91 ${cleanPhone}`),
+                sql`RIGHT(REGEXP_REPLACE(${users.phone}, '[^0-9]', '', 'g'), 10) = ${cleanPhone}`
+              ),
+              ne(users.id, id)
+            )
+          );
+        updates.phone = cleanPhone;
+      } else {
+        updates.phone = null;
+      }
     }
     if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
 
