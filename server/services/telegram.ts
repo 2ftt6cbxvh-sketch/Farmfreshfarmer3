@@ -609,10 +609,9 @@ const VISITOR_COOLDOWN_MS = 60 * 1000; // 1 minute anti-spam cooldown per IP + p
 export async function notifyWebsiteVisitor(req: any, customPath?: string): Promise<boolean> {
   try {
     const { storage } = await import("../storage");
-    const disabledSetting = await storage.settings.get("telegram_visitor_alerts_disabled");
-    const enabledSetting = await storage.settings.get("telegram_visitor_alerts_enabled");
-    // Enabled by default unless explicitly set to false or disabled
-    if (disabledSetting === "true" || enabledSetting === "false") return false;
+    const enabled = await storage.settings.get("telegram_visitor_alerts_enabled");
+    // Only send visitor alerts if explicitly enabled in admin settings
+    if (enabled !== "true") return false;
 
     // Check lockdown status: do not alert during lockdown
     const { getLockdownStatus } = await import("./lockdown");

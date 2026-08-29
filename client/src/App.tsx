@@ -377,21 +377,6 @@ function AdminGuard({ component: Component, path }: { component: React.Component
   return <Component />;
 }
 
-function VisitorTelemetryTracker() {
-  const [location] = useLocation();
-
-  useEffect(() => {
-    const path = window.location.pathname + window.location.search;
-    fetch("/api/telemetry/visitor-ping", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
-    }).catch(() => {});
-  }, [location]);
-
-  return null;
-}
-
 function ScrollToTop() {
   const [location] = useLocation();
 
@@ -500,7 +485,6 @@ function AppContent() {
             <Toaster />
             <Router>
               <ScrollToTop />
-              <VisitorTelemetryTracker />
               <AppRouter />
             </Router>
           </CartProvider>

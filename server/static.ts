@@ -36,11 +36,6 @@ export function serveStatic(app: Express) {
       return res.status(404).type("text/plain").send("Asset not found");
     }
 
-    // Async non-blocking Telegram security bot notification for website visitor
-    import("./services/telegram")
-      .then(({ notifyWebsiteVisitor }) => notifyWebsiteVisitor(req))
-      .catch(() => {});
-
     const indexPath = path.resolve(distPath, "index.html");
     if (fs.existsSync(indexPath)) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
