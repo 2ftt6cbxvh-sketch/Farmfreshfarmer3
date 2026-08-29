@@ -62,6 +62,7 @@ export default function Login() {
   const [loginTargetUserId, setLoginTargetUserId] = useState<number | null>(null);
   const [loginWaData, setLoginWaData] = useState<{ code: string; formattedCode: string; waLink: string } | null>(null);
   const [loginWaPhone, setLoginWaPhone] = useState("");
+  const [loginWaSentStep, setLoginWaSentStep] = useState<"not_sent" | "waiting_confirm">("not_sent");
 
   // ===================== SIGNUP STATE =====================
   const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
@@ -353,7 +354,25 @@ export default function Login() {
     }
   };
 
-  const handleLoginVerifyWhatsApp = async (e?: React.FormEvent) => {
+  const handleLoginOpenWhatsAppLink = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPhone = loginWaPhone.replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number.", variant: "destructive" });
+      return;
+    }
+
+    if (loginWaData?.waLink) {
+      window.open(loginWaData.waLink, "_blank", "noopener,noreferrer");
+      setLoginWaSentStep("waiting_confirm");
+      toast({
+        title: "📲 WhatsApp Opened!",
+        description: "Please press 'Send' in WhatsApp, then click 'I Have Sent The Message' below.",
+      });
+    }
+  };
+
+  const handleLoginConfirmWhatsAppSent = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanPhone = loginWaPhone.replace(/\D/g, "").slice(-10);
     const cleanCode = (loginWaData?.code || "").replace(/[^0-9]/g, "");
@@ -365,10 +384,6 @@ export default function Login() {
 
     setBusy(true);
     try {
-      if (loginWaData?.waLink) {
-        window.open(loginWaData.waLink, "_blank", "noopener,noreferrer");
-      }
-
       const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
         phone: cleanPhone,
         code: cleanCode,
@@ -920,19 +935,19 @@ export default function Login() {
                         </div>
                       </form>
                     ) : (
-                      /* WHATSAPP VERIFICATION FORM */
-                      <form onSubmit={handleLoginVerifyWhatsApp} className="space-y-4">
+                      /* WHATSAPP VERIFICATION FORM (2-STEP) */
+                      <div className="space-y-4">
                         <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
-                              <ShieldCheck size={15} /> 1-Tap WhatsApp Verification
+                              <ShieldCheck size={15} /> Free WhatsApp Mobile Verification
                             </span>
                             <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
                               Instant &amp; Free
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground leading-relaxed">
-                            Enter your 10-digit mobile number. Tap below to send verification message to <b>+91 7989793669</b> and sign in instantly!
+                            Send verification code from your mobile to our business WhatsApp (<b>+91 7989793669</b>) to sign in.
                           </p>
                         </div>
 
@@ -955,7 +970,10 @@ export default function Login() {
                               type="tel"
                               maxLength={10}
                               value={loginWaPhone}
-                              onChange={(e) => setLoginWaPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                              onChange={(e) => {
+                                setLoginWaPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                                setLoginWaSentStep("not_sent");
+                              }}
                               placeholder="9876543210"
                               className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
                               autoFocus
@@ -964,14 +982,46 @@ export default function Login() {
                           </div>
                         </div>
 
-                        <Button
-                          type="submit"
-                          disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
-                          className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-lg cursor-pointer"
-                        >
-                          {busy ? "Verifying via WhatsApp…" : `💬 Open WhatsApp & Sign In (${loginWaData?.formattedCode || "FF-Code"}) ➔`}
-                        </Button>
-                      </form>
+                        {loginWaSentStep === "waiting_confirm" && (
+                          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1 text-center animate-in fade-in duration-200">
+                            <p className="text-xs font-black text-amber-500 dark:text-amber-400">📲 Step 1 Completed: WhatsApp Opened!</p>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              Please press <strong className="text-foreground">Send</strong> in WhatsApp from <b>+91 {loginWaPhone}</b> to <b>+91 7989793669</b>, then tap the confirmation button below!
+                            </p>
+                          </div>
+                        )}
+
+                        {loginWaSentStep === "not_sent" ? (
+                          <Button
+                            type="button"
+                            onClick={handleLoginOpenWhatsAppLink}
+                            disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
+                            className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-lg cursor-pointer"
+                          >
+                            <span>💬 Step 1: Open WhatsApp &amp; Send Code ({loginWaData?.formattedCode || "FF-Code"}) ➔</span>
+                          </Button>
+                        ) : (
+                          <div className="space-y-2">
+                            <Button
+                              type="button"
+                              onClick={handleLoginConfirmWhatsAppSent}
+                              disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
+                              className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-xl cursor-pointer"
+                            >
+                              {busy ? "Confirming Verification…" : "✅ Step 2: I Have Sent The Message — Verify & Sign In ➔"}
+                            </Button>
+                            <div className="text-center">
+                              <button
+                                type="button"
+                                onClick={handleLoginOpenWhatsAppLink}
+                                className="text-[11px] text-muted-foreground hover:text-emerald-400 underline font-semibold cursor-pointer"
+                              >
+                                Didn't open? Open WhatsApp again
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

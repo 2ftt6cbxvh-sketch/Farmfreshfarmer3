@@ -97,11 +97,10 @@ export function PhoneVerificationModal({
   const { toast } = useToast();
 
   const [method, setMethod] = useState<"whatsapp" | "sms">("whatsapp");
-  const [phone, setPhone] = useState(defaultPhone || user?.phone || "");
-  const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [waSentStep, setWaSentStep] = useState<"not_sent" | "waiting_confirm">("not_sent");
 
   // WhatsApp state
   const [waData, setWaData] = useState<{
@@ -116,6 +115,7 @@ export function PhoneVerificationModal({
       setPhone(defaultPhone || user?.phone || "");
       setOtp("");
       setStep("phone");
+      setWaSentStep("not_sent");
       setLoading(false);
       setErrorMessage(null);
 
@@ -142,7 +142,27 @@ export function PhoneVerificationModal({
     }
   };
 
-  const handleVerifyWhatsApp = async (e?: React.FormEvent) => {
+  const handleOpenWhatsAppLink = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMessage(null);
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      const msg = "Please enter your valid 10-digit Indian mobile number.";
+      setErrorMessage(msg);
+      return toast({ title: "Invalid Mobile Number", description: msg, variant: "destructive" });
+    }
+
+    if (waData?.waLink) {
+      window.open(waData.waLink, "_blank", "noopener,noreferrer");
+      setWaSentStep("waiting_confirm");
+      toast({
+        title: "📲 WhatsApp Opened!",
+        description: "Please press 'Send' in WhatsApp, then click 'I Have Sent The Message' below.",
+      });
+    }
+  };
+
+  const handleConfirmWhatsAppSent = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
     const cleanPhone = phone.replace(/\D/g, "").slice(-10);
@@ -161,12 +181,6 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
-      // 1. Open WhatsApp to send verification message to business number
-      if (waData?.waLink) {
-        window.open(waData.waLink, "_blank", "noopener,noreferrer");
-      }
-
-      // 2. Register verification on server
       const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
         phone: cleanPhone,
         code: cleanCode,
@@ -195,7 +209,7 @@ export function PhoneVerificationModal({
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error("[WhatsApp Verify Error]:", err);
-      const errMsg = err.message || "Verification code not matched. Please check your message.";
+      const errMsg = err.message || "Verification failed. Please make sure you sent the WhatsApp message and try again.";
       setErrorMessage(errMsg);
       toast({ title: "Verification Failed", description: errMsg, variant: "destructive" });
     } finally {
@@ -357,19 +371,19 @@ export function PhoneVerificationModal({
         </div>
 
         {method === "whatsapp" ? (
-          /* ================= WHATSAPP VERIFICATION (100% FREE & 1-CLICK) ================= */
-          <form onSubmit={handleVerifyWhatsApp} className="space-y-4 pt-2">
+          /* ================= WHATSAPP VERIFICATION (100% FREE 2-STEP) ================= */
+          <div className="space-y-4 pt-2">
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
-                  <ShieldCheck size={15} /> 1-Tap WhatsApp Verification
+                  <ShieldCheck size={15} /> Free WhatsApp Mobile Verification
                 </span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full">
-                  100% Free &amp; Instant
+                  100% Free &amp; Fast
                 </span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Enter your 10-digit mobile number below. Clicking the button will open WhatsApp to send your verification message to our business line (<b>+91 7989793669</b>) and instantly verify your account!
+                Send a 1-tap verification security code from your phone to our business WhatsApp (<b>+91 7989793669</b>).
               </p>
             </div>
 
@@ -383,7 +397,10 @@ export function PhoneVerificationModal({
                   type="tel"
                   maxLength={10}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onChange={(e) => {
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                    setWaSentStep("not_sent");
+                  }}
                   placeholder="9876543210"
                   className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
                   autoFocus
@@ -392,6 +409,15 @@ export function PhoneVerificationModal({
               </div>
             </div>
 
+            {waSentStep === "waiting_confirm" && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1 text-center animate-in fade-in duration-200">
+                <p className="text-xs font-black text-amber-500 dark:text-amber-400">📲 Step 1 Completed: WhatsApp Opened!</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Make sure you pressed <strong className="text-foreground">Send</strong> in WhatsApp from <b>+91 {phone}</b> to <b>+91 7989793669</b>. Then click the confirmation button below!
+                </p>
+              </div>
+            )}
+
             {errorMessage && (
               <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -399,22 +425,45 @@ export function PhoneVerificationModal({
               </div>
             )}
 
-            <DialogFooter className="pt-2">
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg py-3.5 cursor-pointer flex items-center justify-center gap-2"
-                disabled={loading || phone.replace(/\D/g, "").length < 10}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Verifying…
-                  </span>
-                ) : (
-                  <span>💬 Open WhatsApp &amp; Verify ({waData?.formattedCode || "FF-Code"}) ➔</span>
-                )}
-              </Button>
+            <DialogFooter className="pt-2 flex flex-col gap-2">
+              {waSentStep === "not_sent" ? (
+                <Button
+                  type="button"
+                  onClick={handleOpenWhatsAppLink}
+                  className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg py-3.5 cursor-pointer flex items-center justify-center gap-2"
+                  disabled={loading || phone.replace(/\D/g, "").length < 10}
+                >
+                  <span>💬 Step 1: Open WhatsApp &amp; Send Code ({waData?.formattedCode || "FF-Code"}) ➔</span>
+                </Button>
+              ) : (
+                <div className="w-full space-y-2">
+                  <Button
+                    type="button"
+                    onClick={handleConfirmWhatsAppSent}
+                    className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-xl py-3.5 cursor-pointer flex items-center justify-center gap-2"
+                    disabled={loading || phone.replace(/\D/g, "").length < 10}
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <RefreshCw size={14} className="animate-spin" /> Confirming Verification…
+                      </span>
+                    ) : (
+                      <span>✅ Step 2: I Have Sent The Message — Verify &amp; Unlock ➔</span>
+                    )}
+                  </Button>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleOpenWhatsAppLink}
+                      className="text-[11px] text-muted-foreground hover:text-emerald-400 underline font-semibold cursor-pointer"
+                    >
+                      Didn't open? Open WhatsApp again
+                    </button>
+                  </div>
+                </div>
+              )}
             </DialogFooter>
-          </form>
+          </div>
         ) : (
           /* ================= SMS OTP VERIFICATION ================= */
           step === "phone" ? (
