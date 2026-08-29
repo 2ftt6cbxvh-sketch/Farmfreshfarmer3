@@ -48,6 +48,41 @@ export default function AdminLogin() {
     try {
       const res: any = await login(email.trim().toLowerCase(), password, { isStealthGateway: true });
 
+      if (res?.requirePasskey) {
+        toast({
+          title: "🔑 Hardware Passkey Verification",
+          description: "Scan your Mac Touch ID / Face ID sensor to sign in...",
+        });
+
+        try {
+          const { startAuthentication } = await import("@simplewebauthn/browser");
+          const asseResp = await startAuthentication(res.webauthnOptions);
+
+          const verifyRes = await apiRequest("POST", "/api/login/verify-passkey", {
+            tempAuthToken: res.tempAuthToken,
+            response: asseResp,
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.accessToken) localStorage.setItem("accessToken", verifyData.accessToken);
+          if (verifyData.refreshToken) localStorage.setItem("refreshToken", verifyData.refreshToken);
+          if (verifyData.user) {
+            setUser(verifyData.user);
+            localStorage.setItem("adminUser", JSON.stringify(verifyData.user));
+          }
+          toast({ title: "✨ Biometric Signature Verified! Welcome back, Chief Admin." });
+          navigate("/admin");
+          return;
+        } catch (passkeyErr: any) {
+          toast({
+            title: "Passkey Verification Failed",
+            description: passkeyErr?.message || "Biometrics cancelled or mismatch.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       if (res?.require2fa) {
         setStep2fa(true);
         setTempToken(res.tempToken);

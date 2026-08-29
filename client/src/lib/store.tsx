@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isStealthGateway: options?.isStealthGateway,
     });
     const data = await res.json();
-    if (data.require2fa) {
+    if (data.require2fa || data.requirePasskey) {
       return data;
     }
     if (data.accessToken) {

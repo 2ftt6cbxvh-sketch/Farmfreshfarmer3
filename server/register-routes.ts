@@ -481,6 +481,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
     }
 
+    // Strict Phishing-Resistant WebAuthn Enforcement for Chief Super Admin
+    if (isSuperAdmin) {
+      const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
+      const passkeyCount = await countWebAuthnCredentials(user.id);
+
+      if (passkeyCount > 0) {
+        const options = await generateWebAuthnAuthOptions(user.id);
+        const tempAuthToken = (await import("crypto")).randomBytes(32).toString("hex");
+
+        apiCache.set(`passkey_auth_${tempAuthToken}`, {
+          userId: user.id,
+          challenge: options.challenge,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        }, 300);
+
+        return res.json({
+          requirePasskey: true,
+          tempAuthToken,
+          webauthnOptions: options,
+          message: "Touch ID / Hardware Passkey verification required.",
+        });
+      }
+    }
+
     // Production Guard & 2FA Enforcement: In production, Staff 2FA is strictly required at runtime
     const isProduction = process.env.NODE_ENV === "production";
     const isGlobal2faEnabled = isProduction || ((await storage.settings.get("staff_sms_2fa_enabled")) === "true") || ((await storage.settings.get("subadmin_2fa_otp_enabled")) === "true");
@@ -504,6 +528,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       platform: 'web', ip: req.ip, userAgent: req.headers['user-agent'],
     });
     res.json({ user: publicUser(user), ...tokens });
+  }));
+
+  /** POST /api/login/verify-passkey — Verify Super Admin WebAuthn / Touch ID assertion */
+  app.post("/api/login/verify-passkey", h(async (req, res) => {
+    const { tempAuthToken, response } = req.body || {};
+    if (!tempAuthToken || !response) {
+      return res.status(400).json({ message: "Invalid passkey challenge response." });
+    }
+
+    const sessionData = apiCache.get(`passkey_auth_${tempAuthToken}`) as any;
+
+    if (!sessionData || Date.now() > sessionData.expiresAt) {
+      return res.status(400).json({ message: "Passkey challenge expired. Please enter password again." });
+    }
+
+    const { verifyWebAuthnAssertion } = await import("./services/webauthn");
+    try {
+      await verifyWebAuthnAssertion(sessionData.userId, response, sessionData.challenge);
+      apiCache.delete(`passkey_auth_${tempAuthToken}`);
+
+      const { storage } = await import("./storage");
+      const user = await storage.users.get(sessionData.userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+
+      req.session.userId = user.id;
+      req.session.role = user.role;
+      (req.session as any).mfaVerified = true;
+      (req.session as any).webauthnStepUpAt = Date.now();
+
+      const { issueTokenPair } = await import("./services/token");
+      const tokens = await issueTokenPair(user.id, user.role, {
+        platform: "web",
+        ip: (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1",
+        userAgent: req.headers["user-agent"],
+      });
+
+      const { writeAuditEvent } = await import("./services/audit");
+      await writeAuditEvent({
+        eventType: "login_webauthn_success",
+        severity: "info",
+        userId: user.id,
+        ip: (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1",
+        userAgent: req.headers["user-agent"],
+        actionTaken: "Super Admin logged in with hardware Passkey (Touch ID)",
+      });
+
+      return res.json({ user: publicUser(user), ...tokens });
+    } catch (err: any) {
+      return res.status(400).json({ message: `Passkey verification failed: ${err.message}` });
+    }
   }));
 
   /** POST /api/login/verify-otp — Verify 6-digit Sub-Admin 2FA (TOTP or Mobile SMS OTP) */
