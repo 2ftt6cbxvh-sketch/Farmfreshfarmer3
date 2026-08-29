@@ -184,6 +184,30 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.announcements"],
       ["CREATE INDEX IF NOT EXISTS announcements_category_idx ON announcements(category)", "idx.announcements_category"],
       ["CREATE INDEX IF NOT EXISTS announcements_is_active_idx ON announcements(is_active)", "idx.announcements_is_active"],
+      // ── WEBAUTHN & SECURITY HARDENING MIGRATIONS ──
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_pending BOOLEAN NOT NULL DEFAULT FALSE", "users.recovery_pending"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS request_id VARCHAR(64)", "security_audit_logs.request_id"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS severity VARCHAR(16) NOT NULL DEFAULT 'info'", "security_audit_logs.severity"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS previous_hash TEXT", "security_audit_logs.previous_hash"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS event_hash TEXT", "security_audit_logs.event_hash"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS target_id INTEGER", "security_audit_logs.target_id"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS target_type VARCHAR(64)", "security_audit_logs.target_type"],
+      ["ALTER TABLE security_audit_logs ADD COLUMN IF NOT EXISTS session_family_id VARCHAR(64)", "security_audit_logs.session_family_id"],
+      [`CREATE TABLE IF NOT EXISTS webauthn_credentials (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          credential_id TEXT NOT NULL UNIQUE,
+          public_key TEXT NOT NULL,
+          counter INTEGER NOT NULL DEFAULT 0,
+          device_type VARCHAR(32) NOT NULL DEFAULT 'platform',
+          backed_up BOOLEAN NOT NULL DEFAULT FALSE,
+          transports TEXT,
+          nickname VARCHAR(128) NOT NULL DEFAULT 'Passkey',
+          last_used_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.webauthn_credentials"],
+      ["CREATE UNIQUE INDEX IF NOT EXISTS webauthn_creds_cred_idx ON webauthn_credentials(credential_id)", "idx.webauthn_creds_cred"],
+      ["CREATE INDEX IF NOT EXISTS webauthn_creds_user_idx ON webauthn_credentials(user_id)", "idx.webauthn_creds_user"],
     ];
 
     for (const [sql, label] of stmts) {
