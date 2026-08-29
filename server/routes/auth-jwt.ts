@@ -490,13 +490,24 @@ export function registerAuthJwtRoutes(app: Express) {
       if (!user) {
         const username = email.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now().toString(36);
         const [newUser] = await db.insert(users).values({
-          name: googleName, email, username, password: "", role: "customer", status: "active",
+          name: googleName,
+          email,
+          username,
+          password: "",
+          role: "customer",
+          status: "active",
+          isEmailVerified: true,
+          isPhoneVerified: false,
+          isVerified: false,
         }).returning();
         try {
           await db.insert(customerProfiles).values({ userId: newUser.id }).onConflictDoNothing();
         } catch {}
         await ensureReferralCode(newUser.id).catch(() => {});
         user = newUser;
+      } else if (!user.isEmailVerified) {
+        await db.update(users).set({ isEmailVerified: true, updatedAt: new Date() }).where(eq(users.id, user.id));
+        user.isEmailVerified = true;
       }
 
       if (user.status === "blocked") return res.status(403).json({ message: "Account is blocked. Please contact support." });
@@ -933,10 +944,12 @@ export function registerAuthJwtRoutes(app: Express) {
         email,
         username,
         password: passwordHash,
-        phone,
+        phone: phone || null,
         role: "customer",
         status: "active",
-        emailVerified: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isVerified: false,
       }).returning();
 
       await db.insert(customerProfiles).values({ userId: newUser.id });

@@ -23,6 +23,8 @@ interface Customer {
   failedLoginAttempts?: number;
   lockoutUntil?: string | null;
   isVerified?: boolean;
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
 }
 
 export default function AdminCustomers() {
@@ -156,9 +158,16 @@ export default function AdminCustomers() {
                   <td className="p-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-medium">{c.name}</p>
-                      {c.isVerified && <VerifiedBadge size="sm" />}
+                      {c.isEmailVerified && c.isPhoneVerified && <VerifiedBadge size="sm" />}
                     </div>
-                    <p className="text-xs text-muted-foreground">{c.email}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span>{c.email}</span>
+                      {c.isEmailVerified ? (
+                        <span className="text-emerald-400 font-bold text-[10px]">✓</span>
+                      ) : (
+                        <span className="text-red-400 font-bold text-[10px]">(Unverified)</span>
+                      )}
+                    </p>
                   </td>
                   <td className="p-3">
                     <button
@@ -180,14 +189,18 @@ export default function AdminCustomers() {
                     {c.phone ? (
                       <div className="flex items-center gap-1.5 font-mono text-xs">
                         <span className="text-foreground font-medium">{c.phone}</span>
-                        {c.isVerified && (
-                          <span title="Mobile Number Verified via SMS OTP" className="inline-flex items-center gap-0.5 text-[10px] font-black text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded-md border border-sky-500/20">
+                        {c.isPhoneVerified ? (
+                          <span title="Mobile Number Verified via WhatsApp" className="inline-flex items-center gap-0.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
                             ✓ Verified
+                          </span>
+                        ) : (
+                          <span title="Mobile Phone Not Verified" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-md border border-red-500/20">
+                            Unverified
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground italic text-xs">—</span>
                     )}
                   </td>
                   <td className="p-3">{c.totalOrders}</td>
@@ -198,9 +211,17 @@ export default function AdminCustomers() {
                   <td className="p-3">
                     <div className="flex flex-col gap-1">
                       <Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge>
-                      {c.isVerified && (
-                        <Badge className="text-[9px] bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1 w-fit">
-                          <BadgeCheck size={9} /> Verified
+                      {c.isEmailVerified && c.isPhoneVerified ? (
+                        <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
+                          <BadgeCheck size={9} /> Fully Verified
+                        </Badge>
+                      ) : c.isEmailVerified ? (
+                        <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 w-fit">
+                          ✉️ Email Only
+                        </Badge>
+                      ) : (
+                        <Badge className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
+                          Unverified
                         </Badge>
                       )}
                       {(c.isPermanentlyLocked || c.status === "locked") && (

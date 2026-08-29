@@ -123,7 +123,7 @@ function publicUser(u: any) {
     customTitle: u.customTitle || null,
     permissions: perms,
     isPrimaryAdmin: isPrimary,
-    isVerified: Boolean(u.isVerified) || isPrimary,
+    isVerified: isPrimary || Boolean((u.isEmailVerified || u.isVerified) && u.isPhoneVerified),
     isEmailVerified: Boolean(u.isEmailVerified || isPrimary),
     isPhoneVerified: Boolean(u.isPhoneVerified || isPrimary),
     starRating: isPrimary ? 6 : (u.starRating !== null && u.starRating !== undefined ? Math.min(6, Math.max(0, Number(u.starRating))) : 5),
@@ -2588,9 +2588,14 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       customers.map(async (c) => {
         const profile = await storage.profiles.get(c.id);
         const summary = await referralSummary(c.id).catch(() => null);
+        const isEmailVerified = Boolean(c.isEmailVerified);
+        const isPhoneVerified = Boolean(c.isPhoneVerified && c.phone && c.phone.trim().length >= 10);
+        const isFullyVerified = Boolean((isEmailVerified || c.isVerified) && isPhoneVerified);
         return {
           id: c.id, name: c.name, email: c.email, phone: c.phone, status: c.status,
-          isVerified: Boolean(c.isVerified),
+          isVerified: isFullyVerified,
+          isEmailVerified,
+          isPhoneVerified,
           isPermanentlyLocked: Boolean(c.isPermanentlyLocked),
           failedLoginAttempts: c.failedLoginAttempts ?? 0,
           lockoutUntil: c.lockoutUntil ?? null,

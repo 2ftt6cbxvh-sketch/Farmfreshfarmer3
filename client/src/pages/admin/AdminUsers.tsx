@@ -182,7 +182,7 @@ export default function AdminUsers() {
                           {isSuperAdmin && <Crown size={14} className="text-amber-400" />}
                           {isStaff && <Shield size={14} className="text-blue-400" />}
                           <span>{u.name}</span>
-                          {u.isVerified && <VerifiedBadge size="sm" />}
+                          {(isSuperAdmin || (u.isEmailVerified && u.isPhoneVerified) || (u.isVerified && u.isPhoneVerified)) && <VerifiedBadge size="sm" />}
                         </div>
                       </td>
                       <td className="p-3.5 text-xs text-foreground font-medium">{u.email}</td>
@@ -191,8 +191,8 @@ export default function AdminUsers() {
                           <Badge variant="outline" className="text-[10px] font-black uppercase">
                             {isSuperAdmin ? "Executive Admin" : u.role}
                           </Badge>
-                          {u.isVerified && (
-                            <Badge className="text-[10px] bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1">
+                          {(isSuperAdmin || (u.isEmailVerified && u.isPhoneVerified) || (u.isVerified && u.isPhoneVerified)) && (
+                            <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                               <BadgeCheck size={10} /> Verified
                             </Badge>
                           )}
