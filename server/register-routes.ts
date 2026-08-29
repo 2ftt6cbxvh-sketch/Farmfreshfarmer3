@@ -630,7 +630,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const { verifyWebAuthnAssertion } = await import("./services/webauthn");
     try {
-      await verifyWebAuthnAssertion(sessionData.userId, response, sessionData.challenge);
+      const reqOrigin = (req.headers.origin as string) || (req.headers.referer as string);
+      await verifyWebAuthnAssertion(sessionData.userId, response, sessionData.challenge, reqOrigin);
       apiCache.del(`passkey_auth_${tempAuthToken}`);
       apiCache.del(`admin_login_flow_${tempAuthToken}`);
 

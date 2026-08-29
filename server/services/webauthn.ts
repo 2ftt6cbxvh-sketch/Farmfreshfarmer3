@@ -21,15 +21,59 @@ import { eq } from "drizzle-orm";
 
 export const RP_ID = process.env.WEBAUTHN_RP_ID || "farmfreshfarmer.com";
 export const RP_NAME = "FarmFreshFarmer";
-export const EXPECTED_ORIGIN = process.env.WEBAUTHN_ORIGIN
-  ? process.env.WEBAUTHN_ORIGIN.split(",")
-  : [
-      "https://farmfreshfarmer.com",
-      "https://www.farmfreshfarmer.com",
-      "http://localhost:5000",
-      "http://localhost:5001",
-      "http://localhost:3000",
-    ];
+
+function extractOriginFromResponse(response: any): string | undefined {
+  try {
+    const clientDataJSON = response?.response?.clientDataJSON;
+    if (clientDataJSON) {
+      const jsonStr = Buffer.from(clientDataJSON, "base64url").toString("utf8");
+      const clientData = JSON.parse(jsonStr);
+      if (clientData?.origin) return clientData.origin;
+    }
+  } catch {}
+  return undefined;
+}
+
+export function getExpectedOrigins(extraOrigin?: string): string[] {
+  const origins = new Set<string>([
+    "https://farmfreshfarmer.com",
+    "https://www.farmfreshfarmer.com",
+    "http://localhost:5000",
+    "http://localhost:5001",
+    "http://localhost:3000",
+  ]);
+
+  if (process.env.ADMIN_SUBDOMAIN) {
+    const sub = process.env.ADMIN_SUBDOMAIN.toLowerCase().trim();
+    origins.add(`https://${sub}.farmfreshfarmer.com`);
+  }
+
+  if (process.env.WEBAUTHN_ORIGIN) {
+    process.env.WEBAUTHN_ORIGIN.split(",").forEach((o) => {
+      const trimmed = o.trim();
+      if (trimmed) origins.add(trimmed);
+    });
+  }
+
+  if (extraOrigin) {
+    try {
+      const u = new URL(extraOrigin);
+      const host = u.hostname.toLowerCase();
+      if (
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host.endsWith(".vercel.app") ||
+        host === "farmfreshfarmer.com" ||
+        host.endsWith(".farmfreshfarmer.com")
+      ) {
+        origins.add(extraOrigin);
+        origins.add(`${u.protocol}//${host}`);
+      }
+    } catch {}
+  }
+
+  return Array.from(origins);
+}
 
 /** Generate registration options for a user */
 export async function generateWebAuthnRegistrationOptions(userId: number, userName: string, userDisplayName: string) {
@@ -66,12 +110,16 @@ export async function verifyAndSaveWebAuthnRegistration(
   userId: number,
   response: RegistrationResponseJSON,
   expectedChallenge: string,
-  nickname: string = "Passkey"
+  nickname: string = "Passkey",
+  reqOrigin?: string
 ) {
+  const originFromClient = extractOriginFromResponse(response);
+  const allowedOrigins = getExpectedOrigins(reqOrigin || originFromClient);
+
   const verification = await verifyRegistrationResponse({
     response,
     expectedChallenge,
-    expectedOrigin: EXPECTED_ORIGIN,
+    expectedOrigin: allowedOrigins,
     expectedRPID: RP_ID,
     requireUserVerification: true,
   });
@@ -135,7 +183,8 @@ export async function generateWebAuthnAuthOptions(userId?: number) {
 export async function verifyWebAuthnAssertion(
   userId: number,
   response: AuthenticationResponseJSON,
-  expectedChallenge: string
+  expectedChallenge: string,
+  reqOrigin?: string
 ) {
   // Find the credential
   const [cred] = await db
@@ -148,10 +197,13 @@ export async function verifyWebAuthnAssertion(
     throw new Error("WebAuthn credential not found or doesn't belong to this user");
   }
 
+  const originFromClient = extractOriginFromResponse(response);
+  const allowedOrigins = getExpectedOrigins(reqOrigin || originFromClient);
+
   const verification = await verifyAuthenticationResponse({
     response,
     expectedChallenge,
-    expectedOrigin: EXPECTED_ORIGIN,
+    expectedOrigin: allowedOrigins,
     expectedRPID: RP_ID,
     requireUserVerification: true,
     authenticator: {
