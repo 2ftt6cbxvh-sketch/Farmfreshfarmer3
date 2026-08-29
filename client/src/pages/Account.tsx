@@ -253,7 +253,7 @@ export default function Account() {
     ? { name: "Bronze Member", badge: `🥉 ${starsCount}★ Bronze Tier`, discount: dynamicDiscountLabel, color: "from-[#a66020] via-[#cd7f32] to-[#804010]" }
     : { name: "Green Tier Member", badge: `🌿 ${starsCount}★ Green Tier`, discount: dynamicDiscountLabel, color: "from-emerald-500 to-teal-600" };
 
-  const isUserVerified = Boolean(isSuperAdmin || (user.isVerified && user.phone && user.phone.trim() !== ""));
+  const isUserVerified = Boolean(isSuperAdmin || user.isVerified);
 
   return (
     <Layout>

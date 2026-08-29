@@ -122,6 +122,7 @@ export default function AdminCustomers() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       toast({ title: data.message || "Customer verification updated" });
     },
     onError: (err: any) => {

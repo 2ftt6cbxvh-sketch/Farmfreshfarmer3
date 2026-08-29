@@ -121,7 +121,7 @@ export function Header() {
     : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
 
   const currentHeaderStarTheme = getStarTheme(user ? starsCount : 0, isStarThemeEnabled);
-  const isUserVerified = Boolean(isSuperAdmin || (user?.isVerified && user?.phone && user.phone.trim() !== ""));
+  const isUserVerified = Boolean(isSuperAdmin || user?.isVerified);
 
   // Close search suggestions on route change
   useEffect(() => {
