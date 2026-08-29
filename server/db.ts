@@ -92,6 +92,8 @@ export async function runAutoMigrations(): Promise<void> {
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)", "users.custom_title"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)", "users.telegram_chat_id"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE", "users.is_verified"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT FALSE", "users.is_email_verified"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN NOT NULL DEFAULT FALSE", "users.is_phone_verified"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INTEGER NOT NULL DEFAULT 5", "users.star_rating"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) NOT NULL DEFAULT 'Specialist'", "users.experience_rank"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_stars INTEGER NOT NULL DEFAULT 0", "users.customer_stars"],
