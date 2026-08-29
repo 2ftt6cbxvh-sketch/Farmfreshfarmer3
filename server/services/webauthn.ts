@@ -23,7 +23,13 @@ export const RP_ID = process.env.WEBAUTHN_RP_ID || "farmfreshfarmer.com";
 export const RP_NAME = "FarmFreshFarmer";
 export const EXPECTED_ORIGIN = process.env.WEBAUTHN_ORIGIN
   ? process.env.WEBAUTHN_ORIGIN.split(",")
-  : ["https://farmfreshfarmer.com", "http://localhost:5000"];
+  : [
+      "https://farmfreshfarmer.com",
+      "https://www.farmfreshfarmer.com",
+      "http://localhost:5000",
+      "http://localhost:5001",
+      "http://localhost:3000",
+    ];
 
 /** Generate registration options for a user */
 export async function generateWebAuthnRegistrationOptions(userId: number, userName: string, userDisplayName: string) {

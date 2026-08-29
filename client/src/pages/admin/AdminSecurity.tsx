@@ -206,7 +206,7 @@ function WebAuthnPasskeysCard() {
       const options = await optionsRes.json();
 
       const { startRegistration } = await import("@simplewebauthn/browser");
-      const attResp = await startRegistration({ optionsJSON: options });
+      const attResp = await startRegistration(options);
 
       const verifyRes = await apiRequest("POST", "/api/admin/webauthn/register/verify", {
         response: attResp,
@@ -241,7 +241,7 @@ function WebAuthnPasskeysCard() {
       const options = await optionsRes.json();
 
       const { startAuthentication } = await import("@simplewebauthn/browser");
-      const asseResp = await startAuthentication({ optionsJSON: options });
+      const asseResp = await startAuthentication(options);
 
       const verifyRes = await apiRequest("POST", "/api/admin/webauthn/auth/verify", {
         response: asseResp,
