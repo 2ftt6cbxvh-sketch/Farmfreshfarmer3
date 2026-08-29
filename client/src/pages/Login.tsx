@@ -219,7 +219,18 @@ export default function Login() {
         password: loginPassword,
         recaptchaToken,
       });
-      const data = await res.json();
+      if (data.directLogin || data.accessToken) {
+        if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+        if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+        setUser(data.user || data);
+        toast({
+          title: "✨ Welcome back!",
+          description: `Signed in as ${data.user?.name || "Customer"}.`,
+        });
+        const redirectParam = new URLSearchParams(window.location.search).get("redirect");
+        navigate(redirectParam || "/");
+        return;
+      }
 
       setLoginToken(data.loginToken || "");
       setLoginStep("otp");

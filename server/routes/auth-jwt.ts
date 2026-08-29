@@ -659,46 +659,33 @@ export function registerAuthJwtRoutes(app: Express) {
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await db.insert(otpCodes).values({
-      userId: user.id,
-      phone: user.phone || cleanEmail,
-      purpose: "login_2fa",
-      codeHash,
-      expiresAt,
+    // Password verified! Log in user directly without repeating OTP on every login
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    const tokens = await issueTokenPair(user.id, user.role, {
+      platform: req.body?.platform || "web",
+      deviceId: req.body?.deviceId,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
     });
 
-    const jwt = (await import("jsonwebtoken")).default;
-    const loginToken = jwt.sign(
-      { userId: user.id, email: user.email, type: "login_2fa" },
-      getJwtSecret(),
-      { expiresIn: "10m" }
-    );
-
-    const { sendRealEmail, buildOtpEmailHtml, buildOtpPlainText } = await import("../services/email");
-    const html = buildOtpEmailHtml(otp, user.name);
-    const text = buildOtpPlainText(otp, user.name);
-
-    await sendRealEmail({
-      to: cleanEmail,
-      subject: `🔑 Your Verification OTP Code: ${otp}`,
-      html,
-      text,
-    });
-
-    await auditLog("login_otp_sent", { userId: user.id, req, action: `2FA Login OTP sent to ${cleanEmail}` });
-    console.log(`[LOGIN 2FA OTP] ${cleanEmail} -> OTP: ${otp}`);
+    await auditLog("login_success", { userId: user.id, req, action: `Customer login success for ${cleanEmail}` });
 
     return res.json({
       success: true,
-      requireOtp: true,
-      loginToken,
-      email: cleanEmail,
-      message: `A 6-digit verification code has been sent to ${cleanEmail}`,
-      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+      directLogin: true,
+      message: "Login successful!",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        isEmailVerified: Boolean(user.isEmailVerified),
+        isPhoneVerified: Boolean(user.isPhoneVerified),
+        isVerified: Boolean(user.isVerified),
+      },
+      ...tokens,
     });
   });
 
