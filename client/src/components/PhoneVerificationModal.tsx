@@ -161,6 +161,12 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
+      // 1. Open WhatsApp to send verification message to business number
+      if (waData?.waLink) {
+        window.open(waData.waLink, "_blank", "noopener,noreferrer");
+      }
+
+      // 2. Register verification on server
       const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
         phone: cleanPhone,
         code: cleanCode,
@@ -172,8 +178,8 @@ export function PhoneVerificationModal({
       if (!res.ok) throw new Error(data.message || "WhatsApp verification failed.");
 
       if (user) {
-        setUser({ ...user, isVerified: true, phone: cleanPhone });
-        localStorage.setItem("user", JSON.stringify({ ...user, isVerified: true, phone: cleanPhone }));
+        setUser({ ...user, isPhoneVerified: true, phone: cleanPhone, isVerified: Boolean(user.isEmailVerified) });
+        localStorage.setItem("user", JSON.stringify({ ...user, isPhoneVerified: true, phone: cleanPhone, isVerified: Boolean(user.isEmailVerified) }));
       }
 
       toast({
@@ -351,63 +357,38 @@ export function PhoneVerificationModal({
         </div>
 
         {method === "whatsapp" ? (
-          /* ================= WHATSAPP VERIFICATION (100% FREE) ================= */
+          /* ================= WHATSAPP VERIFICATION (100% FREE & 1-CLICK) ================= */
           <form onSubmit={handleVerifyWhatsApp} className="space-y-4 pt-2">
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black uppercase text-emerald-500 flex items-center gap-1">
-                  <ShieldCheck size={14} /> Step 1: Send WhatsApp Message
+                <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
+                  <ShieldCheck size={15} /> 1-Tap WhatsApp Verification
                 </span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-                  100% Free
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full">
+                  100% Free &amp; Instant
                 </span>
               </div>
-
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Click the button below to send your verification security code to our official FarmFreshFarmer Business WhatsApp:
+                Enter your 10-digit mobile number below. Clicking the button will open WhatsApp to send your verification message to our business line (<b>+91 7989793669</b>) and instantly verify your account!
               </p>
-
-              {waData ? (
-                <a
-                  href={waData.waLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-[1.02]"
-                >
-                  <span>💬 Tap Here to Open WhatsApp ({waData.formattedCode}) ➔</span>
-                </a>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={initiateWhatsApp}
-                  className="w-full bg-emerald-600 text-white font-bold text-xs rounded-xl py-2.5"
-                >
-                  <RefreshCw size={14} className="animate-spin mr-1.5" /> Generating WhatsApp Link…
-                </Button>
-              )}
             </div>
 
-            <div className="space-y-3 pt-1">
-              <span className="text-[11px] font-black uppercase text-foreground flex items-center gap-1">
-                <KeyRound size={14} className="text-emerald-500" /> Step 2: Confirm Your 10-Digit Mobile Number
-              </span>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-foreground">Your 10-Digit Mobile Number</Label>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
-                    🇮🇳 +91
-                  </span>
-                  <Input
-                    type="tel"
-                    maxLength={10}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="9876543210"
-                    className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
-                    required
-                  />
-                </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Your 10-Digit Mobile Number</Label>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
+                  🇮🇳 +91
+                </span>
+                <Input
+                  type="tel"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="9876543210"
+                  className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
+                  autoFocus
+                  required
+                />
               </div>
             </div>
 
@@ -421,15 +402,15 @@ export function PhoneVerificationModal({
             <DialogFooter className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg py-3 cursor-pointer"
+                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg py-3.5 cursor-pointer flex items-center justify-center gap-2"
                 disabled={loading || phone.replace(/\D/g, "").length < 10}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Verifying Mobile…
+                    <RefreshCw size={14} className="animate-spin" /> Verifying…
                   </span>
                 ) : (
-                  "Confirm WhatsApp Verification & Unlock Checkout ➔"
+                  <span>💬 Open WhatsApp &amp; Verify ({waData?.formattedCode || "FF-Code"}) ➔</span>
                 )}
               </Button>
             </DialogFooter>
