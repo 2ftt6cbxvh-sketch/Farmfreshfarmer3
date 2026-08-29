@@ -51,7 +51,7 @@ export async function sendSmsOtp(
 
   // Dispatch via Fast2SMS Quick OTP API Route
   try {
-    const res = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+    let res = await fetch("https://www.fast2sms.com/dev/bulkV2", {
       method: "POST",
       headers: {
         authorization: FAST2SMS_API_KEY,
@@ -64,11 +64,37 @@ export async function sendSmsOtp(
       }),
     });
 
-    const data = await res.json();
-    console.log(`[Fast2SMS Dispatch] Phone: +91 ${cleanPhone} | Status:`, data);
+    let data = await res.json();
+    console.log(`[Fast2SMS OTP Dispatch] Phone: +91 ${cleanPhone} | Status:`, data);
 
-    if (!data.return && !data.status_code) {
-      console.warn("[Fast2SMS Warning]:", data.message || "Failed to dispatch SMS");
+    if (!data.return && data.status_code) {
+      // Try fallback to Quick SMS route (q)
+      const resQ = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: {
+          authorization: FAST2SMS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          route: "q",
+          message: `Your FarmFreshFarmer verification security code is ${otp}. Valid for 10 minutes.`,
+          language: "english",
+          flash: 0,
+          numbers: cleanPhone,
+        }),
+      });
+      const dataQ = await resQ.json();
+      console.log(`[Fast2SMS Route Q Dispatch] Phone: +91 ${cleanPhone} | Status:`, dataQ);
+
+      if (dataQ.return) {
+        data = dataQ;
+      } else {
+        throw new Error(data.message || dataQ.message || "Fast2SMS API gateway error");
+      }
+    }
+
+    if (!data.return) {
+      throw new Error(data.message || "Failed to dispatch SMS through Fast2SMS gateway");
     }
 
     return {
@@ -78,7 +104,7 @@ export async function sendSmsOtp(
     };
   } catch (err: any) {
     console.error("[Fast2SMS Error]:", err.message);
-    throw new Error(`Failed to send SMS OTP: ${err.message || "Network error"}`);
+    throw new Error(err.message || "Failed to send SMS OTP");
   }
 }
 
