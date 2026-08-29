@@ -8,12 +8,24 @@
 import type { Request, Response, NextFunction } from "express";
 import { randomBytes } from "crypto";
 
-const ALLOWED_ORIGINS = [
-  "https://farmfreshfarmer.com",
-  "https://www.farmfreshfarmer.com",
-  "http://localhost:5000",
-  "http://localhost:3000",
-];
+function isAllowedOrigin(originStr?: string): boolean {
+  if (!originStr) return false;
+  try {
+    const url = new URL(originStr);
+    const host = url.hostname.toLowerCase();
+    // Allow localhost and 127.0.0.1
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    // Allow vercel preview / production deployments
+    if (host.endsWith(".vercel.app")) return true;
+    // Allow apex and ANY valid subdomain of farmfreshfarmer.com
+    if (host === "farmfreshfarmer.com" || host.endsWith(".farmfreshfarmer.com")) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -47,7 +59,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
   const referer = req.headers.referer;
 
   if (origin) {
-    if (!ALLOWED_ORIGINS.includes(origin)) {
+    if (!isAllowedOrigin(origin)) {
       return res.status(403).json({
         message: "CSRF: Origin not allowed",
         code: "CSRF_ORIGIN_MISMATCH",
@@ -57,7 +69,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     // No Origin header but has Referer — validate
     try {
       const refererOrigin = new URL(referer).origin;
-      if (!ALLOWED_ORIGINS.includes(refererOrigin)) {
+      if (!isAllowedOrigin(refererOrigin)) {
         return res.status(403).json({
           message: "CSRF: Referer origin not allowed",
           code: "CSRF_REFERER_MISMATCH",
