@@ -297,7 +297,9 @@ function AppRouter() {
         {/* App & Store Feature Routes */}
         <Route path="/category/:slug" component={Category} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/products" component={SearchPage} />
         <Route path="/product/:id" component={ProductDetail} />
+        <Route path="/products/:id" component={ProductDetail} />
         <Route path="/cart" component={Cart} />
         <Route path="/login" component={Login} />
         <Route path="/forgot-password" component={ForgotPassword} />

@@ -8,12 +8,14 @@ import {
 import { apiGet, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
 import { useCart, useAuth } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import type { AnnouncementItem } from "./NotificationBell";
 
 export function BroadcastPopupModal() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const isAdminRoute =
     location.startsWith("/admin") ||
@@ -192,13 +194,26 @@ export function BroadcastPopupModal() {
                     Details
                   </Link>
                   <Button
-                    className="flex-1 sm:flex-none px-4 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md gap-1.5"
+                    className="flex-1 sm:flex-none px-4 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md gap-1.5 cursor-pointer"
                     onClick={() => {
+                      if (!user) {
+                        toast({
+                          title: "🔐 Please Sign In",
+                          description: "Please sign in to add items to your cart and complete checkout.",
+                        });
+                        handleClose();
+                        navigate("/login");
+                        return;
+                      }
                       addToCart({
                         ...activePopup.product,
                         price: currentPrice,
                         discountPercent: discountPct,
                       } as any);
+                      toast({
+                        title: "✨ Added to Cart",
+                        description: `${activePopup.product.name} (${formatINR(currentPrice)})`,
+                      });
                       handleClose();
                     }}
                   >
