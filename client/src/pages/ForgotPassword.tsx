@@ -137,18 +137,18 @@ export default function ForgotPassword() {
             </form>
           ) : (
             <form onSubmit={handleVerifyAndReset} className="space-y-4">
-              <div className="p-3 rounded-2xl bg-green-950/40 border border-green-500/30 text-xs text-slate-300 text-center space-y-0.5">
-                <p>Sent OTP code to <strong className="text-white">{email}</strong>.</p>
-                <p className="text-amber-300 font-semibold">If not in Primary, please check your Spam / Junk folder!</p>
+              <div className="p-3 rounded-2xl bg-red-950/40 border border-red-500/30 text-xs text-slate-300 text-center space-y-0.5">
+                <p>Sent 6-digit security code to <strong className="text-white">{email}</strong>.</p>
+                <p className="text-red-300 font-semibold">If not in Primary, please check your Spam / Junk folder!</p>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <Label htmlFor="otp" className="text-xs font-bold text-green-400">6-Digit OTP Code</Label>
+                  <Label htmlFor="otp" className="text-xs font-bold text-red-400">6-Digit Red Security Code</Label>
                   <button
                     type="button"
                     onClick={() => setStep("email")}
-                    className="text-[11px] text-green-400 underline"
+                    className="text-[11px] text-red-400 underline"
                   >
                     Change Email
                   </button>
@@ -156,16 +156,16 @@ export default function ForgotPassword() {
                 <Input
                   id="otp"
                   type="text"
-                  placeholder="OTP code..."
+                  placeholder="123456"
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="text-center font-mono text-xl tracking-[0.3em] font-extrabold bg-slate-950 border-green-500/50 text-white rounded-xl"
+                  className="text-center font-mono text-2xl tracking-[0.3em] font-extrabold bg-red-500/10 border-2 border-red-500/50 text-red-400 rounded-xl"
                   required
                   autoFocus
                 />
                 {devOtp && (
-                  <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
+                  <p className="text-xs text-red-400 mt-1 font-mono text-center bg-red-500/10 py-1 rounded border border-red-500/20">
                     DEV OTP: {devOtp}
                   </p>
                 )}

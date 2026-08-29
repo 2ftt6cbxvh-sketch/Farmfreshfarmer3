@@ -138,18 +138,18 @@ export function EmailVerificationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border border-emerald-500/30 shadow-2xl">
+      <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border border-red-500/30 shadow-2xl">
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0">
               <ShieldCheck size={20} />
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-black text-foreground">
-                Update Email with OTP
+                Mandatory Email Verification
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Verify ownership of your new email address with a secure 6-digit code.
+                Verify ownership of your email address with a 6-digit red security code.
               </DialogDescription>
             </div>
           </div>
@@ -158,7 +158,7 @@ export function EmailVerificationModal({
         {step === "email" ? (
           <form onSubmit={handleSendEmailOtp} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-foreground">New Email Address</Label>
+              <Label className="text-xs font-bold text-foreground">Email Address</Label>
               <div className="relative">
                 <Mail size={15} className="absolute left-3.5 top-3 text-muted-foreground" />
                 <Input
@@ -175,7 +175,7 @@ export function EmailVerificationModal({
                 />
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Current email: <span className="font-semibold text-foreground">{user?.email}</span>
+                Registered account email: <span className="font-semibold text-foreground">{user?.email}</span>
               </p>
             </div>
 
@@ -189,15 +189,15 @@ export function EmailVerificationModal({
             <DialogFooter className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
                 disabled={loading || !newEmail.includes("@")}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Sending Email OTP…
+                    <RefreshCw size={14} className="animate-spin" /> Sending Security Code…
                   </span>
                 ) : (
-                  "Send 6-Digit Email Code"
+                  "Send 6-Digit Security Code"
                 )}
               </Button>
             </DialogFooter>
@@ -206,14 +206,16 @@ export function EmailVerificationModal({
           <form onSubmit={handleVerifyEmailOtp} className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-foreground">Enter 6-Digit Code</Label>
+                <Label className="text-xs font-bold text-red-500 dark:text-red-400 flex items-center gap-1.5">
+                  <KeyRound size={13} /> Enter 6-Digit Red Security Code
+                </Label>
                 <button
                   type="button"
                   onClick={() => {
                     setStep("email");
                     setErrorMessage(null);
                   }}
-                  className="text-[11px] text-emerald-400 hover:underline font-bold"
+                  className="text-[11px] text-red-500 hover:underline font-bold"
                 >
                   Change Email
                 </button>
@@ -227,12 +229,12 @@ export function EmailVerificationModal({
                   if (errorMessage) setErrorMessage(null);
                 }}
                 placeholder="123456"
-                className="text-center font-mono text-xl font-black rounded-xl bg-secondary/50 border-card-border tracking-widest"
+                className="text-center font-mono text-2xl font-black text-red-500 dark:text-red-400 bg-red-500/10 border-2 border-red-500/40 rounded-xl tracking-widest focus:border-red-500 focus:ring-red-500"
                 autoFocus
                 required
               />
               <p className="text-[10px] text-center text-muted-foreground">
-                Code sent to: <span className="font-bold text-foreground">{newEmail}</span>
+                Security code dispatched to: <span className="font-bold text-foreground">{newEmail}</span>
               </p>
             </div>
 
@@ -246,15 +248,15 @@ export function EmailVerificationModal({
             <DialogFooter className="pt-2 flex flex-col gap-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
                 disabled={loading || otp.length < 6}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Verifying Code…
+                    <RefreshCw size={14} className="animate-spin" /> Verifying Security Code…
                   </span>
                 ) : (
-                  "Confirm & Update Email Address"
+                  "Verify Security Code & Unlock Checkout"
                 )}
               </Button>
 
@@ -264,7 +266,7 @@ export function EmailVerificationModal({
                 disabled={loading}
                 className="text-center text-[11px] text-muted-foreground hover:text-foreground font-semibold"
               >
-                Didn't receive email? Resend Code
+                Didn't receive email? Resend Security Code
               </button>
             </DialogFooter>
           </form>

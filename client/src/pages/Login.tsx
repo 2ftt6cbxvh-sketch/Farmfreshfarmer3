@@ -746,21 +746,21 @@ export default function Login() {
                 ) : (
                   /* STEP 2: Enter 6-Digit 2FA OTP */
                   <form onSubmit={handleLoginVerifyOtp} className="space-y-4">
-                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-0.5">
-                      <p className="text-xs font-extrabold text-emerald-400">📬 6-Digit 2FA Code Sent!</p>
+                    <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-center space-y-0.5">
+                      <p className="text-xs font-extrabold text-red-500 dark:text-red-400">🚨 6-Digit Red Security Code Sent!</p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Sent to <strong className="text-foreground">{loginEmail}</strong>.<br />
-                        <span className="text-amber-400 font-bold">If not in Primary, please check your Spam / Junk folder!</span>
+                        Dispatched to <strong className="text-foreground">{loginEmail}</strong>.<br />
+                        <span className="text-red-400 font-bold">If not in Primary, please check your Spam / Junk folder!</span>
                       </p>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="login-otp" className="text-xs font-bold text-emerald-400">Enter 6-Digit OTP Code</Label>
+                        <Label htmlFor="login-otp" className="text-xs font-bold text-red-500 dark:text-red-400">Enter 6-Digit Red Security Code</Label>
                         <button
                           type="button"
                           onClick={() => setLoginStep("credentials")}
-                          className="text-[11px] text-primary underline cursor-pointer"
+                          className="text-[11px] text-red-500 hover:underline cursor-pointer font-bold"
                         >
                           Change Credentials
                         </button>
@@ -768,16 +768,16 @@ export default function Login() {
                       <Input
                         id="login-otp"
                         type="text"
-                        placeholder="OTP code..."
+                        placeholder="123456"
                         maxLength={6}
                         value={loginOtpCode}
                         onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         required
                         autoFocus
-                        className="text-center font-mono text-xl tracking-[0.3em] font-extrabold rounded-xl border-emerald-500/50"
+                        className="text-center font-mono text-2xl tracking-[0.3em] font-extrabold rounded-xl border-2 border-red-500/50 bg-red-500/10 text-red-500 dark:text-red-400 focus:border-red-500"
                       />
                       {loginDevOtp && (
-                        <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
+                        <p className="text-xs text-red-400 mt-1 font-mono text-center bg-red-500/10 py-1 rounded border border-red-500/20">
                           DEV OTP: {loginDevOtp}
                         </p>
                       )}
@@ -786,9 +786,9 @@ export default function Login() {
                     <Button
                       type="submit"
                       disabled={busy || loginOtpCode.length < 6}
-                      className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 font-bold shadow-lg shadow-emerald-900/30"
+                      className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-lg shadow-red-900/30 cursor-pointer"
                     >
-                      {busy ? "Verifying OTP…" : "Verify Code & Sign In"}
+                      {busy ? "Verifying Security Code…" : "Verify Security Code & Sign In"}
                     </Button>
 
                     <div className="text-center pt-1">
@@ -796,9 +796,9 @@ export default function Login() {
                         type="button"
                         onClick={handleLoginInitiate}
                         disabled={busy}
-                        className="text-xs text-muted-foreground hover:text-emerald-400 underline font-semibold"
+                        className="text-xs text-muted-foreground hover:text-red-400 underline font-semibold cursor-pointer"
                       >
-                        Didn't receive code? Resend OTP
+                        Didn't receive code? Resend Red Security Code
                       </button>
                     </div>
                   </form>
@@ -931,21 +931,21 @@ export default function Login() {
                 ) : (
                   /* STEP 2: Enter 6-Digit Signup OTP */
                   <form onSubmit={handleSignupVerifyOtp} className="space-y-4">
-                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-0.5">
-                      <p className="text-xs font-extrabold text-emerald-400">📬 Verification Code Sent!</p>
+                    <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-center space-y-0.5">
+                      <p className="text-xs font-extrabold text-red-500 dark:text-red-400">🚨 Verification Code Sent!</p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Sent to <strong className="text-foreground">{signupEmail}</strong>.<br />
-                        <span className="text-amber-400 font-bold">If not in Primary, check your Spam / Junk folder!</span>
+                        Dispatched to <strong className="text-foreground">{signupEmail}</strong>.<br />
+                        <span className="text-red-400 font-bold">If not in Primary, check your Spam / Junk folder!</span>
                       </p>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="signup-otp" className="text-xs font-bold text-emerald-400">Enter 6-Digit OTP Code</Label>
+                        <Label htmlFor="signup-otp" className="text-xs font-bold text-red-500 dark:text-red-400">Enter 6-Digit Red Security Code</Label>
                         <button
                           type="button"
                           onClick={() => setSignupStep("form")}
-                          className="text-[11px] text-primary underline cursor-pointer"
+                          className="text-[11px] text-red-500 hover:underline cursor-pointer font-bold"
                         >
                           Edit Details
                         </button>
@@ -953,16 +953,16 @@ export default function Login() {
                       <Input
                         id="signup-otp"
                         type="text"
-                        placeholder="OTP code..."
+                        placeholder="123456"
                         maxLength={6}
                         value={signupOtpCode}
                         onChange={(e) => setSignupOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         required
                         autoFocus
-                        className="text-center font-mono text-xl tracking-[0.3em] font-extrabold rounded-xl border-emerald-500/50"
+                        className="text-center font-mono text-2xl tracking-[0.3em] font-extrabold rounded-xl border-2 border-red-500/50 bg-red-500/10 text-red-500 dark:text-red-400 focus:border-red-500"
                       />
                       {signupDevOtp && (
-                        <p className="text-xs text-amber-400 mt-1 font-mono text-center bg-amber-500/10 py-1 rounded border border-amber-500/20">
+                        <p className="text-xs text-red-400 mt-1 font-mono text-center bg-red-500/10 py-1 rounded border border-red-500/20">
                           DEV OTP: {signupDevOtp}
                         </p>
                       )}
@@ -971,9 +971,9 @@ export default function Login() {
                     <Button
                       type="submit"
                       disabled={busy || signupOtpCode.length < 6}
-                      className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 font-bold shadow-lg shadow-emerald-900/30"
+                      className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 text-white font-bold shadow-lg shadow-red-900/30 cursor-pointer"
                     >
-                      {busy ? "Verifying & Creating Account…" : "Verify & Complete Registration"}
+                      {busy ? "Verifying & Creating Account…" : "Verify Security Code & Complete Registration"}
                     </Button>
 
                     <div className="text-center pt-1">
@@ -981,9 +981,9 @@ export default function Login() {
                         type="button"
                         onClick={handleSignupInitiate}
                         disabled={busy}
-                        className="text-xs text-muted-foreground hover:text-emerald-400 underline font-semibold"
+                        className="text-xs text-muted-foreground hover:text-red-400 underline font-semibold cursor-pointer"
                       >
-                        Didn't receive code? Resend OTP
+                        Didn't receive code? Resend Red Security Code
                       </button>
                     </div>
                   </form>
@@ -1281,8 +1281,8 @@ export default function Login() {
 
                   <form onSubmit={handleStaffVerify2fa} className="space-y-4 pt-2">
                     <div className="space-y-1">
-                      <Label className="text-xs font-bold text-emerald-400">
-                        {staff2faMethod === "totp" ? "6-Digit Authenticator Passcode" : "6-Digit Mobile SMS OTP"}
+                      <Label className="text-xs font-bold text-red-500 dark:text-red-400">
+                        {staff2faMethod === "totp" ? "6-Digit Authenticator Red Passcode" : "6-Digit Mobile SMS Red Security Code"}
                       </Label>
                       <Input
                         type="text"
@@ -1292,16 +1292,16 @@ export default function Login() {
                         onChange={(e) => setStaffOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         required
                         autoFocus
-                        className="rounded-xl text-center font-mono text-xl tracking-widest font-bold h-12 border-emerald-500/40"
+                        className="rounded-xl text-center font-mono text-2xl tracking-[0.3em] font-extrabold h-12 border-2 border-red-500/50 bg-red-500/10 text-red-500 dark:text-red-400 focus:border-red-500"
                       />
                     </div>
 
                     <Button
                       type="submit"
                       disabled={staffBusy || staffOtpCode.length !== 6}
-                      className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-lg"
+                      className="w-full h-11 bg-gradient-to-r from-red-600 via-rose-600 to-red-500 hover:from-red-500 hover:to-rose-500 text-white font-extrabold rounded-xl text-xs shadow-lg cursor-pointer"
                     >
-                      {staffBusy ? "Verifying Passcode..." : "Verify & Unlock Access 🔓"}
+                      {staffBusy ? "Verifying Security Passcode..." : "Verify Security Code & Unlock Access 🔓"}
                     </Button>
 
                     {staffCanFallback && staff2faMethod === "totp" && (

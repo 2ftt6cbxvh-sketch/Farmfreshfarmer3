@@ -194,9 +194,9 @@ export function buildOtpEmailHtml(otpCode: string, name = "Valued Customer"): st
                     Use the 6-digit verification code below to complete your authentication:
                   </p>
 
-                  <!-- OTP Code Box -->
+                  <!-- OTP Code Box (Red Security Code) -->
                   <div style="text-align: center; margin: 24px 0;">
-                    <div style="display: inline-block; background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 12px; padding: 14px 32px; font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #15803d;">
+                    <div style="display: inline-block; background-color: #fef2f2; border: 2px dashed #ef4444; border-radius: 12px; padding: 14px 32px; font-family: 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);">
                       ${otpCode}
                     </div>
                   </div>
@@ -577,9 +577,9 @@ export function buildPasswordChangeOtpEmailHtml(name: string, otpCode: string): 
                     You requested to change your password without entering your old password. Use this 6-digit OTP code in your Profile to verify your identity:
                   </p>
 
-                  <!-- OTP Code Box -->
+                  <!-- OTP Code Box (Red Security Code) -->
                   <div style="text-align: center; margin: 24px 0;">
-                    <div style="display: inline-block; background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 14px; padding: 14px 32px; font-family: 'Courier New', monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #15803d;">
+                    <div style="display: inline-block; background-color: #fef2f2; border: 2px dashed #ef4444; border-radius: 14px; padding: 14px 32px; font-family: 'Courier New', monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);">
                       ${otpCode}
                     </div>
                   </div>

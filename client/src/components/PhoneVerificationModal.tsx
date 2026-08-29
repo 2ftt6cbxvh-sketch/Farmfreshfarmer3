@@ -283,15 +283,15 @@ export function PhoneVerificationModal({
             <DialogFooter className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
                 disabled={loading || phone.replace(/\D/g, "").length < 10}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Sending SMS OTP…
+                    <RefreshCw size={14} className="animate-spin" /> Sending SMS Code…
                   </span>
                 ) : (
-                  "Send 6-Digit SMS Code"
+                  "Send 6-Digit SMS Security Code"
                 )}
               </Button>
             </DialogFooter>
@@ -300,14 +300,16 @@ export function PhoneVerificationModal({
           <form onSubmit={handleVerifyOtp} className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-foreground">Enter 6-Digit SMS Code</Label>
+                <Label className="text-xs font-bold text-red-500 dark:text-red-400 flex items-center gap-1.5">
+                  <KeyRound size={13} /> Enter 6-Digit Red Security Code
+                </Label>
                 <button
                   type="button"
                   onClick={() => {
                     setStep("phone");
                     setErrorMessage(null);
                   }}
-                  className="text-[11px] text-sky-400 hover:underline font-bold"
+                  className="text-[11px] text-red-500 hover:underline font-bold"
                 >
                   Change Number
                 </button>
@@ -321,10 +323,13 @@ export function PhoneVerificationModal({
                   if (errorMessage) setErrorMessage(null);
                 }}
                 placeholder="123456"
-                className="text-center font-mono text-xl font-black rounded-xl bg-secondary/50 border-card-border tracking-widest"
+                className="text-center font-mono text-2xl font-black text-red-500 dark:text-red-400 bg-red-500/10 border-2 border-red-500/40 rounded-xl tracking-widest focus:border-red-500 focus:ring-red-500"
                 autoFocus
                 required
               />
+              <p className="text-[10px] text-center text-muted-foreground">
+                SMS security code dispatched to: <span className="font-bold text-foreground">+91 {phone}</span>
+              </p>
             </div>
 
             {errorMessage && (
@@ -337,15 +342,15 @@ export function PhoneVerificationModal({
             <DialogFooter className="pt-2 flex flex-col gap-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
                 disabled={loading || otp.length < 6}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Verifying…
+                    <RefreshCw size={14} className="animate-spin" /> Verifying Security Code…
                   </span>
                 ) : (
-                  "Confirm Code & Activate Verification"
+                  "Verify Security Code & Unlock Checkout"
                 )}
               </Button>
 
@@ -355,7 +360,7 @@ export function PhoneVerificationModal({
                 disabled={loading}
                 className="text-center text-[11px] text-muted-foreground hover:text-foreground font-semibold"
               >
-                Didn't receive SMS? Resend Code
+                Didn't receive SMS? Resend Security Code
               </button>
             </DialogFooter>
           </form>
