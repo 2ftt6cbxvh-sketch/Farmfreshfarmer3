@@ -87,7 +87,8 @@ export async function lockdownMiddleware(req: Request, res: Response, next: Next
       if (token) {
         try {
           const jwt = (await import("jsonwebtoken")).default;
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          const { getJwtSecret } = await import("./encryption");
+          const decoded = jwt.verify(token, getJwtSecret()) as any;
           if (decoded && (decoded.userId || decoded.sub)) {
             const { db } = await import("../db");
             const { users } = await import("@shared/schema");

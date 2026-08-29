@@ -17,7 +17,8 @@ async function getPartnerUser(req: Request): Promise<{ user: any; partner: any }
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const { getJwtSecret } = await import("../services/encryption");
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         userId = decoded?.userId || decoded?.sub;
       } catch {}
     }

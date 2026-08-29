@@ -21,7 +21,8 @@ async function requireStaffOrAdmin(req: Request, res: Response, next: NextFuncti
   if (token) {
     try {
       const jwt = (await import('jsonwebtoken')).default;
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret');
+      const { getJwtSecret } = await import('../services/encryption');
+      const decoded: any = jwt.verify(token, getJwtSecret());
       if (decoded?.userId || decoded?.sub) {
         const [u] = await db.select().from(users).where(eq(users.id, Number(decoded.userId || decoded.sub))).limit(1);
         if (u && ALLOWED_STAFF_ROLES.includes(u.role) && u.status !== 'blocked' && u.status !== 'locked' && !u.isPermanentlyLocked) {

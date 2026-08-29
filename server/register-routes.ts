@@ -55,7 +55,9 @@ import { registerDeliveryRoutes } from "./routes/delivery";
 import { registerPasswordResetRoutes } from "./routes/password-reset";
 import { registerSearchRoutes } from "./routes/search";
 import { registerCartRoutes } from "./routes/cart";
-import { authRateLimit, apiRateLimit } from "./middleware/rate-limit";
+import { authRateLimit, otpRateLimit, apiRateLimit } from "./middleware/rate-limit";
+import { requireRootAdmin } from "./middleware/authorization";
+import { getJwtSecret } from "./services/encryption";
 import { lockdownMiddleware } from "./services/lockdown";
 import { processSecurityTelegramWebhook, processGrievanceTelegramWebhook, sendTelegramApprovalNotification } from "./services/telegram";
 import { registerAdminSecurityRoutes } from "./routes/admin/security";
@@ -183,34 +185,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     });
   });
 
-  /** GET /api/debug/db — diagnostic: shows DB counts and forces re-seed */
-  app.get("/api/debug/db", async (_req: Request, res: Response) => {
+  /** GET /api/debug/db — diagnostic: shows DB counts (Restricted to Root Admin) */
+  app.get("/api/debug/db", requireRootAdmin(), async (_req: Request, res: Response) => {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ message: "Debug endpoints are disabled in production" });
+    }
     try {
       const { db: _db } = await import("./db");
       const { categories, products, users } = await import("@shared/schema");
       const cats = await _db.select().from(categories);
       const prods = await _db.select().from(products);
       const admins = await _db.select().from(users);
-      // Force re-seed regardless of in-memory flag
-      const { ensureSeeded } = await import("./seed-runner");
-      // Reset the module-level flag by importing fresh
-      await ensureSeeded({ log: true });
-      const cats2 = await _db.select().from(categories);
-      const prods2 = await _db.select().from(products);
-      const admins2 = await _db.select().from(users);
       return res.json({
-        before: { categories: cats.length, products: prods.length, users: admins.length },
-        after: { categories: cats2.length, products: prods2.length, users: admins2.length },
-        dbUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 40) + '...' : 'NOT SET',
+        categories: cats.length,
+        products: prods.length,
+        users: admins.length,
         nodeEnv: process.env.NODE_ENV,
       });
     } catch (e: any) {
-      return res.status(500).json({ error: e?.message || String(e) });
+      return res.status(500).json({ error: "Failed to fetch diagnostic counts" });
     }
   });
 
-  /** POST /api/debug/force-seed — force re-seed regardless of state */
-  app.post("/api/debug/force-seed", async (_req: Request, res: Response) => {
+  /** POST /api/debug/force-seed — force re-seed (Restricted to Root Admin in non-production) */
+  app.post("/api/debug/force-seed", requireRootAdmin(), async (_req: Request, res: Response) => {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(403).json({ message: "Manual force-seed is strictly prohibited in production" });
+    }
     try {
       const { resetSeedFlag, ensureSeeded } = await import("./seed-runner");
       resetSeedFlag();
@@ -255,7 +256,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         if (decoded && (decoded.userId || decoded.sub)) {
           const uid = decoded.userId || decoded.sub;
           req.session.userId = typeof uid === "string" ? parseInt(uid, 10) : uid;
@@ -278,7 +279,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (token) {
         try {
           const jwt = (await import("jsonwebtoken")).default;
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+          const decoded = jwt.verify(token, getJwtSecret()) as any;
           if (decoded && (decoded.userId || decoded.sub)) {
             const uid = Number(decoded.userId || decoded.sub);
             const { storage } = await import("./storage");
@@ -378,7 +379,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ user: publicUser(user), ...tokens });
   }));
 
-  app.post("/api/login", h(async (req, res) => {
+  app.post("/api/login", authRateLimit, h(async (req, res) => {
     const { email, password } = req.body || {};
     if (!email) return res.status(400).json({ message: "Missing credentials" });
     const cleanEmail = String(email).toLowerCase().trim();
@@ -454,7 +455,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("./services/telegram");
       if (await isTelegramSecurityConfigured()) {
         await sendTelegramSecurityAlert(
-          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed Master Admin credentials on the Staff Login form.\n• IP: <code>${ip}</code>\n• Action: Silently deflected with generic 401 response.`
+          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed Master Admin credentials on the Staff Login form.\n• Target: <code>${user.email}</code>\n• Action: Silently deflected with generic 401 response.`,
+          req
         ).catch(() => {});
       }
 
@@ -551,7 +553,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /** POST /api/login/admin-verify-totp — Verify Layer 2 6-digit TOTP code for Super Admin */
-  app.post("/api/login/admin-verify-totp", h(async (req, res) => {
+  app.post("/api/login/admin-verify-totp", authRateLimit, h(async (req, res) => {
     const { tempToken, totpCode } = req.body || {};
     if (!tempToken || !totpCode) {
       return res.status(400).json({ message: "Session token and 6-digit TOTP code are required." });
@@ -614,7 +616,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /** POST /api/login/verify-passkey — Verify Super Admin WebAuthn / Touch ID assertion (Layer 3) */
-  app.post("/api/login/verify-passkey", h(async (req, res) => {
+  app.post("/api/login/verify-passkey", authRateLimit, h(async (req, res) => {
     const { tempAuthToken, response } = req.body || {};
     if (!tempAuthToken || !response) {
       return res.status(400).json({ message: "Invalid passkey challenge response." });
@@ -665,7 +667,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /** POST /api/login/verify-otp — Verify 6-digit Sub-Admin 2FA (TOTP or Mobile SMS OTP) */
-  app.post("/api/login/verify-otp", h(async (req, res) => {
+  app.post("/api/login/verify-otp", authRateLimit, h(async (req, res) => {
     const { tempToken, otp, method } = req.body || {};
     if (!tempToken || !otp) {
       return res.status(400).json({ message: "Session token and 6-digit verification code are required" });
@@ -701,7 +703,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /** POST /api/login/staff-fallback-sms — Switch Staff 2FA to Mobile SMS OTP when TOTP is inaccessible */
-  app.post("/api/login/staff-fallback-sms", h(async (req, res) => {
+  app.post("/api/login/staff-fallback-sms", authRateLimit, h(async (req, res) => {
     const { tempToken } = req.body || {};
     if (!tempToken) {
       return res.status(400).json({ message: "Session token is required" });
@@ -718,7 +720,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   /** POST /api/login/resend-otp — Resend 2FA Mobile SMS OTP */
-  app.post("/api/login/resend-otp", h(async (req, res) => {
+  app.post("/api/login/resend-otp", otpRateLimit, h(async (req, res) => {
     const { tempToken } = req.body || {};
     if (!tempToken) {
       return res.status(400).json({ message: "Session token is required" });
@@ -755,7 +757,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (token) {
         try {
           const jwt = (await import('jsonwebtoken')).default;
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+          const decoded = jwt.verify(token, getJwtSecret()) as any;
           if (decoded?.userId) userId = decoded.userId;
         } catch {}
       }
@@ -804,7 +806,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
       if (decoded) {
         if (!uid) uid = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId ?? decoded.sub);
         if (!userRole) userRole = decoded.role;
@@ -1280,7 +1282,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (token) {
       try {
         const jwt = require("jsonwebtoken");
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         if (decoded?.userId || decoded?.sub) {
           return Number(decoded.userId || decoded.sub);
         }
@@ -1515,9 +1517,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.get("/api/orders/:id", requireAuth, h(async (req, res) => {
     const order = await storage.orders.get(Number(req.params.id));
     if (!order) return res.status(404).json({ message: "Not found" });
-    // Customers may only view their own; admins any.
-    if (req.session.role !== "admin" && order.userId !== req.session.userId) {
-      return res.status(403).json({ message: "Forbidden" });
+    // Customers may only view their own; authorized staff roles and admins can view assigned orders.
+    const isStaffOrAdmin = ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "delivery_partner", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(req.session.role || "");
+    if (!isStaffOrAdmin && order.userId !== req.session.userId) {
+      return res.status(403).json({ message: "Forbidden: You do not have permission to view this order" });
     }
     res.json({
       order,
@@ -1924,7 +1927,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     if (!currentUserId && token) {
       const jwt = (await import("jsonwebtoken")).default;
       try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         currentUserId = decoded?.userId || decoded?.sub;
       } catch {}
     }
@@ -2702,9 +2705,50 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     });
   }));
 
-  /** GET /api/settings/:key — Retrieve a specific setting value */
+  /** GET /api/settings/:key — Retrieve a specific setting value (Strictly Whitelisted for Public Access) */
+  const PUBLIC_SAFE_SETTING_KEYS = new Set([
+    "contact_phone", "contact_email", "contact_address", "operating_hours",
+    "return_window_hours", "free_delivery_min", "delivery_fee", "panindia_shipping_base",
+    "cod_enabled", "allow_cod", "store_name", "store_city", "shipping_policy_custom_notes",
+    "grievance_officer_name", "grievance_officer_email", "grievance_officer_phone",
+    "grievance_officer_designation", "grievance_officer_address", "complaint_ack_hours",
+    "complaint_resolve_days", "chatbot_enabled", "chatbot_welcome_message",
+    "enable_star_tier_colors", "creator_name", "creator_title", "creator_portfolio",
+    "creator_email", "require_superadmin_verification_to_order", "stealth_admin_lockdown",
+    "ai_search_enabled", "trending_searches", "hero_showcase_mode",
+    "hero_showcase_custom_url", "hero_showcase_custom_title", "hero_showcase_custom_subtitle",
+    "company_legal_name", "company_gstin", "company_pan", "fssai_license_number",
+    "company_cin", "company_address", "support_email", "support_phone", "jurisdiction_city"
+  ]);
+
   app.get("/api/settings/:key", h(async (req, res) => {
-    const key = req.params.key;
+    const key = String(req.params.key || "").trim();
+    const isPublic = PUBLIC_SAFE_SETTING_KEYS.has(key);
+
+    if (!isPublic) {
+      // Require Admin session or JWT token
+      const isStaffOrAdmin = req.session?.role && ["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin"].includes(req.session.role);
+      let isTokenAdmin = false;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : req.cookies?.accessToken;
+      if (token) {
+        try {
+          const jwt = (await import("jsonwebtoken")).default;
+          const { getJwtSecret } = await import("./services/encryption");
+          const decoded = jwt.verify(token, getJwtSecret()) as any;
+          if (decoded && (decoded.role === "admin" || decoded.role === "manager_admin")) {
+            isTokenAdmin = true;
+          }
+        } catch {}
+      }
+
+      if (!isStaffOrAdmin && !isTokenAdmin) {
+        return res.status(403).json({
+          message: "⛔ Access Denied: Setting key is restricted to authorized administrators.",
+        });
+      }
+    }
+
     const val = await storage.settings.get(key);
     res.json({ key, value: val ?? "false" });
   }));
@@ -2986,8 +3030,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     });
   });
 
-  // Explicit DB schema migration endpoint (triggers all ALTER TABLE and CREATE TABLE statements)
-  app.get("/api/admin/system/migrate", h(async (_req, res) => {
+  // Explicit DB schema migration endpoint (triggers all ALTER TABLE and CREATE TABLE statements, Root Admin Only)
+  app.get("/api/admin/system/migrate", requireRootAdmin(), h(async (_req, res) => {
     const { runAutoMigrations } = await import("./db");
     await runAutoMigrations();
     return res.json({ success: true, message: "Auto-migrations executed successfully on production database." });

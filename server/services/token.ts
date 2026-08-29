@@ -10,7 +10,8 @@ import { db } from "../db";
 import { refreshTokens, users } from "@shared/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-dev-secret-change-in-production";
+import { getJwtSecret } from "./encryption";
+
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "30d";
 const REFRESH_EXPIRES_IN_DAYS = parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS || "90", 10);
 
@@ -39,7 +40,7 @@ export async function issueTokenPair(
 ): Promise<TokenPair> {
   const payload: JwtPayload = { userId, role, platform: opts.platform || "web" };
 
-  const accessToken = jwt.sign(payload, JWT_SECRET, {
+  const accessToken = jwt.sign(payload, getJwtSecret(), {
     expiresIn: ACCESS_EXPIRES_IN as any,
   });
 
@@ -73,7 +74,7 @@ export async function issueTokenPair(
 
 /** Verify an access token. Returns payload or throws. */
 export function verifyAccessToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, getJwtSecret()) as JwtPayload;
 }
 
 /**

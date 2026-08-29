@@ -45,7 +45,8 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+      const { getJwtSecret } = await import("../services/encryption");
+      const decoded: any = jwt.verify(token, getJwtSecret());
       if (decoded?.userId || decoded?.sub) {
         userId = Number(decoded.userId || decoded.sub);
       }

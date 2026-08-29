@@ -19,8 +19,9 @@ import { sendTelegramAlert } from "../services/telegram";
 import { sendRealEmail, buildResetPasswordHtml, buildOtpEmailHtml } from "../services/email";
 import { verifyTotpCode } from "../services/totp";
 import { storage } from "../storage";
+import { getJwtSecret } from "../services/encryption";
 
-const PEPPER = process.env.JWT_SECRET || "farmfreshfarmer-vault-pepper-2026";
+const PEPPER = getJwtSecret();
 
 let tablesEnsured = false;
 async function ensureSecurityTables(): Promise<void> {
@@ -274,7 +275,7 @@ export function registerPasswordResetRoutes(app: Express) {
       const jwt = (await import("jsonwebtoken")).default;
       let userId: number | undefined;
       try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         userId = Number(decoded.userId || decoded.sub);
       } catch {}
 
@@ -334,7 +335,7 @@ export function registerPasswordResetRoutes(app: Express) {
       const jwt = (await import("jsonwebtoken")).default;
       let userId: number | undefined;
       try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         userId = Number(decoded.userId || decoded.sub);
       } catch {}
 

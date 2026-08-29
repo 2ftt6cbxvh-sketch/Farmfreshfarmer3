@@ -16,7 +16,8 @@ async function requireAdmin(req: any, res: any, next: any) {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : (req.cookies?.accessToken || req.cookies?.token);
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      const { getJwtSecret } = await import("../../services/encryption");
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
       if (decoded.userId || decoded.sub) {
         userId = Number(decoded.userId || decoded.sub);
         req.user = decoded;

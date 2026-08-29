@@ -18,8 +18,9 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: NextFuncti
     const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token || req.cookies?.admin_token);
     if (token) {
       const jwt = (await import("jsonwebtoken")).default;
+      const { getJwtSecret } = await import("../../services/encryption");
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
       } catch (e: any) {}
     }

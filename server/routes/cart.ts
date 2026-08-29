@@ -14,7 +14,8 @@ async function getUserIdFromReq(req: Request): Promise<number | undefined> {
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      const { getJwtSecret } = await import("../services/encryption");
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
       if (decoded && (decoded.userId || decoded.sub)) {
         return typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
       }

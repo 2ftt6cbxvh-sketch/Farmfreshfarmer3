@@ -15,7 +15,8 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: Function) 
   if (token) {
     try {
       const jwt = (await import("jsonwebtoken")).default;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+      const { getJwtSecret } = await import("../../services/encryption");
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
       if (decoded.userId || decoded.sub) {
         userId = Number(decoded.userId || decoded.sub);
       }
@@ -582,7 +583,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/secret-unlock — Mode A: Direct Vault (Password + 6-Digit TOTP 2FA) */
-  app.post("/api/admin/security/secret-unlock", async (req: Request, res: Response) => {
+  app.post("/api/admin/security/secret-unlock", authRateLimit, async (req: Request, res: Response) => {
     try {
       const { currentPassword, totpCode } = req.body || {};
 
@@ -615,7 +616,8 @@ export function registerAdminSecurityRoutes(app: Express) {
       if (!isTotpValid) {
         await sendTelegramSecurityAlertThrottled(
           `totp_fail_${req.ip}`,
-          `⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid TOTP / Code)\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`
+          `⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid TOTP / Code)\nIP: <code>${req.ip}</code>`,
+          req
         );
         return res.status(400).json({ message: "Invalid 6-digit code. Enter your Authenticator TOTP or Telegram Override Token." });
       }
@@ -631,20 +633,27 @@ export function registerAdminSecurityRoutes(app: Express) {
       const isPasswordValid = await bcrypt.compare(currentPassword, adminUser.password);
       if (!isPasswordValid) {
         const { sendTelegramAlert } = await import("../../services/telegram");
-        await sendTelegramAlert(`⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid Password)\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`);
+        await sendTelegramAlert(
+          `⚠️ <b>FAILED SECRET PASSAGE ATTEMPT</b>\nMethod: Direct Vault (Invalid Password)\nTarget: <code>admin@farmfreshfarmer.com</code>`,
+          req
+        );
         return res.status(400).json({ message: "Current Super Admin password is incorrect." });
       }
 
       // 4. Grant Master Access to Super Admin ONLY (Keep Global Lockdown Active for all other users!)
       const jwt = (await import("jsonwebtoken")).default;
+      const { getJwtSecret } = await import("../../services/encryption");
       const token = jwt.sign(
         { userId: adminUser.id, role: adminUser.role, email: adminUser.email },
-        process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+        getJwtSecret(),
         { expiresIn: "7d" }
       );
 
       const { sendTelegramAlert } = await import("../../services/telegram");
-      await sendTelegramAlert(`🚨 <b>SUPER ADMIN MASTER SESSION UNLOCKED</b>\nMethod: Direct Vault (Password + TOTP)\nGlobal Platform Lockdown remains ACTIVE for all other users!\nIP: ${req.ip}\nDevice: ${req.headers["user-agent"]}`);
+      await sendTelegramAlert(
+        `🚨 <b>SUPER ADMIN MASTER SESSION UNLOCKED</b>\nMethod: Direct Vault (Password + TOTP 2FA)\nGlobal Platform Lockdown remains ACTIVE for all other users!`,
+        req
+      );
 
       return res.json({
         success: true,
@@ -659,13 +668,13 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** POST /api/admin/security/telegram-challenge — Mode B: Dispatch 1-Click Telegram Approval */
-  app.post("/api/admin/security/telegram-challenge", async (req: Request, res: Response) => {
+  app.post("/api/admin/security/telegram-challenge", authRateLimit, async (req: Request, res: Response) => {
     try {
       const { createTelegramUnlockToken, sendTelegramUnlockRequest } = await import("../../services/telegram");
       const deviceInfo = `${req.headers["user-agent"] || "Unknown Device"} (IP: ${req.ip})`;
       const token = createTelegramUnlockToken(deviceInfo);
 
-      const dispatched = await sendTelegramUnlockRequest(token, deviceInfo);
+      const dispatched = await sendTelegramUnlockRequest(token, deviceInfo, req);
       if (!dispatched) {
         return res.status(400).json({ message: "Telegram Bot is not configured. Use Direct Vault (Password + TOTP) mode instead." });
       }
@@ -681,7 +690,7 @@ export function registerAdminSecurityRoutes(app: Express) {
   });
 
   /** GET /api/admin/security/check-telegram-approval/:token — Mode B: Poll for Telegram approval */
-  app.get("/api/admin/security/check-telegram-approval/:token", async (req: Request, res: Response) => {
+  app.get("/api/admin/security/check-telegram-approval/:token", authRateLimit, async (req: Request, res: Response) => {
     try {
       const { token: sessionToken } = req.params;
       const { checkTelegramUnlockToken } = await import("../../services/telegram");
@@ -692,12 +701,12 @@ export function registerAdminSecurityRoutes(app: Express) {
       }
 
       // Approved by Super Admin via Telegram 1-click button!
-      // Keep Global Lockdown Active for all other users!
       const [adminUser] = await db.select().from(users).where(eq(users.email, "admin@farmfreshfarmer.com")).limit(1);
       const jwt = (await import("jsonwebtoken")).default;
+      const { getJwtSecret } = await import("../../services/encryption");
       const jwtToken = jwt.sign(
         { userId: adminUser?.id || 1, role: "superadmin", email: "admin@farmfreshfarmer.com" },
-        process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+        getJwtSecret(),
         { expiresIn: "7d" }
       );
 

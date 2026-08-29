@@ -18,7 +18,8 @@ export function registerAdminSessionRoutes(app: Express) {
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const { getJwtSecret } = await import("../../services/encryption");
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         userId = Number(decoded.userId || decoded.sub);
       } catch { /* ignore */ }
     }

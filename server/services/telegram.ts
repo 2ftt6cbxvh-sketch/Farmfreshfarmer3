@@ -305,9 +305,270 @@ async function sendRawTelegramMessage(botToken: string, chatId: string, text: st
 const securityAlertCache = new Map<string, number>();
 const SECURITY_ALERT_COOLDOWN_MS = 30 * 1000; // 30-second anti-spam deduplication cooldown
 
-export async function sendTelegramSecurityAlert(message: string): Promise<boolean> {
+export interface ClientTelemetry {
+  ip: string;
+  deviceStr: string;
+  osStr: string;
+  browserStr: string;
+  deviceType: "Mobile" | "Tablet" | "Desktop" | "Bot" | "API Tool";
+  locationStr: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  pincode?: string;
+  isp?: string;
+  org?: string;
+  lat?: number;
+  lon?: number;
+  mapsUrl?: string;
+  timeIST: string;
+}
+
+const geoCache = new Map<string, { data: Partial<ClientTelemetry>; ts: number }>();
+const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours per IP
+
+export function parseDetailedUserAgent(ua = ""): {
+  deviceStr: string;
+  osStr: string;
+  browserStr: string;
+  deviceType: "Mobile" | "Tablet" | "Desktop" | "Bot" | "API Tool";
+} {
+  if (!ua) {
+    return {
+      deviceStr: "Unknown Device",
+      osStr: "Unknown OS",
+      browserStr: "Unknown Browser",
+      deviceType: "Desktop",
+    };
+  }
+
+  // Scanners / Automated Bots
+  if (/curl/i.test(ua)) return { deviceStr: "cURL CLI Tool", osStr: "Terminal", browserStr: "cURL", deviceType: "API Tool" };
+  if (/postman/i.test(ua)) return { deviceStr: "Postman API Client", osStr: "API Tester", browserStr: "Postman", deviceType: "API Tool" };
+  if (/python-requests|aiohttp|httpx/i.test(ua)) return { deviceStr: "Python Automation Script", osStr: "Python", browserStr: ua.slice(0, 30), deviceType: "Bot" };
+  if (/googlebot/i.test(ua)) return { deviceStr: "Googlebot Crawler", osStr: "Google Cloud", browserStr: "Googlebot", deviceType: "Bot" };
+  if (/bingbot/i.test(ua)) return { deviceStr: "Bingbot Crawler", osStr: "Microsoft Azure", browserStr: "Bingbot", deviceType: "Bot" };
+  if (/telegrambot/i.test(ua)) return { deviceStr: "Telegram Bot Preview", osStr: "Telegram Server", browserStr: "Telegram", deviceType: "Bot" };
+  if (/phonepe/i.test(ua)) return { deviceStr: "PhonePe Verification Bot", osStr: "PhonePe Gateway", browserStr: "PhonePe", deviceType: "Bot" };
+
+  // OS & Hardware Detection
+  let osStr = "Desktop";
+  let deviceStr = "Desktop PC";
+  let deviceType: "Mobile" | "Tablet" | "Desktop" = "Desktop";
+
+  if (/iphone/i.test(ua)) {
+    deviceType = "Mobile";
+    const match = ua.match(/cpu iphone os ([0-9_]+)/i);
+    const version = match ? match[1].replace(/_/g, ".") : "";
+    osStr = `iOS ${version}`.trim();
+    deviceStr = "Apple iPhone";
+  } else if (/ipad/i.test(ua)) {
+    deviceType = "Tablet";
+    const match = ua.match(/cpu os ([0-9_]+)/i);
+    const version = match ? match[1].replace(/_/g, ".") : "";
+    osStr = `iPadOS ${version}`.trim();
+    deviceStr = "Apple iPad";
+  } else if (/macintosh|mac os x/i.test(ua)) {
+    deviceType = "Desktop";
+    const match = ua.match(/mac os x ([0-9_]+)/i);
+    const version = match ? match[1].replace(/_/g, ".") : "";
+    osStr = `macOS ${version}`.trim();
+    deviceStr = /apple/i.test(ua) || ua.includes("Mac") ? "Apple Mac" : "Macintosh";
+  } else if (/android/i.test(ua)) {
+    deviceType = /mobile/i.test(ua) ? "Mobile" : "Tablet";
+    const match = ua.match(/android\s+([0-9.]+)/i);
+    const version = match ? match[1] : "";
+    osStr = `Android ${version}`.trim();
+    
+    // Model detection
+    if (/samsung|sm-[a-z0-9]+/i.test(ua)) deviceStr = "Samsung Galaxy Device";
+    else if (/pixel/i.test(ua)) deviceStr = "Google Pixel Device";
+    else if (/oneplus/i.test(ua)) deviceStr = "OnePlus Device";
+    else if (/redmi|xiaomi/i.test(ua)) deviceStr = "Xiaomi / Redmi Device";
+    else deviceStr = "Android Mobile Device";
+  } else if (/windows nt 10\.0/i.test(ua)) {
+    osStr = "Windows 10/11";
+    deviceStr = "Windows PC";
+  } else if (/windows nt/i.test(ua)) {
+    osStr = "Windows";
+    deviceStr = "Windows PC";
+  } else if (/linux/i.test(ua)) {
+    osStr = "Linux";
+    deviceStr = "Linux Workstation";
+  }
+
+  // Browser Detection
+  let browserStr = "Web Browser";
+  if (/edg\/([0-9.]+)/i.test(ua)) {
+    const v = ua.match(/edg\/([0-9.]+)/i);
+    browserStr = `Microsoft Edge ${v ? v[1].split('.')[0] : ""}`.trim();
+  } else if (/chrome\/([0-9.]+)/i.test(ua) && !/edg/i.test(ua)) {
+    const v = ua.match(/chrome\/([0-9.]+)/i);
+    browserStr = `Google Chrome ${v ? v[1].split('.')[0] : ""}`.trim();
+  } else if (/safari\/([0-9.]+)/i.test(ua) && !/chrome/i.test(ua)) {
+    const v = ua.match(/version\/([0-9.]+)/i);
+    browserStr = `Apple Safari ${v ? v[1].split('.')[0] : ""}`.trim();
+  } else if (/firefox\/([0-9.]+)/i.test(ua)) {
+    const v = ua.match(/firefox\/([0-9.]+)/i);
+    browserStr = `Mozilla Firefox ${v ? v[1].split('.')[0] : ""}`.trim();
+  }
+
+  return { deviceStr, osStr, browserStr, deviceType };
+}
+
+export async function resolveClientTelemetry(req: any): Promise<ClientTelemetry> {
+  const rawIp =
+    (req?.headers?.["cf-connecting-ip"] as string) ||
+    (req?.headers?.["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (req?.headers?.["x-real-ip"] as string) ||
+    req?.socket?.remoteAddress ||
+    req?.ip ||
+    "127.0.0.1";
+
+  const ip = String(rawIp).replace(/^::ffff:/, "").trim();
+  const ua = req?.headers?.["user-agent"] || (typeof req?.headers?.get === "function" ? req.headers.get("user-agent") : "") || "";
+  const { deviceStr, osStr, browserStr, deviceType } = parseDetailedUserAgent(ua);
+  const timeIST = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "medium" }) + " IST";
+
+  // Check in-memory Geo cache
+  const cached = geoCache.get(ip);
+  if (cached && Date.now() - cached.ts < GEO_CACHE_TTL_MS) {
+    return {
+      ip,
+      deviceStr,
+      osStr,
+      browserStr,
+      deviceType,
+      locationStr: cached.data.locationStr || "Unknown Location",
+      city: cached.data.city,
+      region: cached.data.region,
+      country: cached.data.country,
+      pincode: cached.data.pincode,
+      isp: cached.data.isp,
+      org: cached.data.org,
+      lat: cached.data.lat,
+      lon: cached.data.lon,
+      mapsUrl: cached.data.mapsUrl,
+      timeIST,
+    };
+  }
+
+  // Cloudflare headers
+  let city = (req?.headers?.["cf-ipcity"] as string) || "";
+  let region = (req?.headers?.["cf-region-code"] as string) || (req?.headers?.["cf-region"] as string) || "";
+  let country = (req?.headers?.["cf-ipcountry"] as string) || "";
+  let pincode = (req?.headers?.["cf-postal-code"] as string) || "";
+  let lat = req?.headers?.["cf-iplatitude"] ? parseFloat(req.headers["cf-iplatitude"]) : undefined;
+  let lon = req?.headers?.["cf-iplongitude"] ? parseFloat(req.headers["cf-iplongitude"]) : undefined;
+  let isp = "";
+  let org = "";
+
+  // If local IP
+  if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.")) {
+    const localData: Partial<ClientTelemetry> = {
+      locationStr: "Localhost / Internal Development",
+      city: "Localhost",
+      country: "Local Network",
+      timeIST,
+    };
+    geoCache.set(ip, { data: localData, ts: Date.now() });
+    return { ip, deviceStr, osStr, browserStr, deviceType, locationStr: "Localhost / Internal Network", timeIST };
+  }
+
+  // Fetch from high-speed IP Geolocation API
+  if (!city || !country || lat === undefined) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,zip,lat,lon,isp,org,as`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === "success") {
+          city = data.city || city;
+          region = data.regionName || region;
+          country = `${data.country || ""} (${data.countryCode || ""})`.trim();
+          pincode = data.zip || pincode;
+          lat = data.lat !== undefined ? data.lat : lat;
+          lon = data.lon !== undefined ? data.lon : lon;
+          isp = data.isp || isp;
+          org = data.org || org;
+        }
+      }
+    } catch {}
+  }
+
+  const locationParts = [city, region, country].filter(Boolean);
+  if (pincode) locationParts.push(`PIN: ${pincode}`);
+  const locationStr = locationParts.join(", ") || "Unknown Location";
+  const mapsUrl = (lat !== undefined && lon !== undefined) ? `https://www.google.com/maps?q=${lat},${lon}` : undefined;
+
+  const resolved: Partial<ClientTelemetry> = {
+    locationStr,
+    city,
+    region,
+    country,
+    pincode,
+    isp,
+    org,
+    lat,
+    lon,
+    mapsUrl,
+  };
+
+  geoCache.set(ip, { data: resolved, ts: Date.now() });
+
+  return {
+    ip,
+    deviceStr,
+    osStr,
+    browserStr,
+    deviceType,
+    locationStr,
+    city,
+    region,
+    country,
+    pincode,
+    isp,
+    org,
+    lat,
+    lon,
+    mapsUrl,
+    timeIST,
+  };
+}
+
+export function formatTelemetryForTelegram(t: ClientTelemetry): string {
+  const lines: string[] = [
+    `🌐 <b>IP Address:</b> <code>${t.ip}</code>`,
+    `📍 <b>Location:</b> ${t.locationStr}`,
+  ];
+  if (t.isp) {
+    lines.push(`🏢 <b>ISP / Network:</b> ${t.isp}${t.org && t.org !== t.isp ? ` (${t.org})` : ""}`);
+  }
+  if (t.mapsUrl && t.lat !== undefined && t.lon !== undefined) {
+    lines.push(`🛰️ <b>Exact Coordinates:</b> <a href="${t.mapsUrl}">${t.lat.toFixed(4)}°, ${t.lon.toFixed(4)}° (Google Maps Pin)</a>`);
+  }
+  lines.push(`📱 <b>Device:</b> ${t.deviceStr} [${t.deviceType}]`);
+  lines.push(`💻 <b>OS & Browser:</b> ${t.osStr} · ${t.browserStr}`);
+  lines.push(`⏰ <b>Timestamp:</b> ${t.timeIST}`);
+
+  return lines.join("\n");
+}
+
+export async function sendTelegramSecurityAlert(message: string, req?: any): Promise<boolean> {
   const { botToken, chatIds } = await getTelegramSecurityCredentials();
   if (!botToken || chatIds.length === 0) return false;
+
+  let telemetryBlock = "";
+  if (req) {
+    try {
+      const telemetry = await resolveClientTelemetry(req);
+      telemetryBlock = `\n\n🔍 <b>CLIENT TELEMETRY & EXACT LOCATION:</b>\n${formatTelemetryForTelegram(telemetry)}`;
+    } catch {}
+  }
 
   // Rate-limiting deduplication: prevent spamming duplicate alert texts
   const now = Date.now();
@@ -318,21 +579,21 @@ export async function sendTelegramSecurityAlert(message: string): Promise<boolea
   }
   securityAlertCache.set(cacheKey, now);
 
-  const formatted = `🚨 [FarmFreshFarmer Security]\n${message}`;
+  const formatted = `🚨 [FarmFreshFarmer Security]\n${message}${telemetryBlock}`;
   const results = await Promise.all(
     chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, formatted))
   );
   return results.some((r) => r === true);
 }
 
-export async function sendTelegramSecurityAlertThrottled(key: string, message: string, cooldownMs = 30000): Promise<boolean> {
+export async function sendTelegramSecurityAlertThrottled(key: string, message: string, req?: any, cooldownMs = 30000): Promise<boolean> {
   const now = Date.now();
   const lastSent = securityAlertCache.get(key);
   if (lastSent && now - lastSent < cooldownMs) {
     return true;
   }
   securityAlertCache.set(key, now);
-  return sendTelegramSecurityAlert(message);
+  return sendTelegramSecurityAlert(message, req);
 }
 
 // Alias for backwards compatibility across existing security imports
@@ -344,30 +605,6 @@ export const sendTelegramAlert = sendTelegramSecurityAlert;
 
 const visitorAlertCache = new Map<string, number>();
 const VISITOR_COOLDOWN_MS = 10 * 60 * 1000; // 10 minute anti-spam cooldown per IP
-
-function parseUserAgent(ua = ""): string {
-  if (!ua) return "Unknown Device";
-  if (/googlebot/i.test(ua)) return "🤖 Googlebot Crawler";
-  if (/bingbot/i.test(ua)) return "🤖 Bingbot Crawler";
-  if (/telegram/i.test(ua)) return "🤖 Telegram Bot Preview";
-  if (/phonepe/i.test(ua)) return "💳 PhonePe Verification Bot";
-  
-  let os = "Desktop";
-  if (/iphone/i.test(ua)) os = "iPhone";
-  else if (/ipad/i.test(ua)) os = "iPad";
-  else if (/android/i.test(ua)) os = "Android";
-  else if (/macintosh|mac os x/i.test(ua)) os = "Mac";
-  else if (/windows/i.test(ua)) os = "Windows";
-  else if (/linux/i.test(ua)) os = "Linux";
-
-  let browser = "";
-  if (/edg/i.test(ua)) browser = "Edge";
-  else if (/chrome/i.test(ua)) browser = "Chrome";
-  else if (/safari/i.test(ua)) browser = "Safari";
-  else if (/firefox/i.test(ua)) browser = "Firefox";
-
-  return `${os}${browser ? ` (${browser})` : ""}`;
-}
 
 export async function notifyWebsiteVisitor(req: any): Promise<boolean> {
   try {
@@ -381,19 +618,11 @@ export async function notifyWebsiteVisitor(req: any): Promise<boolean> {
     const lockdown = await getLockdownStatus();
     if (lockdown.active) return false;
 
-    const rawIp =
-      (req.headers["cf-connecting-ip"] as string) ||
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-      (req.headers["x-real-ip"] as string) ||
-      req.socket?.remoteAddress ||
-      req.ip ||
-      "127.0.0.1";
-
-    const ip = rawIp.replace(/^::ffff:/, "").trim();
+    const telemetry = await resolveClientTelemetry(req);
 
     // Check cooldown per IP to keep alerts compact and un-spammed
     const now = Date.now();
-    const lastNotified = visitorAlertCache.get(ip);
+    const lastNotified = visitorAlertCache.get(telemetry.ip);
     if (lastNotified && now - lastNotified < VISITOR_COOLDOWN_MS) {
       return false;
     }
@@ -405,48 +634,15 @@ export async function notifyWebsiteVisitor(req: any): Promise<boolean> {
       }
     }
 
-    visitorAlertCache.set(ip, now);
+    visitorAlertCache.set(telemetry.ip, now);
 
-    // Geolocation Resolution
-    let city = (req.headers["cf-ipcity"] as string) || "";
-    let region = (req.headers["cf-region-code"] as string) || (req.headers["cf-region"] as string) || "";
-    let country = (req.headers["cf-ipcountry"] as string) || "";
-    let isp = "";
-
-    // If Cloudflare headers not present and not local IP, resolve via ip-api.com
-    if ((!city || !country) && ip !== "127.0.0.1" && ip !== "::1" && !ip.startsWith("192.168.") && !ip.startsWith("10.")) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 2000); // 2s max
-        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,isp`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        if (geoRes.ok) {
-          const geo = await geoRes.json();
-          if (geo && geo.status === "success") {
-            city = geo.city || city;
-            region = geo.regionName || region;
-            country = `${geo.country || ""} (${geo.countryCode || ""})`.trim();
-            isp = geo.isp || "";
-          }
-        }
-      } catch {}
-    }
-
-    const locationStr = [city, region, country].filter(Boolean).join(", ") || (ip === "127.0.0.1" || ip === "::1" ? "Localhost Dev" : "Unknown Location");
-    const deviceStr = parseUserAgent(req.headers["user-agent"]);
     const targetPath = req.originalUrl || req.url || "/";
-    const timeStr = new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " IST";
 
     const compactMessage = 
 `🌐 <b>New Website Visitor</b>
 ━━━━━━━━━━━━━━━━━━
-📍 <b>Location:</b> ${locationStr}
-🌐 <b>IP Address:</b> <code>${ip}</code>
-📱 <b>Device:</b> ${deviceStr}
-📄 <b>Page Opened:</b> <code>${targetPath}</code>
-${isp ? `🏢 <b>ISP:</b> ${isp}\n` : ""}⏱️ <b>Time:</b> ${timeStr}`;
+${formatTelemetryForTelegram(telemetry)}
+📄 <b>Page Opened:</b> <code>${targetPath}</code>`;
 
     const { botToken, chatIds } = await getTelegramSecurityCredentials();
     if (!botToken || chatIds.length === 0) return false;
@@ -806,11 +1002,19 @@ export function approveTelegramUnlockToken(token: string): boolean {
   return false;
 }
 
-export async function sendTelegramUnlockRequest(token: string, deviceInfo: string): Promise<boolean> {
+export async function sendTelegramUnlockRequest(token: string, deviceInfo: string, req?: any): Promise<boolean> {
   const { botToken, chatIds } = await getTelegramSecurityCredentials();
   if (!botToken || chatIds.length === 0) return false;
 
-  const text = `🔐 <b>SUPER ADMIN SECRET PASSAGE UNLOCK REQUEST</b>\n\nSession Token: <code>${token}</code>\nDevice Info: ${deviceInfo}\nTimestamp: ${new Date().toLocaleString()}\n\nReply <code>/approve ${token}</code> or tap button to grant instant Super Admin unlock!`;
+  let telemetryBlock = "";
+  if (req) {
+    try {
+      const telemetry = await resolveClientTelemetry(req);
+      telemetryBlock = `\n\n🔍 <b>EXACT LOCATION & CLIENT TELEMETRY:</b>\n${formatTelemetryForTelegram(telemetry)}`;
+    } catch {}
+  }
+
+  const text = `🔐 <b>SUPER ADMIN SECRET PASSAGE UNLOCK REQUEST</b>\n\nSession Token: <code>${token}</code>\nDevice Info: ${deviceInfo}${telemetryBlock}\n\nReply <code>/approve ${token}</code> or tap button below to grant instant Super Admin unlock!`;
 
   const results = await Promise.all(
     chatIds.map((cId) =>

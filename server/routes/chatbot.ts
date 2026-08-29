@@ -22,7 +22,8 @@ async function requireStaffOrAdmin(req: Request, res: Response, next: NextFuncti
   if (token) {
     try {
       const jwt = (await import('jsonwebtoken')).default;
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret');
+      const { getJwtSecret } = await import('../services/encryption');
+      const decoded: any = jwt.verify(token, getJwtSecret());
       if (decoded?.userId || decoded?.sub) {
         const [u] = await db.select().from(users).where(eq(users.id, Number(decoded.userId || decoded.sub))).limit(1);
         if (u && ALLOWED_STAFF_ROLES.includes(u.role) && u.status !== 'blocked' && u.status !== 'locked' && !u.isPermanentlyLocked) {
@@ -68,7 +69,8 @@ export function registerChatbotRoutes(app: Express, storage: any) {
         if (token) {
           try {
             const jwt = (await import('jsonwebtoken')).default;
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+            const { getJwtSecret } = await import('../services/encryption');
+            const decoded = jwt.verify(token, getJwtSecret()) as any;
             userId = decoded?.userId || decoded?.sub || decoded?.id || null;
             if (userId) userId = typeof userId === 'string' ? parseInt(userId as string, 10) : userId;
           } catch {}
@@ -809,7 +811,8 @@ function resolveCartQty(
         if (authToken) {
           try {
             const jwt = (await import("jsonwebtoken")).default;
-            const decoded = jwt.verify(authToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+            const { getJwtSecret } = await import("../services/encryption");
+            const decoded = jwt.verify(authToken, getJwtSecret()) as any;
             if (decoded && (decoded.userId || decoded.sub || decoded.id)) {
               userId = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub || decoded.id);
             }
@@ -932,7 +935,8 @@ function resolveCartQty(
             if (token) {
               try {
                 const jwt = (await import("jsonwebtoken")).default;
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+                const { getJwtSecret } = await import("../services/encryption");
+                const decoded = jwt.verify(token, getJwtSecret()) as any;
                 if (decoded && (decoded.userId || decoded.sub)) {
                   userId = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
                 }
@@ -1013,7 +1017,8 @@ function resolveCartQty(
             const tryToken = cookieToken || bodyToken;
             if (tryToken) {
               const jwtMod = (await import('jsonwebtoken')).default;
-              const dec = jwtMod.verify(tryToken, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+              const { getJwtSecret } = await import('../services/encryption');
+              const dec = jwtMod.verify(tryToken, getJwtSecret()) as any;
               userId = dec?.userId || dec?.sub || dec?.id || null;
               if (userId) userId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
             }
@@ -1510,7 +1515,8 @@ function resolveCartQty(
     if (token) {
       try {
         const jwt = (await import('jsonwebtoken')).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'farmfreshfarmer-jwt-secret') as any;
+        const { getJwtSecret } = await import('../services/encryption');
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         if (decoded && (decoded.userId || decoded.sub)) {
           return typeof decoded.userId === 'string' ? parseInt(decoded.userId, 10) : (decoded.userId || decoded.sub);
         }

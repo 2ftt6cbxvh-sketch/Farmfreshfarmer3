@@ -9,6 +9,7 @@ import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
 import { requireRecaptcha } from "../middleware/recaptcha";
 import { ensureReferralCode } from "../engine/referral";
 import { verifyPasswordWithLockout } from "../services/lockout";
+import { getJwtSecret } from "../services/encryption";
 
 function validatePassword(password: string): { valid: boolean; error?: string } {
   if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters long." };
@@ -179,7 +180,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!userId && token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         userId = decoded?.userId || decoded?.sub;
       } catch {}
     }
@@ -367,7 +368,8 @@ export function registerAuthJwtRoutes(app: Express) {
       const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../services/telegram");
       if (await isTelegramSecurityConfigured()) {
         await sendTelegramSecurityAlert(
-          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed master admin email on the customer login form.\n• IP: <code>${ip}</code>\n• Device: ${userAgent.slice(0, 60)}\n• Action: Silently deflected with generic 401 response.`
+          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed master admin email on the customer login form.\n• Target: <code>${cleanEmail}</code>\n• Action: Silently deflected with generic 401 response.`,
+          req
         ).catch(() => {});
       }
 
@@ -431,7 +433,7 @@ export function registerAuthJwtRoutes(app: Express) {
     const jwt = (await import("jsonwebtoken")).default;
     const loginToken = jwt.sign(
       { userId: user.id, email: user.email, type: "login_2fa" },
-      process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+      getJwtSecret(),
       { expiresIn: "10m" }
     );
 
@@ -472,7 +474,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (loginToken) {
       const jwt = (await import("jsonwebtoken")).default;
       try {
-        const decoded: any = jwt.verify(loginToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(loginToken, getJwtSecret());
         if (decoded.type === "login_2fa" && decoded.userId) {
           targetUserId = decoded.userId;
           targetEmail = decoded.email || targetEmail;
@@ -617,7 +619,7 @@ export function registerAuthJwtRoutes(app: Express) {
         passwordHash,
         type: "signup_verify",
       },
-      process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret",
+      getJwtSecret(),
       { expiresIn: "10m" }
     );
 
@@ -654,7 +656,7 @@ export function registerAuthJwtRoutes(app: Express) {
     const jwt = (await import("jsonwebtoken")).default;
     let payload: any;
     try {
-      payload = jwt.verify(signupToken, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+      payload = jwt.verify(signupToken, getJwtSecret());
     } catch (err: any) {
       return res.status(400).json({ message: "Registration session expired. Please fill in the sign-up form again." });
     }
@@ -938,7 +940,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
       } catch {}
     }
@@ -999,7 +1001,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
+        const decoded: any = jwt.verify(token, getJwtSecret());
         if (decoded?.userId || decoded?.sub) userId = Number(decoded.userId || decoded.sub);
       } catch {}
     }
