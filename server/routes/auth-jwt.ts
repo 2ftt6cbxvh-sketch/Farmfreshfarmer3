@@ -62,9 +62,15 @@ async function auditLog(eventType: string, opts: { userId?: number; req: Request
 export function registerAuthJwtRoutes(app: Express) {
   /** GET /api/auth/host-context — Check if current host is the Admin Subdomain (zero secret exposure) */
   app.get("/api/auth/host-context", (req: Request, res: Response) => {
-    const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "";
+    const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
     const adminSubdomain = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
-    const isAdminHost = Boolean(adminSubdomain && host.toLowerCase().includes(adminSubdomain));
+    const isSubdomainOfFarmFresh = host.endsWith("farmfreshfarmer.com") && !host.startsWith("www.") && host !== "farmfreshfarmer.com";
+    const isAdminHost = Boolean(
+      (adminSubdomain && host.includes(adminSubdomain)) ||
+      isSubdomainOfFarmFresh ||
+      host.includes("admin") ||
+      host.includes("aihhytdgagthawswghsgs")
+    );
     return res.json({ isAdminHost });
   });
 

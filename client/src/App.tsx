@@ -110,7 +110,17 @@ function useIsAdminHost() {
     if (typeof window !== "undefined") {
       if ((window as any).__IS_ADMIN_HOST__ === true) return true;
       const hostname = window.location.hostname.toLowerCase();
-      if (hostname.includes("admin.") || hostname.startsWith("admin-") || (window.location.port && localStorage.getItem("dev_admin_mode") === "true")) {
+      const isPrivateSubdomain =
+        hostname.endsWith("farmfreshfarmer.com") &&
+        !hostname.startsWith("www.") &&
+        hostname !== "farmfreshfarmer.com";
+
+      if (
+        isPrivateSubdomain ||
+        hostname.includes("admin") ||
+        hostname.includes("aihhytdgagthawswghsgs") ||
+        (window.location.port && localStorage.getItem("dev_admin_mode") === "true")
+      ) {
         return true;
       }
     }
@@ -379,7 +389,12 @@ function AdminGuard({ component: Component, path }: { component: React.Component
     )
   );
 
+  const isAdminHost = useIsAdminHost();
+
   if (!isStaffOrAdmin) {
+    if (isAdminHost) {
+      return <AdminLogin />;
+    }
     return <AdminDirectAccessWarning targetRoute={path || window.location.pathname} />;
   }
 
