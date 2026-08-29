@@ -46,13 +46,15 @@ export default function AdminDashboard() {
     queryFn: () => apiGet<Product[]>("/api/admin/inventory/low-stock"),
   });
 
-  const chartData = summary
+  const chartData = (summary?.ordersByStatus && typeof summary.ordersByStatus === "object")
     ? Object.entries(summary.ordersByStatus).map(([status, count]) => ({ status, count }))
     : [];
 
+  const upcoming = Array.isArray(summary?.upcomingDeliveries) ? summary.upcomingDeliveries : [];
+
   return (
     <AdminLayout title="Dashboard">
-      {isLoading || !summary ? (
+      {isLoading || !summary || typeof summary.totalOrders !== "number" ? (
         <Skeleton className="h-40 rounded-xl" />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
@@ -73,11 +75,11 @@ export default function AdminDashboard() {
           </div>
           {isLoading || !summary ? (
             <Skeleton className="h-32 rounded-lg" />
-          ) : summary.upcomingDeliveries.length === 0 ? (
+          ) : upcoming.length === 0 ? (
             <p className="text-sm text-muted-foreground">No upcoming deliveries scheduled.</p>
           ) : (
             <ul className="space-y-2" data-testid="list-upcoming-deliveries">
-              {summary.upcomingDeliveries.map((d, i) => (
+              {upcoming.map((d, i) => (
                 <li key={i} className="flex items-center justify-between rounded-lg bg-secondary px-3 py-2 text-sm">
                   <span className="font-medium">{d.day}</span>
                   <span className="text-muted-foreground">{new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
