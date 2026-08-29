@@ -29,34 +29,27 @@ export function ProductCard({ product }: { product: Product }) {
   function addToCart(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to add items to cart",
-        variant: "destructive",
-      });
-      setLocation("/login");
-      return;
-    }
     if (outOfStock) {
       toast({ title: "Out of Stock", description: "This product is currently out of stock", variant: "destructive" });
       return;
     }
-    if (inCartQty + qty > product.stock) {
+    const available = Math.max(0, Number(product.stock || 0) - inCartQty);
+    if (available <= 0) {
       toast({
-        title: "Stock Limit Exceeded",
-        description: `Only ${product.stock} unit(s) available in stock. (${inCartQty} already in your cart)`,
+        title: "Stock Limit Reached",
+        description: `You already have the maximum available stock (${product.stock} units) in your cart.`,
         variant: "destructive",
       });
       return;
     }
+    const finalAdd = Math.min(available, qty);
     setAnimating(true);
-    add(product, qty);
+    add(product, finalAdd);
     toast({
       title: "✨ Added to Cart",
-      description: `${qty} × ${product.name}`,
+      description: `${finalAdd} × ${product.name}`,
     });
-    setTimeout(() => setAnimating(false), 600);
+    setTimeout(() => setAnimating(false), 500);
     setQty(1);
   }
 

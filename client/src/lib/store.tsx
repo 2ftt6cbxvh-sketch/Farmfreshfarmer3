@@ -166,20 +166,28 @@ export function useAuth() {
 }
 
 /* ----------------------------- Cart ------------------------------ */
+function round2(val: number): number {
+  return Math.round((Number(val) || 0) * 100) / 100;
+}
+
 function consolidateCartItems(rawItems: CartItem[]): CartItem[] {
   if (!Array.isArray(rawItems)) return [];
   const map = new Map<number, CartItem>();
   for (const item of rawItems) {
     if (!item || typeof item.productId !== "number" || isNaN(item.productId)) continue;
+    const qty = Math.max(0, Math.floor(Number(item.qty) || 0));
+    if (qty <= 0) continue;
+
     if (map.has(item.productId)) {
       const existing = map.get(item.productId)!;
-      existing.qty += Number(item.qty) || 0;
-      if (item.price) existing.price = item.price;
+      existing.qty += qty;
+      if (item.price != null) existing.price = round2(item.price);
       if (item.name) existing.name = item.name;
     } else {
       map.set(item.productId, {
         ...item,
-        qty: Number(item.qty) || 0,
+        price: round2(item.price),
+        qty,
       });
     }
   }
@@ -209,16 +217,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
   const { user } = useAuth();
   const lastLocalEditRef = useRef<number>(0);
-  const deletedProductIdsRef = useRef<Set<number>>(new Set());
   const hasMergedUserRef = useRef<number | null>(null);
 
   // Sync to localStorage
   useEffect(() => {
     try {
-      const clean = consolidateCartItems(items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+      const clean = consolidateCartItems(items);
       localStorage.setItem("cartItems", JSON.stringify(clean));
     } catch {}
   }, [items]);
+
+  // Helper to sync changes to DB for logged in user
+  const syncToDb = (updatedItems: CartItem[]) => {
+    if (user) {
+      apiRequest("POST", "/api/cart", {
+        items: updatedItems.map((i) => ({ productId: i.productId, qty: i.qty })),
+      }).catch(() => {});
+    }
+  };
 
   // Fetch / merge cart on user login
   useEffect(() => {
@@ -238,14 +254,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
             });
             const data = await res.json();
             if (!cancelled && Array.isArray(data.items)) {
-              const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+              const clean = consolidateCartItems(data.items);
               setItems(clean);
             }
           } else {
             const res = await apiRequest("GET", "/api/cart");
             const data = await res.json();
             if (!cancelled && Array.isArray(data.items)) {
-              const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+              const clean = consolidateCartItems(data.items);
               setItems(clean);
             }
           }
@@ -257,58 +273,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     syncCartOnLogin();
 
-    // Poll /api/cart when tab is visible to prevent unnecessary CPU load
-    const interval = setInterval(async () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      // Avoid overwriting state if user edited cart locally within last 5 seconds
-      if (user && !cancelled && Date.now() - lastLocalEditRef.current > 5000) {
-        try {
-          const res = await apiRequest("GET", "/api/cart");
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data.items)) {
-            const clean = consolidateCartItems(data.items).filter((i) => !deletedProductIdsRef.current.has(i.productId));
-            if (clean.length > 0 || items.length === 0) {
-              setItems(clean);
-            }
-          }
-        } catch {}
-      }
-    }, 8000);
-
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [user?.id]);
 
-  // Helper to sync changes to DB for logged in user
-  const syncToDb = (updatedItems: CartItem[]) => {
-    if (user) {
-      apiRequest("POST", "/api/cart", {
-        items: updatedItems.map((i) => ({ productId: i.productId, qty: i.qty })),
-      }).catch(() => {});
-    }
-  };
-
   function add(product: Product, qty = 1) {
     lastLocalEditRef.current = Date.now();
-    deletedProductIdsRef.current.delete(product.id);
     setItems((prev) => {
       const price = effectivePrice(Number(product.price), Number(product.discountPercent));
-      const maxStock = Number(product.stock || 0);
-      const targetAddQty = Math.min(maxStock > 0 ? maxStock : 999, qty);
+      const maxStock = Number(product.stock || 0) > 0 ? Number(product.stock) : 999;
+      
+      const existingItem = prev.find((i) => i.productId === product.id);
+      const currentInCart = existingItem?.qty || 0;
+      const availableToAdd = Math.max(0, maxStock - currentInCart);
+      const targetAddQty = Math.min(availableToAdd, Math.max(1, qty));
+
       if (targetAddQty <= 0) return prev;
 
-      const newRawItem: CartItem = {
-        productId: product.id,
-        name: product.name,
-        unit: product.unit,
-        price,
-        image: product.image,
-        qty: targetAddQty,
-      };
+      let next: CartItem[];
+      if (existingItem) {
+        next = prev.map((i) =>
+          i.productId === product.id ? { ...i, qty: i.qty + targetAddQty, price } : i
+        );
+      } else {
+        next = [
+          ...prev,
+          {
+            productId: product.id,
+            name: product.name,
+            unit: product.unit,
+            price,
+            image: product.image,
+            qty: targetAddQty,
+          },
+        ];
+      }
 
-      const consolidated = consolidateCartItems([...prev, newRawItem]).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+      const consolidated = consolidateCartItems(next);
       syncToDb(consolidated);
       return consolidated;
     });
@@ -316,14 +318,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function setQty(productId: number, qty: number) {
     lastLocalEditRef.current = Date.now();
-    if (qty <= 0) {
-      deletedProductIdsRef.current.add(productId);
-    }
     setItems((prev) => {
-      const nextRaw = qty <= 0
+      const targetQty = Math.max(0, Math.floor(qty));
+      const nextRaw = targetQty <= 0
         ? prev.filter((i) => i.productId !== productId)
-        : prev.map((i) => (i.productId === productId ? { ...i, qty } : i));
-      const consolidated = consolidateCartItems(nextRaw).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+        : prev.map((i) => (i.productId === productId ? { ...i, qty: targetQty } : i));
+      const consolidated = consolidateCartItems(nextRaw);
       syncToDb(consolidated);
       return consolidated;
     });
@@ -331,10 +331,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function remove(productId: number) {
     lastLocalEditRef.current = Date.now();
-    deletedProductIdsRef.current.add(productId);
     setItems((prev) => {
       const nextRaw = prev.filter((i) => i.productId !== productId);
-      const consolidated = consolidateCartItems(nextRaw).filter((i) => !deletedProductIdsRef.current.has(i.productId));
+      const consolidated = consolidateCartItems(nextRaw);
       syncToDb(consolidated);
       return consolidated;
     });
@@ -342,13 +341,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function clear() {
     lastLocalEditRef.current = Date.now();
-    items.forEach((i) => deletedProductIdsRef.current.add(i.productId));
     setItems([]);
     syncToDb([]);
   }
 
   const count = items.reduce((s, i) => s + i.qty, 0);
-  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  const subtotal = round2(items.reduce((s, i) => s + i.qty * i.price, 0));
 
   return (
     <CartContext.Provider value={{ items, add, setQty, remove, clear, count, subtotal }}>

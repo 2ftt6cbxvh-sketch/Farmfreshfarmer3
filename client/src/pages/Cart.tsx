@@ -588,9 +588,20 @@ export default function Cart() {
                     <Trash2 size={16} />
                   </button>
                   <div className="flex items-center rounded-md border border-input">
-                    <button onClick={() => setQty(i.productId, i.qty - 1)} className="px-2 py-1 hover-elevate" aria-label="Decrease"><Minus size={14} /></button>
-                    <span className="w-8 text-center text-sm" data-testid={`qty-${i.productId}`}>{i.qty}</span>
-                    <button onClick={() => setQty(i.productId, i.qty + 1)} className="px-2 py-1 hover-elevate" aria-label="Increase"><Plus size={14} /></button>
+                    <button onClick={() => setQty(i.productId, i.qty - 1)} className="px-2 py-1 hover-elevate cursor-pointer" aria-label="Decrease"><Minus size={14} /></button>
+                    <span className="w-8 text-center text-sm font-bold" data-testid={`qty-${i.productId}`}>{i.qty}</span>
+                    <button onClick={() => {
+                      const prodStock = (allProducts || []).find((p: any) => p.id === i.productId)?.stock;
+                      if (typeof prodStock === "number" && prodStock > 0 && i.qty >= prodStock) {
+                        toast({
+                          title: "Stock Limit Reached",
+                          description: `Only ${prodStock} unit(s) available in stock for ${i.name}.`,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setQty(i.productId, i.qty + 1);
+                    }} className="px-2 py-1 hover-elevate cursor-pointer" aria-label="Increase"><Plus size={14} /></button>
                   </div>
                 </div>
               </div>

@@ -209,18 +209,16 @@ export default function ProductDetail() {
                   </div>
                   
                   <Button onClick={() => { 
-                    if (!user) {
-                      toast({ title: "Authentication Required", description: "Please log in to add items to cart", variant: "destructive" });
-                      setLocation("/login");
+                    const inCart = items.find((i) => i.productId === product.id)?.qty || 0;
+                    const available = Math.max(0, product.stock - inCart);
+                    if (available <= 0) {
+                      toast({ title: "Stock Limit Reached", description: `You already have the maximum available stock (${product.stock} units) in your cart.`, variant: "destructive" });
                       return;
                     }
-                    if (qty > product.stock) {
-                      toast({ title: "Stock Limit Exceeded", description: `Only ${product.stock} unit(s) available in stock.`, variant: "destructive" });
-                      return;
-                    }
-                    add(product, qty); 
-                    toast({ title: "Added to cart", description: `${qty} × ${product.name}` }); 
-                  }} className="flex-1 min-w-[140px] gap-2 px-6 py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30" data-testid="button-add-detail">
+                    const finalQty = Math.min(available, qty);
+                    add(product, finalQty); 
+                    toast({ title: "✨ Added to cart", description: `${finalQty} × ${product.name}` }); 
+                  }} className="flex-1 min-w-[140px] gap-2 px-6 py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30 cursor-pointer" data-testid="button-add-detail">
                     <ShoppingCart size={18} /> Add to Cart
                   </Button>
 
