@@ -119,14 +119,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (phone) {
       const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
       if (cleanPhone.length === 10) {
-        const [existingPhone] = await db.select().from(users).where(
-          or(
-            eq(users.phone, cleanPhone),
-            eq(users.phone, `+91${cleanPhone}`),
-            eq(users.phone, `+91 ${cleanPhone}`),
-            eq(users.phone, `91${cleanPhone}`)
-          )
-        ).limit(1);
+        const existingPhone = await findUserByPhone(cleanPhone);
         if (existingPhone) {
           return res.status(409).json({
             message: "It seems this mobile number already exists. Please sign in with your registered email.",
@@ -844,14 +837,7 @@ export function registerAuthJwtRoutes(app: Express) {
       });
     }
 
-    const [existingPhone] = await db.select().from(users).where(
-      or(
-        eq(users.phone, cleanPhone),
-        eq(users.phone, `+91${cleanPhone}`),
-        eq(users.phone, `+91 ${cleanPhone}`),
-        eq(users.phone, `91${cleanPhone}`)
-      )
-    ).limit(1);
+    const existingPhone = await findUserByPhone(cleanPhone);
     if (existingPhone) {
       return res.status(409).json({
         message: "It seems this mobile number already exists. Please sign in with your registered email.",
@@ -1197,6 +1183,80 @@ export function registerAuthJwtRoutes(app: Express) {
     });
   };
 
+  /** Helper to find existing user by email */
+  async function findUserByEmail(email: string, excludeUserId?: number) {
+    const cleanEmail = String(email || "").toLowerCase().trim();
+    if (!cleanEmail || !cleanEmail.includes("@")) return null;
+
+    const [existing] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        role: users.role,
+        password: users.password,
+        isVerified: users.isVerified,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.email, cleanEmail),
+          excludeUserId ? ne(users.id, excludeUserId) : undefined
+        )
+      )
+      .limit(1);
+
+    return existing || null;
+  }
+
+  /** POST /api/auth/email/check-availability — Pre-check before sending email verification OTP or registering */
+  const handleEmailAvailabilityCheck = async (req: Request, res: Response) => {
+    const { email, userId } = req.body || {};
+    const cleanEmail = String(email || "").toLowerCase().trim();
+    if (!cleanEmail || !cleanEmail.includes("@") || cleanEmail.length < 5) {
+      return res.status(400).json({
+        available: false,
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    let currentUserId: number | undefined = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!currentUserId) {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req.cookies?.accessToken || req.cookies?.token);
+      if (token) {
+        try {
+          const jwt = (await import("jsonwebtoken")).default;
+          const decoded: any = jwt.verify(token, getJwtSecret());
+          if (decoded?.userId || decoded?.sub) currentUserId = Number(decoded.userId || decoded.sub);
+        } catch {}
+      }
+    }
+
+    const existing = await findUserByEmail(cleanEmail, currentUserId);
+    if (existing) {
+      const isGoogle = !existing.password || existing.password.trim() === "";
+      return res.status(409).json({
+        available: false,
+        exists: true,
+        isGoogleAccount: isGoogle,
+        message: isGoogle
+          ? `⚠️ This email (${cleanEmail}) is already registered via Google Sign-In with another account. Please sign in with Google or use your own unique email.`
+          : `⚠️ This email address (${cleanEmail}) is already registered with another account. Each account must have a unique email address. Please use your own unique email or sign in with that account.`,
+      });
+    }
+
+    return res.json({
+      available: true,
+      cleanEmail,
+      message: "Email address is available.",
+    });
+  };
+
+  app.post("/api/auth/email/check-availability", authRateLimit, handleEmailAvailabilityCheck);
+  app.post("/api/auth/check-email-available", authRateLimit, handleEmailAvailabilityCheck);
+
   app.post("/api/auth/phone/check-availability", authRateLimit, handlePhoneAvailabilityCheck);
   app.post("/api/auth/check-phone-available", authRateLimit, handlePhoneAvailabilityCheck);
 
@@ -1324,9 +1384,14 @@ export function registerAuthJwtRoutes(app: Express) {
     }
 
     // Check if new email is already taken by another user
-    const [existing] = await db.select().from(users).where(eq(users.email, cleanNewEmail)).limit(1);
-    if (existing && existing.id !== userId) {
-      return res.status(409).json({ message: "This email address is already in use by another account." });
+    const existing = await findUserByEmail(cleanNewEmail, userId);
+    if (existing) {
+      const isGoogle = !existing.password || existing.password.trim() === "";
+      return res.status(409).json({
+        message: isGoogle
+          ? `⚠️ This email (${cleanNewEmail}) is already registered via Google Sign-In with another account. Please use a unique email.`
+          : `⚠️ This email address (${cleanNewEmail}) is already in use by another account.`,
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1400,6 +1465,12 @@ export function registerAuthJwtRoutes(app: Express) {
     const valid = await bcrypt.compare(String(otp).trim(), rows[0].codeHash);
     if (!valid) {
       return res.status(400).json({ message: "Incorrect OTP code. Please check the code sent to your email." });
+    }
+
+    // Check if new email was claimed by another user in the interim
+    const conflict = await findUserByEmail(cleanNewEmail, userId);
+    if (conflict) {
+      return res.status(409).json({ message: `⚠️ This email address (${cleanNewEmail}) is already registered with another account.` });
     }
 
     // Consume OTP code

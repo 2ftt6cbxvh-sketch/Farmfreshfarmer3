@@ -51,6 +51,25 @@ export function EmailVerificationModal({
 
     setLoading(true);
     try {
+      // 1. Pre-check email availability with server before dispatching OTP
+      const precheckRes = await apiRequest("POST", "/api/auth/email/check-availability", {
+        email: cleanEmail,
+        userId: user?.id,
+      });
+      const precheckData = await precheckRes.json();
+      if (!precheckRes.ok || !precheckData.available) {
+        const errorMsg = precheckData.message || "This email address is already registered with another account.";
+        setErrorMessage(errorMsg);
+        toast({
+          title: "Email Already In Use",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Dispatch email OTP
       let res: Response;
       if (cleanEmail === user?.email?.toLowerCase()) {
         // Send OTP to existing email
