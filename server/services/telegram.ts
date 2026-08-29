@@ -606,71 +606,8 @@ export const sendTelegramAlert = sendTelegramSecurityAlert;
 const visitorAlertCache = new Map<string, number>();
 const VISITOR_COOLDOWN_MS = 60 * 1000; // 1 minute anti-spam cooldown per IP + path
 
-export async function notifyWebsiteVisitor(req: any, customPath?: string): Promise<boolean> {
-  try {
-    const { storage } = await import("../storage");
-    const enabled = await storage.settings.get("telegram_visitor_alerts_enabled");
-    // Only send visitor alerts if explicitly enabled in admin settings
-    if (enabled !== "true") return false;
-
-    // Check lockdown status: do not alert during lockdown
-    const { getLockdownStatus } = await import("./lockdown");
-    const lockdown = await getLockdownStatus();
-    if (lockdown.active) return false;
-
-    const { botToken, chatIds } = await getTelegramSecurityCredentials();
-    if (!botToken || chatIds.length === 0) return false;
-
-    const rawPath = customPath || (typeof req?.body === "object" && req.body?.path) || req.originalUrl || req.url || "/";
-    const targetPath = String(rawPath).split("?")[0] || "/";
-
-    // Ignore asset, static, and internal development files
-    if (targetPath.startsWith("/api") && !targetPath.startsWith("/api/telemetry/visitor-ping")) return false;
-    if (
-      targetPath.startsWith("/assets") ||
-      targetPath.startsWith("/@") ||
-      targetPath.startsWith("/src") ||
-      targetPath.startsWith("/node_modules") ||
-      targetPath.startsWith("/health") ||
-      /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|json)$/i.test(targetPath)
-    ) {
-      return false;
-    }
-
-    const telemetry = await resolveClientTelemetry(req);
-
-    // Check cooldown per IP + path to allow notifications for different pages while preventing spam
-    const now = Date.now();
-    const cacheKey = `${telemetry.ip}:${targetPath}`;
-    const lastNotified = visitorAlertCache.get(cacheKey);
-    if (lastNotified && now - lastNotified < VISITOR_COOLDOWN_MS) {
-      return false;
-    }
-
-    // Clean up cache periodically if large
-    if (visitorAlertCache.size > 2000) {
-      for (const [k, v] of visitorAlertCache.entries()) {
-        if (now - v > VISITOR_COOLDOWN_MS) visitorAlertCache.delete(k);
-      }
-    }
-
-    visitorAlertCache.set(cacheKey, now);
-
-    const compactMessage = 
-`🌐 <b>Website Page Visit Detected</b>
-━━━━━━━━━━━━━━━━━━
-📄 <b>Page / URL:</b> <code>${targetPath}</code>
-
-${formatTelemetryForTelegram(telemetry)}`;
-
-    const results = await Promise.all(
-      chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, compactMessage))
-    );
-    return results.some((r) => r === true);
-  } catch (err) {
-    console.warn("[telegram visitor notify err]", err);
-    return false;
-  }
+export async function notifyWebsiteVisitor(_req: any, _customPath?: string): Promise<boolean> {
+  return false;
 }
 
 /* ====================================================================
