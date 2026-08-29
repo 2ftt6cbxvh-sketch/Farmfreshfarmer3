@@ -86,7 +86,35 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
 
     const [existing] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
-    if (existing) return res.status(409).json({ message: "An account already exists with this email. Please log in instead." });
+    if (existing) {
+      // If user was created via Google Sign-In without a password, allow them to set their password now
+      if (!existing.password || existing.password === "") {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const [updated] = await db.update(users).set({
+          password: hashedPassword,
+          name: name || existing.name,
+          phone: phone || existing.phone,
+          status: "active",
+          updatedAt: new Date(),
+        }).where(eq(users.id, existing.id)).returning();
+
+        if (req.session) {
+          req.session.userId = updated.id;
+          req.session.role = updated.role;
+        }
+
+        const tokens = await issueTokenPair(updated.id, updated.role, {
+          platform: platform || "web", deviceId, ip: req.ip, userAgent: req.headers["user-agent"],
+        });
+
+        return res.status(201).json({
+          user: { id: updated.id, name: updated.name, email: updated.email, role: updated.role, phone: updated.phone },
+          ...tokens,
+          message: "Password linked successfully to your account!",
+        });
+      }
+      return res.status(409).json({ message: "An account already exists with this email. Please log in instead." });
+    }
 
     if (phone) {
       const cleanPhone = String(phone).replace(/\D/g, "").slice(-10);
@@ -159,6 +187,14 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!user) {
       await auditLog("login_failed", { req, action: `Failed login attempt for email: ${cleanEmail}` });
       return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    // Google Sign-In Account without a password set
+    if (!user.password || user.password === "") {
+      return res.status(400).json({
+        message: "This account was registered with Google Sign-In. Please click 'Sign in with Google' above, or click 'Forgot Password?' to set a password.",
+        isGoogleAccount: true,
+      });
     }
 
     const lockoutCheck = await verifyPasswordWithLockout(user, password, req);

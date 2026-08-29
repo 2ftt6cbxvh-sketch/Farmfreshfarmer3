@@ -498,4 +498,119 @@ export function registerPasswordResetRoutes(app: Express) {
       return res.status(500).json({ message: "Emergency login failed. Please try again." });
     }
   });
+
+  /**
+   * POST /api/auth/forgot-password/otp/send
+   * Sends 6-digit OTP code to registered email for password reset.
+   */
+  app.post("/api/auth/forgot-password/otp/send", authRateLimit, async (req: Request, res: Response) => {
+    try {
+      await ensureSecurityTables();
+      const { email } = req.body || {};
+      if (!email || !String(email).trim()) {
+        return res.status(400).json({ message: "Valid email address is required" });
+      }
+
+      const cleanEmail = String(email).toLowerCase().trim();
+      const userRes = await pool.query("SELECT id, name, email, role, is_primary_admin, password FROM users WHERE email = $1 LIMIT 1", [cleanEmail]);
+      const user = userRes.rows[0];
+
+      if (!user) {
+        return res.status(404).json({ message: "No account found with this email. Please sign up first." });
+      }
+
+      // Generate 6-digit OTP
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const codeHash = await bcrypt.hash(otpCode, 10);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Invalidate previous reset OTPs
+      await pool.query("DELETE FROM otp_codes WHERE (user_id = $1 OR phone = $2) AND purpose = 'password_reset'", [user.id, cleanEmail]);
+
+      // Insert new OTP
+      await pool.query(
+        "INSERT INTO otp_codes (user_id, phone, purpose, code_hash, expires_at) VALUES ($1, $2, 'password_reset', $3, $4)",
+        [user.id, cleanEmail, codeHash, expiresAt]
+      );
+
+      // Dispatch Email
+      const html = buildOtpEmailHtml(otpCode, user.name);
+      await sendRealEmail({
+        to: cleanEmail,
+        subject: "🔑 FarmFreshFarmer Password Reset Verification Code",
+        html,
+      }).catch((e) => console.error("[forgot-password/otp error]", e?.message));
+
+      return res.json({
+        success: true,
+        message: "Password reset OTP sent to your email.",
+        devOtp: process.env.NODE_ENV !== "production" ? otpCode : undefined,
+      });
+    } catch (err: any) {
+      console.error("[forgot-password/otp/send error]:", err);
+      return res.status(500).json({ message: "Failed to send reset OTP. Please try again." });
+    }
+  });
+
+  /**
+   * POST /api/auth/forgot-password/otp/verify-reset
+   * Verifies 6-digit OTP code and updates password.
+   */
+  app.post("/api/auth/forgot-password/otp/verify-reset", authRateLimit, async (req: Request, res: Response) => {
+    try {
+      await ensureSecurityTables();
+      const { email, code, newPassword } = req.body || {};
+      if (!email || !code || !newPassword) {
+        return res.status(400).json({ message: "Email, OTP code, and new password are required" });
+      }
+
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+
+      const cleanEmail = String(email).toLowerCase().trim();
+      const userRes = await pool.query("SELECT id, name, email, role, is_primary_admin FROM users WHERE email = $1 LIMIT 1", [cleanEmail]);
+      const user = userRes.rows[0];
+
+      if (!user) {
+        return res.status(404).json({ message: "No account found with this email." });
+      }
+
+      const otpRes = await pool.query(
+        "SELECT id, code_hash, expires_at FROM otp_codes WHERE (user_id = $1 OR phone = $2) AND purpose = 'password_reset' AND verified_at IS NULL AND expires_at > NOW() ORDER BY id DESC LIMIT 1",
+        [user.id, cleanEmail]
+      );
+      const otpRow = otpRes.rows[0];
+
+      if (!otpRow) {
+        return res.status(400).json({ message: "OTP code has expired or was not requested. Please request a new one." });
+      }
+
+      const isMatch = await bcrypt.compare(String(code).trim(), otpRow.code_hash);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Invalid 6-digit verification code. Please check and try again." });
+      }
+
+      // Mark OTP as verified/used
+      await pool.query("UPDATE otp_codes SET verified_at = NOW() WHERE id = $1", [otpRow.id]);
+
+      // Hash new password and update user
+      const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+      await pool.query(
+        "UPDATE users SET password = $1, failed_login_attempts = 0, lockout_tier = 0, lockout_until = NULL, is_permanently_locked = FALSE, status = 'active', updated_at = NOW() WHERE id = $2",
+        [hashedPassword, user.id]
+      );
+
+      // Invalidate all prior sessions / refresh tokens
+      await pool.query("UPDATE refresh_tokens SET revoked = TRUE, revoked_at = NOW() WHERE user_id = $1", [user.id]).catch(() => {});
+
+      return res.json({
+        success: true,
+        message: "Password has been reset successfully! You can now log in with your new password.",
+      });
+    } catch (err: any) {
+      console.error("[forgot-password/otp/verify-reset error]:", err);
+      return res.status(500).json({ message: "Failed to reset password. Please try again." });
+    }
+  });
 }
