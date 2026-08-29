@@ -2007,33 +2007,63 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       return res.status(400).json({ message: "You cannot delete your own logged-in account." });
     }
 
-    // Cascade delete related records
+    // Cascade delete related records with proper schema references
     const {
       customerProfiles,
+      carts,
       cartItems,
       otpCodes,
       refreshTokens,
       referralCodes,
-      referralTransactions,
+      referrals,
       referralRewards,
+      referralRewardUsages,
       deliveryPartners,
-      supportSessions,
-      supportMessages,
       reviews,
+      webauthnCredentials,
+      oauthAccounts,
+      userSubscriptions,
+      coupons: couponsTable,
+      orders: ordersTable,
+      payments: paymentsTable,
     } = await import("@shared/schema");
 
-    await db.delete(customerProfiles).where(eq(customerProfiles.userId, targetId)).catch(() => {});
-    await db.delete(cartItems).where(eq(cartItems.userId, targetId)).catch(() => {});
-    await db.delete(otpCodes).where(eq(otpCodes.userId, targetId)).catch(() => {});
-    await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId)).catch(() => {});
+    // Clean up carts and items
+    try {
+      const userCarts = await db.select({ id: carts.id }).from(carts).where(eq(carts.userId, targetId));
+      for (const uc of userCarts) {
+        await db.delete(cartItems).where(eq(cartItems.cartId, uc.id)).catch(() => {});
+      }
+      await db.delete(carts).where(eq(carts.userId, targetId)).catch(() => {});
+    } catch {}
+
+    // Clean up referrals & rewards
+    await db.delete(referralRewardUsages).where(eq(referralRewardUsages.referrerUserId, targetId)).catch(() => {});
+    await db.delete(referralRewards).where(eq(referralRewards.referrerUserId, targetId)).catch(() => {});
+    await db.delete(referrals).where(eq(referrals.referrerUserId, targetId)).catch(() => {});
+    await db.delete(referrals).where(eq(referrals.referredUserId, targetId)).catch(() => {});
     await db.delete(referralCodes).where(eq(referralCodes.userId, targetId)).catch(() => {});
-    await db.delete(referralTransactions).where(eq(referralTransactions.referrerUserId, targetId)).catch(() => {});
-    await db.delete(referralTransactions).where(eq(referralTransactions.referredUserId, targetId)).catch(() => {});
-    await db.delete(referralRewards).where(eq(referralRewards.userId, targetId)).catch(() => {});
+
+    // Clean up auth & profile
+    await db.delete(customerProfiles).where(eq(customerProfiles.userId, targetId)).catch(() => {});
+    await db.delete(otpCodes).where(eq(otpCodes.userId, targetId)).catch(() => {});
+    if (targetUser.email) {
+      await db.delete(otpCodes).where(eq(otpCodes.phone, targetUser.email)).catch(() => {});
+    }
+    if (targetUser.phone) {
+      await db.delete(otpCodes).where(eq(otpCodes.phone, targetUser.phone)).catch(() => {});
+    }
+    await db.delete(refreshTokens).where(eq(refreshTokens.userId, targetId)).catch(() => {});
+    await db.delete(webauthnCredentials).where(eq(webauthnCredentials.userId, targetId)).catch(() => {});
+    await db.delete(oauthAccounts).where(eq(oauthAccounts.userId, targetId)).catch(() => {});
+    await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, targetId)).catch(() => {});
     await db.delete(deliveryPartners).where(eq(deliveryPartners.userId, targetId)).catch(() => {});
-    await db.delete(supportMessages).where(eq(supportMessages.senderId, targetId)).catch(() => {});
-    await db.delete(supportSessions).where(eq(supportSessions.customerId, targetId)).catch(() => {});
     await db.delete(reviews).where(eq(reviews.userId, targetId)).catch(() => {});
+    await db.delete(couponsTable).where(eq(couponsTable.restrictedUserId, targetId)).catch(() => {});
+
+    // Unlink historical orders & payments so financial books remain valid
+    await db.update(ordersTable).set({ userId: null }).where(eq(ordersTable.userId, targetId)).catch(() => {});
+    await db.update(paymentsTable).set({ userId: null }).where(eq(paymentsTable.userId, targetId)).catch(() => {});
     
     // Finally delete from users table
     await db.delete(users).where(eq(users.id, targetId));
