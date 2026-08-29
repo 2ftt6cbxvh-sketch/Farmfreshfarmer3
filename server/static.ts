@@ -46,7 +46,19 @@ export function serveStatic(app: Express) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
-      return res.sendFile(indexPath);
+
+      const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "";
+      const adminSubdomain = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
+      const isAdminHost = Boolean(adminSubdomain && host.toLowerCase().includes(adminSubdomain));
+
+      try {
+        let html = fs.readFileSync(indexPath, "utf8");
+        const injectScript = `<script>window.__IS_ADMIN_HOST__ = ${isAdminHost};</script>`;
+        html = html.replace("<head>", `<head>${injectScript}`);
+        return res.send(html);
+      } catch {
+        return res.sendFile(indexPath);
+      }
     }
     next();
   });

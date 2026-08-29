@@ -104,8 +104,35 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+function useIsAdminHost() {
+  const [isAdminHost, setIsAdminHost] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      if ((window as any).__IS_ADMIN_HOST__ === true) return true;
+      const hostname = window.location.hostname.toLowerCase();
+      if (hostname.includes("admin.") || hostname.startsWith("admin-") || (window.location.port && localStorage.getItem("dev_admin_mode") === "true")) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    fetch("/api/auth/host-context")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d?.isAdminHost === "boolean") {
+          setIsAdminHost(d.isAdminHost);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return isAdminHost;
+}
+
 function AppRouter() {
   const [, setLocation] = useLocation();
+  const isAdminHost = useIsAdminHost();
 
   // Instantly redirect legacy PhonePe hash URLs (e.g. https://farmfreshfarmer.com/#/privacy) to clean paths (/privacy)
   useEffect(() => {
@@ -122,6 +149,115 @@ function AppRouter() {
     return () => window.removeEventListener('hashchange', syncHashRoute);
   }, [setLocation]);
 
+  // ========================================================
+  // 🏰 ADMIN HOST ROUTING (Dedicated Admin Vault Subdomain)
+  // ========================================================
+  if (isAdminHost) {
+    return (
+      <ErrorBoundary>
+        <Switch>
+          {/* Root & Login routes on Admin Subdomain mount the 3-Factor Multi-Authentication Gateway */}
+          <Route path="/login" component={AdminLogin} />
+          <Route path="/login/" component={AdminLogin} />
+          <Route path="/" component={AdminLogin} />
+
+          {/* Admin Protected Routes */}
+          <Route path="/admin">
+            {() => <AdminGuard component={AdminDashboard} path="/admin" />}
+          </Route>
+          <Route path="/admin/">
+            {() => <AdminGuard component={AdminDashboard} path="/admin/" />}
+          </Route>
+          <Route path="/admin/live-chat">
+            {() => <AdminGuard component={AdminLiveChat} path="/admin/live-chat" />}
+          </Route>
+          <Route path="/admin/tickets">
+            {() => <AdminGuard component={AdminTickets} path="/admin/tickets" />}
+          </Route>
+          <Route path="/admin/refunds">
+            {() => <AdminGuard component={AdminRefunds} path="/admin/refunds" />}
+          </Route>
+          <Route path="/admin/products">
+            {() => <AdminGuard component={AdminProducts} path="/admin/products" />}
+          </Route>
+          <Route path="/admin/categories">
+            {() => <AdminGuard component={AdminCategories} path="/admin/categories" />}
+          </Route>
+          <Route path="/admin/approvals">
+            {() => <AdminGuard component={AdminApprovals} path="/admin/approvals" />}
+          </Route>
+          <Route path="/admin/inventory">
+            {() => <AdminGuard component={AdminInventory} path="/admin/inventory" />}
+          </Route>
+          <Route path="/admin/orders">
+            {() => <AdminGuard component={AdminOrders} path="/admin/orders" />}
+          </Route>
+          <Route path="/admin/subscriptions">
+            {() => <AdminGuard component={AdminSubscriptions} path="/admin/subscriptions" />}
+          </Route>
+          <Route path="/admin/customers">
+            {() => <AdminGuard component={AdminCustomers} path="/admin/customers" />}
+          </Route>
+          <Route path="/admin/reviews">
+            {() => <AdminGuard component={AdminReviews} path="/admin/reviews" />}
+          </Route>
+          <Route path="/admin/coupons">
+            {() => <AdminGuard component={AdminCoupons} path="/admin/coupons" />}
+          </Route>
+          <Route path="/admin/discounts">
+            {() => <AdminGuard component={AdminDiscounts} path="/admin/discounts" />}
+          </Route>
+          <Route path="/admin/star-discount-rules">
+            {() => <AdminGuard component={AdminStarDiscountRules} path="/admin/star-discount-rules" />}
+          </Route>
+          <Route path="/admin/referrals">
+            {() => <AdminGuard component={AdminReferrals} path="/admin/referrals" />}
+          </Route>
+          <Route path="/admin/payments">
+            {() => <AdminGuard component={AdminPayments} path="/admin/payments" />}
+          </Route>
+          <Route path="/admin/security">
+            {() => <AdminGuard component={AdminSecurity} path="/admin/security" />}
+          </Route>
+          <Route path="/admin/warehouses">
+            {() => <AdminGuard component={AdminWarehouses} path="/admin/warehouses" />}
+          </Route>
+          <Route path="/admin/delivery">
+            {() => <AdminGuard component={AdminDelivery} path="/admin/delivery" />}
+          </Route>
+          <Route path="/admin/users">
+            {() => <AdminGuard component={AdminUsers} path="/admin/users" />}
+          </Route>
+          <Route path="/admin/staff">
+            {() => <AdminGuard component={AdminStaff} path="/admin/staff" />}
+          </Route>
+          <Route path="/admin/delivery-partners">
+            {() => <AdminGuard component={AdminDeliveryPartners} path="/admin/delivery-partners" />}
+          </Route>
+          <Route path="/admin/gst">
+            {() => <AdminGuard component={AdminGST} path="/admin/gst" />}
+          </Route>
+          <Route path="/admin/advertisements">
+            {() => <AdminGuard component={AdminAdvertisements} path="/admin/advertisements" />}
+          </Route>
+          <Route path="/admin/announcements">
+            {() => <AdminGuard component={AdminAdvertisements} path="/admin/announcements" />}
+          </Route>
+          <Route path="/partner-portal" component={DeliveryPartnerPortal} />
+          <Route path="/admin/settings">
+            {() => <AdminGuard component={AdminSettings} path="/admin/settings" />}
+          </Route>
+
+          {/* Any unauthenticated visit to admin subdomain defaults to AdminLogin */}
+          <Route component={AdminLogin} />
+        </Switch>
+      </ErrorBoundary>
+    );
+  }
+
+  // ========================================================
+  // 🛍️ CUSTOMER STOREFRONT ROUTING (Public Website)
+  // ========================================================
   return (
     <ErrorBoundary>
       <Switch>
@@ -181,99 +317,17 @@ function AppRouter() {
         <Route path="/my-orders" component={Orders} />
         <Route path="/help" component={GrievancePage} />
 
-        {/* Secret Master Stealth Admin Gateway (Obfuscated from Inspector & Scanners) */}
-        <Route path={"/" + atob("YUloSFlUZGdhZ3RoYXdzV0dIU2dz")} component={AdminLogin} />
-        <Route path={"/" + atob("YUloSFlUZGdhZ3RoYXdzV0dIU2dz") + "/"} component={AdminLogin} />
-
-        {/* Intercept & Block Direct /admin/login with Full-Screen Security Warning */}
+        {/* Intercept & Block Direct /admin access on Public Storefront */}
         <Route path="/admin/login" component={AdminDirectAccessWarning} />
         <Route path="/admin/login/" component={AdminDirectAccessWarning} />
-
-        {/* Admin Portal Protected Routes (All wrapped with AdminGuard for seamless warning screen interception) */}
         <Route path="/admin">
-          {() => <AdminGuard component={AdminDashboard} path="/admin" />}
+          {() => <AdminDirectAccessWarning targetRoute="/admin" />}
         </Route>
         <Route path="/admin/">
-          {() => <AdminGuard component={AdminDashboard} path="/admin/" />}
+          {() => <AdminDirectAccessWarning targetRoute="/admin/" />}
         </Route>
-        <Route path="/admin/live-chat">
-          {() => <AdminGuard component={AdminLiveChat} path="/admin/live-chat" />}
-        </Route>
-        <Route path="/admin/tickets">
-          {() => <AdminGuard component={AdminTickets} path="/admin/tickets" />}
-        </Route>
-        <Route path="/admin/refunds">
-          {() => <AdminGuard component={AdminRefunds} path="/admin/refunds" />}
-        </Route>
-        <Route path="/admin/products">
-          {() => <AdminGuard component={AdminProducts} path="/admin/products" />}
-        </Route>
-        <Route path="/admin/categories">
-          {() => <AdminGuard component={AdminCategories} path="/admin/categories" />}
-        </Route>
-        <Route path="/admin/approvals">
-          {() => <AdminGuard component={AdminApprovals} path="/admin/approvals" />}
-        </Route>
-        <Route path="/admin/inventory">
-          {() => <AdminGuard component={AdminInventory} path="/admin/inventory" />}
-        </Route>
-        <Route path="/admin/orders">
-          {() => <AdminGuard component={AdminOrders} path="/admin/orders" />}
-        </Route>
-        <Route path="/admin/subscriptions">
-          {() => <AdminGuard component={AdminSubscriptions} path="/admin/subscriptions" />}
-        </Route>
-        <Route path="/admin/customers">
-          {() => <AdminGuard component={AdminCustomers} path="/admin/customers" />}
-        </Route>
-        <Route path="/admin/reviews">
-          {() => <AdminGuard component={AdminReviews} path="/admin/reviews" />}
-        </Route>
-        <Route path="/admin/coupons">
-          {() => <AdminGuard component={AdminCoupons} path="/admin/coupons" />}
-        </Route>
-        <Route path="/admin/discounts">
-          {() => <AdminGuard component={AdminDiscounts} path="/admin/discounts" />}
-        </Route>
-        <Route path="/admin/star-discount-rules">
-          {() => <AdminGuard component={AdminStarDiscountRules} path="/admin/star-discount-rules" />}
-        </Route>
-        <Route path="/admin/referrals">
-          {() => <AdminGuard component={AdminReferrals} path="/admin/referrals" />}
-        </Route>
-        <Route path="/admin/payments">
-          {() => <AdminGuard component={AdminPayments} path="/admin/payments" />}
-        </Route>
-        <Route path="/admin/security">
-          {() => <AdminGuard component={AdminSecurity} path="/admin/security" />}
-        </Route>
-        <Route path="/admin/warehouses">
-          {() => <AdminGuard component={AdminWarehouses} path="/admin/warehouses" />}
-        </Route>
-        <Route path="/admin/delivery">
-          {() => <AdminGuard component={AdminDelivery} path="/admin/delivery" />}
-        </Route>
-        <Route path="/admin/users">
-          {() => <AdminGuard component={AdminUsers} path="/admin/users" />}
-        </Route>
-        <Route path="/admin/staff">
-          {() => <AdminGuard component={AdminStaff} path="/admin/staff" />}
-        </Route>
-        <Route path="/admin/delivery-partners">
-          {() => <AdminGuard component={AdminDeliveryPartners} path="/admin/delivery-partners" />}
-        </Route>
-        <Route path="/admin/gst">
-          {() => <AdminGuard component={AdminGST} path="/admin/gst" />}
-        </Route>
-        <Route path="/admin/advertisements">
-          {() => <AdminGuard component={AdminAdvertisements} path="/admin/advertisements" />}
-        </Route>
-        <Route path="/admin/announcements">
-          {() => <AdminGuard component={AdminAdvertisements} path="/admin/announcements" />}
-        </Route>
-        <Route path="/partner-portal" component={DeliveryPartnerPortal} />
-        <Route path="/admin/settings">
-          {() => <AdminGuard component={AdminSettings} path="/admin/settings" />}
+        <Route path="/admin/:rest*">
+          {() => <AdminDirectAccessWarning targetRoute="/admin" />}
         </Route>
 
         {/* Root Home Route */}
