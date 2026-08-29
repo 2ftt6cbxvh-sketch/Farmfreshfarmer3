@@ -1079,6 +1079,13 @@ export function registerAuthJwtRoutes(app: Express) {
 
     await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
 
+    // Persist verified status in PostgreSQL database
+    const [updatedUser] = await db
+      .update(users)
+      .set({ isVerified: true, updatedAt: new Date() })
+      .where(eq(users.id, user.id))
+      .returning();
+
     if (req.session) {
       req.session.userId = user.id;
       req.session.role = user.role;
@@ -1091,7 +1098,14 @@ export function registerAuthJwtRoutes(app: Express) {
     await auditLog("otp_verified", { userId: user.id, req, action: `Login via Email OTP` });
     return res.json({
       message: "OTP verified successfully!",
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: {
+        id: updatedUser?.id || user.id,
+        name: updatedUser?.name || user.name,
+        email: updatedUser?.email || user.email,
+        role: updatedUser?.role || user.role,
+        phone: updatedUser?.phone || user.phone,
+        isVerified: true,
+      },
       ...tokens,
     });
   });
@@ -1693,10 +1707,10 @@ export function registerAuthJwtRoutes(app: Express) {
     // Consume OTP code
     await db.delete(otpCodes).where(eq(otpCodes.id, rows[0].id));
 
-    // Update user's email address in DB
+    // Update user's email address and set verified in DB
     const [updated] = await db
       .update(users)
-      .set({ email: cleanNewEmail, updatedAt: new Date() })
+      .set({ email: cleanNewEmail, isVerified: true, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
 
