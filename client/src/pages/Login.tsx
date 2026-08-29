@@ -52,7 +52,7 @@ export default function Login() {
 
   // ===================== LOGIN STATE =====================
   const [loginStep, setLoginStep] = useState<"credentials" | "otp">("credentials");
-  const [loginVerificationMethod, setLoginVerificationMethod] = useState<"email" | "whatsapp">("email");
+  const [loginVerificationMethod, setLoginVerificationMethod] = useState<"email" | "sms">("email");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -60,9 +60,9 @@ export default function Login() {
   const [loginOtpCode, setLoginOtpCode] = useState("");
   const [loginDevOtp, setLoginDevOtp] = useState<string | null>(null);
   const [loginTargetUserId, setLoginTargetUserId] = useState<number | null>(null);
-  const [loginWaData, setLoginWaData] = useState<{ code: string; formattedCode: string; waLink: string } | null>(null);
-  const [loginWaPhone, setLoginWaPhone] = useState("");
-  const [loginWaSentStep, setLoginWaSentStep] = useState<"not_sent" | "waiting_confirm">("not_sent");
+  const [loginSmsPhone, setLoginSmsPhone] = useState("");
+  const [loginSmsSent, setLoginSmsSent] = useState(false);
+  const [loginSmsOtpCode, setLoginSmsOtpCode] = useState("");
 
   // ===================== SIGNUP STATE =====================
   const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
@@ -337,61 +337,62 @@ export default function Login() {
     }
   }
 
-  const initiateLoginWhatsApp = async (phoneNum?: string, userId?: number | null) => {
-    try {
-      const cleanPhone = (phoneNum || loginWaPhone || "").replace(/\D/g, "").slice(-10);
-      const res = await apiRequest("POST", "/api/auth/whatsapp/initiate", {
-        phone: cleanPhone,
-        userId: userId || loginTargetUserId,
-        email: loginEmail.trim().toLowerCase(),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLoginWaData(data);
-      }
-    } catch (err: any) {
-      console.warn("[Login WhatsApp Initiate]:", err.message);
-    }
-  };
-
-  const handleLoginOpenWhatsAppLink = (e?: React.FormEvent) => {
+  const handleLoginSendSmsOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanPhone = loginWaPhone.replace(/\D/g, "").slice(-10);
+    const cleanPhone = loginSmsPhone.replace(/\D/g, "").slice(-10);
     if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
-      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number.", variant: "destructive" });
-      return;
-    }
-
-    if (loginWaData?.waLink) {
-      window.open(loginWaData.waLink, "_blank", "noopener,noreferrer");
-      setLoginWaSentStep("waiting_confirm");
-      toast({
-        title: "📲 WhatsApp Opened!",
-        description: "Please press 'Send' in WhatsApp, then click 'I Have Sent The Message' below.",
-      });
-    }
-  };
-
-  const handleLoginConfirmWhatsAppSent = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanPhone = loginWaPhone.replace(/\D/g, "").slice(-10);
-    const cleanCode = (loginWaData?.code || "").replace(/[^0-9]/g, "");
-
-    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
-      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number.", variant: "destructive" });
+      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.", variant: "destructive" });
       return;
     }
 
     setBusy(true);
     try {
-      const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
+      const res = await apiRequest("POST", "/api/auth/phone/send-otp", {
         phone: cleanPhone,
-        code: cleanCode,
         userId: loginTargetUserId,
         email: loginEmail.trim().toLowerCase(),
+        mode: "login",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "WhatsApp verification failed.");
+      if (!res.ok) throw new Error(data.message || "Failed to dispatch SMS code.");
+
+      setLoginSmsSent(true);
+      if (data.devOtp) setLoginDevOtp(data.devOtp);
+
+      toast({
+        title: "📲 6-Digit SMS Code Sent!",
+        description: `Security code dispatched to +91 ${cleanPhone}.`,
+      });
+    } catch (err: any) {
+      toast({ title: "SMS Send Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLoginVerifySmsOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPhone = loginSmsPhone.replace(/\D/g, "").slice(-10);
+    if (cleanPhone.length !== 10) {
+      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit mobile number.", variant: "destructive" });
+      return;
+    }
+    if (loginSmsOtpCode.trim().length !== 6) {
+      toast({ title: "Incomplete Code", description: "Please enter all 6 digits of the SMS verification code.", variant: "destructive" });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/phone/verify-otp", {
+        phone: cleanPhone,
+        otp: loginSmsOtpCode.trim(),
+        userId: loginTargetUserId,
+        email: loginEmail.trim().toLowerCase(),
+        mode: "login",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "SMS verification failed.");
 
       if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
@@ -399,7 +400,7 @@ export default function Login() {
 
       toast({
         title: "🏅 Verification Successful!",
-        description: "Mobile number verified via WhatsApp! Blue badge activated.",
+        description: "Mobile number verified via SMS! Blue badge activated.",
       });
 
       const redirectParam = new URLSearchParams(window.location.search).get("redirect");
@@ -844,7 +845,7 @@ export default function Login() {
                     </Button>
                   </form>
                 ) : (
-                  /* STEP 2: Choose Verification Method (Email vs WhatsApp) */
+                  /* STEP 2: Choose Verification Method (Email vs SMS OTP) */
                   <div className="space-y-4">
                     {/* Method Switcher */}
                     <div className="grid grid-cols-2 gap-2 p-1 bg-secondary/50 rounded-2xl border border-border">
@@ -861,17 +862,14 @@ export default function Login() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setLoginVerificationMethod("whatsapp");
-                          initiateLoginWhatsApp();
-                        }}
+                        onClick={() => setLoginVerificationMethod("sms")}
                         className={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          loginVerificationMethod === "whatsapp"
-                            ? "bg-emerald-600 text-white shadow-md"
+                          loginVerificationMethod === "sms"
+                            ? "bg-red-600 text-white shadow-md"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <span>💬 WhatsApp (1-Tap)</span>
+                        <span>📱 Mobile SMS OTP</span>
                       </button>
                     </div>
 
@@ -935,91 +933,98 @@ export default function Login() {
                         </div>
                       </form>
                     ) : (
-                      /* WHATSAPP VERIFICATION FORM (2-STEP) */
+                      /* MOBILE SMS OTP FORM */
                       <div className="space-y-4">
-                        <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
-                              <ShieldCheck size={15} /> Free WhatsApp Mobile Verification
-                            </span>
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-                              Instant &amp; Free
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            Send verification code from your mobile to our business WhatsApp (<b>+91 7989793669</b>) to sign in.
-                          </p>
-                        </div>
+                        {!loginSmsSent ? (
+                          <form onSubmit={handleLoginSendSmsOtp} className="space-y-4">
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-center mb-1">
+                                <Label className="text-xs font-bold text-foreground">10-Digit Mobile Number</Label>
+                                <button
+                                  type="button"
+                                  onClick={() => setLoginStep("credentials")}
+                                  className="text-[11px] text-muted-foreground hover:underline cursor-pointer font-bold"
+                                >
+                                  Change Credentials
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
+                                  🇮🇳 +91
+                                </span>
+                                <Input
+                                  type="tel"
+                                  maxLength={10}
+                                  value={loginSmsPhone}
+                                  onChange={(e) => setLoginSmsPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                  placeholder="9876543210"
+                                  className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
+                                  autoFocus
+                                  required
+                                />
+                              </div>
+                            </div>
 
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center mb-1">
-                            <Label className="text-xs font-bold text-foreground">Your 10-Digit Mobile Number</Label>
-                            <button
-                              type="button"
-                              onClick={() => setLoginStep("credentials")}
-                              className="text-[11px] text-muted-foreground hover:underline cursor-pointer font-bold"
-                            >
-                              Change Credentials
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
-                              🇮🇳 +91
-                            </span>
-                            <Input
-                              type="tel"
-                              maxLength={10}
-                              value={loginWaPhone}
-                              onChange={(e) => {
-                                setLoginWaPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
-                                setLoginWaSentStep("not_sent");
-                              }}
-                              placeholder="9876543210"
-                              className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
-                              autoFocus
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        {loginWaSentStep === "waiting_confirm" && (
-                          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1 text-center animate-in fade-in duration-200">
-                            <p className="text-xs font-black text-amber-500 dark:text-amber-400">📲 Step 1 Completed: WhatsApp Opened!</p>
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              Please press <strong className="text-foreground">Send</strong> in WhatsApp from <b>+91 {loginWaPhone}</b> to <b>+91 7989793669</b>, then tap the confirmation button below!
-                            </p>
-                          </div>
-                        )}
-
-                        {loginWaSentStep === "not_sent" ? (
-                          <Button
-                            type="button"
-                            onClick={handleLoginOpenWhatsAppLink}
-                            disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
-                            className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-lg cursor-pointer"
-                          >
-                            <span>💬 Step 1: Open WhatsApp &amp; Send Code ({loginWaData?.formattedCode || "FF-Code"}) ➔</span>
-                          </Button>
-                        ) : (
-                          <div className="space-y-2">
                             <Button
-                              type="button"
-                              onClick={handleLoginConfirmWhatsAppSent}
-                              disabled={busy || loginWaPhone.replace(/\D/g, "").length < 10}
-                              className="w-full py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-xl cursor-pointer"
+                              type="submit"
+                              disabled={busy || loginSmsPhone.replace(/\D/g, "").length < 10}
+                              className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
                             >
-                              {busy ? "Confirming Verification…" : "✅ Step 2: I Have Sent The Message — Verify & Sign In ➔"}
+                              {busy ? "Sending SMS Security Code…" : "Send 6-Digit SMS Security Code ➔"}
                             </Button>
+                          </form>
+                        ) : (
+                          <form onSubmit={handleLoginVerifySmsOtp} className="space-y-4">
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs font-bold text-red-500 dark:text-red-400">
+                                  Enter 6-Digit SMS Security Code
+                                </Label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setLoginSmsSent(false);
+                                    setLoginSmsOtpCode("");
+                                  }}
+                                  className="text-[11px] text-red-500 hover:underline font-bold"
+                                >
+                                  Change Mobile
+                                </button>
+                              </div>
+                              <Input
+                                type="text"
+                                maxLength={6}
+                                value={loginSmsOtpCode}
+                                onChange={(e) => setLoginSmsOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                placeholder="123456"
+                                className="text-center font-mono text-2xl font-black text-red-500 dark:text-red-400 bg-red-500/10 border-2 border-red-500/40 rounded-xl tracking-widest focus:border-red-500"
+                                autoFocus
+                                required
+                              />
+                              <p className="text-[10px] text-center text-muted-foreground">
+                                SMS code sent to: <span className="font-bold text-foreground">+91 {loginSmsPhone}</span>
+                              </p>
+                            </div>
+
+                            <Button
+                              type="submit"
+                              disabled={busy || loginSmsOtpCode.length < 6}
+                              className="w-full py-5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                            >
+                              {busy ? "Verifying Security Code…" : "Verify SMS & Sign In ➔"}
+                            </Button>
+
                             <div className="text-center">
                               <button
                                 type="button"
-                                onClick={handleLoginOpenWhatsAppLink}
-                                className="text-[11px] text-muted-foreground hover:text-emerald-400 underline font-semibold cursor-pointer"
+                                onClick={handleLoginSendSmsOtp}
+                                disabled={busy}
+                                className="text-[11px] text-muted-foreground hover:text-red-400 underline font-semibold cursor-pointer"
                               >
-                                Didn't open? Open WhatsApp again
+                                Didn't receive SMS? Resend Security Code
                               </button>
                             </div>
-                          </div>
+                          </form>
                         )}
                       </div>
                     )}

@@ -338,7 +338,7 @@ export default function Account() {
                   onClick={() => setShowVerifyModal(true)}
                   className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5"
                 >
-                  <Smartphone size={14} /> Verify Mobile via WhatsApp (Step 2)
+                  <Smartphone size={14} /> Verify Mobile via SMS OTP (Step 2)
                 </Button>
               )}
               <Button
