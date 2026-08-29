@@ -25,7 +25,7 @@ import type {
   UserSubscription, DiscountRule, ReferralCode, Payment,
   StarDiscountRule, InsertStarDiscountRule,
 } from "@shared/schema";
-import { eq, and, ilike, desc, sql, inArray, lte, gte } from "drizzle-orm";
+import { eq, and, or, ne, ilike, desc, sql, inArray, notInArray, isNull, lte, gte } from "drizzle-orm";
 
 /* ================================ USERS ============================== */
 export const userStore = {
@@ -43,9 +43,13 @@ export const userStore = {
   },
   async create(u: InsertUser & { role?: string; username?: string }) {
     const [r] = await db.insert(users).values({
-      name: u.name, email: u.email.toLowerCase(),
-      username: (u.username || u.email).toLowerCase(),
-      password: u.password, phone: u.phone ?? null, address: u.address ?? null,
+      name: u.name,
+      email: u.email.toLowerCase(),
+      username: u.username || u.email.toLowerCase(),
+      password: u.password,
+      phone: u.phone,
+      address: u.address,
+      pincode: u.pincode,
       role: u.role || "customer",
     }).returning();
     return r;
@@ -61,7 +65,23 @@ export const userStore = {
     return db.select().from(users).orderBy(desc(users.createdAt));
   },
   async listCustomers() {
-    return db.select().from(users).where(eq(users.role, "customer")).orderBy(desc(users.createdAt));
+    return db.select().from(users)
+      .where(
+        or(
+          eq(users.role, "customer"),
+          eq(users.role, "user"),
+          isNull(users.role),
+          and(
+            ne(users.isPrimaryAdmin, true),
+            notInArray(users.role, [
+              "admin", "superadmin", "manager_admin", "warehouse_admin",
+              "delivery_partner", "subadmin", "custom_subadmin", "customer_rep",
+              "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"
+            ])
+          )
+        )
+      )
+      .orderBy(desc(users.createdAt));
   },
 };
 
