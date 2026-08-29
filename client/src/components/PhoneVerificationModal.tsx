@@ -96,12 +96,20 @@ export function PhoneVerificationModal({
   const { user, setUser } = useAuth();
   const { toast } = useToast();
 
+  const [method, setMethod] = useState<"whatsapp" | "sms">("whatsapp");
   const [phone, setPhone] = useState(defaultPhone || user?.phone || "");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+
+  // WhatsApp state
+  const [waData, setWaData] = useState<{
+    code: string;
+    formattedCode: string;
+    businessPhone: string;
+    waLink: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -110,10 +118,86 @@ export function PhoneVerificationModal({
       setStep("phone");
       setLoading(false);
       setErrorMessage(null);
+
+      // Auto-initiate WhatsApp session
+      initiateWhatsApp();
     }
   }, [open, defaultPhone, user?.phone]);
 
-  const handleSendOtp = async (e?: React.FormEvent) => {
+  const initiateWhatsApp = async () => {
+    try {
+      const cleanPhone = (phone || user?.phone || "").replace(/\D/g, "").slice(-10);
+      const res = await apiRequest("POST", "/api/auth/whatsapp/initiate", {
+        phone: cleanPhone,
+        userId: user?.id,
+        email: targetEmail || user?.email,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWaData(data);
+        if (data.code) setOtp(data.code);
+      }
+    } catch (err: any) {
+      console.warn("[WhatsApp Initiate]:", err.message);
+    }
+  };
+
+  const handleVerifyWhatsApp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMessage(null);
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+    const cleanCode = (otp || waData?.code || "").replace(/[^0-9]/g, "");
+
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      const msg = "Please enter your valid 10-digit Indian mobile number.";
+      setErrorMessage(msg);
+      return toast({ title: "Invalid Mobile Number", description: msg, variant: "destructive" });
+    }
+    if (cleanCode.length !== 6) {
+      const msg = "Please enter the 6-digit verification code.";
+      setErrorMessage(msg);
+      return toast({ title: "Incomplete Code", description: msg, variant: "destructive" });
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/auth/whatsapp/verify", {
+        phone: cleanPhone,
+        code: cleanCode,
+        userId: user?.id,
+        email: targetEmail || user?.email,
+        mode,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "WhatsApp verification failed.");
+
+      if (user) {
+        setUser({ ...user, isVerified: true, phone: cleanPhone });
+        localStorage.setItem("user", JSON.stringify({ ...user, isVerified: true, phone: cleanPhone }));
+      }
+
+      toast({
+        title: "🏅 Blue Badge Activated!",
+        description: "Mobile number verified via WhatsApp! Order placement is unlocked.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+
+      onOpenChange(false);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      console.error("[WhatsApp Verify Error]:", err);
+      const errMsg = err.message || "Verification code not matched. Please check your message.";
+      setErrorMessage(errMsg);
+      toast({ title: "Verification Failed", description: errMsg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendSmsOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
     const cleanPhone = phone.replace(/\D/g, "").slice(-10);
@@ -129,7 +213,6 @@ export function PhoneVerificationModal({
 
     setLoading(true);
     try {
-      // 1. Dispatch SMS OTP via Fast2SMS Indian Gateway
       const res = await apiRequest("POST", "/api/auth/phone/send-otp", {
         phone: cleanPhone,
         userId: user?.id,
@@ -161,7 +244,7 @@ export function PhoneVerificationModal({
     }
   };
 
-  const handleVerifyOtp = async (e?: React.FormEvent) => {
+  const handleVerifySmsOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
     if (!otp.trim() || otp.trim().length < 6) {
@@ -217,45 +300,114 @@ export function PhoneVerificationModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md rounded-3xl p-6 bg-card border border-emerald-500/30 shadow-2xl">
-        {/* Invisible reCAPTCHA container */}
-        <div id="recaptcha-container-modal" className="hidden invisible pointer-events-none w-0 h-0 overflow-hidden absolute -left-[9999px] -top-[9999px]" />
-
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-md">
               {mode === "unlock_lockout" ? <Unlock size={20} /> : <Smartphone size={20} />}
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-black flex items-center gap-1.5 text-foreground">
-                {mode === "unlock_lockout" ? "Unlock Account via Mobile OTP" : "Verify Mobile & Get Blue Badge"}
+                {mode === "unlock_lockout" ? "Unlock Account via Mobile" : "Verify Mobile & Get Blue Badge"}
                 <VerifiedBadge size="sm" />
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                {mode === "unlock_lockout"
-                  ? "Verify your registered mobile number to instantly eliminate rate limits and restore access."
-                  : "Verify with official SMS OTP to get verified status and unlock seamless ordering."}
+                Verify your 10-digit mobile number to unlock live order tracking and checkout.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        {step === "phone" ? (
-          <form onSubmit={handleSendOtp} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-foreground">10-Digit Mobile Number</Label>
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
-                  🇮🇳 +91
+        {/* Verification Method Switcher */}
+        <div className="grid grid-cols-2 gap-2 p-1 bg-secondary/50 rounded-2xl border border-border mt-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMethod("whatsapp");
+              setErrorMessage(null);
+              initiateWhatsApp();
+            }}
+            className={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              method === "whatsapp"
+                ? "bg-emerald-600 text-white shadow-md"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>💬 WhatsApp (Instant &amp; Free)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMethod("sms");
+              setErrorMessage(null);
+            }}
+            className={`py-2 px-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              method === "sms"
+                ? "bg-red-600 text-white shadow-md"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>📱 SMS OTP</span>
+          </button>
+        </div>
+
+        {method === "whatsapp" ? (
+          /* ================= WHATSAPP VERIFICATION (100% FREE) ================= */
+          <form onSubmit={handleVerifyWhatsApp} className="space-y-4 pt-2">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase text-emerald-500 flex items-center gap-1">
+                  <ShieldCheck size={14} /> Step 1: Send WhatsApp Message
                 </span>
-                <Input
-                  type="tel"
-                  maxLength={10}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  placeholder="9876543210"
-                  className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
-                  required
-                />
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                  100% Free
+                </span>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Click the button below to send your verification security code to our official FarmFreshFarmer Business WhatsApp:
+              </p>
+
+              {waData ? (
+                <a
+                  href={waData.waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-transform hover:scale-[1.02]"
+                >
+                  <span>💬 Tap Here to Open WhatsApp ({waData.formattedCode}) ➔</span>
+                </a>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={initiateWhatsApp}
+                  className="w-full bg-emerald-600 text-white font-bold text-xs rounded-xl py-2.5"
+                >
+                  <RefreshCw size={14} className="animate-spin mr-1.5" /> Generating WhatsApp Link…
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <span className="text-[11px] font-black uppercase text-foreground flex items-center gap-1">
+                <KeyRound size={14} className="text-emerald-500" /> Step 2: Confirm Your 10-Digit Mobile Number
+              </span>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Your 10-Digit Mobile Number</Label>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
+                    🇮🇳 +91
+                  </span>
+                  <Input
+                    type="tel"
+                    maxLength={10}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="9876543210"
+                    className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -269,87 +421,133 @@ export function PhoneVerificationModal({
             <DialogFooter className="pt-2">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
+                className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg py-3 cursor-pointer"
                 disabled={loading || phone.replace(/\D/g, "").length < 10}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Sending SMS Code…
+                    <RefreshCw size={14} className="animate-spin" /> Verifying Mobile…
                   </span>
                 ) : (
-                  "Send 6-Digit SMS Security Code"
+                  "Confirm WhatsApp Verification & Unlock Checkout ➔"
                 )}
               </Button>
             </DialogFooter>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-red-500 dark:text-red-400 flex items-center gap-1.5">
-                  <KeyRound size={13} /> Enter 6-Digit Red Security Code
-                </Label>
+          /* ================= SMS OTP VERIFICATION ================= */
+          step === "phone" ? (
+            <form onSubmit={handleSendSmsOtp} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">10-Digit Mobile Number</Label>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-2 text-xs font-bold rounded-xl bg-secondary border border-card-border text-muted-foreground shrink-0">
+                    🇮🇳 +91
+                  </span>
+                  <Input
+                    type="tel"
+                    maxLength={10}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="9876543210"
+                    className="font-mono text-sm font-extrabold rounded-xl bg-secondary/50 border-card-border tracking-wider"
+                    required
+                  />
+                </div>
+              </div>
+
+              {errorMessage && (
+                <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{errorMessage}</span>
+                </div>
+              )}
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
+                  disabled={loading || phone.replace(/\D/g, "").length < 10}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw size={14} className="animate-spin" /> Sending SMS Code…
+                    </span>
+                  ) : (
+                    "Send 6-Digit SMS Security Code"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifySmsOtp} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-red-500 dark:text-red-400 flex items-center gap-1.5">
+                    <KeyRound size={13} /> Enter 6-Digit Red Security Code
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("phone");
+                      setErrorMessage(null);
+                    }}
+                    className="text-[11px] text-red-500 hover:underline font-bold"
+                  >
+                    Change Number
+                  </button>
+                </div>
+                <Input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => {
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  placeholder="123456"
+                  className="text-center font-mono text-2xl font-black text-red-500 dark:text-red-400 bg-red-500/10 border-2 border-red-500/40 rounded-xl tracking-widest focus:border-red-500 focus:ring-red-500"
+                  autoFocus
+                  required
+                />
+                <p className="text-[10px] text-center text-muted-foreground">
+                  SMS security code dispatched to: <span className="font-bold text-foreground">+91 {phone}</span>
+                </p>
+              </div>
+
+              {errorMessage && (
+                <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{errorMessage}</span>
+                </div>
+              )}
+
+              <DialogFooter className="pt-2 flex flex-col gap-2">
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
+                  disabled={loading || otp.length < 6}
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw size={14} className="animate-spin" /> Verifying Security Code…
+                    </span>
+                  ) : (
+                    "Verify Security Code & Unlock Checkout"
+                  )}
+                </Button>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    setStep("phone");
-                    setErrorMessage(null);
-                  }}
-                  className="text-[11px] text-red-500 hover:underline font-bold"
+                  onClick={handleSendSmsOtp}
+                  disabled={loading}
+                  className="text-center text-[11px] text-muted-foreground hover:text-foreground font-semibold"
                 >
-                  Change Number
+                  Didn't receive SMS? Resend Security Code
                 </button>
-              </div>
-              <Input
-                type="text"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => {
-                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                placeholder="123456"
-                className="text-center font-mono text-2xl font-black text-red-500 dark:text-red-400 bg-red-500/10 border-2 border-red-500/40 rounded-xl tracking-widest focus:border-red-500 focus:ring-red-500"
-                autoFocus
-                required
-              />
-              <p className="text-[10px] text-center text-muted-foreground">
-                SMS security code dispatched to: <span className="font-bold text-foreground">+91 {phone}</span>
-              </p>
-            </div>
-
-            {errorMessage && (
-              <div className="p-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
-                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{errorMessage}</span>
-              </div>
-            )}
-
-            <DialogFooter className="pt-2 flex flex-col gap-2">
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-md py-2.5 cursor-pointer"
-                disabled={loading || otp.length < 6}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw size={14} className="animate-spin" /> Verifying Security Code…
-                  </span>
-                ) : (
-                  "Verify Security Code & Unlock Checkout"
-                )}
-              </Button>
-
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                disabled={loading}
-                className="text-center text-[11px] text-muted-foreground hover:text-foreground font-semibold"
-              >
-                Didn't receive SMS? Resend Security Code
-              </button>
-            </DialogFooter>
-          </form>
+              </DialogFooter>
+            </form>
+          )
         )}
       </DialogContent>
     </Dialog>

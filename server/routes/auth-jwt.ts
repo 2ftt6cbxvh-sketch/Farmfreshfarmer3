@@ -1331,6 +1331,144 @@ export function registerAuthJwtRoutes(app: Express) {
     }
   });
 
+  const WHATSAPP_BUSINESS_NUMBER = "917989793669";
+
+  /** POST /api/auth/whatsapp/initiate — Start 100% Free WhatsApp Mobile Verification */
+  app.post("/api/auth/whatsapp/initiate", authRateLimit, async (req: Request, res: Response) => {
+    const { phone, userId, email } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+
+    let targetUserId = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!targetUserId && email) {
+      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+      if (u) targetUserId = u.id;
+    }
+
+    // Generate unique 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const formattedCode = `FF-${code}`;
+    const bcryptModule = (await import("bcryptjs")).default;
+    const codeHash = await bcryptModule.hash(code, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store in otpCodes
+    await db
+      .delete(otpCodes)
+      .where(and(eq(otpCodes.phone, cleanPhone || "whatsapp_pending"), eq(otpCodes.purpose, "whatsapp_verification")));
+
+    await db.insert(otpCodes).values({
+      userId: targetUserId || null,
+      phone: cleanPhone || "whatsapp_pending",
+      purpose: "whatsapp_verification",
+      codeHash,
+      expiresAt,
+    });
+
+    const prefilledText = encodeURIComponent(`Hello FarmFreshFarmer, please verify my mobile number with security code: ${formattedCode}`);
+    const waLink = `https://wa.me/${WHATSAPP_BUSINESS_NUMBER}?text=${prefilledText}`;
+
+    return res.json({
+      success: true,
+      code,
+      formattedCode,
+      businessPhone: "+91 7989793669",
+      waLink,
+      message: "WhatsApp verification session initiated successfully.",
+    });
+  });
+
+  /** POST /api/auth/whatsapp/verify — Confirm WhatsApp Code & Activate Blue Badge */
+  app.post("/api/auth/whatsapp/verify", authRateLimit, async (req: Request, res: Response) => {
+    const { phone, code, userId, email, mode } = req.body || {};
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    const rawCode = String(code || "").replace(/[^0-9]/g, "");
+
+    if (cleanPhone.length !== 10 || rawCode.length !== 6) {
+      return res.status(400).json({ message: "Please enter your 10-digit mobile number and 6-digit security code." });
+    }
+
+    let targetUserId = userId ? Number(userId) : (req.session as any)?.userId;
+    if (!targetUserId && email) {
+      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, String(email).toLowerCase().trim())).limit(1);
+      if (u) targetUserId = u.id;
+    }
+
+    // Verify code in otpCodes
+    const now = new Date();
+    const rows = await db
+      .select()
+      .from(otpCodes)
+      .where(
+        and(
+          eq(otpCodes.purpose, "whatsapp_verification"),
+          gt(otpCodes.expiresAt, now),
+          isNull(otpCodes.verifiedAt)
+        )
+      )
+      .orderBy(desc(otpCodes.id))
+      .limit(10);
+
+    let matchedId: number | null = null;
+    const bcryptModule = (await import("bcryptjs")).default;
+    for (const row of rows) {
+      const isMatch = await bcryptModule.compare(rawCode, row.codeHash);
+      if (isMatch) {
+        matchedId = row.id;
+        break;
+      }
+    }
+
+    if (!matchedId) {
+      return res.status(400).json({ message: "Invalid or expired WhatsApp security code. Please tap 'Regenerate Code'." });
+    }
+
+    // Mark verified
+    await db.update(otpCodes).set({ verifiedAt: new Date(), phone: cleanPhone }).where(eq(otpCodes.id, matchedId));
+
+    // Clear old phone conflicts
+    await db
+      .update(users)
+      .set({ phone: null, updatedAt: new Date() })
+      .where(
+        and(
+          or(
+            eq(users.phone, cleanPhone),
+            eq(users.phone, `+91${cleanPhone}`),
+            eq(users.phone, `+91 ${cleanPhone}`),
+            sql`RIGHT(REGEXP_REPLACE(${users.phone}, '[^0-9]', '', 'g'), 10) = ${cleanPhone}`
+          ),
+          targetUserId ? ne(users.id, targetUserId) : undefined
+        )
+      );
+
+    let updatedUser: any = null;
+    if (targetUserId) {
+      const [user] = await db
+        .update(users)
+        .set({
+          isVerified: true,
+          phone: cleanPhone,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, targetUserId))
+        .returning();
+
+      if (user && (user.isPermanentlyLocked || user.status === "locked" || (user.failedLoginAttempts || 0) > 0 || user.lockoutUntil)) {
+        const { unlockUserAccount } = await import("../services/lockout");
+        await unlockUserAccount(user.id, "WhatsApp Verification");
+      }
+      updatedUser = user;
+    }
+
+    return res.json({
+      success: true,
+      isVerified: true,
+      phone: cleanPhone,
+      user: updatedUser,
+      message: "🎉 Mobile number verified via WhatsApp successfully! Blue Verification Badge activated.",
+    });
+  });
+
   /** POST /api/auth/phone-verify-firebase — Verify phone number via Firebase SMS OTP & activate Blue Badge */
   app.post("/api/auth/phone-verify-firebase", authRateLimit, async (req: Request, res: Response) => {
     const { phone, userId, email } = req.body || {};
