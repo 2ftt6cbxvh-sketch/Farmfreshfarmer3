@@ -72,6 +72,9 @@ import { registerPerkRoutes } from "./routes/admin/perks";
 import { registerHeroShowcaseRoutes } from "./routes/admin/hero-showcase";
 import { registerAnnouncementRoutes } from "./routes/announcements";
 import gstRouter from "./routes/admin/gst";
+import { registerAdminWebAuthnRoutes } from "./routes/admin/webauthn";
+import { csrfProtection } from "./middleware/csrf";
+
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
   initiateRazorpayRefund, isRazorpayConfigured,
@@ -238,6 +241,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       },
     }),
   );
+
+  // CSRF protection — validates Origin/Referer for state-changing requests
+  app.use(csrfProtection);
 
   async function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (req.session?.userId) {
@@ -2653,6 +2659,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   // Admin security, warehouses, delivery, staff, partner routes
   registerAdminSecurityRoutes(app);
+  registerAdminWebAuthnRoutes(app);
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
   registerStaffRoutes(app);

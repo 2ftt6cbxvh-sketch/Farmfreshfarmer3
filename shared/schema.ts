@@ -54,6 +54,7 @@ export const users = pgTable("users", {
   lockoutUntil: timestamp("lockout_until", { withTimezone: true }),
   lockoutTier: integer("lockout_tier").notNull().default(0),
   isPermanentlyLocked: boolean("is_permanently_locked").notNull().default(false),
+  recoveryPending: boolean("recovery_pending").notNull().default(false),
   twoFaMethod: varchar("two_fa_method", { length: 32 }).notNull().default("both"), // totp | sms | both | none
   totpSecret: text("totp_secret"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -658,6 +659,14 @@ export const securityAuditLogs = pgTable("security_audit_logs", {
   userAgent: text("user_agent"),
   locationInfo: jsonb("location_info"), // { city, region, country } if available
   actionTaken: text("action_taken"),
+  // ── Phase-1 Security Hardening additions ───────────────────────────
+  requestId: varchar("request_id", { length: 64 }),                         // unique request tracing ID
+  severity: varchar("severity", { length: 16 }).notNull().default("info"),  // info | warning | critical
+  previousHash: text("previous_hash"),                                        // HMAC chain
+  eventHash: text("event_hash"),                                              // HMAC of this event
+  targetId: integer("target_id"),                                             // resource being acted on
+  targetType: varchar("target_type", { length: 64 }),                        // e.g. 'user', 'order', 'setting'
+  sessionFamilyId: varchar("session_family_id", { length: 64 }),             // refresh token family ID
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   eventIdx: index("security_audit_logs_event_idx").on(t.eventType),
@@ -665,6 +674,27 @@ export const securityAuditLogs = pgTable("security_audit_logs", {
   createdIdx: index("security_audit_logs_created_idx").on(t.createdAt),
 }));
 export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
+
+/* =================== WEBAUTHN CREDENTIALS =================== */
+export const webauthnCredentials = pgTable("webauthn_credentials", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  deviceType: varchar("device_type", { length: 32 }).notNull().default("platform"), // platform | cross-platform
+  backedUp: boolean("backed_up").notNull().default(false),
+  transports: text("transports"), // JSON array e.g. ["internal","hybrid"]
+  nickname: varchar("nickname", { length: 128 }).notNull().default("Passkey"),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("webauthn_creds_user_idx").on(t.userId),
+  credIdx: uniqueIndex("webauthn_creds_cred_idx").on(t.credentialId),
+}));
+export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
+
+
 
 /* ========================= STAR DISCOUNT RULES ======================== */
 // Configurable star-based discount tiers.
