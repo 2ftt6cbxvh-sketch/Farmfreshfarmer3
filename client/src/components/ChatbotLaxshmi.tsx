@@ -37,6 +37,8 @@ interface ChatMessage {
     id: number;
     name: string;
     price: string;
+    originalPrice?: string;
+    discountPercent?: string | number;
     unit: string;
     image: string;
     allowInternationalShipping: boolean;
@@ -1181,8 +1183,12 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   {/* Interactive Product Cards */}
                   {msg.products && msg.products.length > 0 && (
                     <div className="mt-2 space-y-2">
-                      {msg.products.map((p) => {
+                      {msg.products.map((p: any) => {
                         const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.qty || 0;
+                        const baseP = Number(p.originalPrice || p.price || 0);
+                        const disc = Number(p.discountPercent || 0);
+                        const currentPrice = disc > 0 && p.originalPrice ? Number(p.price) : disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+
                         return (
                           <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-emerald-300">
                             {p.image ? (
@@ -1194,8 +1200,16 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{p.name}</p>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">₹{p.price}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₹{currentPrice}</span>
+                                {disc > 0 && (
+                                  <span className="text-[10px] text-muted-foreground line-through font-semibold">₹{baseP}</span>
+                                )}
+                                {disc > 0 && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 rounded">
+                                    {Math.round(disc)}% OFF
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-gray-400">/ {p.unit}</span>
                               </div>
                               <div className="mt-0.5">
@@ -1212,12 +1226,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                             </div>
                             <Button
                               size="sm"
-                              onClick={() => handleAddToCart(p)}
-                              className={`h-7 px-2 text-[11px] font-bold gap-1 transition ${
-                                inCartQty > 0
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                              }`}
+                              onClick={() => handleAddToCart({ ...p, price: currentPrice, discountPercent: disc })}
+                              className="h-7 px-2 text-[11px] font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white transition"
                             >
                               <ShoppingCart size={11} />
                               {inCartQty > 0 ? `✓ ${inCartQty}` : "+ Add"}

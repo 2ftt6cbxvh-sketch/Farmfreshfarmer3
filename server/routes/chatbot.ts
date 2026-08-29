@@ -306,7 +306,8 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
     language: string,
     history?: Array<{ role: string; content: string }>,
     creatorContext?: string,
-    customerName?: string | null
+    customerName?: string | null,
+    activeOffersContext?: string
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) {
@@ -322,23 +323,33 @@ function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
 ${customerName ? `- MANDATORY INSTRUCTION: The customer chatting with you is logged in as "${customerName}". You MUST ALWAYS greet and address them directly by their name "${customerName}" in your response (e.g. "Namaste ${customerName}!", "Hello ${customerName}!", "Hi ${customerName}!"). NEVER use generic placeholders like "there" or "friend".` : '- If the customer is not logged in, greet them politely as a valued customer.'}
 - NEVER use hardcoded or generic template messages for everyone. Generate a dynamic, personalized response using your full AI capabilities and live database context.
 
+==================== REAL-TIME LIVE PRICING & DISCOUNTS RULE ====================
+- You have direct real-time access to our live PostgreSQL database product prices, flash sales, and active discounts.
+- ALWAYS quote the LIVE EFFECTIVE (DISCOUNTED) PRICE to customers.
+- If a product has an active discount or flash sale (e.g. 75% OFF on Mango Pickle), highlight BOTH the live deal price and the discount savings prominently (e.g. "Mango Pickle is currently on a special 75% OFF Flash Sale at just ₹55 per 500g! (Original MRP: ₹220, you save ₹165!)").
+- If asked about offers, sales, or discounts, list all currently active discounted products and active broadcasts.
+- NEVER quote stale, outdated, or pre-discount base prices as the current rate when a discount is active.
+
 ==================== LIVE DATABASE & SYSTEM CONTEXT ====================
-1. PRODUCT CATALOG & PRICING:
+1. PRODUCT CATALOG & REAL-TIME PRICING:
 ${fullProductsContext || 'No product catalog available.'}
 
-2. PRODUCT CATEGORIES:
+2. CURRENTLY ACTIVE LIVE STORE OFFERS, FLASH SALES & BROADCASTS:
+${activeOffersContext || '• All products available at standard daily harvest prices with instant 30-90 minute delivery across Vijayawada.'}
+
+3. PRODUCT CATEGORIES:
 ${categoriesContext || 'Fruits, Vegetables, Homemade Sweets, Avakaya Pickles, Millets, Pulses, Spices.'}
 
-3. CUSTOMER LOGIN, DASHBOARD & SECURITY HELP:
+4. CUSTOMER LOGIN, DASHBOARD & SECURITY HELP:
 ${securityAndAuthContext}
 
-4. STORE LEGAL POLICIES & TERMS:
+5. STORE LEGAL POLICIES & TERMS:
 ${legalContext}
 
-5. CUSTOMER SUPPORT & CONTACT INFORMATION:
+6. CUSTOMER SUPPORT & CONTACT INFORMATION:
 ${contactContext}
 
-6. CREATOR & INVENTOR INFORMATION:
+7. CREATOR & INVENTOR INFORMATION:
 ${creatorContext || `• Created & Invented by: Buddaraju Ganesh Sai Varma (Ganesh Varma)
 • Role: Creator & Architect of Lakshmi AI | Founder & Full-Stack Engineer of FarmFreshFarmer.com
 • Portfolio & Website: https://www.ganeshvarma.in/
@@ -594,9 +605,16 @@ Tone: Warm, polite, respectful, expert, and conversational in ${langName}.`;
         });
 
         if (matching.length > 0) {
-          const productList = matching.slice(0, 3).map((p: any) => `• ${p.name}: ₹${p.price} per ${p.unit || 'unit'}`).join('\n');
+          const productList = matching.slice(0, 5).map((p: any) => {
+            const basePrice = Number(p.price) || 0;
+            const discPercent = Number(p.discountPercent) || 0;
+            const effPrice = discPercent > 0 ? Math.round(basePrice * (1 - discPercent / 100) * 100) / 100 : basePrice;
+            const discountNote = discPercent > 0 ? ` (🔥 ${Math.round(discPercent)}% OFF! MRP: ₹${basePrice}, Deal Price: ₹${effPrice})` : ` ₹${effPrice}`;
+            return `• ${p.name}: ${discountNote} per ${p.unit || 'unit'}`;
+          }).join('\n');
+
           return {
-            reply: `Here are the current details for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes across Vijayawada!`,
+            reply: `Here are the current real-time prices for your search:\n${productList}\n\nAll items are harvested fresh daily and delivered in 30-90 minutes across Vijayawada!`,
             needsHuman: false,
           };
         }
@@ -1197,36 +1215,63 @@ function resolveCartQty(
 
       // Build live database context for Gemini AI
       let fullProductsContext = '';
+      let activeOffersContext = '';
       let categoriesContext = '';
       let matchedProducts: any[] = [];
       let globalActiveProducts: any[] = [];
 
       try {
-        const [activeProducts, categoriesList] = await Promise.all([
+        const [activeProducts, categoriesList, activeAdsRes] = await Promise.all([
           storage.products.list(),
           Promise.resolve(storage.categories ? await (storage.categories as any).list().catch(() => []) : []),
+          pool.query(`
+            SELECT a.title, a.message, a.category, p.name as product_name, p.price, p.discount_percent
+            FROM announcements a
+            LEFT JOIN products p ON a.product_id = p.id
+            WHERE a.is_active = TRUE AND (a.expires_at IS NULL OR a.expires_at > NOW())
+            ORDER BY a.priority DESC
+          `).catch(() => ({ rows: [] })),
         ]);
         globalActiveProducts = activeProducts;
+
+        if (activeAdsRes?.rows && activeAdsRes.rows.length > 0) {
+          activeOffersContext = activeAdsRes.rows.map((row: any) => {
+            const pName = row.product_name ? ` (Featured Product: ${row.product_name})` : '';
+            return `• [${String(row.category).toUpperCase()}] ${row.title}: ${row.message}${pName}`;
+          }).join('\n');
+        }
 
         if (activeProducts && activeProducts.length > 0) {
           fullProductsContext = activeProducts
             .slice(0, 100)
-            .map((p: any) => 
-              `• Product: ${p.name} | Price: ₹${p.price} per ${p.unit || 'unit'} | Category: ${p.categorySlug || 'General'} | Stock: ${p.stock > 0 ? 'In Stock (' + p.stock + ' available)' : 'Out of Stock'} | Scope: ${!p.allowInternationalShipping ? 'Local Vijayawada Farm Harvest Only' : 'Express Delivery'} | Description: ${p.description || '100% fresh natural produce'}`
-            )
+            .map((p: any) => {
+              const basePrice = Number(p.price) || 0;
+              const discPercent = Number(p.discountPercent) || 0;
+              const effPrice = discPercent > 0 ? Math.round(basePrice * (1 - discPercent / 100) * 100) / 100 : basePrice;
+              const discountDetails = discPercent > 0
+                ? ` | 🔥 LIVE OFFER: ₹${effPrice} (${Math.round(discPercent)}% OFF! Base MRP: ₹${basePrice}, Save ₹${Math.round((basePrice - effPrice) * 100) / 100})`
+                : ` | Price: ₹${basePrice}`;
+              return `• Product: ${p.name}${discountDetails} per ${p.unit || 'unit'} | Category: ${p.categorySlug || 'General'} | Stock: ${p.stock > 0 ? 'In Stock (' + p.stock + ' available)' : 'Out of Stock'} | Scope: ${!p.allowInternationalShipping ? 'Local Vijayawada Farm Harvest Only' : 'Express Delivery'} | Description: ${p.description || '100% fresh natural produce'}`;
+            })
             .join('\n');
 
-          matchedProducts = matchProductsFuzzy(message, activeProducts).map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: String(p.price),
-            discountPercent: String(p.discountPercent || 0),
-            unit: p.unit || 'unit',
-            image: p.image,
-            stock: p.stock,
-            allowInternationalShipping: p.allowInternationalShipping,
-            categorySlug: p.categorySlug,
-          })).slice(0, 4);
+          matchedProducts = matchProductsFuzzy(message, activeProducts).map((p: any) => {
+            const baseP = Number(p.price) || 0;
+            const disc = Number(p.discountPercent || 0);
+            const effPrice = disc > 0 ? Math.round(baseP * (1 - disc / 100) * 100) / 100 : baseP;
+            return {
+              id: p.id,
+              name: p.name,
+              price: String(effPrice),
+              originalPrice: disc > 0 ? String(baseP) : undefined,
+              discountPercent: String(disc),
+              unit: p.unit || 'unit',
+              image: p.image,
+              stock: p.stock,
+              allowInternationalShipping: p.allowInternationalShipping,
+              categorySlug: p.categorySlug,
+            };
+          }).slice(0, 4);
         }
 
         if (categoriesList && categoriesList.length > 0) {
@@ -1332,7 +1377,8 @@ function resolveCartQty(
           lang,
           history,
           creatorContext,
-          customerName
+          customerName,
+          activeOffersContext
         );
       }
 
