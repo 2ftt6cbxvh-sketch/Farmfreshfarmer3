@@ -139,59 +139,76 @@ export function BroadcastPopupModal() {
           </p>
 
           {/* Interactive Attached Product Card (for Green Advertisements) */}
-          {isAd && activePopup.product && (
-            <div className="p-3.5 rounded-2xl bg-secondary/50 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
-              <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
-                {activePopup.product.image ? (
-                  <img
-                    src={imgUrl(activePopup.product.image)}
-                    alt={activePopup.product.name}
-                    className="w-16 h-16 rounded-xl object-cover border border-border shadow-sm shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-emerald-950/30 flex items-center justify-center text-2xl shrink-0">
-                    🌱
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-extrabold text-foreground truncate">{activePopup.product.name}</h4>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-sm font-black text-emerald-500">
-                      {formatINR(Number(activePopup.product.price))}
-                    </span>
-                    {activePopup.product.originalPrice && Number(activePopup.product.originalPrice) > Number(activePopup.product.price) && (
-                      <span className="text-xs text-muted-foreground line-through">
-                        {formatINR(Number(activePopup.product.originalPrice))}
+          {isAd && activePopup.product && (() => {
+            const basePrice = Number(activePopup.product.price || 0);
+            const discountPct = Number(activePopup.product.discountPercent || 0);
+            const currentPrice = discountPct > 0 ? (basePrice * (1 - discountPct / 100)) : basePrice;
+
+            return (
+              <div className="p-3.5 rounded-2xl bg-secondary/50 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
+                  {activePopup.product.image ? (
+                    <img
+                      src={imgUrl(activePopup.product.image)}
+                      alt={activePopup.product.name}
+                      className="w-16 h-16 rounded-xl object-cover border border-border shadow-sm shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-emerald-950/30 flex items-center justify-center text-2xl shrink-0">
+                      🌱
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-extrabold text-foreground truncate">{activePopup.product.name}</h4>
+                      {discountPct > 0 && (
+                        <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {Math.round(discountPct)}% OFF
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-base font-black text-emerald-400">
+                        {formatINR(currentPrice)}
                       </span>
+                      {discountPct > 0 && (
+                        <span className="text-xs text-muted-foreground line-through font-semibold">
+                          {formatINR(basePrice)}
+                        </span>
+                      )}
+                    </div>
+                    {activePopup.product.unit && (
+                      <span className="text-[10px] text-muted-foreground">{activePopup.product.unit}</span>
                     )}
                   </div>
-                  {activePopup.product.unit && (
-                    <span className="text-[10px] text-muted-foreground">{activePopup.product.unit}</span>
-                  )}
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <Link
+                    href={`/product/${activePopup.product.id}`}
+                    onClick={handleClose}
+                    className="flex-1 sm:flex-none text-center px-3 py-2 text-xs font-bold rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all"
+                  >
+                    Details
+                  </Link>
+                  <Button
+                    className="flex-1 sm:flex-none px-4 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md gap-1.5"
+                    onClick={() => {
+                      addToCart({
+                        ...activePopup.product,
+                        price: currentPrice,
+                        discountPercent: discountPct,
+                      } as any);
+                      handleClose();
+                    }}
+                  >
+                    <ShoppingBag size={14} />
+                    <span>Add to Cart</span>
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                <Link
-                  href={`/products/${activePopup.product.id}`}
-                  onClick={handleClose}
-                  className="flex-1 sm:flex-none text-center px-3 py-2 text-xs font-bold rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all"
-                >
-                  Details
-                </Link>
-                <Button
-                  className="flex-1 sm:flex-none px-4 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md gap-1.5"
-                  onClick={() => {
-                    addToCart(activePopup.product as any);
-                    handleClose();
-                  }}
-                >
-                  <ShoppingBag size={14} />
-                  <span>Add to Cart</span>
-                </Button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Action Buttons */}
           <div className="pt-2 flex justify-end gap-2">
