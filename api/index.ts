@@ -15,9 +15,10 @@ export default async function handler(req: Request, res: Response) {
       isReady = true;
     }
   } catch (e: any) {
-    console.error("[vercel] handler error:", e?.message || e);
+    console.error("[vercel] handler boot error:", e?.message || e);
+    isReady = false;
     return res.status(503).json({
-      error: "Service starting up, please retry",
+      error: "Service initializing, please retry in a moment",
       detail: e?.message || String(e),
     });
   }

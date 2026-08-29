@@ -6,6 +6,7 @@ import { db } from "../../db";
 import { refreshTokens, securityAuditLogs, users } from "@shared/schema";
 import { eq, isNull, desc } from "drizzle-orm";
 import { getLockdownStatus, setLockdown } from "../../services/lockdown";
+import { authRateLimit } from "../../middleware/rate-limit";
 
 async function requirePrimaryAdmin(req: Request, res: Response, next: Function) {
   let userId: number | undefined = (req as any).jwtUser?.userId || req.session?.userId;
