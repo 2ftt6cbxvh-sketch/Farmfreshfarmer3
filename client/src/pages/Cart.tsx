@@ -258,8 +258,7 @@ export default function Cart() {
   const { data: allProducts = [] } = useQuery<any[]>({
     queryKey: ["/api/products"],
     queryFn: () => apiGet<any[]>("/api/products"),
-    refetchInterval: 3000,
-    staleTime: 0,
+    staleTime: 10000,
   });
 
   const { data: allPlans = [] } = useQuery<any[]>({
@@ -347,12 +346,16 @@ export default function Cart() {
     onError: () => setQuote(null),
   });
 
-  // Re-fetch the live quote whenever items/products/coupon/referral/redeem toggle change.
+  // Re-fetch the live quote whenever items/coupon/referral/redeem toggle change.
+  const itemsFingerprint = items.map((i) => `${i.productId}:${i.qty}:${i.price}`).join(",");
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      setQuote(null);
+      return;
+    }
     quoteMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length, items.map((i) => `${i.productId}:${i.qty}`).join(","), allProducts, coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
+  }, [itemsFingerprint, coupon?.code, referralInput, redeemReward, city, deliveryRes?.pincode]);
 
   const isLocationUnserviceable = !isInternationalDelivery && deliveryRes && deliveryRes.serviceable === false;
 

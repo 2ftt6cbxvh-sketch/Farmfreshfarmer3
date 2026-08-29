@@ -227,8 +227,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [items]);
 
-  // Real-time live price synchronizer: checks every 4 seconds and on window focus
-  // so any admin price change or discount update is instantly reflected in the cart & checkout
+  // Real-time live price synchronizer: periodically updates cart items' prices from live products
   useEffect(() => {
     if (items.length === 0) return;
     let isCancelled = false;
@@ -246,7 +245,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             const liveProd = productsList.find((p) => p.id === item.productId);
             if (!liveProd) return item;
             const livePrice = effectivePrice(Number(liveProd.price), Number(liveProd.discountPercent || 0));
-            if (item.price !== livePrice || item.name !== liveProd.name || (liveProd.image && item.image !== liveProd.image)) {
+            if (Math.abs(Number(item.price) - livePrice) > 0.01 || item.name !== liveProd.name) {
               hasPriceChanged = true;
               return {
                 ...item,
@@ -259,19 +258,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
             return item;
           });
 
-          return hasPriceChanged ? updated : currentItems;
+          return hasPriceChanged ? consolidateCartItems(updated) : currentItems;
         });
       } catch {}
     }
 
-    syncLivePrices();
-    const interval = setInterval(syncLivePrices, 4000);
-    window.addEventListener("focus", syncLivePrices);
+    const timer = setTimeout(syncLivePrices, 1000);
+    const interval = setInterval(syncLivePrices, 10000);
 
     return () => {
       isCancelled = true;
+      clearTimeout(timer);
       clearInterval(interval);
-      window.removeEventListener("focus", syncLivePrices);
     };
   }, [items.length]);
 
