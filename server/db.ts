@@ -208,6 +208,33 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.webauthn_credentials"],
       ["CREATE UNIQUE INDEX IF NOT EXISTS webauthn_creds_cred_idx ON webauthn_credentials(credential_id)", "idx.webauthn_creds_cred"],
       ["CREATE INDEX IF NOT EXISTS webauthn_creds_user_idx ON webauthn_credentials(user_id)", "idx.webauthn_creds_user"],
+      // ── 1-TIME COUPONS & EMAIL CAMPAIGNS MIGRATIONS ──
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_uses INTEGER NOT NULL DEFAULT 1", "coupons.max_uses"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS used_count INTEGER NOT NULL DEFAULT 0", "coupons.used_count"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS restricted_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE", "coupons.restricted_user_id"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS restricted_email VARCHAR(255)", "coupons.restricted_email"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS is_one_time BOOLEAN NOT NULL DEFAULT FALSE", "coupons.is_one_time"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE", "coupons.expires_at"],
+      ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS campaign_category VARCHAR(64) DEFAULT 'standard'", "coupons.campaign_category"],
+      [`CREATE TABLE IF NOT EXISTS email_campaigns (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          category VARCHAR(32) NOT NULL DEFAULT 'promotional',
+          target_type VARCHAR(32) NOT NULL DEFAULT 'all',
+          target_segment TEXT,
+          target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          target_email VARCHAR(255),
+          content_html TEXT NOT NULL,
+          coupon_code VARCHAR(64),
+          total_recipients INTEGER DEFAULT 0,
+          sent_count INTEGER DEFAULT 0,
+          failed_count INTEGER DEFAULT 0,
+          status VARCHAR(32) DEFAULT 'completed',
+          created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.email_campaigns"],
+      ["CREATE INDEX IF NOT EXISTS email_campaigns_created_at_idx ON email_campaigns(created_at)", "idx.email_campaigns_created_at"],
     ];
 
     for (const [sql, label] of stmts) {

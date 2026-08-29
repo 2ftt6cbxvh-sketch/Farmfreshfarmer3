@@ -76,6 +76,7 @@ import { registerAnnouncementRoutes } from "./routes/announcements";
 import gstRouter from "./routes/admin/gst";
 import { registerAdminWebAuthnRoutes } from "./routes/admin/webauthn";
 import { registerAdminSessionRoutes } from "./routes/admin/sessions";
+import { registerAdminMarketingRoutes } from "./routes/admin/marketing";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -1173,14 +1174,33 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.get("/api/coupons/validate", h(async (req, res) => {
     const code = String(req.query.code || "").trim().toUpperCase();
     const subtotal = Number(req.query.subtotal) || 0;
-    const coupon = await storage.coupons.getByCode(code);
-    if (!coupon || !coupon.active) return res.json({ valid: false, message: "Invalid or inactive code" });
+    const userId = req.session?.userId || (req as any).jwtUser?.userId;
+    const coupon: any = await storage.coupons.getByCode(code);
+    if (!coupon || !coupon.active) return res.json({ valid: false, message: "Invalid or inactive coupon code" });
+
+    // Expiry check
+    if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now()) {
+      return res.json({ valid: false, message: "This coupon code has expired." });
+    }
+
+    // Usage check
+    if (coupon.maxUses > 0 && Number(coupon.usedCount || 0) >= Number(coupon.maxUses)) {
+      return res.json({ valid: false, message: "This one-time coupon has already been redeemed." });
+    }
+
+    // User restriction check
+    if (coupon.restrictedUserId) {
+      if (!userId || Number(coupon.restrictedUserId) !== Number(userId)) {
+        return res.json({ valid: false, message: "This exclusive coupon is reserved for another customer account." });
+      }
+    }
+
     const minOrder = parseFloat(String(coupon.minOrder || "0")) || 0;
     if (subtotal > 0 && subtotal < minOrder) {
-      return res.json({ valid: false, message: `Minimum order ₹${minOrder} required` });
+      return res.json({ valid: false, message: `Minimum order ₹${minOrder} required for this coupon` });
     }
     const discountPercent = parseFloat(String(coupon.discountPercent || "0")) || 10;
-    res.json({ valid: true, code: coupon.code, discountPercent });
+    res.json({ valid: true, code: coupon.code, discountPercent, isOneTime: coupon.isOneTime });
   }));
 
   /* =================== STAR DISCOUNT RULES ========================= */
@@ -2922,6 +2942,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   registerAdminSecurityRoutes(app);
   registerAdminWebAuthnRoutes(app);
   registerAdminSessionRoutes(app);
+  registerAdminMarketingRoutes(app);
   registerAdminWarehouseRoutes(app);
   registerAdminDeliveryRoutes(app);
   registerStaffRoutes(app);

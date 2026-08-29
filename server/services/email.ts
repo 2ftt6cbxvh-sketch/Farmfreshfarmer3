@@ -356,6 +356,30 @@ export function buildWelcomeRegistrationEmailHtml(
                     </a>
                   </div>
 
+                  <!-- Terms & Conditions Summary Box -->
+                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; margin: 20px 0;">
+                    <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+                      📜 Important Terms of Service &amp; Quality Guarantee:
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 12px; color: #334155; line-height: 1.5;">
+                      🌱 <strong>100% Chemical-Free Guarantee:</strong> Directly sourced from certified organic farmers across Andhra Pradesh.
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 12px; color: #334155; line-height: 1.5;">
+                      ⚡ <strong>Express Delivery (30–90 Mins):</strong> Orders are dispatched from local micro-hubs within minutes of morning harvest.
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 12px; color: #334155; line-height: 1.5;">
+                      🛡️ <strong>2-Hour Doorstep Return:</strong> Perishable items can be returned/refunded within 2 hours of delivery if unsatisfactory.
+                    </div>
+                    <div style="font-size: 12px; color: #334155; line-height: 1.5;">
+                      🔒 <strong>Data Privacy:</strong> Fully protected under the Digital Personal Data Protection (DPDP) Act 2023. We never sell your personal data.
+                    </div>
+                    <div style="margin-top: 12px; text-align: center; font-size: 11px;">
+                      <a href="https://farmfreshfarmer.com/terms" style="color: #16a34a; font-weight: 700; text-decoration: underline; margin: 0 6px;">Full Terms &amp; Conditions</a> • 
+                      <a href="https://farmfreshfarmer.com/privacy" style="color: #16a34a; font-weight: 700; text-decoration: underline; margin: 0 6px;">Privacy Policy</a> • 
+                      <a href="https://farmfreshfarmer.com/refund" style="color: #16a34a; font-weight: 700; text-decoration: underline; margin: 0 6px;">Refund Policy</a>
+                    </div>
+                  </div>
+
                   <!-- Account Details Box -->
                   <div style="background-color: #f1f5f9; border-radius: 12px; padding: 16px; margin: 20px 0; font-size: 12px; color: #334155;">
                     <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px;">📋 Account Registration Details:</div>

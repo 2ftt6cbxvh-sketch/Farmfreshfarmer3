@@ -63,6 +63,7 @@ import { AdminLiveChat } from "@/pages/admin/AdminLiveChat";
 import AdminTickets from "@/pages/admin/AdminTickets";
 import AdminRefunds from "@/pages/admin/AdminRefunds";
 import AdminAdvertisements from "@/pages/admin/AdminAdvertisements";
+import AdminMarketing from "@/pages/admin/AdminMarketing";
 import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
 import { AdminDirectAccessWarning } from "@/pages/admin/AdminDirectAccessWarning";
 
@@ -242,6 +243,12 @@ function AppRouter() {
           </Route>
           <Route path="/admin/announcements">
             {() => <AdminGuard component={AdminAdvertisements} path="/admin/announcements" />}
+          </Route>
+          <Route path="/admin/marketing">
+            {() => <AdminGuard component={AdminMarketing} path="/admin/marketing" />}
+          </Route>
+          <Route path="/admin/campaigns">
+            {() => <AdminGuard component={AdminMarketing} path="/admin/campaigns" />}
           </Route>
           <Route path="/partner-portal" component={DeliveryPartnerPortal} />
           <Route path="/admin/settings">

@@ -94,6 +94,26 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     discountBreakdown: price.breakdown,
   });
 
+  // Increment coupon usage count for 1-time or limited use coupons
+  if (price.couponCode) {
+    try {
+      const { db } = await import("../db");
+      const { coupons: couponsTable } = await import("@shared/schema");
+      const { eq, sql } = await import("drizzle-orm");
+      await db.update(couponsTable).set({
+        usedCount: sql`${couponsTable.usedCount} + 1`,
+      }).where(eq(couponsTable.code, price.couponCode));
+
+      // Auto-deactivate if maxUses reached
+      const [c] = await db.select().from(couponsTable).where(eq(couponsTable.code, price.couponCode)).limit(1);
+      if (c && c.maxUses > 0 && c.usedCount >= c.maxUses) {
+        await db.update(couponsTable).set({ active: false }).where(eq(couponsTable.id, c.id));
+      }
+    } catch (couponErr: any) {
+      console.warn("[coupon usage increment note]:", couponErr?.message);
+    }
+  }
+
   // AUTO-ALLOCATION FCFS DISPATCH ENGINE:
   // Allocate order to earliest available delivery partner who clicked "I am Available" first
   try {

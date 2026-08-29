@@ -336,14 +336,43 @@ export const coupons = pgTable("coupons", {
   discountPercent: numeric("discount_percent", { precision: 5, scale: 2 }).notNull(),
   active: boolean("active").notNull().default(true),
   minOrder: numeric("min_order", { precision: 10, scale: 2 }).notNull().default("0"),
+  maxUses: integer("max_uses").notNull().default(1),
+  usedCount: integer("used_count").notNull().default(0),
+  restrictedUserId: integer("restricted_user_id").references(() => users.id, { onDelete: "cascade" }),
+  restrictedEmail: varchar("restricted_email", { length: 255 }),
+  isOneTime: boolean("is_one_time").notNull().default(false),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  campaignCategory: varchar("campaign_category", { length: 64 }).default("standard"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export const insertCouponSchema = createInsertSchema(coupons, {
   discountPercent: z.coerce.number().min(0).max(100),
   minOrder: z.coerce.number().min(0).optional(),
+  maxUses: z.coerce.number().min(0).optional(),
 }).omit({ id: true, createdAt: true });
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Coupon = typeof coupons.$inferSelect;
+
+/* ========================= EMAIL CAMPAIGNS ========================= */
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  subject: text("subject").notNull(),
+  category: varchar("category", { length: 32 }).notNull().default("promotional"), // promotional | transactional | legal | emergency
+  targetType: varchar("target_type", { length: 32 }).notNull().default("all"), // all | segment | individual | abandoned_cart
+  targetSegment: text("target_segment"), // json
+  targetUserId: integer("target_user_id").references(() => users.id, { onDelete: "set null" }),
+  targetEmail: varchar("target_email", { length: 255 }),
+  contentHtml: text("content_html").notNull(),
+  couponCode: varchar("coupon_code", { length: 64 }),
+  totalRecipients: integer("total_recipients").default(0),
+  sentCount: integer("sent_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  status: varchar("status", { length: 32 }).default("completed"), // draft | sending | completed | failed
+  createdById: integer("created_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 
 /* ========================= SUBSCRIPTION PLANS ===================== */
 export const subscriptionPlans = pgTable("subscription_plans", {

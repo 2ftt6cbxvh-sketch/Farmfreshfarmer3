@@ -331,13 +331,26 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     }
   }
 
-  // ---- Coupon (existing system), applies on subtotal ----
+  // ---- Coupon (Security-hardened 1-Time & User-Locked System) ----
   if (req.couponCode) {
-    const coupon = await storage.coupons.getByCode(req.couponCode);
-    if (coupon && coupon.active && subtotal >= Number(coupon.minOrder)) {
-      couponDiscount = round2(subtotal * (Number(coupon.discountPercent) / 100));
-      couponCode = coupon.code;
-      breakdown.push({ ruleType: "coupon", label: `Coupon ${coupon.code} (${Number(coupon.discountPercent)}% off)`, amount: couponDiscount });
+    const coupon: any = await storage.coupons.getByCode(req.couponCode);
+    if (coupon && coupon.active) {
+      const isExpired = coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now();
+      const isExhausted = coupon.maxUses > 0 && Number(coupon.usedCount || 0) >= Number(coupon.maxUses);
+      
+      let isUserAllowed = true;
+      if (coupon.restrictedUserId && req.userId && Number(coupon.restrictedUserId) !== Number(req.userId)) {
+        isUserAllowed = false;
+      }
+      if (coupon.restrictedUserId && !req.userId) {
+        isUserAllowed = false;
+      }
+
+      if (!isExpired && !isExhausted && isUserAllowed && subtotal >= Number(coupon.minOrder)) {
+        couponDiscount = round2(subtotal * (Number(coupon.discountPercent) / 100));
+        couponCode = coupon.code;
+        breakdown.push({ ruleType: "coupon", label: `Coupon ${coupon.code} (${Number(coupon.discountPercent)}% off)`, amount: couponDiscount });
+      }
     }
   }
 
