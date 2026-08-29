@@ -565,13 +565,36 @@ export default function Cart() {
   return (
     <Layout>
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold mb-4">Your cart</h1>
-
+        {!user && (
+          <div className="bg-gradient-to-r from-emerald-950/60 via-card to-background border-2 border-emerald-500/50 rounded-2xl p-4 sm:p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-sm">
+                <LogIn size={22} />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-foreground text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                  <span>Please Sign In to Access Checkout</span>
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">Required</span>
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your fresh cart items are preserved. Please log in or create an account to proceed with delivery and payments.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate('/login?redirect=/cart')}
+              className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shrink-0 cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-emerald-950/40"
+            >
+              <LogIn size={15} />
+              <span>Login / Register ➔</span>
+            </Button>
+          </div>
+        )}
 
         {user && !user.phone && (
           <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 mb-4 flex items-center justify-between">
             <span className="text-amber-500 font-bold text-sm">📱 Add your phone number to receive order delivery updates</span>
-            <button onClick={() => navigate('/account')} className="text-xs bg-amber-500 text-black font-black px-3 py-1.5 rounded-xl">Add Now</button>
+            <button onClick={() => navigate('/account')} className="text-xs bg-amber-500 text-black font-black px-3 py-1.5 rounded-xl cursor-pointer">Add Now</button>
           </div>
         )}
 
