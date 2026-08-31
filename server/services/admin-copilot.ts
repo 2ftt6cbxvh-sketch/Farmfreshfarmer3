@@ -37,9 +37,16 @@ export interface CopilotResponse {
 /** Retrieve Gemini API key from settings or environment */
 async function getGeminiApiKey(): Promise<string> {
   try {
+    const { storage } = await import("../storage");
+    const all = await storage.settings.all();
+    const k = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+    if (k.length > 5) return k;
+  } catch {}
+
+  try {
     const allSettings = await db.select().from(settings);
     const keySetting = allSettings.find((s) => s.key === "gemini_api_key");
-    if (keySetting && keySetting.value && keySetting.value.trim().length > 10) {
+    if (keySetting && keySetting.value && keySetting.value.trim().length > 5) {
       return keySetting.value.trim();
     }
   } catch {}
@@ -362,18 +369,57 @@ GUIDELINES:
 <<<FOLLOWUPS:["Question 1", "Question 2", "Question 3"]>>>
 `;
 
-  // Build prompt from conversation history
-  const contents = messages.map((m) => ({
-    role: m.role === "assistant" || m.role === "model" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  // Build prompt from conversation history with strict Gemini structural validity
+  // 1. Map messages to user/model roles
+  const rawContents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+  for (const m of messages) {
+    if (!m.content || !m.content.trim()) continue;
+    const role = m.role === "assistant" || m.role === "model" ? ("model" as const) : ("user" as const);
+    rawContents.push({
+      role,
+      parts: [{ text: String(m.content).slice(0, 2000) }],
+    });
+  }
+
+  // 2. Strip leading 'model' messages (e.g. initial greeting) — Gemini requires first message to be 'user'
+  while (rawContents.length > 0 && rawContents[0].role === "model") {
+    rawContents.shift();
+  }
+
+  // 3. Fallback if empty
+  if (rawContents.length === 0) {
+    rawContents.push({
+      role: "user",
+      parts: [{ text: "Hello Vishnu AI, please summarize operational status." }],
+    });
+  }
+
+  // 4. Merge adjacent same-role messages so turns strictly alternate
+  const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+  for (const c of rawContents) {
+    if (contents.length > 0 && contents[contents.length - 1].role === c.role) {
+      contents[contents.length - 1].parts[0].text += "\n" + c.parts[0].text;
+    } else {
+      contents.push(c);
+    }
+  }
+
+  // Helper: extract reply text skipping thinking parts
+  function extractReplyText(parts: Array<{ text?: string; thought?: boolean }>): string {
+    if (!Array.isArray(parts)) return "";
+    const actualPart = parts.find((p) => !p.thought && typeof p.text === "string" && p.text.trim().length > 0);
+    if (actualPart?.text?.trim()) return actualPart.text.trim();
+    const anyText = parts.find((p) => typeof p.text === "string" && p.text.trim().length > 0);
+    return anyText?.text?.trim() || "";
+  }
 
   const candidateModels = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash-exp",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
   ];
 
   let rawReply = "";
@@ -385,7 +431,10 @@ GUIDELINES:
       const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
       const res = await fetch(restUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiKey,
+        },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents,
@@ -398,8 +447,12 @@ GUIDELINES:
 
       if (res.ok) {
         const data = await res.json();
-        rawReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (rawReply) break;
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const replyText = extractReplyText(parts);
+        if (replyText && replyText.length > 0) {
+          rawReply = replyText;
+          break;
+        }
       }
     } catch (err: any) {
       console.warn(`[copilot] REST model ${mName} error:`, err?.message);
@@ -418,8 +471,11 @@ GUIDELINES:
           generationConfig: { temperature: 0.3, maxOutputTokens: 1500 },
         });
         const result = await model.generateContent({ contents });
-        rawReply = (await result.response).text();
-        if (rawReply) break;
+        const text = (await result.response).text();
+        if (text && text.trim().length > 0) {
+          rawReply = text.trim();
+          break;
+        }
       } catch (err: any) {
         console.warn(`[copilot] SDK model ${mName} error:`, err?.message);
       }

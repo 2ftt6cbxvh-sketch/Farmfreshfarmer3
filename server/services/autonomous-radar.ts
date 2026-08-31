@@ -21,9 +21,16 @@ import { sendTelegramExecutiveAlert } from "./telegram";
 /** Retrieve Gemini API key from settings or environment */
 async function getGeminiApiKey(): Promise<string> {
   try {
+    const { storage } = await import("../storage");
+    const all = await storage.settings.all();
+    const k = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+    if (k.length > 5) return k;
+  } catch {}
+
+  try {
     const allSettings = await db.select().from(settings);
     const keySetting = allSettings.find((s) => s.key === "gemini_api_key");
-    if (keySetting && keySetting.value && keySetting.value.trim().length > 10) {
+    if (keySetting && keySetting.value && keySetting.value.trim().length > 5) {
       return keySetting.value.trim();
     }
   } catch {}
@@ -110,8 +117,9 @@ FORMAT FOR TELEGRAM (Keep concise, use bolding, emojis, and bullet points):
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash-exp",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
   ];
 
   // 1. Try REST API
@@ -121,7 +129,10 @@ FORMAT FOR TELEGRAM (Keep concise, use bolding, emojis, and bullet points):
       const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
       const res = await fetch(restUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiKey,
+        },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0.3, maxOutputTokens: 1000 },
@@ -129,8 +140,13 @@ FORMAT FOR TELEGRAM (Keep concise, use bolding, emojis, and bullet points):
       });
       if (res.ok) {
         const data = await res.json();
-        briefingText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (briefingText) break;
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const actualPart = parts.find((p: any) => !p.thought && typeof p.text === "string" && p.text.trim().length > 0);
+        const text = actualPart?.text?.trim() || parts?.[0]?.text?.trim() || "";
+        if (text) {
+          briefingText = text;
+          break;
+        }
       }
     } catch (err: any) {
       console.warn(`[radar] REST model ${mName} error:`, err?.message);
