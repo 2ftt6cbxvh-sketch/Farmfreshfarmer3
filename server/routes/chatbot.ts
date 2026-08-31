@@ -1583,7 +1583,7 @@ function resolveCartQty(
 
       // Read dynamic Gemini settings from DB settings or process.env
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.0-flash';
+      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.5-flash';
       const geminiTemp = Number((allSettings as any)?.gemini_temperature ?? 0.5);
       const geminiMaxTokens = Number((allSettings as any)?.gemini_max_tokens ?? 450);
       const customSystemPrompt = (allSettings as any)?.lakshmi_custom_system_prompt || '';
