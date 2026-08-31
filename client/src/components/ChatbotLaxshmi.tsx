@@ -199,6 +199,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
+  const lastUserQuestionRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const strings = UI_STRINGS[language];
@@ -586,34 +587,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
   useEffect(() => {
     if (!messagesContainerRef.current || messages.length === 0) return;
-    const lastMsg = messages[messages.length - 1];
 
-    // If user sent a message (or ticket step / loading message), scroll to bottom smoothly
-    if (lastMsg.role === "user") {
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      return;
-    }
-
-    // If assistant / model responded, scroll smoothly to the TOP of the response so user starts reading from the top
+    // Smoothly scroll to the top of the conversation turn (user question + start of bot answer)
     const timer = setTimeout(() => {
-      if (lastAssistantMessageRef.current && messagesContainerRef.current) {
-        const container = messagesContainerRef.current;
-        const msgEl = lastAssistantMessageRef.current;
-        const targetTop = msgEl.offsetTop - 14;
+      if (!messagesContainerRef.current) return;
+      const container = messagesContainerRef.current;
+      const targetEl = lastUserQuestionRef.current || lastAssistantMessageRef.current;
+
+      if (targetEl) {
+        const targetTop = targetEl.offsetTop - 12;
         container.scrollTo({
           top: Math.max(0, targetTop),
           behavior: "smooth",
         });
-      } else if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTo({
-          top: messagesContainerRef.current.scrollHeight,
-          behavior: "smooth",
-        });
       }
-    }, 80);
+    }, 60);
 
     return () => clearTimeout(timer);
   }, [messages]);
@@ -1154,14 +1142,19 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
           {/* Messages */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-3">
-            {messages.map((msg, index) => (
-              <div key={msg.id} ref={index === messages.length - 1 && msg.role === 'model' ? lastAssistantMessageRef : null} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "model" && (
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
-                    style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
-                    <span style={{ fontSize: '12px' }}>{msg.senderName ? "👤" : "🪔"}</span>
-                  </div>
-                )}
+            {messages.map((msg, index) => {
+              const isLatestUser = msg.role === 'user' && (index === messages.length - 1 || index === messages.length - 2);
+              const isLatestModel = msg.role === 'model' && index === messages.length - 1;
+              const msgRef = isLatestUser ? lastUserQuestionRef : isLatestModel ? lastAssistantMessageRef : null;
+
+              return (
+                <div key={msg.id} ref={msgRef} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "model" && (
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mr-2 flex-shrink-0 mt-1"
+                      style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
+                      <span style={{ fontSize: '12px' }}>{msg.senderName ? "👤" : "🪔"}</span>
+                    </div>
+                  )}
                 <div className="max-w-[85%]">
                   {/* Sender Name & Meta Header for Model / Live Support Messages */}
                   {msg.role === "model" && msg.senderName && (
@@ -1489,7 +1482,8 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   )}
                 </div>
               </div>
-            ))}
+            );
+          })}
             {/* Loading dots */}
             {sendMutation.isPending && (
               <div className="flex justify-start">
