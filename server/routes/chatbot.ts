@@ -1676,9 +1676,9 @@ function resolveCartQty(
 
       // Read dynamic Gemini settings from DB settings or process.env
       const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.5-flash';
+      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-3.5-flash';
       const geminiTemp = Number((allSettings as any)?.gemini_temperature ?? 0.5);
-      const geminiMaxTokens = Number((allSettings as any)?.gemini_max_tokens ?? 450);
+      const geminiMaxTokens = Math.max(Number((allSettings as any)?.gemini_max_tokens ?? 800), 750);
       const customSystemPrompt = (allSettings as any)?.lakshmi_custom_system_prompt || '';
 
       const enableProducts = (allSettings as any)?.lakshmi_enable_products_context !== 'false';
