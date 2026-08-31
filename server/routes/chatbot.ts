@@ -1723,8 +1723,10 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       // === CART ADD INTENT DETECTION ===
 
       // ── Coupon Application from Chat ──────────────────────────────────────
-      const couponMatch = message.match(/\b(?:apply|use|got|have|got a|use code|apply code|redeem)\s+(?:coupon\s+)?([A-Z0-9_\-]{3,20})/i)
-        || message.match(/(?:coupon|code|promo)\s*[:\-]?\s*([A-Z0-9_\-]{3,20})/i);
+      // Only match when user explicitly asks to apply a coupon/code/promo (prevents false positives on health queries like "I have sinus/fever/cold")
+      const couponMatch = message.match(/\b(?:apply|use|redeem|got a|have a)\s+(?:coupon|promo|discount|code)\s+([A-Z0-9_\-]{3,20})/i)
+        || message.match(/\b(?:apply\s+code|use\s+code|coupon\s+code|promo\s+code|discount\s+code)\s+([A-Z0-9_\-]{3,20})/i)
+        || message.match(/\b(?:coupon|promo|code)\s*[:\-#]\s*([A-Z0-9_\-]{3,20})/i);
       if (couponMatch && userId) {
         const code = couponMatch[1].toUpperCase().trim();
         // Fetch cart subtotal for validation
