@@ -1715,23 +1715,93 @@ function detectCartClearIntent(message: string): boolean {
     /^(clear|empty)\s+(my\s+)?(cart|basket)$/i.test(lower);
 }
 
-/** Detect cart item removal/deletion intent */
-function detectCartRemoveIntent(message: string): string | null {
+interface CartModificationTarget {
+  rawProduct: string;
+  rawQty?: number;
+  rawUnit?: string;
+  isPartialReduction: boolean;
+}
+
+function cleanProduceQuery(str: string): string {
+  return str
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:kgs?|kilograms?|kilos?|grams?|gms?|\bg\b|packets?|packs?|bunches?|bundles?|pieces?|pcs?|units?|dozens?|nos?)?\b/gi, ' ')
+    .replace(/\b(a|one|two|three|bunch|bunches|bundle|bundles|pack|packs|packet|packets|item|items|kg|kgs|kilo|kilos|g|gm|gms|gram|grams|piece|pieces|dozen|dozens|unit|units|of|from|out of|in|to|my|the|only)\b/gi, ' ')
+    .replace(/\b(cart|basket)\b/gi, ' ')
+    .replace(/[^a-z0-9\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Detect cart item removal / quantity reduction intent */
+function detectCartRemoveOrReduceIntent(message: string): CartModificationTarget | null {
   const lower = message.toLowerCase().trim();
+
+  // 1. Explicit reduction ("reduce tomatoes by 1kg", "decrease spinach by 1 bunch", "lower potato by 2kg")
+  const reduceMatch = lower.match(/\b(?:reduce|decrease|lower|lessen)\s+(?:the\s+)?(.+?)\s+(?:by|to)\s+(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?|grams?|gms?|\bg\b|packets?|packs?|pieces?|pcs?|bunches?|units?|nos?)?/i);
+  if (reduceMatch) {
+    const rawProduct = cleanProduceQuery(reduceMatch[1]);
+    const rawQty = parseFloat(reduceMatch[2].replace(',', '.'));
+    let rawUnit = reduceMatch[3] ? reduceMatch[3].toLowerCase() : 'unit';
+    if (/kg|kilogram/.test(rawUnit)) rawUnit = 'kg';
+    else if (/gram|gm|\bg\b/.test(rawUnit)) rawUnit = 'g';
+    else if (/pack|packet|bunch/.test(rawUnit)) rawUnit = 'pack';
+    else if (/piece|pc|no/.test(rawUnit)) rawUnit = 'piece';
+    else rawUnit = 'unit';
+
+    if (rawProduct.length >= 2) {
+      return { rawProduct, rawQty, rawUnit, isPartialReduction: true };
+    }
+  }
+
+  // 2. Removal with explicit number ("remove 1 kg of tomato", "remove 1 pack of spinach", "take out 2 tomatoes", "delete 1kg tomato")
+  const removeQtyMatch = lower.match(/\b(?:remove|delete|drop|take out|discard)\s+(?:only\s+)?(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?|grams?|gms?|\bg\b|packets?|packs?|bunches?|pieces?|pcs?|units?|nos?)?\s+(?:of\s+)?(.+?)(?:\s+(?:from|out of|in)\s+(?:my\s+)?(?:cart|basket))?$/i);
+  if (removeQtyMatch) {
+    const rawQty = parseFloat(removeQtyMatch[1].replace(',', '.'));
+    let rawUnit = removeQtyMatch[2] ? removeQtyMatch[2].toLowerCase() : 'unit';
+    if (/kg|kilogram/.test(rawUnit)) rawUnit = 'kg';
+    else if (/gram|gm|\bg\b/.test(rawUnit)) rawUnit = 'g';
+    else if (/pack|packet|bunch/.test(rawUnit)) rawUnit = 'pack';
+    else if (/piece|pc|no/.test(rawUnit)) rawUnit = 'piece';
+    else rawUnit = 'unit';
+
+    const rawProduct = cleanProduceQuery(removeQtyMatch[3]);
+    if (rawProduct.length >= 2) {
+      return { rawProduct, rawQty, rawUnit, isPartialReduction: true };
+    }
+  }
+
+  // 3. Removal with words "a / one bunch / pack / kg" ("remove a bunch of spinach", "remove one kg of tomato")
+  const removeWordQtyMatch = lower.match(/\b(?:remove|delete|drop|take out|discard)\s+(?:only\s+)?(?:a|one|1)\s+(bunch|bundle|packet|pack|piece|dozen|kg|kilo)\s+(?:of\s+)?(.+?)(?:\s+(?:from|out of|in)\s+(?:my\s+)?(?:cart|basket))?$/i);
+  if (removeWordQtyMatch) {
+    let rawUnit = removeWordQtyMatch[1].toLowerCase();
+    if (/kg|kilo/.test(rawUnit)) rawUnit = 'kg';
+    else if (/bunch|bundle|pack|packet/.test(rawUnit)) rawUnit = 'pack';
+    else rawUnit = 'unit';
+
+    const rawProduct = cleanProduceQuery(removeWordQtyMatch[2]);
+    if (rawProduct.length >= 2) {
+      return { rawProduct, rawQty: 1, rawUnit, isPartialReduction: true };
+    }
+  }
+
+  // 4. Complete item removal without quantity ("remove tomato from cart", "delete spinach", "remove lady finger")
   const removeMatch = lower.match(/\b(?:remove|delete|drop|take out|discard)\s+(?:the\s+)?(.+?)(?:\s+(?:from|out of|in)\s+(?:my\s+)?(?:cart|basket))?$/i);
-  if (!removeMatch) return null;
-  const rawTarget = removeMatch[1].trim();
-  if (!rawTarget || rawTarget.length < 2) return null;
-  if (/^(all|everything|cart|basket)$/i.test(rawTarget)) return null;
-  return rawTarget;
+  if (removeMatch) {
+    const rawTarget = cleanProduceQuery(removeMatch[1]);
+    if (!rawTarget || rawTarget.length < 2) return null;
+    if (/^(all|everything|cart|basket)$/i.test(rawTarget)) return null;
+    return { rawProduct: rawTarget, isPartialReduction: false };
+  }
+
+  return null;
 }
 
 /** Detect cart item quantity update/reduction intent */
 function detectCartUpdateIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
   const lower = message.toLowerCase().trim();
-  const updateMatch = lower.match(/\b(?:reduce|decrease|lower|change|make|update|set|increase)\s+(?:the\s+)?(.+?)\s+(?:quantity\s+)?(?:to|by|as)\s+(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?|grams?|gms?|\bg\b|packets?|packs?|pieces?|pcs?|units?|nos?)?/i);
+  const updateMatch = lower.match(/\b(?:change|make|update|set|increase)\s+(?:the\s+)?(.+?)\s+(?:quantity\s+)?(?:to|by|as)\s+(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?|grams?|gms?|\bg\b|packets?|packs?|pieces?|pcs?|units?|nos?)?/i);
   if (!updateMatch) return null;
-  const rawProduct = updateMatch[1].replace(/\b(quantity|qty|of|in my cart|from cart)\b/g, '').trim();
+  const rawProduct = cleanProduceQuery(updateMatch[1]);
   const rawQty = parseFloat(updateMatch[2].replace(',', '.'));
   let rawUnit = updateMatch[3] ? updateMatch[3].toLowerCase() : 'unit';
   if (/kg|kilogram/.test(rawUnit)) rawUnit = 'kg';
@@ -2333,12 +2403,12 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       }
       // === END CART CLEAR INTENT ===
 
-      // === CART REMOVE INTENT ===
-      const removeTarget = detectCartRemoveIntent(message);
+      // === CART REMOVE OR REDUCE INTENT ===
+      const removeTarget = detectCartRemoveOrReduceIntent(message);
       if (removeTarget) {
         if (!userId) {
           return res.json({
-            reply: `To remove items from your cart, please log in first! Sign in using Google One-Tap or Email OTP at the top right. 🛒`,
+            reply: `To remove or reduce items in your cart, please log in first! Sign in using Google One-Tap or Email OTP at the top right. 🛒`,
             needsHuman: false,
             requiresLogin: true,
           });
@@ -2359,6 +2429,9 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
               qty: cartItems.qty,
               name: products.name,
               price: products.price,
+              unit: products.unit,
+              image: products.image,
+              discountPercent: products.discountPercent,
             })
             .from(cartItems)
             .leftJoin(products, eq(cartItems.productId, products.id))
@@ -2371,17 +2444,34 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
             });
           }
 
-          const allProdsList = existingItems.map(i => ({ id: i.productId, name: i.name || '' }));
-          const matchedProd = findBestProductMatch(allProdsList, removeTarget);
+          const allProdsList = existingItems.map(i => ({ id: i.productId, name: i.name || '', unit: i.unit, price: i.price }));
+          const matchedProd = findBestProductMatch(allProdsList, removeTarget.rawProduct);
 
-          let itemToDelete = existingItems.find(i => matchedProd && i.productId === matchedProd.id);
-          if (!itemToDelete) {
-            const norm = removeTarget.toLowerCase().trim();
-            itemToDelete = existingItems.find(i => (i.name || '').toLowerCase().includes(norm));
+          let itemToModify = existingItems.find(i => matchedProd && i.productId === matchedProd.id);
+          if (!itemToModify) {
+            const norm = removeTarget.rawProduct.toLowerCase().trim();
+            itemToModify = existingItems.find(i => (i.name || '').toLowerCase().includes(norm));
           }
 
-          if (itemToDelete) {
-            await db.delete(cartItems).where(eq(cartItems.id, itemToDelete.id));
+          if (itemToModify) {
+            let replyText = '';
+
+            if (removeTarget.isPartialReduction && removeTarget.rawQty && removeTarget.rawQty > 0) {
+              const qtyResult = resolveCartQty(removeTarget.rawQty, removeTarget.rawUnit || 'unit', itemToModify);
+              const unitsToRemove = qtyResult.unitsToAdd > 0 ? qtyResult.unitsToAdd : Math.max(1, Math.round(removeTarget.rawQty));
+
+              if (itemToModify.qty > unitsToRemove) {
+                const newQty = itemToModify.qty - unitsToRemove;
+                await db.update(cartItems).set({ qty: newQty }).where(eq(cartItems.id, itemToModify.id));
+                replyText = `📉 Reduced **${itemToModify.name}** in your cart by ${unitsToRemove} pack (${removeTarget.rawQty}${removeTarget.rawUnit || ''})! You now have **${newQty} × ${itemToModify.name}** (${itemToModify.unit || 'unit'}) in your cart.`;
+              } else {
+                await db.delete(cartItems).where(eq(cartItems.id, itemToModify.id));
+                replyText = `🗑️ Removed **${itemToModify.name}** from your cart!`;
+              }
+            } else {
+              await db.delete(cartItems).where(eq(cartItems.id, itemToModify.id));
+              replyText = `🗑️ Removed **${itemToModify.name}** from your cart!`;
+            }
 
             const remaining = await db
               .select({
@@ -2392,13 +2482,20 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
                 price: products.price,
                 unit: products.unit,
                 image: products.image,
+                discountPercent: products.discountPercent,
               })
               .from(cartItems)
               .leftJoin(products, eq(cartItems.productId, products.id))
               .where(eq(cartItems.cartId, userCart.id));
 
+            if (remaining.length > 0) {
+              replyText += ` You have ${remaining.length} item${remaining.length > 1 ? 's' : ''} remaining in your cart.`;
+            } else {
+              replyText += ` Your cart is now empty.`;
+            }
+
             return res.json({
-              reply: `🗑️ Removed **${itemToDelete.name || 'item'}** from your cart! ${remaining.length > 0 ? `You have ${remaining.length} item${remaining.length > 1 ? 's' : ''} remaining in your cart.` : 'Your cart is now empty.'}`,
+              reply: replyText,
               needsHuman: false,
               cartUpdated: true,
               cartItems: remaining,
@@ -2406,7 +2503,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
           } else {
             const currentItemNames = existingItems.map(i => i.name).filter(Boolean).join(', ');
             return res.json({
-              reply: `I couldn't find "${removeTarget}" in your cart. Current items in your cart: **${currentItemNames}**. Which item would you like me to remove?`,
+              reply: `I couldn't find "${removeTarget.rawProduct}" in your cart. Current items in your cart: **${currentItemNames}**. Which item would you like me to remove?`,
               needsHuman: false,
             });
           }
@@ -2414,7 +2511,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
           console.error('[chatbot] Cart remove error:', removeErr);
         }
       }
-      // === END CART REMOVE INTENT ===
+      // === END CART REMOVE OR REDUCE INTENT ===
 
       // === CART UPDATE / REDUCE / INCREASE INTENT ===
       const updateTarget = detectCartUpdateIntent(message);
