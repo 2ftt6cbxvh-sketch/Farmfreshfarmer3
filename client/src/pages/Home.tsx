@@ -55,7 +55,7 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allProducts = getInitialProducts() } = useQuery<Product[]>({
+  const { data: allProducts = getInitialProducts(), isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     queryFn: async () => {
       const data = await apiGet<Product[]>("/api/products");
