@@ -417,6 +417,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.id]);
 
+  // Real-time synchronization for external cart additions (e.g. from Lakshmi AI in-chat adds)
+  useEffect(() => {
+    async function handleExternalCartSync(e: any) {
+      if (e?.detail?.items && Array.isArray(e.detail.items) && e.detail.items.length > 0) {
+        setItems(consolidateCartItems(e.detail.items));
+        return;
+      }
+      try {
+        const res = await apiRequest("GET", "/api/cart");
+        const data = await res.json();
+        if (Array.isArray(data.items)) {
+          setItems(consolidateCartItems(data.items));
+        }
+      } catch {}
+    }
+
+    window.addEventListener("fff_cart_updated", handleExternalCartSync);
+    return () => {
+      window.removeEventListener("fff_cart_updated", handleExternalCartSync);
+    };
+  }, []);
+
   function add(product: Product, qty = 1) {
     lastLocalEditRef.current = Date.now();
     setItems((prev) => {

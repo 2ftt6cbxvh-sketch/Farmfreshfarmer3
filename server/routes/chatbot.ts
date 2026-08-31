@@ -1417,6 +1417,94 @@ function resolveCartQty(
     };
   }
 }
+
+// ── Multi-lingual & Fuzzy Produce Matcher ──────────────────────────────────
+const COMMON_TELUGU_PRODUCE_SYNONYMS: Record<string, string[]> = {
+  tomatoes: ['tomato', 'tomatos', 'tomatoes', 'tamata', 'tamatar', 'టమోటా', 'టమాట', 'టమోటాలు'],
+  potatoes: ['potato', 'potatos', 'potatoes', 'aloo', 'alu', 'bangaladumpa', 'బంగాళాదుంప'],
+  onions: ['onion', 'onions', 'ullipayalu', 'pyaz', 'kanda', 'ఉల్లిపాయలు'],
+  spinach: ['spinach', 'palak', 'palakura', 'పాలకూర'],
+  coriander: ['coriander', 'cilantro', 'dhaniya', 'kothimeera', 'కొత్తిమీర'],
+  mint: ['mint', 'pudina', 'పుదీనా'],
+  chillies: ['chilli', 'chillies', 'chili', 'mirchi', 'mirapakayalu', 'మిరపకాయలు'],
+  ginger: ['ginger', 'adrak', 'allam', 'అల్లం'],
+  garlic: ['garlic', 'lahsun', 'vellulli', 'వెల్లుల్లి'],
+  pomegranate: ['pomegranate', 'danimma', 'anar', 'దానిమ్మ'],
+  bananas: ['banana', 'bananas', 'arati', 'kela', 'అరటి'],
+  mango: ['mango', 'mangoes', 'mamidi', 'aam', 'మామిడి'],
+  apples: ['apple', 'apples', 'seb', 'యాపిల్'],
+  grapes: ['grape', 'grapes', 'draksha', 'ద్రాక్ష'],
+  papaya: ['papaya', 'boppayi', 'బొప్పాయి'],
+  guava: ['guava', 'jama', 'జామ'],
+  cucumber: ['cucumber', 'dosakaya', 'keera', 'కీర'],
+  brinjal: ['brinjal', 'eggplant', 'vankaya', 'baingan', 'వంకాయ'],
+  okra: ['okra', 'ladyfinger', 'bhendi', 'bendakaya', 'బెండకాయ'],
+  ragi: ['ragi', 'finger millet', 'taidalu', 'రాగులు'],
+  jowar: ['jowar', 'sorghum', 'jonnalu', 'జొన్నలు'],
+  honey: ['honey', 'thene', 'తేనె'],
+  ghee: ['ghee', 'neyyi', 'నెయ్యి'],
+  pickle: ['pickle', 'avakaya', 'ooragaya', 'ఆవకాయ', 'పచ్చడి'],
+};
+
+function normalizeProduceWord(w: string): string {
+  let s = w.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  if (s.endsWith('oes')) s = s.slice(0, -2);
+  else if (s.endsWith('ies')) s = s.slice(0, -3) + 'y';
+  else if (s.endsWith('s') && !s.endsWith('ss')) s = s.slice(0, -1);
+  return s;
+}
+
+function findBestProductMatch(allProds: any[], rawQuery: string): any | null {
+  if (!rawQuery || !Array.isArray(allProds) || allProds.length === 0) return null;
+  const qnorm = rawQuery.toLowerCase().trim();
+  const qwords = qnorm.split(/[\s,()\[\]\/\-]+/).filter((w) => w.length >= 2);
+
+  let bestProd: any = null;
+  let bestScore = 0;
+
+  for (const prod of allProds) {
+    if (prod.active === false || prod.approvalStatus === 'rejected') continue;
+    const pnorm = String(prod.name || '').toLowerCase();
+    const pwords = pnorm.split(/[\s,()\[\]\/\-]+/).filter((w: string) => w.length >= 2);
+
+    let score = 0;
+    if (pnorm === qnorm) score = 100;
+    else if (pnorm.includes(qnorm)) score = 90;
+    else if (qnorm.includes(pnorm)) score = 85;
+
+    if (score < 90) {
+      for (const qw of qwords) {
+        const qstem = normalizeProduceWord(qw);
+
+        for (const [key, synonyms] of Object.entries(COMMON_TELUGU_PRODUCE_SYNONYMS)) {
+          if (synonyms.some((syn) => syn.toLowerCase() === qw || syn.toLowerCase() === qstem)) {
+            if (pnorm.includes(key) || pnorm.includes(normalizeProduceWord(key))) {
+              score = Math.max(score, 95);
+            }
+          }
+        }
+
+        for (const pw of pwords) {
+          const pstem = normalizeProduceWord(pw);
+          if (qstem === pstem && qstem.length >= 3) {
+            score = Math.max(score, 88);
+          } else if (qstem.length >= 4 && pstem.length >= 4) {
+            if (qstem.startsWith(pstem.slice(0, 4)) || pstem.startsWith(qstem.slice(0, 4))) {
+              score = Math.max(score, 80);
+            }
+          }
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestProd = prod;
+    }
+  }
+
+  return bestScore >= 75 ? bestProd : null;
+}
 // === END CART HELPER FUNCTIONS ===
 
   // POST /api/chatbot & POST /api/chatbot/message
@@ -1548,15 +1636,8 @@ function resolveCartQty(
         const unmatchedQueries: string[] = [];
 
         for (const item of multiCartItems) {
-          const qname = item.rawProduct.toLowerCase();
-          const matches = allProds.filter((p: any) => {
-            const pname = p.name.toLowerCase();
-            return pname.includes(qname) || qname.includes(pname) ||
-              pname.split(' ').some((w: string) => w.length >= 3 && qname.includes(w));
-          });
-
-          if (matches.length > 0) {
-            const product = matches[0];
+          const product = findBestProductMatch(allProds, item.rawProduct);
+          if (product) {
             const qtyResult = resolveCartQty(item.rawQty, item.rawUnit, product);
             matchedItems.push({ item, product, qtyResult });
           } else {
@@ -1618,7 +1699,23 @@ function resolveCartQty(
               summaryLines.push(`• **${product.name}**: ${qtyResult.unitsToAdd} pack (${item.rawQty}${item.rawUnit}) — ₹${lineCost}`);
             }
 
-            let replyMsg = `🛒 **Added to your cart:**\n${summaryLines.join('\n')}\n\n💰 Total: **₹${totalAddedCost}**. You can checkout anytime from the cart icon at the top right!`;
+            // Fetch complete updated cart from DB to return to client
+            const allCartItemsFromDb = await db
+              .select({
+                id: cartItems.id,
+                productId: cartItems.productId,
+                qty: cartItems.qty,
+                name: products.name,
+                price: products.price,
+                unit: products.unit,
+                image: products.image,
+                discountPercent: products.discountPercent,
+              })
+              .from(cartItems)
+              .leftJoin(products, eq(cartItems.productId, products.id))
+              .where(eq(cartItems.cartId, userCart.id));
+
+            let replyMsg = `🛒 **Added to your cart:**\n${summaryLines.join('\n')}\n\n💰 Total Added: **₹${totalAddedCost}**. You can checkout anytime from the cart icon at the top right!`;
             if (unmatchedQueries.length > 0) {
               replyMsg += `\n\n*(Note: Could not find "${unmatchedQueries.join(', ')}" in current stock)*`;
             }
@@ -1627,7 +1724,14 @@ function resolveCartQty(
               reply: replyMsg,
               needsHuman: false,
               cartAdded: true,
-              cartItems: matchedItems.map(m => ({ productId: m.product.id, quantity: m.qtyResult.unitsToAdd })),
+              cartItems: allCartItemsFromDb,
+              products: matchedItems.map(m => m.product).map((p: any) => ({
+                id: p.id, name: p.name, price: String(p.price),
+                discountPercent: String(p.discountPercent || 0),
+                unit: p.unit || 'unit', image: p.image,
+                stock: p.stock, allowInternationalShipping: p.allowInternationalShipping,
+                categorySlug: p.categorySlug,
+              })),
             });
           } catch (cartErr: any) {
             console.error('[chatbot] Multi-cart add error:', cartErr);

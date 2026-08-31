@@ -473,6 +473,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       if (data.cartAdded) {
         queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
         queryClient.invalidateQueries({ queryKey: ['/api/cart/count'] });
+        window.dispatchEvent(new CustomEvent('fff_cart_updated', { detail: { items: data.cartItems } }));
       }
       if (data.speech) {
         speakText(data.reply, reply.id, language);
