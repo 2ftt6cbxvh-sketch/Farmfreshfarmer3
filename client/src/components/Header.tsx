@@ -244,13 +244,29 @@ export function Header() {
   const predictions = search.trim().length > 0
     ? allProducts
         .filter((p) => p.active !== false && p.approvalStatus !== "pending")
-        .filter((p) =>
-          p.name?.toLowerCase().includes(search.toLowerCase()) ||
-          (p as any).nameTe?.toLowerCase().includes(search.toLowerCase()) ||
-          p.categorySlug?.toLowerCase().includes(search.toLowerCase()) ||
-          p.description?.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
+        .filter((p) => {
+          const q = search.toLowerCase().trim();
+          const name = (p.name || "").toLowerCase();
+          const nameTe = ((p as any).nameTe || "").toLowerCase();
+          const desc = (p.description || "").toLowerCase();
+          const cat = (p.categorySlug || "").toLowerCase();
+
+          if (name.includes(q) || nameTe.includes(q) || cat.includes(q) || desc.includes(q)) {
+            return true;
+          }
+
+          // Multilingual & Regional Synonyms Matching (Telugu / Hindi / English)
+          const isGarlic = /garlic|vellulli|lahsun|lehsun|వెల్లుల్లి/i.test(q) && /garlic|vellulli|వెల్లుల్లి/i.test(name + " " + nameTe + " " + desc);
+          const isTomato = /tomato|tamata|తమట|టమోటా/i.test(q) && /tomato|tamata/i.test(name + " " + nameTe);
+          const isMango = /mango|mamidi|మామిడి/i.test(q) && /mango|mamidi/i.test(name + " " + nameTe);
+          const isSpinach = /spinach|palak|పాలకూర/i.test(q) && /spinach|palak/i.test(name + " " + nameTe);
+          const isCarrot = /carrot|gajjara|క్యారెట్/i.test(q) && /carrot/i.test(name + " " + nameTe);
+          const isPickle = /pickle|pachadi|avakaya|ఊరగాయ/i.test(q) && /pickle|avakaya/i.test(name + " " + nameTe + " " + cat);
+          const isLaddu = /laddu|ladoo|లడ్డు/i.test(q) && /laddu|ladoo/i.test(name + " " + nameTe);
+
+          return isGarlic || isTomato || isMango || isSpinach || isCarrot || isPickle || isLaddu;
+        })
+        .slice(0, 6)
     : [];
 
   return (

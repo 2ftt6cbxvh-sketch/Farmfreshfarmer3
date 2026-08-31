@@ -223,6 +223,21 @@ export const SEED_PRODUCTS: Product[] = [
     active: true,
     approvalStatus: "approved",
   },
+  {
+    id: 30,
+    name: "Fresh Garlic (Vellulli)",
+    categorySlug: "vegetables",
+    price: "160.00",
+    unit: "1 Kg",
+    image: "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=1200&q=95&auto=format&fit=crop",
+    dietTag: "veg",
+    stock: 50,
+    featured: true,
+    discountPercent: "0.00",
+    description: "Farm-fresh organic garlic bulbs with intense aroma and natural allicin for immunity, heart health, and authentic Andhra flavor.",
+    active: true,
+    approvalStatus: "approved",
+  },
 ];
 
 export function getInitialCategories(): Category[] {
