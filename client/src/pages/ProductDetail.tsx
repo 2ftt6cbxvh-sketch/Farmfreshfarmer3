@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Minus, Plus, ShoppingCart, Star, Sparkles, Home, ArrowRight, Check } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Star, Sparkles, Home, ArrowRight, Check, Trash2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { DietDot } from "@/components/DietDot";
 import { ProductCard } from "@/components/ProductCard";
@@ -39,7 +39,7 @@ function Stars({ value, onChange }: { value: number; onChange?: (n: number) => v
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
   const id = Number(params?.id);
-  const { add, items } = useCart();
+  const { add, remove, setQty: setCartQty, items } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -311,19 +311,48 @@ export default function ProductDetail() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
-                  {/* Premium Rounded Stepper */}
+                  {/* Premium Rounded Stepper with Trash / Minus action */}
                   <div className="flex items-center justify-between sm:justify-start rounded-2xl border border-emerald-500/25 bg-card/80 backdrop-blur-sm p-1 shadow-xs shrink-0 h-12">
                     <button
                       type="button"
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      className="w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
-                      aria-label="Decrease quantity"
+                      onClick={() => {
+                        const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
+                        if (qty > 1) {
+                          const nextQ = qty - 1;
+                          setQty(nextQ);
+                          if (inCart > 0) {
+                            setCartQty(product.id, nextQ, activeUnit);
+                            toast({ title: "Cart Updated", description: `Reduced to ${nextQ} × ${product.name} (${activeUnit})` });
+                          }
+                        } else if (qty === 1 && inCart > 0) {
+                          remove(product.id, activeUnit);
+                          toast({ title: "🗑️ Removed from Cart", description: `${product.name} (${activeUnit}) removed from your cart.` });
+                          setQty(1);
+                        }
+                      }}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-95 cursor-pointer ${
+                        qty === 1 && items.some((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))
+                          ? "text-red-500 hover:text-red-600 hover:bg-red-500/15 bg-red-500/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-emerald-500/10"
+                      }`}
+                      title={
+                        qty === 1 && items.some((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))
+                          ? "Remove item from cart"
+                          : "Decrease quantity"
+                      }
+                      aria-label="Decrease or remove quantity"
                     >
-                      <Minus size={15} />
+                      {qty === 1 && items.some((i) => i.productId === product.id && (i.unit || "") === (activeUnit || "")) ? (
+                        <Trash2 size={15} />
+                      ) : (
+                        <Minus size={15} />
+                      )}
                     </button>
+
                     <span className="w-10 text-center font-mono font-black text-sm text-foreground">
                       {qty}
                     </span>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -331,10 +360,17 @@ export default function ProductDetail() {
                           toast({ title: "Stock Limit Reached", description: `Only ${product.stock} unit(s) in stock.`, variant: "destructive" });
                           return;
                         }
-                        setQty((q) => Math.min(product.stock, q + 1));
+                        const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
+                        const nextQ = qty + 1;
+                        setQty(nextQ);
+                        if (inCart > 0) {
+                          setCartQty(product.id, nextQ, activeUnit);
+                          toast({ title: "✨ Cart Updated", description: `Increased to ${nextQ} × ${product.name} (${activeUnit})` });
+                        }
                       }}
                       className="w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
                       aria-label="Increase quantity"
+                      title="Increase quantity"
                     >
                       <Plus size={15} />
                     </button>
@@ -357,7 +393,11 @@ export default function ProductDetail() {
                     data-testid="button-add-detail"
                   >
                     <ShoppingCart size={17} />
-                    <span>Add {qty > 1 ? `${qty} × ${activeUnit}` : activeUnit} to Cart</span>
+                    <span>
+                      {items.some((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))
+                        ? `Add More (+${qty} × ${activeUnit})`
+                        : `Add ${qty > 1 ? `${qty} × ${activeUnit}` : activeUnit} to Cart`}
+                    </span>
                   </Button>
 
                   {/* Secondary View Cart & Checkout Button (Rendered cleanly when in basket) */}
