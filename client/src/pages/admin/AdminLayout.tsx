@@ -192,7 +192,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const isPrimaryAdmin = Boolean(
     adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
     adminUser?.isPrimaryAdmin === true ||
-    (adminUser?.role === "admin" && (adminUser?.id === 1 || adminUser?.id === 0))
+    adminUser?.role === "superadmin" ||
+    adminUser?.id === 1 ||
+    adminUser?.id === 0
   );
 
   const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);

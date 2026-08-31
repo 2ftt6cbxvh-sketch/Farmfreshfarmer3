@@ -30,7 +30,12 @@ interface Customer {
 export default function AdminCustomers() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  const isSuperAdmin = Boolean(currentUser?.isPrimaryAdmin || currentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com");
+  const isSuperAdmin = Boolean(
+    currentUser?.isPrimaryAdmin ||
+    currentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    currentUser?.role === "superadmin" ||
+    currentUser?.id === 1
+  );
 
   const [starEditId, setStarEditId] = useState<number | null>(null);
   const [starEditVal, setStarEditVal] = useState<number>(0);
