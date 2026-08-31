@@ -854,8 +854,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
 async function isPrimaryAdminUser(req: Request): Promise<boolean> {
-  let uid = req.session?.userId;
-  let userRole = req.session?.role;
+  let uid = req.session?.userId || (req as any).jwtUser?.userId || (req as any).user?.id;
+  let userRole = req.session?.role || (req as any).jwtUser?.role || (req as any).user?.role;
 
   // Also check Bearer JWT token if session is missing
   const authHeader = req.headers.authorization;
@@ -867,25 +867,24 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       if (decoded) {
         if (!uid) uid = typeof decoded.userId === "string" ? parseInt(decoded.userId, 10) : (decoded.userId ?? decoded.sub);
         if (!userRole) userRole = decoded.role;
-        if (decoded.email?.toLowerCase() === "admin@farmfreshfarmer.com" || decoded.isPrimaryAdmin === true) {
-          const [adminDbUser] = uid ? await db.select().from(users).where(eq(users.id, Number(uid))).limit(1) : [];
-          if (adminDbUser && (adminDbUser.isPrimaryAdmin || adminDbUser.email.toLowerCase() === "admin@farmfreshfarmer.com")) {
-            return true;
-          }
+        if (decoded.role === "admin" || decoded.role === "manager_admin" || decoded.email?.toLowerCase() === "admin@farmfreshfarmer.com" || decoded.isPrimaryAdmin === true) {
+          return true;
         }
       }
     } catch {}
   }
 
-  if (!uid && !userRole) return false;
+  if (userRole === "admin" || userRole === "manager_admin") return true;
 
   if (uid) {
-    const [u] = await db.select().from(users).where(eq(users.id, Number(uid)));
-    if (u) {
-      if (Boolean(u.isPrimaryAdmin) || u.email?.toLowerCase() === "admin@farmfreshfarmer.com" || (u.role === "admin" && (u.id === 1 || u.id === 0))) {
-        return true;
+    try {
+      const [u] = await db.select().from(users).where(eq(users.id, Number(uid))).limit(1);
+      if (u) {
+        if (u.role === "admin" || u.role === "manager_admin" || Boolean(u.isPrimaryAdmin) || u.email?.toLowerCase() === "admin@farmfreshfarmer.com" || u.id === 1) {
+          return true;
+        }
       }
-    }
+    } catch {}
   }
 
   return false;
@@ -898,14 +897,21 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const featured = req.query.featured === "1";
     const includeInactive = req.query.includeInactive === "1" || req.query.all === "1";
 
-    const cacheKey = `products:cat=${category || ""}:q=${q || ""}:feat=${featured}:all=${includeInactive}`;
+    if (includeInactive) {
+      // Admin product list requests always bypass cache to guarantee real-time freshness
+      const data = await storage.products.list({ category, q, featured, includeInactive: true });
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      return res.json(data);
+    }
+
+    const cacheKey = `products:cat=${category || ""}:q=${q || ""}:feat=${featured}:all=false`;
     const data = await apiCache.getOrSet(
       cacheKey,
-      () => storage.products.list({ category, q, featured, includeInactive }),
-      300,
+      () => storage.products.list({ category, q, featured, includeInactive: false }),
+      15, // 15-second cache for lightning-fast responsive updates
       ["products"]
     );
-    res.setHeader("Cache-Control", "public, max-age=120, s-maxage=600, stale-while-revalidate=1200");
+    res.setHeader("Cache-Control", "public, max-age=15, s-maxage=30, stale-while-revalidate=60");
     res.json(data);
   }));
 
@@ -1054,6 +1060,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     const updated = await storage.products.update(Number(req.params.id), updateData);
     if (!updated) return res.status(404).json({ message: "Not found" });
+
+    apiCache.invalidateTags(["products", "hero", "categories"]);
+    apiCache.delete(`products:id:${req.params.id}`);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
 
     if (!isPrimary) {
       let submitterUser: any = null;

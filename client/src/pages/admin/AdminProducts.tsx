@@ -119,6 +119,9 @@ export default function AdminProducts() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products", "all"] });
+      if (form.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/products", form.id] });
+      }
       refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
