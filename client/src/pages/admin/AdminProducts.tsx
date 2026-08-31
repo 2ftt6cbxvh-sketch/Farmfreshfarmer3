@@ -55,8 +55,12 @@ export default function AdminProducts() {
   const [feedbackNote, setFeedbackNote] = useState("");
   const [form, setForm] = useState<Form>(EMPTY);
   const [filter, setFilter] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [isAiGeneratingStudio, setIsAiGeneratingStudio] = useState(false);
+  const [isBatchUpgrading, setIsBatchUpgrading] = useState(false);
+  const [priceVsQuantityTiers, setPriceVsQuantityTiers] = useState<any[]>([]);
+  const [aiCostPrice, setAiCostPrice] = useState<number | null>(null);
+  const [aiMargin, setAiMargin] = useState<number | null>(null);
 
   const isPrimaryAdmin =
     user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
@@ -258,6 +262,75 @@ export default function AdminProducts() {
 
   const [isAutoGeneratingTelugu, setIsAutoGeneratingTelugu] = useState(false);
 
+  async function handleGenerateAiStudio() {
+    if (!form.name.trim()) {
+      toast({
+        title: "Product name required",
+        description: "Please enter the product name first (e.g. Banginapalli Mango).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsAiGeneratingStudio(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/products/ai-studio-generate", {
+        name: form.name.trim(),
+        categorySlug: form.categorySlug || "fruits",
+        unit: form.unit || "1 Kg",
+      });
+      const data = await res.json();
+      if (data?.package) {
+        const pkg = data.package;
+        setForm((prev) => ({
+          ...prev,
+          nameTe: pkg.nameTe || prev.nameTe,
+          description: pkg.description || prev.description,
+          price: String(pkg.suggestedPrice || prev.price || "150"),
+          discountPercent: String(pkg.discountPercent || "10"),
+          dietTag: pkg.dietTag || prev.dietTag,
+          image: pkg.image || prev.image,
+          unit: pkg.unit || prev.unit,
+        }));
+        setPriceVsQuantityTiers(pkg.priceVsQuantity || []);
+        setAiCostPrice(pkg.costPrice || null);
+        setAiMargin(pkg.profitMarginPercent || null);
+        toast({
+          title: "✨ AI Studio Package Ready!",
+          description: `Auto-generated crisp 1200px studio asset, Telugu name, and live price-vs-quantity tiers.`,
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "AI Studio generation failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAiGeneratingStudio(false);
+    }
+  }
+
+  async function handleBatchUpgradeAllCatalog() {
+    setIsBatchUpgrading(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/products/ai-studio-batch-upgrade", {});
+      const data = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "✨ All Products Upgraded with Studio AI!",
+        description: `Successfully upgraded ${data.upgradedCount || data.total} products with 100% crisp hero photography & Telugu metadata.`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Batch upgrade failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBatchUpgrading(false);
+    }
+  }
+
   async function handleAutoGenerateAllTeluguNames() {
     setIsAutoGeneratingTelugu(true);
     try {
@@ -311,6 +384,25 @@ export default function AdminProducts() {
           <Input className="pl-9" placeholder="Search products…" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="input-filter" />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBatchUpgradeAllCatalog}
+            disabled={isBatchUpgrading}
+            className="border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs gap-1.5 h-10 shadow-sm"
+          >
+            {isBatchUpgrading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Upgrading Catalog with AI...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                <span>AI Studio Batch Upgrade (Hero Photos ✨)</span>
+              </>
+            )}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -497,10 +589,79 @@ export default function AdminProducts() {
                     nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
                   });
                 }}
-                placeholder="e.g. Farm Tomatoes"
+                placeholder="e.g. Banginapalli Mangoes"
                 data-testid="input-product-name"
               />
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateAiStudio}
+                  disabled={isAiGeneratingStudio || !form.name.trim()}
+                  className="w-full bg-gradient-to-r from-emerald-600/15 via-teal-600/15 to-amber-600/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-xs gap-1.5 h-9 shadow-xs hover:bg-emerald-500/20 cursor-pointer"
+                >
+                  {isAiGeneratingStudio ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin text-emerald-500" />
+                      <span>AI Studio Generating (Crisp Photo + Live Pricing + Telugu)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                      <span>✨ Auto-Generate with AI Studio (Studio Photo + Price vs Qty + Story)</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {/* AI Price vs Quantity Matrix */}
+            {priceVsQuantityTiers.length > 0 && (
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 via-background to-amber-500/10 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                    <Sparkles size={13} className="text-amber-500" />
+                    <span>AI Dynamic Price vs Quantity Matrix</span>
+                  </div>
+                  {aiCostPrice && (
+                    <span className="text-[10px] font-bold text-muted-foreground">
+                      Cost: ₹{aiCostPrice} | Margin: {aiMargin}%
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
+                  {priceVsQuantityTiers.map((tier, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setForm({
+                          ...form,
+                          unit: tier.quantity,
+                          price: String(tier.price),
+                        });
+                        toast({ title: `Applied ${tier.quantity}`, description: `Set base pack size to ${tier.quantity} at ₹${tier.price}` });
+                      }}
+                      className={`p-2 rounded-lg border text-left transition hover:border-emerald-500/60 cursor-pointer ${form.unit === tier.quantity ? "bg-emerald-500/20 border-emerald-500 font-bold" : "bg-card border-card-border"}`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-black">
+                        <span>{tier.quantity}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">₹{tier.price}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground flex items-center justify-between mt-0.5">
+                        <span>{tier.perUnit || ""}</span>
+                        {tier.savings && <span className="text-amber-500 font-bold">{tier.savings}</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  💡 Click any quantity card above to apply it as the product base pack size &amp; price!
+                </p>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between">
                 <Label>Telugu Sub-Name (తెలుగు పేరు)</Label>
@@ -572,17 +733,38 @@ export default function AdminProducts() {
               <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="e.g. 250 Grams, 1 Kg, 1 piece" data-testid="input-unit" />
             </div>
             <div>
-              <Label>Product image</Label>
-              <div className="flex items-center gap-3 mt-1">
-                <div className="h-16 w-16 rounded bg-secondary overflow-hidden shrink-0">
-                  {form.image ? <img src={imgUrl(form.image)} alt="" className="h-full w-full object-cover" /> : null}
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
-                <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading} data-testid="button-upload">
-                  <Upload size={15} className="mr-1" /> {uploading ? "Uploading…" : "Upload image"}
-                </Button>
+              <div className="flex items-center justify-between">
+                <Label>Product Visual Asset (100% Crisp Studio Photography)</Label>
+                <button
+                  type="button"
+                  onClick={handleGenerateAiStudio}
+                  disabled={isAiGeneratingStudio || !form.name.trim()}
+                  className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  🔄 Regenerate Studio Asset
+                </button>
               </div>
-              <Input className="mt-2" placeholder="…or paste an image URL" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} data-testid="input-image-url" />
+              <div className="flex items-center gap-3 mt-1.5 p-2 rounded-xl bg-card border border-card-border">
+                <div className="h-20 w-20 rounded-xl bg-secondary overflow-hidden shrink-0 border border-emerald-500/30 shadow-xs">
+                  {form.image ? (
+                    <img src={imgUrl(form.image)} alt={form.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No Photo</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <Input
+                    placeholder="Enter image CDN URL or auto-generate with AI Studio"
+                    value={form.image}
+                    onChange={(e) => setForm({ ...form, image: e.target.value })}
+                    className="text-xs"
+                    data-testid="input-image-url"
+                  />
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    ✨ <strong>Studio Hero Asset:</strong> Product is isolated with crisp macro focus so customers understand the product instantly with zero background distraction.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} data-testid="switch-featured" />

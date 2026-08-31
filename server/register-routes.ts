@@ -923,6 +923,28 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json(p);
   }));
 
+  // ── FarmFresh AI Catalog Studio & Price Intelligence Endpoints ──────
+  app.post("/api/admin/products/ai-studio-generate", requireAdmin, h(async (req, res) => {
+    const { name, categorySlug, unit } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Product name is required for AI Studio generation." });
+    }
+    const { generateProductStudioPackage } = await import("./services/product-ai-studio");
+    const studioPackage = await generateProductStudioPackage({
+      name: name.trim(),
+      categorySlug: categorySlug || "fruits",
+      unit: unit || "1 Kg",
+    });
+    return res.json({ success: true, package: studioPackage });
+  }));
+
+  app.post("/api/admin/products/ai-studio-batch-upgrade", requireAdmin, h(async (_req, res) => {
+    const { batchUpgradeAllProductsInDb } = await import("./services/product-ai-studio");
+    const result = await batchUpgradeAllProductsInDb();
+    apiCache.invalidateTags(["products", "hero"]);
+    return res.json({ success: true, ...result });
+  }));
+
   // Auto-generate authentic Telugu names for all products in database
   app.post("/api/products/auto-generate-telugu-names", requireAdmin, h(async (_req, res) => {
     const { resolveTeluguProductName } = await import("@shared/telugu-produce-namer");
