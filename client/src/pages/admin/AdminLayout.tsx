@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
   Shield, ShieldCheck, ShieldAlert, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
-  ExternalLink, Crown, CheckCircle2, Megaphone, Mail, Bot
+  ExternalLink, Crown, CheckCircle2, Megaphone, Mail, Bot, Sparkles
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
@@ -27,6 +27,7 @@ const NAV = [
     { href: "/admin/tickets", label: "Support Tickets", icon: Ticket },
   ]},
   { section: "Catalog", items: [
+    { href: "/admin/procurement-ai", label: "AI Sourcing & Demand 🌾", icon: Sparkles },
     { href: "/admin/products", label: "Products", icon: Package },
     { href: "/admin/categories", label: "Categories", icon: FolderTree },
     { href: "/admin/approvals", label: "Approvals & Reconsideration ↩️", icon: CheckCircle },

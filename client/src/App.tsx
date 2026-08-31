@@ -44,6 +44,7 @@ const GrievancePage = React.lazy(() => import("@/pages/LegalPages").then(m => ({
 
 // Admin & Partner Portal pages (Lazily loaded for lightning-fast customer initial load)
 const AdminDashboard = React.lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminProcurementAI = React.lazy(() => import("@/pages/admin/AdminProcurementAI"));
 const AdminProducts = React.lazy(() => import("@/pages/admin/AdminProducts"));
 const AdminCategories = React.lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminApprovals = React.lazy(() => import("@/pages/admin/AdminApprovals"));
@@ -195,6 +196,9 @@ function AppRouter() {
           </Route>
           <Route path="/admin/refunds">
             {() => <AdminGuard component={AdminRefunds} path="/admin/refunds" />}
+          </Route>
+          <Route path="/admin/procurement-ai">
+            {() => <AdminGuard component={AdminProcurementAI} path="/admin/procurement-ai" />}
           </Route>
           <Route path="/admin/products">
             {() => <AdminGuard component={AdminProducts} path="/admin/products" />}
