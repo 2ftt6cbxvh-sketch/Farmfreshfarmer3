@@ -1400,7 +1400,13 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       return res.status(400).json({ message: "Customer loyalty stars cannot be assigned to admin or staff accounts. Use Staff & Sub-Admins management." });
     }
 
-    const [updated] = await db.update(users).set({ customerStars: stars, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    const [updated] = await db.update(users).set({
+      customerStars: stars,
+      starRating: String(stars),
+      updatedAt: new Date()
+    }).where(eq(users.id, userId)).returning();
+
+    apiCache.invalidateTags(["users", "customers", "auth"]);
     res.json({ user: publicUser(updated) });
   }));
 

@@ -68,18 +68,10 @@ export const userStore = {
   async listCustomers() {
     return db.select().from(users)
       .where(
-        or(
+        and(
           eq(users.role, "customer"),
-          eq(users.role, "user"),
-          isNull(users.role),
-          and(
-            ne(users.isPrimaryAdmin, true),
-            notInArray(users.role, [
-              "admin", "superadmin", "manager_admin", "warehouse_admin",
-              "delivery_partner", "subadmin", "custom_subadmin", "customer_rep",
-              "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"
-            ])
-          )
+          ne(users.isPrimaryAdmin, true),
+          sql`LOWER(${users.email}) != 'admin@farmfreshfarmer.com'`
         )
       )
       .orderBy(desc(users.createdAt));

@@ -298,17 +298,20 @@ export default function AdminCustomers() {
                   <td className="p-3">
                     <button
                       onClick={() => { setStarEditId(c.id); setStarEditVal(c.customerStars || 0); }}
-                      className="flex flex-col gap-0.5 group p-1.5 rounded-lg border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/15 transition-all text-left cursor-pointer"
+                      className="flex flex-col gap-0.5 group p-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-left cursor-pointer shadow-xs"
                       title="Click to edit loyalty stars"
                     >
-                      <div className="flex items-center gap-1 font-extrabold text-xs text-blue-400">
+                      <div className="flex items-center gap-1 font-extrabold text-xs text-amber-500 dark:text-yellow-400">
                         {(c.customerStars || 0) > 0 ? (
-                          <span>★ {c.customerStars} Stars</span>
+                          <span className="flex items-center gap-1 font-black">
+                            <span>{"⭐".repeat(Math.min(5, c.customerStars || 0))}</span>
+                            <span className="ml-0.5">{c.customerStars}★</span>
+                          </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic font-normal">No stars</span>
+                          <span className="text-xs text-muted-foreground italic font-normal">No stars (0★)</span>
                         )}
                       </div>
-                      <span className="text-[9px] text-blue-400 opacity-70 group-hover:opacity-100 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
+                      <span className="text-[9px] text-amber-600 dark:text-yellow-400/80 group-hover:text-amber-500 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
                     </button>
                   </td>
                   <td className="p-3">

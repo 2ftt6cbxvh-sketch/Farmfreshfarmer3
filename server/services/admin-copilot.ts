@@ -944,6 +944,90 @@ GUIDELINES:
     };
   }
 
+  // 2. Direct Customer Star Promotion & Loyalty Tier Update Intent
+  if (
+    (lastUserMsg.includes("promote") || lastUserMsg.includes("star") || lastUserMsg.includes("tier")) &&
+    (lastUserMsg.includes("star") || lastUserMsg.includes("tier") || /\b[0-5]\b/.test(lastUserMsg)) &&
+    !lastUserMsg.includes("rule") && !lastUserMsg.includes("settings")
+  ) {
+    let targetStars: number | null = null;
+    const starMatch = lastUserMsg.match(/\b([0-5])\s*(?:star|stars|★)?\b/i) || lastUserMsg.match(/to\s*([0-5])\b/i);
+    if (starMatch) {
+      targetStars = parseInt(starMatch[1], 10);
+    }
+
+    if (targetStars !== null && targetStars >= 0 && targetStars <= 5) {
+      // Find the target customer
+      const idMatch = lastUserMsg.match(/(?:customer\s*(?:id\s*)?#?|id\s*#?|user\s*#?)\s*(\d+)/i) || lastUserMsg.match(/^promote\s*(\d+)/i);
+      const parsedId = idMatch ? parseInt(idMatch[1], 10) : null;
+
+      const customerOnly = liveCustomerAccounts.filter((c) => c.accountType === "customer");
+      
+      let targetUserRec: any = null;
+      if (parsedId) {
+        const [u] = await db.select().from(users).where(eq(users.id, parsedId)).limit(1);
+        targetUserRec = u;
+      }
+      
+      // If not found by exact ID, search by customer name in query
+      if (!targetUserRec) {
+        const allDbUsers = await db.select().from(users);
+        for (const u of allDbUsers) {
+          if (u.name && lastUserMsg.includes(u.name.toLowerCase())) {
+            targetUserRec = u;
+            break;
+          }
+        }
+      }
+
+      // If still not found and there is only 1 customer or single active shopper in system, intelligently target that customer
+      if (!targetUserRec && customerOnly.length === 1) {
+        const [u] = await db.select().from(users).where(eq(users.id, customerOnly[0].customerId)).limit(1);
+        targetUserRec = u;
+      }
+
+      if (targetUserRec) {
+        // Execute the database update immediately!
+        await db.update(users).set({
+          customerStars: targetStars,
+          starRating: String(targetStars),
+          updatedAt: new Date(),
+        }).where(eq(users.id, targetUserRec.id));
+
+        // Invalidate API caches
+        const { apiCache } = await import("../storage");
+        apiCache.invalidateTags(["users", "customers", "auth"]);
+
+        // Write Security Audit Log
+        await db.insert(securityAuditLogs).values({
+          eventType: "customer_promoted_by_narayana_ai",
+          severity: "info",
+          userId: adminUser.id,
+          targetId: targetUserRec.id,
+          targetType: "user",
+          actionTaken: `Promoted customer "${targetUserRec.name}" (ID #${targetUserRec.id}) to ${targetStars}★ Loyalty Tier.`,
+          platform: "admin_copilot",
+        });
+
+        const reply = `### ✨ 🌟 CUSTOMER LOYALTY TIER UPDATED IN DATABASE\n\nI have executed your command and updated the database record for **${targetUserRec.name}** (Customer ID #${targetUserRec.id}):\n\n* **Customer Name:** ${targetUserRec.name}\n* **Customer ID:** #${targetUserRec.id}\n* **Email:** ${targetUserRec.email}\n* **Phone:** ${targetUserRec.phone || "N/A"}\n* **New Loyalty Tier:** **${targetStars}★ ${targetStars === 5 ? "Diamond Elite" : targetStars === 4 ? "Platinum VIP" : targetStars === 3 ? "Gold" : targetStars === 2 ? "Silver" : targetStars === 1 ? "Bronze" : "Standard"}**\n* **Database Status:** ✅ Synchronized & Live\n\n*(The customer's dashboard, order discounts, and admin customers panel are now instantly updated to ${targetStars}★)*`;
+
+        return {
+          reply,
+          actionExecuted: {
+            type: "customer_modified",
+            description: `Set star rating of customer "${targetUserRec.name}" to ${targetStars}★.`,
+            details: { id: targetUserRec.id, name: targetUserRec.name, stars: targetStars },
+          },
+          suggestedFollowups: [
+            "Show me the updated customer list",
+            `Create a flash coupon for ${targetStars}-star customers`,
+            "Which crops are running low in stock?"
+          ]
+        };
+      }
+    }
+  }
+
   // Build prompt from conversation history with strict Gemini structural validity
   const rawContents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
   for (const m of messages) {
