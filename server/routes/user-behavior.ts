@@ -204,18 +204,21 @@ export function registerUserBehaviorRoutes(app: Express) {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      // Verify Super Admin access
+      // Verify Admin access
       const [adminUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       const isSuper = Boolean(
         adminUser?.isPrimaryAdmin === true ||
         adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-        adminUser?.id === 1
+        adminUser?.id === 1 ||
+        adminUser?.role === "admin" ||
+        adminUser?.role === "superadmin" ||
+        adminUser?.role === "manager_admin"
       );
       if (!isSuper) {
         return res.status(403).json({ message: "⛔ Chief Executive Super Admin access required" });
       }
 
-      const [allProfiles, allGuestSessions] = await Promise.all([
+      const [allProfiles, allGuestSessions, rawUnmetEvents] = await Promise.all([
         db.select({
           id: customerProfiles.id,
           userId: customerProfiles.userId,
@@ -228,6 +231,11 @@ export function registerUserBehaviorRoutes(app: Express) {
           behaviorProfile: guestBehaviorSessions.behaviorProfile,
           updatedAt: guestBehaviorSessions.updatedAt,
         }).from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
+        db.select({
+          id: unmetDemandEvents.id,
+          query: unmetDemandEvents.query,
+          createdAt: unmetDemandEvents.createdAt,
+        }).from(unmetDemandEvents).orderBy(desc(unmetDemandEvents.id)).limit(200),
       ]);
 
       const searchCounts: Record<string, number> = {};
@@ -294,6 +302,15 @@ export function registerUserBehaviorRoutes(app: Express) {
             }
           }
         } catch {}
+      }
+
+      // Also aggregate live unmet demand events
+      for (const ev of rawUnmetEvents) {
+        if (!ev.query) continue;
+        const clean = String(ev.query).trim().toLowerCase();
+        if (clean && clean.length > 1) {
+          searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+        }
       }
 
       // Sort and extract top items
