@@ -27,6 +27,12 @@ export interface TokenPair {
   expiresIn: number; // seconds
 }
 
+const STAFF_ADMIN_ROLES = new Set([
+  "admin", "superadmin", "manager_admin", "warehouse_admin", "subadmin",
+  "custom_subadmin", "customer_rep", "local_grievance_officer",
+  "zonal_grievance_officer", "chief_grievance_officer"
+]);
+
 /** Issue a new access + refresh token pair and persist the refresh token in DB. */
 export async function issueTokenPair(
   userId: number,
@@ -39,9 +45,13 @@ export async function issueTokenPair(
   } = {}
 ): Promise<TokenPair> {
   const payload: JwtPayload = { userId, role, platform: opts.platform || "web" };
+  const isAdminOrStaff = STAFF_ADMIN_ROLES.has(role);
+
+  // Admin & Staff tokens strictly expire after 1 hour (3600s). Customers use standard expiry.
+  const tokenExpiry = isAdminOrStaff ? "1h" : (ACCESS_EXPIRES_IN || "15m");
 
   const accessToken = jwt.sign(payload, getJwtSecret(), {
-    expiresIn: ACCESS_EXPIRES_IN as any,
+    expiresIn: tokenExpiry as any,
   });
 
   // Generate a cryptographically random refresh token
@@ -49,7 +59,12 @@ export async function issueTokenPair(
   const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
 
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_IN_DAYS);
+  // Admin refresh tokens expire after 1 hour of inactivity.
+  if (isAdminOrStaff) {
+    expiresAt.setHours(expiresAt.getHours() + 1);
+  } else {
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_IN_DAYS);
+  }
 
   await db.insert(refreshTokens).values({
     userId,
@@ -63,7 +78,7 @@ export async function issueTokenPair(
 
   // Return raw token to client (only ever sent once)
   const combined = `${userId}.${rawRefreshToken}`;
-  const accessExpiryMs = parseExpiry(ACCESS_EXPIRES_IN);
+  const accessExpiryMs = parseExpiry(tokenExpiry);
 
   return {
     accessToken,

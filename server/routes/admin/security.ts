@@ -653,7 +653,7 @@ export function registerAdminSecurityRoutes(app: Express) {
       const token = jwt.sign(
         { userId: adminUser.id, role: adminUser.role, email: adminUser.email },
         getJwtSecret(),
-        { expiresIn: "7d" }
+        { expiresIn: "1h" }
       );
 
       const { sendTelegramAlert } = await import("../../services/telegram");
@@ -714,7 +714,7 @@ export function registerAdminSecurityRoutes(app: Express) {
       const jwtToken = jwt.sign(
         { userId: adminUser?.id || 1, role: "superadmin", email: "admin@farmfreshfarmer.com" },
         getJwtSecret(),
-        { expiresIn: "7d" }
+        { expiresIn: "1h" }
       );
 
       return res.json({

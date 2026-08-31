@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
-import { ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound, Crown } from "lucide-react";
+import { ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound, Crown, Clock } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -404,6 +404,14 @@ export default function AdminLogin() {
             </div>
             <h1 className="font-serif text-2xl font-bold text-center text-foreground">Chief Executive Super Admin Portal</h1>
             <p className="text-xs text-muted-foreground text-center mt-1">Restricted High-Clearance Master Gateway</p>
+
+            {new URLSearchParams(window.location.search).get("expired") === "1" && (
+              <div className="mt-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold text-center flex items-center justify-center gap-1.5 animate-in fade-in">
+                <Clock size={14} className="shrink-0" />
+                <span>Session expired after 1 hour of inactivity. Please sign in again.</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <Label htmlFor="admin-email">Email Address</Label>

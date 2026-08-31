@@ -293,12 +293,98 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     localStorage.removeItem("adminUser");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("admin_last_activity");
+    sessionStorage.removeItem("admin_mfa_verified");
     try {
       await logout();
     } catch {}
-    window.location.href = "/admin";
+    window.location.href = "/admin/login";
   };
+
+  // ========================================================
+  // ⏱️ 1-HOUR INACTIVITY AUTO-LOGOUT ENGINE
+  // ========================================================
+  const INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 1 hour (3,600,000 ms)
+
+  useEffect(() => {
+    if (!adminUser) return;
+
+    // Check if previous recorded activity was already more than 1 hour ago
+    const lastStored = Number(localStorage.getItem("admin_last_activity") || "0");
+    const now = Date.now();
+
+    if (lastStored > 0 && now - lastStored >= INACTIVITY_LIMIT_MS) {
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("admin_last_activity");
+      sessionStorage.removeItem("admin_mfa_verified");
+      toast({
+        title: "⏱️ Session Expired (1 Hour Inactivity)",
+        description: "You have been automatically logged out after 1 hour of idle time for security.",
+        variant: "destructive",
+      });
+      window.location.href = "/admin/login?expired=1";
+      return;
+    }
+
+    // Set/refresh initial activity timestamp
+    localStorage.setItem("admin_last_activity", String(now));
+
+    let lastRecorded = now;
+    const recordActivity = () => {
+      const current = Date.now();
+      // Throttle writes to localStorage every 10 seconds
+      if (current - lastRecorded > 10000) {
+        lastRecorded = current;
+        localStorage.setItem("admin_last_activity", String(current));
+      }
+    };
+
+    // Listen to user interactions on window
+    window.addEventListener("mousemove", recordActivity, { passive: true });
+    window.addEventListener("mousedown", recordActivity, { passive: true });
+    window.addEventListener("keydown", recordActivity, { passive: true });
+    window.addEventListener("scroll", recordActivity, { passive: true });
+    window.addEventListener("touchstart", recordActivity, { passive: true });
+
+    // Periodic check every 15 seconds
+    const interval = setInterval(() => {
+      const currentActivity = Number(localStorage.getItem("admin_last_activity") || String(Date.now()));
+      if (Date.now() - currentActivity >= INACTIVITY_LIMIT_MS) {
+        clearInterval(interval);
+        localStorage.removeItem("adminUser");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("admin_last_activity");
+        sessionStorage.removeItem("admin_mfa_verified");
+        toast({
+          title: "⏱️ Session Expired (1 Hour Inactivity)",
+          description: "You have been automatically logged out after 1 hour of idle time for security.",
+          variant: "destructive",
+        });
+        window.location.href = "/admin/login?expired=1";
+      }
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("mousemove", recordActivity);
+      window.removeEventListener("mousedown", recordActivity);
+      window.removeEventListener("keydown", recordActivity);
+      window.removeEventListener("scroll", recordActivity);
+      window.removeEventListener("touchstart", recordActivity);
+    };
+  }, [adminUser]);
 
   if (loading && !adminUser) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
