@@ -36,6 +36,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [promotedCustomerStars, setPromotedCustomerStars] = useState<number | null>(null);
   const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);
 
+  // Instant live user updater with cross-component event broadcast
+  const setUserWithBroadcast = (newUser: AuthUser | null) => {
+    if (newUser) {
+      localStorage.setItem("user", JSON.stringify(newUser));
+      if (newUser.role !== "customer") {
+        localStorage.setItem("adminUser", JSON.stringify(newUser));
+      }
+    } else {
+      localStorage.removeItem("user");
+      localStorage.removeItem("adminUser");
+    }
+    setUser(newUser);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("fff_user_updated", { detail: newUser }));
+    }
+  };
+
   async function refresh() {
     try {
       const res = await apiRequest("GET", "/api/me");
@@ -74,6 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           localStorage.setItem(storedStarKey, String(currentStars));
         }
+        
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("fff_user_updated", { detail: newUser }));
+        }
       } else {
         localStorage.removeItem("user");
         localStorage.removeItem("adminUser");
@@ -86,6 +107,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }
+
+  // Live real-time listener for user updates across all tabs and components
+  useEffect(() => {
+    const onUserUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser(e.detail);
+      }
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "user" && e.newValue) {
+        try {
+          setUser(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    const onFocusOrVisible = () => {
+      const hasToken = localStorage.getItem("accessToken") || localStorage.getItem("token");
+      if (hasToken && document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+
+    window.addEventListener("fff_user_updated", onUserUpdate);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+
+    // High-responsiveness 6s live background sync
+    const liveInterval = setInterval(() => {
+      const hasToken = localStorage.getItem("accessToken") || localStorage.getItem("token");
+      if (hasToken && typeof document !== "undefined" && document.visibilityState === "visible") {
+        refresh();
+      }
+    }, 6000);
+
+    return () => {
+      window.removeEventListener("fff_user_updated", onUserUpdate);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+      clearInterval(liveInterval);
+    };
+  }, []);
 
   // ========================================================
   // ⏱️ 2-HOUR CUSTOMER INACTIVITY AUTO-LOGOUT ENGINE
@@ -240,7 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh, setUser: setUserWithBroadcast }}>
       {promotedCustomerStars !== null && (
         <StarPromotionOverlay stars={promotedCustomerStars} onClose={() => setPromotedCustomerStars(null)} />
       )}

@@ -130,12 +130,24 @@ function getStorageHistoryKey(userId?: number | null): string {
 
 export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } = {}) {
   const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { add, items, subtotal } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>(() => getSessionToken(user?.id));
   const [mounted, setMounted] = useState(false);
+
+  // Synchronize live user changes instantly across the assistant
+  useEffect(() => {
+    const handleUserUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser(e.detail);
+        setSessionToken(getSessionToken(e.detail.id));
+      }
+    };
+    window.addEventListener("fff_user_updated", handleUserUpdate);
+    return () => window.removeEventListener("fff_user_updated", handleUserUpdate);
+  }, []);
 
   useEffect(() => {
     setSessionToken(getSessionToken(user?.id));
@@ -144,6 +156,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Do not show customer chatbot on internal admin pages or partner portal
+  if (location.startsWith("/admin") || location.startsWith("/partner-portal")) {
+    return null;
+  }
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {

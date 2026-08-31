@@ -4,7 +4,6 @@ import DeliveryBanner from "./DeliveryBanner";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { FreeDeliveryBar } from "./FreeDeliveryBar";
-import { ChatbotLakshmi } from "./ChatbotLaxshmi";
 
 // Pages where the free delivery bar should NOT show
 const EXCLUDE_FREE_DELIVERY_BAR = [
@@ -38,7 +37,6 @@ export function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <Footer />
-      <ChatbotLakshmi />
     </div>
   );
 }

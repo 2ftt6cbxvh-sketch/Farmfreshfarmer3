@@ -12,6 +12,7 @@ import { IntroLoader } from "@/components/IntroLoader";
 import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
 import { BroadcastPopupModal } from "@/components/BroadcastPopupModal";
 import { BlockedUserOverlay } from "@/components/BlockedUserOverlay";
+import { ChatbotLakshmi } from "@/components/ChatbotLaxshmi";
 
 // Core customer discovery & checkout pages
 import Home from "@/pages/Home";
@@ -591,6 +592,8 @@ function AppContent() {
               <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" /></div>}>
                 <AppRouter />
               </Suspense>
+              {/* Persistent Live Lakshmi AI Assistant across all storefront pages */}
+              <ChatbotLakshmi />
             </Router>
           </CartProvider>
         </AuthProvider>
