@@ -12,8 +12,8 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
-import { products, categories, customerProfiles, guestBehaviorSessions, unmetDemandEvents, settings } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { products, categories, customerProfiles, guestBehaviorSessions, unmetDemandEvents, settings, orders, orderItems } from "@shared/schema";
+import { eq, desc, gte, and, sql } from "drizzle-orm";
 
 export interface UnmetDemandItem {
   keyword: string;
@@ -189,7 +189,34 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   // Find low stock products
   const lowStockItems = activeProducts
     .filter((p) => Number(p.stock) <= Number(p.lowStockThreshold || 10))
-    .map((p) => ({ id: p.id, name: p.name, stock: p.stock, category: p.categorySlug }));
+    .map((p) => ({ id: p.id, name: p.name, stock: p.stock, category: p.categorySlug, lowStockThreshold: p.lowStockThreshold }));
+
+  // Calculate real 7-day sales for products from DB
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const salesLast7Days: Record<number, number> = {};
+
+  try {
+    const recentOrders = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(gte(orders.createdAt, sevenDaysAgo), sql`${orders.status} != 'Cancelled'`));
+
+    if (recentOrders.length > 0) {
+      const orderIds = recentOrders.map((o) => o.id);
+      const items = await db
+        .select({ productId: orderItems.productId, qty: orderItems.qty })
+        .from(orderItems)
+        .where(sql`${orderItems.orderId} = ANY(${orderIds})`);
+
+      for (const it of items) {
+        if (it.productId) {
+          salesLast7Days[it.productId] = (salesLast7Days[it.productId] || 0) + Number(it.qty || 1);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[procurement-ai] 7-day sales calculation:", err?.message);
+  }
 
   // Month & Season context
   const currentMonthName = new Date().toLocaleString("en-US", { month: "long" });
@@ -201,12 +228,49 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
     searchCount: u.count,
   }));
 
-  const verifiedRestockItems = lowStockItems.slice(0, 8).map((p) => ({
-    productId: p.id,
-    productName: p.name,
-    currentStock: Number(p.stock),
-    categorySlug: p.category,
-  }));
+  const verifiedRestockItems = lowStockItems.slice(0, 8).map((p) => {
+    const sold7d = salesLast7Days[p.id] || 0;
+    const currentStock = Number(p.stock);
+    const threshold = Number(p.lowStockThreshold || 10);
+    
+    // Find matching search counts
+    const pnorm = p.name.toLowerCase();
+    let searches = searchCounts[pnorm] || 0;
+    for (const [kw, cnt] of Object.entries(searchCounts)) {
+      if (pnorm.includes(kw) || kw.includes(pnorm)) searches += cnt;
+    }
+
+    // Mathematical Demand Velocity & Runway Calculation
+    let calculatedVelocity = "";
+    let calculatedReorder = 20;
+    let calculatedRationale = "";
+
+    if (sold7d > 0) {
+      const dailyBurn = Number((sold7d / 7).toFixed(1));
+      const daysLeft = Math.max(1, Math.round(currentStock / (dailyBurn || 1)));
+      calculatedVelocity = `${sold7d} sold this week (~${daysLeft}d runway)`;
+      calculatedReorder = Math.max(20, Math.ceil(dailyBurn * 14 - currentStock));
+      calculatedRationale = `Sales velocity is ~${dailyBurn} packs/day (${sold7d} sold in the last 7 days). Current warehouse stock of ${currentStock} units will deplete in ~${daysLeft} days.`;
+    } else if (searches > 0) {
+      calculatedVelocity = `${searches} active searches (${currentStock} units left)`;
+      calculatedReorder = Math.max(20, searches * 2 - currentStock);
+      calculatedRationale = `Customers actively searched for this item ${searches} times recently, while current stock is low (${currentStock} units).`;
+    } else {
+      calculatedVelocity = `Low Stock (${currentStock} units left)`;
+      calculatedReorder = Math.max(15, threshold * 2 - currentStock);
+      calculatedRationale = `Current stock (${currentStock} units) has fallen below the safety threshold (${threshold} units). Replenishment recommended.`;
+    }
+
+    return {
+      productId: p.id,
+      productName: p.name,
+      currentStock,
+      categorySlug: p.category,
+      demandVelocity: calculatedVelocity,
+      recommendedRestockQty: calculatedReorder,
+      rationale: calculatedRationale,
+    };
+  });
 
   // 4. Prepare Gemini API Request
   const geminiKey = await getGeminiApiKey();
@@ -236,9 +300,9 @@ CURRENT PLATFORM CONTEXT:
    - If the list has items: for each item in the verified list, provide categorySuggestion, lostRevenuePotential (e.g. searchCount * ₹250), and recommended sourcingAction.
 2. For "restockAlerts":
    - VERIFIED LOW-STOCK CATALOG ITEMS: ${JSON.stringify(verifiedRestockItems)}
-   - YOU MUST USE ONLY products from this verified low-stock list. DO NOT INVENT any product names.
+   - YOU MUST USE ONLY products from this verified low-stock list. DO NOT INVENT any product names or fake percentage figures.
    - If the list is empty: return "restockAlerts": []
-   - For each item, provide demandVelocity, recommendedRestockQty, and rationale.
+   - For each item, keep its verified demandVelocity, recommendedRestockQty, and provide a clear agricultural restock rationale.
 3. For "recommendedNewProducts":
    - Suggest 4 to 8 brand-new farm crops or traditional GI-tagged organic products for Andhra Pradesh & Telangana that FarmFreshFarmer should procure and add to the catalog.
    - Each item MUST include:
@@ -291,7 +355,7 @@ Return ONLY valid JSON matching this structure with NO markdown fences, NO extra
       "productName": "...",
       "categorySlug": "...",
       "currentStock": 5,
-      "demandVelocity": "High (+240% inquiries)",
+      "demandVelocity": "4 sold / 7d (~2d runway)",
       "recommendedRestockQty": 50,
       "rationale": "..."
     }
@@ -434,14 +498,18 @@ Return ONLY valid JSON matching this structure with NO markdown fences, NO extra
     }
     finalRestockAlerts = verifiedRestockItems.map((p) => {
       const aiMatch = aiRestockMap.get(p.productName.toLowerCase().trim());
+      let rationale = aiMatch?.rationale || p.rationale;
+      if (/%/.test(rationale)) {
+        rationale = p.rationale;
+      }
       return {
         productId: p.productId,
         productName: p.productName,
         categorySlug: p.categorySlug || "produce",
         currentStock: p.currentStock,
-        demandVelocity: aiMatch?.demandVelocity || "Accelerating Demand",
-        recommendedRestockQty: aiMatch?.recommendedRestockQty || 30,
-        rationale: aiMatch?.rationale || `Current stock is ${p.currentStock} units. Sourcing re-order required to prevent out-of-stock.`,
+        demandVelocity: p.demandVelocity,
+        recommendedRestockQty: p.recommendedRestockQty,
+        rationale: rationale || p.rationale,
       };
     });
   }
