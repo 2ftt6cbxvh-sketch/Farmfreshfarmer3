@@ -1,38 +1,55 @@
 import React from "react";
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles, MapPin, Zap, ArrowUpRight, TrendingUp, PackageCheck, PackageX, Boxes } from "lucide-react";
 
 interface VishnuAiMessageRendererProps {
   content: string;
   isUser?: boolean;
+  onActionClick?: (prompt: string) => void;
 }
 
 /**
- * Format inline text styles: bold, inline code, currency, status highlights
+ * Format inline text styles: bold, inline code, currency, status highlights, locations
  */
-function renderInlineText(text: string): React.ReactNode[] {
-  // Split on bold (**text**), inline code (`code`), or currency/status patterns
-  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+function renderInlineText(text: string, onActionClick?: (prompt: string) => void): React.ReactNode[] {
+  // Split on bold (**text**), inline code (`code`), currency (₹...), or action triggers
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|₹[\d,]+(?:\.\d+)?)/g);
 
   return tokens.map((token, idx) => {
     if (token.startsWith("**") && token.endsWith("**")) {
       const inner = token.slice(2, -2);
 
-      // Status pill styling
-      if (/low stock|out of stock|critical|alert|warning|⚠️|🚨/i.test(inner)) {
+      // Status pill styling: Warning / Low Stock
+      if (/low stock|out of stock|critical|alert|warning|⚠️|🚨|below threshold/i.test(inner)) {
         return (
           <span
             key={idx}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-amber-500/20 text-amber-300 font-extrabold text-[11px] border border-amber-500/30"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-amber-500/20 text-amber-300 font-black text-[10.5px] border border-amber-500/40 shadow-xs"
           >
+            <AlertTriangle size={11} className="text-amber-400 shrink-0" />
             {inner}
           </span>
         );
       }
+
+      // Status pill styling: Adequate / In Stock / Healthy
       if (/in stock|adequate|active|healthy|verified|✅|approved/i.test(inner)) {
         return (
           <span
             key={idx}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-extrabold text-[11px] border border-emerald-500/30"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-black text-[10.5px] border border-emerald-500/40 shadow-xs"
+          >
+            <PackageCheck size={11} className="text-emerald-400 shrink-0" />
+            {inner}
+          </span>
+        );
+      }
+
+      // Units or quantities styling
+      if (/^\d+\s*(?:units?|kg|gm|crates?|packs?|gaps?|items?|orders?|crops?)/i.test(inner)) {
+        return (
+          <span
+            key={idx}
+            className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-sky-500/15 text-sky-300 font-mono font-black text-[11px] border border-sky-500/30"
           >
             {inner}
           </span>
@@ -46,11 +63,24 @@ function renderInlineText(text: string): React.ReactNode[] {
       );
     }
 
+    // Currency highlight (e.g. ₹12,450)
+    if (/^₹[\d,]+(?:\.\d+)?$/.test(token)) {
+      return (
+        <span
+          key={idx}
+          className="inline-flex items-center font-mono font-black text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[11px]"
+        >
+          {token}
+        </span>
+      );
+    }
+
+    // Inline Code
     if (token.startsWith("`") && token.endsWith("`")) {
       return (
         <code
           key={idx}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-black/40 text-amber-300 font-mono text-[10px] border border-amber-500/20"
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-black/50 text-amber-300 font-mono text-[10px] border border-amber-500/20"
         >
           {token.slice(1, -1)}
         </code>
@@ -62,9 +92,46 @@ function renderInlineText(text: string): React.ReactNode[] {
 }
 
 /**
- * Render Markdown Table Block into a High-End Executive Glass Table
+ * Extract stock numbers and render mini stock gauge meter
  */
-function renderTableBlock(tableLines: string[], key: number): React.ReactNode {
+function renderStockMeter(cellText: string): React.ReactNode | null {
+  const stockMatch = cellText.match(/(\d+)\s*units?/i);
+  const threshMatch = cellText.match(/threshold\s*[:\s]*(\d+)/i);
+
+  if (!stockMatch) return null;
+
+  const current = parseInt(stockMatch[1], 10);
+  const threshold = threshMatch ? parseInt(threshMatch[1], 10) : 10;
+  const ratio = Math.min(100, Math.round((current / (threshold || 10)) * 100));
+
+  const isLow = current <= threshold;
+  const isCritical = current <= Math.max(1, Math.round(threshold * 0.4));
+
+  return (
+    <div className="mt-1 flex items-center gap-1.5 min-w-[100px]">
+      <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden border border-white/5">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            isCritical
+              ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+              : isLow
+              ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+              : "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+          }`}
+          style={{ width: `${Math.max(8, Math.min(100, ratio))}%` }}
+        />
+      </div>
+      <span className={`text-[9px] font-mono font-bold ${isCritical ? "text-red-400" : isLow ? "text-amber-400" : "text-emerald-400"}`}>
+        {ratio}%
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Render Markdown Table Block into a High-End Executive Glass Table with inline Action Triggers & Meters
+ */
+function renderTableBlock(tableLines: string[], key: number, onActionClick?: (prompt: string) => void): React.ReactNode {
   if (tableLines.length < 2) return null;
 
   // Filter out delimiter row (e.g. |---|---|)
@@ -86,38 +153,61 @@ function renderTableBlock(tableLines: string[], key: number): React.ReactNode {
   return (
     <div
       key={key}
-      className="my-3 overflow-hidden rounded-xl border border-emerald-500/30 bg-background/90 shadow-md backdrop-blur-md"
+      className="my-3 overflow-hidden rounded-2xl border border-emerald-500/30 bg-background/95 shadow-xl backdrop-blur-md"
     >
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[11px] border-collapse">
           <thead>
-            <tr className="bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-amber-950/60 border-b border-emerald-500/30 text-muted-foreground font-black uppercase text-[9px] tracking-wider">
+            <tr className="bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-amber-950/80 border-b border-emerald-500/30 text-muted-foreground font-black uppercase text-[9px] tracking-wider">
               {headerRow.map((col, cIdx) => (
-                <th key={cIdx} className="px-3 py-2 text-foreground/90 whitespace-nowrap">
-                  {renderInlineText(col)}
+                <th key={cIdx} className="px-3 py-2.5 text-foreground/90 whitespace-nowrap">
+                  {renderInlineText(col, onActionClick)}
                 </th>
               ))}
+              {onActionClick && <th className="px-3 py-2.5 text-right text-muted-foreground whitespace-nowrap">Action</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-card-border/60">
             {dataRows.map((rowCells, rIdx) => {
-              const isWarningRow = rowCells.some((c) => /low stock|⚠️|0 units|critical/i.test(c));
+              const isWarningRow = rowCells.some((c) => /low stock|⚠️|0 units|critical|out of stock/i.test(c));
+              const productNameCell = rowCells.find((c) => !/^\d+$/.test(c) && !/units?|stock|adequate|threshold/i.test(c)) || rowCells[1] || rowCells[0];
+              const cleanProductName = productNameCell ? productNameCell.replace(/[*_`]/g, "").trim() : "";
+
               return (
                 <tr
                   key={rIdx}
                   className={`transition-colors ${
                     isWarningRow
-                      ? "bg-amber-500/10 hover:bg-amber-500/15"
+                      ? "bg-amber-500/10 hover:bg-amber-500/20"
                       : rIdx % 2 === 0
                       ? "bg-transparent hover:bg-muted/40"
                       : "bg-muted/20 hover:bg-muted/40"
                   }`}
                 >
-                  {rowCells.map((cell, cIdx) => (
-                    <td key={cIdx} className="px-3 py-2 text-foreground/90 font-medium whitespace-nowrap">
-                      {renderInlineText(cell)}
+                  {rowCells.map((cell, cIdx) => {
+                    const meter = renderStockMeter(cell);
+                    return (
+                      <td key={cIdx} className="px-3 py-2.5 text-foreground/90 font-medium whitespace-nowrap align-middle">
+                        <div>{renderInlineText(cell, onActionClick)}</div>
+                        {meter}
+                      </td>
+                    );
+                  })}
+                  {onActionClick && (
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap align-middle">
+                      {isWarningRow && cleanProductName && cleanProductName !== "Various" && (
+                        <button
+                          type="button"
+                          onClick={() => onActionClick(`Restock ${cleanProductName} now with 50 units`)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-[10px] font-black transition active:scale-95 shadow-xs cursor-pointer"
+                          title={`Restock ${cleanProductName}`}
+                        >
+                          <Zap size={11} className="text-amber-400" />
+                          <span>Restock</span>
+                        </button>
+                      )}
                     </td>
-                  ))}
+                  )}
                 </tr>
               );
             })}
@@ -128,7 +218,7 @@ function renderTableBlock(tableLines: string[], key: number): React.ReactNode {
   );
 }
 
-export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMessageRendererProps) {
+export function VishnuAiMessageRenderer({ content, isUser = false, onActionClick }: VishnuAiMessageRendererProps) {
   if (isUser) {
     return <div className="whitespace-pre-wrap font-medium">{content}</div>;
   }
@@ -146,7 +236,7 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
 
   const flushTable = (key: number) => {
     if (currentTableLines.length > 0) {
-      blocks.push(renderTableBlock(currentTableLines, key));
+      blocks.push(renderTableBlock(currentTableLines, key, onActionClick));
       currentTableLines = [];
     }
   };
@@ -172,9 +262,11 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
     if (/^(#{1,3}\s*|\*\*)([^*#]+)(\*\*|\s*)$/.test(trimmed)) {
       const title = trimmed.replace(/^#{1,3}\s*|\*\*$/g, "").replace(/^\*\*/, "");
       blocks.push(
-        <div key={`header-${idx}`} className="flex items-center gap-2 pt-1.5 pb-0.5 border-b border-card-border/80">
-          <Sparkles size={13} className="text-amber-400 shrink-0" />
-          <h4 className="font-black text-xs uppercase tracking-wider text-amber-300">{title}</h4>
+        <div key={`header-${idx}`} className="flex items-center gap-2 pt-2 pb-1 border-b border-card-border/80">
+          <Sparkles size={14} className="text-amber-400 shrink-0" />
+          <h4 className="font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-300 via-emerald-300 to-teal-300 bg-clip-text text-transparent">
+            {title}
+          </h4>
         </div>
       );
       return;
@@ -185,10 +277,10 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
       blocks.push(
         <div
           key={`alert-${idx}`}
-          className="my-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-medium flex items-start gap-2 shadow-xs"
+          className="my-2.5 p-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-medium flex items-start gap-2.5 shadow-sm backdrop-blur-xs"
         >
-          <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1 leading-snug">{renderInlineText(trimmed.replace(/^(\*|Note:|Warning:)\s*/i, ""))}</div>
+          <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 leading-snug">{renderInlineText(trimmed.replace(/^(\*|Note:|Warning:)\s*/i, ""), onActionClick)}</div>
         </div>
       );
       return;
@@ -200,7 +292,7 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
       blocks.push(
         <div key={`bullet-${idx}`} className="flex items-start gap-2 pl-1 py-0.5 text-[11.5px] leading-relaxed">
           <span className="text-emerald-400 font-bold mt-0.5">•</span>
-          <div className="flex-1 text-foreground/90 font-medium">{renderInlineText(textOnly)}</div>
+          <div className="flex-1 text-foreground/90 font-medium">{renderInlineText(textOnly, onActionClick)}</div>
         </div>
       );
       return;
@@ -210,11 +302,11 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
     const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (numMatch) {
       blocks.push(
-        <div key={`num-${idx}`} className="flex items-start gap-2 pl-1 py-0.5 text-[11.5px] leading-relaxed">
-          <span className="font-mono font-bold text-amber-400 text-[10px] px-1 py-0.5 rounded bg-amber-500/15 shrink-0">
+        <div key={`num-${idx}`} className="flex items-start gap-2 pl-1 py-1 text-[11.5px] leading-relaxed">
+          <span className="font-mono font-black text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30 shrink-0">
             {numMatch[1]}
           </span>
-          <div className="flex-1 text-foreground/90 font-medium">{renderInlineText(numMatch[2])}</div>
+          <div className="flex-1 text-foreground/90 font-medium">{renderInlineText(numMatch[2], onActionClick)}</div>
         </div>
       );
       return;
@@ -223,7 +315,7 @@ export function VishnuAiMessageRenderer({ content, isUser = false }: VishnuAiMes
     // 7. Regular paragraph text
     blocks.push(
       <p key={`p-${idx}`} className="text-[11.5px] leading-relaxed text-foreground/90 font-medium">
-        {renderInlineText(trimmed)}
+        {renderInlineText(trimmed, onActionClick)}
       </p>
     );
   });

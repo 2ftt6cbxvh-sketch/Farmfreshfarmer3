@@ -342,7 +342,11 @@ export function AdminExecutiveCopilotModal() {
                         : "bg-muted/80 border border-card-border/80 text-foreground rounded-tl-sm shadow-sm"
                     }`}
                   >
-                    <VishnuAiMessageRenderer content={msg.content} isUser={msg.role === "user"} />
+                    <VishnuAiMessageRenderer
+                      content={msg.content}
+                      isUser={msg.role === "user"}
+                      onActionClick={(prompt) => handleSend(prompt)}
+                    />
 
                     {/* Action Executed Badge */}
                     {msg.actionExecuted && (
