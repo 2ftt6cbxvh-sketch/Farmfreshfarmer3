@@ -17,7 +17,7 @@ export function imgUrl(src?: string | null): string {
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    let text = (await res.text()) || res.statusText;
     if (res.status === 403 && (text.includes("blocked") || text.includes("suspended") || text.includes("Account is blocked"))) {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("farmfresh:user_blocked"));
@@ -31,7 +31,12 @@ async function throwIfResNotOk(res: Response) {
         }
       } catch {}
     }
-    throw new Error(`${res.status}: ${text}`);
+    if (text.includes("<html") || text.includes("<!DOCTYPE") || text.includes("cf-error")) {
+      if (res.status === 504) text = "Gateway Timeout: Server took too long to respond. Please try again.";
+      else if (res.status === 502) text = "Bad Gateway: Backend service restarting. Please retry in a moment.";
+      else text = `Server Error (${res.status}): Please try again.`;
+    }
+    throw new Error(`${text}`);
   }
 }
 

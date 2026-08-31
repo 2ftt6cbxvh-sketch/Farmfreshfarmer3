@@ -246,7 +246,7 @@ Return only JSON.`;
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.2, maxOutputTokens: 800 },
       }),
-      signal: AbortSignal.timeout(4000), // Strict 4-second timeout to prevent UI hanging
+      signal: AbortSignal.timeout(1500), // Strict 1.5-second timeout to guarantee instant response and avoid 504 proxy timeouts
     });
 
     if (res.ok) {
