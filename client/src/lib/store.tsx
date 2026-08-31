@@ -225,8 +225,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("user");
     localStorage.removeItem("adminUser");
     localStorage.removeItem("customer_last_activity");
+    localStorage.removeItem("cartItems");
     sessionStorage.clear();
     queryClient.invalidateQueries();
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("fff_cart_updated", { detail: { items: [] } }));
+    }
 
     // 2. Fire backend session destroy in background
     try {
@@ -375,7 +380,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Fetch / merge cart on user login
+  // Fetch / sync cart on user login
   useEffect(() => {
     if (!user) {
       hasMergedUserRef.current = null;
@@ -387,22 +392,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       try {
         if (hasMergedUserRef.current !== user.id) {
           hasMergedUserRef.current = user.id;
-          if (items.length > 0) {
-            const res = await apiRequest("POST", "/api/cart/merge", {
-              items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
-            });
-            const data = await res.json();
-            if (!cancelled && Array.isArray(data.items)) {
-              const clean = consolidateCartItems(data.items);
-              setItems(clean);
-            }
-          } else {
-            const res = await apiRequest("GET", "/api/cart");
-            const data = await res.json();
-            if (!cancelled && Array.isArray(data.items)) {
-              const clean = consolidateCartItems(data.items);
-              setItems(clean);
-            }
+          const res = await apiRequest("GET", "/api/cart");
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.items)) {
+            const clean = consolidateCartItems(data.items);
+            setItems(clean);
+            try {
+              localStorage.setItem("cartItems", JSON.stringify(clean));
+            } catch {}
           }
         }
       } catch (err) {
