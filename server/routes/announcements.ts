@@ -89,6 +89,7 @@ export function registerAnnouncementRoutes(app: Express) {
   /** GET /api/announcements/active — Get active announcements and ads for visitors & users */
   app.get("/api/announcements/active", async (_req: Request, res: Response) => {
     try {
+      res.setHeader("Cache-Control", "public, max-age=30, s-maxage=120, stale-while-revalidate=300");
       await ensureAnnouncementsTable();
       const result = await pool.query(`
         SELECT 

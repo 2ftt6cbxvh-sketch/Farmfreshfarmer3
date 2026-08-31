@@ -889,9 +889,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       30,
       ["products"]
     );
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     res.json(data);
   }));
 
@@ -905,9 +903,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       ["products"]
     );
     if (!p) return res.status(404).json({ message: "Not found" });
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     res.json(p);
   }));
 

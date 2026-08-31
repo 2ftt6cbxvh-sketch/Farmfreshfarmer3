@@ -21,53 +21,59 @@ import ProductDetail from "@/pages/ProductDetail";
 import Cart from "@/pages/Cart";
 import Login from "@/pages/Login";
 import Orders from "@/pages/Orders";
-import PaymentSimulate from "@/pages/PaymentSimulate";
-import PaymentCallback from "@/pages/PaymentCallback";
-import { PaymentSuccess, PaymentFailure } from "@/pages/PaymentResult";
-import MySubscriptions from "@/pages/MySubscriptions";
-import MyReferrals from "@/pages/MyReferrals";
 import Account from "@/pages/Account";
-import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
-// Legal pages
-import {
-  TermsPage, PrivacyPage, RefundPage, ReturnPage, ShippingPage, GrievancePage
-} from "@/pages/LegalPages";
+// Secondary customer pages lazily loaded
+const MySubscriptions = React.lazy(() => import("@/pages/MySubscriptions"));
+const MyReferrals = React.lazy(() => import("@/pages/MyReferrals"));
+const PaymentSimulate = React.lazy(() => import("@/pages/PaymentSimulate"));
+const PaymentCallback = React.lazy(() => import("@/pages/PaymentCallback"));
+const PaymentSuccess = React.lazy(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentSuccess })));
+const PaymentFailure = React.lazy(() => import("@/pages/PaymentResult").then(m => ({ default: m.PaymentFailure })));
+const ForgotPassword = React.lazy(() => import("@/pages/ForgotPassword"));
+const ResetPassword = React.lazy(() => import("@/pages/ResetPassword"));
 
-// Admin & Partner Portal pages
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import AdminProducts from "@/pages/admin/AdminProducts";
-import AdminCategories from "@/pages/admin/AdminCategories";
-import AdminApprovals from "@/pages/admin/AdminApprovals";
-import AdminInventory from "@/pages/admin/AdminInventory";
-import AdminOrders from "@/pages/admin/AdminOrders";
-import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
-import AdminCustomers from "@/pages/admin/AdminCustomers";
-import AdminReviews from "@/pages/admin/AdminReviews";
-import AdminCoupons from "@/pages/admin/AdminCoupons";
-import AdminDiscounts from "@/pages/admin/AdminDiscounts";
-import AdminStarDiscountRules from "@/pages/admin/AdminStarDiscountRules";
-import AdminReferrals from "@/pages/admin/AdminReferrals";
-import AdminPayments from "@/pages/admin/AdminPayments";
-import AdminSettings from "@/pages/admin/AdminSettings";
-import AdminSecurity from "@/pages/admin/AdminSecurity";
-import AdminWarehouses from "@/pages/admin/AdminWarehouses";
-import AdminDelivery from "@/pages/admin/AdminDelivery";
-import AdminLogin from "@/pages/admin/AdminLogin";
-import AdminUsers from "@/pages/admin/AdminUsers";
-import AdminStaff from "@/pages/admin/AdminStaff";
-import AdminDeliveryPartners from "@/pages/admin/AdminDeliveryPartners";
-import AdminGST from "@/pages/admin/AdminGST";
-import { AdminLiveChat } from "@/pages/admin/AdminLiveChat";
-import AdminTickets from "@/pages/admin/AdminTickets";
-import AdminRefunds from "@/pages/admin/AdminRefunds";
-import AdminAdvertisements from "@/pages/admin/AdminAdvertisements";
-import AdminMarketing from "@/pages/admin/AdminMarketing";
-import AdminLakshmiAI from "@/pages/admin/AdminLakshmiAI";
-import DeliveryPartnerPortal from "@/pages/DeliveryPartnerPortal";
-import { AdminDirectAccessWarning } from "@/pages/admin/AdminDirectAccessWarning";
+// Legal policy pages lazily loaded
+const TermsPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.TermsPage })));
+const PrivacyPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.PrivacyPage })));
+const RefundPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.RefundPage })));
+const ReturnPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.ReturnPage })));
+const ShippingPage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.ShippingPage })));
+const GrievancePage = React.lazy(() => import("@/pages/LegalPages").then(m => ({ default: m.GrievancePage })));
+
+// Admin & Partner Portal pages (Lazily loaded for lightning-fast customer initial load)
+const AdminDashboard = React.lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminProducts = React.lazy(() => import("@/pages/admin/AdminProducts"));
+const AdminCategories = React.lazy(() => import("@/pages/admin/AdminCategories"));
+const AdminApprovals = React.lazy(() => import("@/pages/admin/AdminApprovals"));
+const AdminInventory = React.lazy(() => import("@/pages/admin/AdminInventory"));
+const AdminOrders = React.lazy(() => import("@/pages/admin/AdminOrders"));
+const AdminSubscriptions = React.lazy(() => import("@/pages/admin/AdminSubscriptions"));
+const AdminCustomers = React.lazy(() => import("@/pages/admin/AdminCustomers"));
+const AdminReviews = React.lazy(() => import("@/pages/admin/AdminReviews"));
+const AdminCoupons = React.lazy(() => import("@/pages/admin/AdminCoupons"));
+const AdminDiscounts = React.lazy(() => import("@/pages/admin/AdminDiscounts"));
+const AdminStarDiscountRules = React.lazy(() => import("@/pages/admin/AdminStarDiscountRules"));
+const AdminReferrals = React.lazy(() => import("@/pages/admin/AdminReferrals"));
+const AdminPayments = React.lazy(() => import("@/pages/admin/AdminPayments"));
+const AdminSettings = React.lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminSecurity = React.lazy(() => import("@/pages/admin/AdminSecurity"));
+const AdminWarehouses = React.lazy(() => import("@/pages/admin/AdminWarehouses"));
+const AdminDelivery = React.lazy(() => import("@/pages/admin/AdminDelivery"));
+const AdminLogin = React.lazy(() => import("@/pages/admin/AdminLogin"));
+const AdminUsers = React.lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminStaff = React.lazy(() => import("@/pages/admin/AdminStaff"));
+const AdminDeliveryPartners = React.lazy(() => import("@/pages/admin/AdminDeliveryPartners"));
+const AdminGST = React.lazy(() => import("@/pages/admin/AdminGST"));
+const AdminLiveChat = React.lazy(() => import("@/pages/admin/AdminLiveChat").then(m => ({ default: m.AdminLiveChat })));
+const AdminTickets = React.lazy(() => import("@/pages/admin/AdminTickets"));
+const AdminRefunds = React.lazy(() => import("@/pages/admin/AdminRefunds"));
+const AdminAdvertisements = React.lazy(() => import("@/pages/admin/AdminAdvertisements"));
+const AdminMarketing = React.lazy(() => import("@/pages/admin/AdminMarketing"));
+const AdminLakshmiAI = React.lazy(() => import("@/pages/admin/AdminLakshmiAI"));
+const DeliveryPartnerPortal = React.lazy(() => import("@/pages/DeliveryPartnerPortal"));
+const AdminDirectAccessWarning = React.lazy(() => import("@/pages/admin/AdminDirectAccessWarning").then(m => ({ default: m.AdminDirectAccessWarning })));
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
   constructor(props: any) {
@@ -578,7 +584,9 @@ function AppContent() {
             <Toaster />
             <Router>
               <ScrollToTop />
-              <AppRouter />
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" /></div>}>
+                <AppRouter />
+              </Suspense>
             </Router>
           </CartProvider>
         </AuthProvider>
