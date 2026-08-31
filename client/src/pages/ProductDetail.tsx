@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Minus, Plus, ShoppingCart, Star, Sparkles, Home } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Star, Sparkles, Home, ArrowRight, Check } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { DietDot } from "@/components/DietDot";
 import { ProductCard } from "@/components/ProductCard";
@@ -302,38 +302,74 @@ export default function ProductDetail() {
             </div>
 
             {product.stock > 0 ? (
-              <div className="space-y-3 pt-2 w-full">
-                <p className="text-xs font-bold text-emerald-500">In Stock: {product.stock} unit(s) available</p>
-                <div className="flex flex-wrap items-stretch gap-3 w-full">
-                  <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1 shrink-0">
-                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors cursor-pointer" aria-label="Decrease"><Minus size={16} /></button>
-                    <span className="w-9 text-center font-bold">{qty}</span>
-                    <button onClick={() => {
-                      if (qty >= product.stock) {
-                        toast({ title: "Stock Limit Reached", description: `Only ${product.stock} unit(s) in stock.`, variant: "destructive" });
-                        return;
-                      }
-                      setQty((q) => Math.min(product.stock, q + 1));
-                    }} className="p-2 hover:bg-card rounded-lg transition-colors cursor-pointer" aria-label="Increase"><Plus size={16} /></button>
+              <div className="space-y-4 pt-3 w-full">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    In Stock · <span className="text-foreground font-extrabold">{product.stock} units</span> available
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+                  {/* Premium Rounded Stepper */}
+                  <div className="flex items-center justify-between sm:justify-start rounded-2xl border border-emerald-500/25 bg-card/80 backdrop-blur-sm p-1 shadow-xs shrink-0 h-12">
+                    <button
+                      type="button"
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <span className="w-10 text-center font-mono font-black text-sm text-foreground">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (qty >= product.stock) {
+                          toast({ title: "Stock Limit Reached", description: `Only ${product.stock} unit(s) in stock.`, variant: "destructive" });
+                          return;
+                        }
+                        setQty((q) => Math.min(product.stock, q + 1));
+                      }}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={15} />
+                    </button>
                   </div>
                   
-                  <Button onClick={() => { 
-                    const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
-                    const available = Math.max(0, product.stock - inCart);
-                    if (available <= 0) {
-                      toast({ title: "Stock Limit Reached", description: `You already have the maximum available stock (${product.stock} units) in your cart.`, variant: "destructive" });
-                      return;
-                    }
-                    const finalQty = Math.min(available, qty);
-                    add(product, finalQty, selectedTier || undefined); 
-                    toast({ title: "✨ Added to cart", description: `${finalQty} × ${product.name} (${activeUnit})` }); 
-                  }} className="flex-1 min-w-[140px] gap-2 px-6 py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30 cursor-pointer" data-testid="button-add-detail">
-                    <ShoppingCart size={18} /> Add {qty > 1 ? `${qty} × ${activeUnit}` : activeUnit} to Cart
+                  {/* Primary Add to Cart Action */}
+                  <Button
+                    onClick={() => { 
+                      const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
+                      const available = Math.max(0, product.stock - inCart);
+                      if (available <= 0) {
+                        toast({ title: "Stock Limit Reached", description: `You already have the maximum available stock (${product.stock} units) in your cart.`, variant: "destructive" });
+                        return;
+                      }
+                      const finalQty = Math.min(available, qty);
+                      add(product, finalQty, selectedTier || undefined); 
+                      toast({ title: "✨ Added to basket", description: `${finalQty} × ${product.name} (${activeUnit})` }); 
+                    }}
+                    className="flex-1 h-12 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-md shadow-emerald-950/20 hover:shadow-lg hover:shadow-emerald-900/30 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2.5"
+                    data-testid="button-add-detail"
+                  >
+                    <ShoppingCart size={17} />
+                    <span>Add {qty > 1 ? `${qty} × ${activeUnit}` : activeUnit} to Cart</span>
                   </Button>
 
+                  {/* Secondary View Cart & Checkout Button (Rendered cleanly when in basket) */}
                   {items.some(i => i.productId === product.id) && (
-                    <Button onClick={() => setLocation("/cart")} className="w-full sm:w-auto sm:flex-initial gap-2 px-6 py-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold shadow-xl shadow-emerald-500/20 border border-emerald-300 transition-all hover:scale-105" data-testid="button-go-to-cart">
-                      🛒 Go to Cart ➔
+                    <Button
+                      onClick={() => setLocation("/cart")}
+                      variant="outline"
+                      className="h-12 px-5 rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-extrabold text-sm transition-all hover:scale-102 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                      data-testid="button-go-to-cart"
+                    >
+                      <span>View Cart</span>
+                      <ArrowRight size={15} />
                     </Button>
                   )}
                 </div>
