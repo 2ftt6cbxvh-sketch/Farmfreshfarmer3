@@ -4,8 +4,8 @@ import { sql, eq, desc, and, or, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders } from '@shared/schema';
 import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import https from 'https';
+import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middleware/rate-limit';
 import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
 import { resolveProductBenefit } from '@shared/produce-benefits';
 
