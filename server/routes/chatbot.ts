@@ -369,6 +369,32 @@ const HEALTH_INTENT_MAP: Record<string, string[]> = {
   deals: ['deal', 'deals', 'offer', 'offers', 'discount', 'discounts', 'sale', 'sales', 'special', 'cheap', 'save', 'saving', 'low price', 'best price'],
 };
 
+// Stopwords to ignore in fuzzy product matching
+const STOP_WORDS = new Set([
+  'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 'in', 'for', 'with', 'about', 'against',
+  'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up',
+  'down', 'of', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when',
+  'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
+  'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should',
+  'now', 'give', 'show', 'tell', 'want', 'need', 'please', 'item', 'items', 'product', 'products',
+]);
+
+function stemWord(word: string): string {
+  if (!word) return '';
+  return word
+    .toLowerCase()
+    .replace(/(?:ing|ies|es|s|ed|ly)$/, '')
+    .trim();
+}
+
+function matchesWord(w1: string, w2: string): boolean {
+  if (!w1 || !w2) return false;
+  if (w1 === w2) return true;
+  const s1 = stemWord(w1);
+  const s2 = stemWord(w2);
+  return s1.length >= 3 && (s1 === s2 || s1.includes(s2) || s2.includes(s1));
+}
+
 function resolveSmartProductSuggestions(
   userMessage: string,
   replyText: string | null,
