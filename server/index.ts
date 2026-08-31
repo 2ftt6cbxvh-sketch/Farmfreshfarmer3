@@ -132,7 +132,7 @@ export const routesReadyPromise = (async () => {
     notifyDeploymentIfNewVersion("v10.1.1").catch(() => {});
   } catch {}
 
-  // Start Vishnu AI Autonomous Radar (dispatch bottleneck checks, demand spike alerts, daily briefings)
+  // Start Narayana AI Autonomous Radar (dispatch bottleneck checks, demand spike alerts, daily briefings)
   if (process.env.VERCEL !== "1") {
     // Only run background timers in non-serverless environments
     try {

@@ -293,7 +293,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       productId: pid,
       previousStock: product.stock,
       newStock: stockVal,
-      note: note || `Stock updated via Vishnu AI by ${adminUser.name || "Admin"}`,
+      note: note || `Stock updated via Narayana AI by ${adminUser.name || "Admin"}`,
       adminUserId: adminUser.id,
     });
 
@@ -307,7 +307,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
   // Action 3: Cancel Order
   if (actionName === "cancel_order") {
     if (!isSuperAdmin) {
-      throw new Error("Only Super Admin can cancel orders via Vishnu AI.");
+      throw new Error("Only Super Admin can cancel orders via Narayana AI.");
     }
     const { orderId, reason } = args;
     const oid = Number(orderId);
@@ -323,7 +323,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
 
     return {
       type: "order_cancelled",
-      description: `Cancelled Order #${oid} (was: ${order.status}). Reason: ${reason || "Admin decision via Vishnu AI"}.`,
+      description: `Cancelled Order #${oid} (was: ${order.status}). Reason: ${reason || "Admin decision via Narayana AI"}.`,
       details: { orderId: oid, previousStatus: order.status, cancelReason: reason },
     };
   }
@@ -388,7 +388,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
         newStock: stockVal,
         changeQty: stockVal - Number(product.stock || 0),
         reason: "restock",
-        note: `Bulk restocked via Vishnu AI by ${adminUser.name || "Admin"}`,
+        note: `Bulk restocked via Narayana AI by ${adminUser.name || "Admin"}`,
         adminUserId: adminUser.id,
       });
       results.push({ name: product.name, oldStock: product.stock, newStock: stockVal });
@@ -396,7 +396,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
 
     return {
       type: "bulk_restocked",
-      description: `Bulk restocked ${results.length} products via Vishnu AI.`,
+      description: `Bulk restocked ${results.length} products via Narayana AI.`,
       details: results,
     };
   }
@@ -458,7 +458,7 @@ export async function executeCopilotTurn(
   ]);
 
   const systemInstruction = `
-You are Vishnu AI, the high-privilege AI Operations & Executive Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
+You are Narayana AI, the high-privilege AI Operations & Executive Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
 You are assisting: ${adminUser.name || "Admin"} (Role: ${adminUser.role}, Super Admin: ${isSuperAdmin ? "YES" : "NO"}).
 
 LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS AND ANONYMOUS GUEST VISITORS):
@@ -526,7 +526,7 @@ GUIDELINES:
   if (rawContents.length === 0) {
     rawContents.push({
       role: "user",
-      parts: [{ text: "Hello Vishnu AI, please summarize operational status." }],
+      parts: [{ text: "Hello Narayana AI, please summarize operational status." }],
     });
   }
 

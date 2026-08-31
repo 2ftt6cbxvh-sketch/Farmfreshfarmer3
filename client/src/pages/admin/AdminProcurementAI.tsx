@@ -328,7 +328,7 @@ export default function AdminProcurementAI() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
-                  <span>Vishnu AI Sourcing &amp; Procurement Radar</span>
+                  <span>Narayana AI Sourcing &amp; Procurement Radar</span>
                   <span className="text-xl">🌾</span>
                 </h1>
                 <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-extrabold uppercase tracking-wider">

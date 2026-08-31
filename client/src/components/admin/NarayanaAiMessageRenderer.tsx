@@ -1,7 +1,7 @@
 import React from "react";
 import { AlertTriangle, Sparkles, MapPin, Zap, ArrowUpRight, TrendingUp, PackageCheck, PackageX, Boxes } from "lucide-react";
 
-interface VishnuAiMessageRendererProps {
+interface NarayanaAiMessageRendererProps {
   content: string;
   isUser?: boolean;
   onActionClick?: (prompt: string) => void;
@@ -218,7 +218,7 @@ function renderTableBlock(tableLines: string[], key: number, onActionClick?: (pr
   );
 }
 
-export function VishnuAiMessageRenderer({ content, isUser = false, onActionClick }: VishnuAiMessageRendererProps) {
+export function NarayanaAiMessageRenderer({ content, isUser = false, onActionClick }: NarayanaAiMessageRendererProps) {
   if (isUser) {
     return <div className="whitespace-pre-wrap font-medium">{content}</div>;
   }
@@ -325,3 +325,6 @@ export function VishnuAiMessageRenderer({ content, isUser = false, onActionClick
 
   return <div className="space-y-1.5">{blocks}</div>;
 }
+
+// Backward-compatibility alias
+export const VishnuAiMessageRenderer = NarayanaAiMessageRenderer;

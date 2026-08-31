@@ -653,7 +653,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
         </main>
       </div>
 
-      {/* ── Vishnu AI Floating Trigger & Assistant Modal ── */}
+      {/* ── Narayana AI Floating Trigger & Assistant Modal ── */}
       <AdminExecutiveCopilotModal />
     </div>
   );

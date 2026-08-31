@@ -153,7 +153,7 @@ export function registerAdminProcurementAiRoutes(app: Express) {
         `• <b>Harvest Window:</b> 🗓️ ${peakProcurementWindow || "Active Season"}\n` +
         `• <b>Target PO Quantity:</b> 📦 ${targetQty}\n` +
         `• <b>Est. Farm-Gate Rate:</b> ₹${recommendedPrice || 150}\n\n` +
-        `<i>Dispatched by Chief Admin via Vishnu AI Procurement Engine</i>`;
+        `<i>Dispatched by Chief Admin via Narayana AI Procurement Engine</i>`;
 
       let sent = false;
       try {

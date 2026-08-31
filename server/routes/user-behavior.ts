@@ -357,40 +357,44 @@ export function registerUserBehaviorRoutes(app: Express) {
       }
 
       const cleanQuery = query.trim().replace(/<[^>]*>?/gm, "").slice(0, 255);
-      const safeSid = String(sessionId || `gst_${randomBytes(8).toString("hex")}`).slice(0, 128);
+      const effectiveSessionId = String(sessionId || `gst_${randomBytes(8).toString("hex")}`).slice(0, 128);
       const safeCity = String(city || "Visakhapatnam").slice(0, 128);
       const safePincode = pincode ? String(pincode).slice(0, 32) : null;
       const countVal = Number(resultCount) || 0;
 
-      // 1. Record directly into unmet_demand_events for sub-millisecond Vishnu AI streaming
-      try {
-        await db.insert(unmetDemandEvents).values({
+      // 1. Record directly into unmet_demand_events for sub-millisecond Narayana AI streaming
+      const [newEvent] = await db
+        .insert(unmetDemandEvents)
+        .values({
           query: cleanQuery,
-          sessionId: safeSid,
+          sessionId: effectiveSessionId,
           userId: userId || null,
-          city: safeCity,
-          pincode: safePincode,
-          resultCount: countVal,
-        });
-      } catch (insertErr: any) {
-        console.warn("[unmet-search] Insert event fallback:", insertErr?.message);
-      }
+          city: city || "Andhra Pradesh / Telangana",
+          pincode: pincode || null,
+          resultCount: resultCount || 0,
+        })
+        .returning();
 
-      // 2. Invalidate AI Procurement cached recommendations so next fetch is instant & fresh
-      try {
-        const { invalidateProcurementCache } = await import("../services/admin-procurement-ai");
-        invalidateProcurementCache();
-      } catch {}
+      // 2. Also register into missed queries table for historical audit
+      await db.insert(chatbotMissedQueries).values({
+        sessionToken: effectiveSessionId,
+        userId: userId || null,
+        query: cleanQuery,
+        language: "en",
+        triggerType: "zero_result_search",
+        resolved: false,
+        telegramAlertSent: false,
+      }).catch(() => {});
 
-      return res.json({ ok: true, query: cleanQuery, recordedAt: new Date().toISOString() });
+      return res.json({ ok: true, eventId: newEvent?.id, message: "Unmet demand signal registered" });
     } catch (err: any) {
-      console.error("[unmet-search] Error recording unmet search:", err?.message);
-      return res.status(500).json({ message: "Failed to record search" });
+      console.warn("[user-behavior] record-unmet-search fallback:", err?.message);
+      return res.json({ ok: true, fallback: true });
     }
   });
 
   /**
-   * GET /api/admin/demand/live-unmet-stream — Real-time live feed of zero-inventory searches for Vishnu AI & Admin Radar
+   * GET /api/admin/demand/live-unmet-stream — Real-time live feed of zero-inventory searches for Narayana AI & Admin Radar
    */
   app.get("/api/admin/demand/live-unmet-stream", async (req: Request, res: Response) => {
     try {

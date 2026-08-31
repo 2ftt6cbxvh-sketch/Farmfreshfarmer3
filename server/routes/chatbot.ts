@@ -1505,6 +1505,114 @@ function findBestProductMatch(allProds: any[], rawQuery: string): any | null {
 
   return bestScore >= 75 ? bestProd : null;
 }
+
+/** Detect cart clear/empty intent */
+function detectCartClearIntent(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  return /\b(clear|empty|delete all|remove all|discard all)\b.*\b(cart|basket|items|everything)\b/i.test(lower) ||
+    /^(clear|empty)\s+(my\s+)?(cart|basket)$/i.test(lower);
+}
+
+/** Detect cart item removal/deletion intent */
+function detectCartRemoveIntent(message: string): string | null {
+  const lower = message.toLowerCase().trim();
+  const removeMatch = lower.match(/\b(?:remove|delete|drop|take out|discard)\s+(?:the\s+)?(.+?)(?:\s+(?:from|out of|in)\s+(?:my\s+)?(?:cart|basket))?$/i);
+  if (!removeMatch) return null;
+  const rawTarget = removeMatch[1].trim();
+  if (!rawTarget || rawTarget.length < 2) return null;
+  if (/^(all|everything|cart|basket)$/i.test(rawTarget)) return null;
+  return rawTarget;
+}
+
+/** Detect cart item quantity update/reduction intent */
+function detectCartUpdateIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
+  const lower = message.toLowerCase().trim();
+  const updateMatch = lower.match(/\b(?:reduce|decrease|lower|change|make|update|set|increase)\s+(?:the\s+)?(.+?)\s+(?:quantity\s+)?(?:to|by|as)\s+(\d+(?:[.,]\d+)?)\s*(kgs?|kilograms?|grams?|gms?|\bg\b|packets?|packs?|pieces?|pcs?|units?|nos?)?/i);
+  if (!updateMatch) return null;
+  const rawProduct = updateMatch[1].replace(/\b(quantity|qty|of|in my cart|from cart)\b/g, '').trim();
+  const rawQty = parseFloat(updateMatch[2].replace(',', '.'));
+  let rawUnit = updateMatch[3] ? updateMatch[3].toLowerCase() : 'unit';
+  if (/kg|kilogram/.test(rawUnit)) rawUnit = 'kg';
+  else if (/gram|gm|\bg\b/.test(rawUnit)) rawUnit = 'g';
+  else if (/pack|packet/.test(rawUnit)) rawUnit = 'pack';
+  else if (/piece|pc|no/.test(rawUnit)) rawUnit = 'piece';
+  else rawUnit = 'unit';
+
+  if (!rawProduct || rawProduct.length < 2 || isNaN(rawQty)) return null;
+  return { rawProduct, rawQty, rawUnit };
+}
+
+/** Detect customer profile/address/phone/dietary updates */
+function detectProfileUpdateIntent(message: string): { type: 'address' | 'phone' | 'name' | 'pincode' | 'dietary'; value: string; extra?: any } | null {
+  const lower = message.toLowerCase().trim();
+
+  // 1. Phone number update
+  const phoneMatch = message.match(/\b(?:change|update|set|modify)\s+(?:my\s+)?(?:phone|mobile|contact|cell)\s*(?:number)?\s+(?:to|as|is)?\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
+    message.match(/\b(?:my\s+new\s+(?:phone|mobile|number)\s+is|contact\s+me\s+at)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i);
+  if (phoneMatch) {
+    return { type: 'phone', value: phoneMatch[2] };
+  }
+
+  // 2. Address update
+  const addrMatch = message.match(/\b(?:change|update|set|save|modify)\s+(?:my\s+)?(?:delivery\s+|shipping\s+|home\s+)?address\s+(?:to|as|is)?\s*[:\-]?\s*(.+)/i) ||
+    message.match(/\b(?:deliver to|new delivery address\s*[:\-]?)\s*[:\-]?\s*(.+)/i);
+  if (addrMatch) {
+    const rawAddr = addrMatch[1].trim().replace(/^['"]|['"]$/g, '');
+    if (rawAddr.length >= 6) {
+      const pinMatch = rawAddr.match(/\b([1-9][0-9]{5})\b/);
+      return { type: 'address', value: rawAddr, extra: { pincode: pinMatch ? pinMatch[1] : null } };
+    }
+  }
+
+  // 3. Pincode update only
+  const pincodeUpdateMatch = message.match(/\b(?:change|update|set)\s+(?:my\s+)?(?:pincode|pin code|postal code|zip)\s+(?:to|as|is)?\s*[:\-]?\s*([1-9][0-9]{5})\b/i);
+  if (pincodeUpdateMatch) {
+    return { type: 'pincode', value: pincodeUpdateMatch[1] };
+  }
+
+  // 4. Name update
+  const nameMatch = message.match(/\b(?:change|update|set)\s+(?:my\s+)?name\s+(?:to|as|is)?\s*[:\-]?\s*([a-zA-Z\s]{2,40})$/i) ||
+    message.match(/\b(?:call me|my name is)\s+([a-zA-Z\s]{2,40})$/i);
+  if (nameMatch) {
+    const rawName = nameMatch[1].trim();
+    if (rawName && !/^(address|phone|number|order|cart|cancel)$/i.test(rawName)) {
+      return { type: 'name', value: rawName };
+    }
+  }
+
+  // 5. Health & Dietary preferences
+  const dietMatch = message.match(/\b(?:i am|i have|my health goal is|i prefer|my diet is)\s+(diabetic|diabetes|low sugar|weight loss|keto|high fiber|organic only|vegan|cholesterol|hypertension|blood pressure|heart health)\b/i);
+  if (dietMatch) {
+    return { type: 'dietary', value: dietMatch[1].toLowerCase() };
+  }
+
+  return null;
+}
+
+/** Detect Order self-service support (track, cancel, refund) */
+function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel' | 'refund'; orderId?: number } | null {
+  const lower = message.toLowerCase().trim();
+
+  // Cancel order
+  const cancelMatch = lower.match(/\b(?:cancel|stop)\s+(?:my\s+)?order\s*#?(\d+)/i);
+  if (cancelMatch) {
+    return { action: 'cancel', orderId: parseInt(cancelMatch[1], 10) };
+  }
+
+  // Refund status
+  if (/\b(?:refund|refunds|money back|return money)\b/i.test(lower)) {
+    const oidMatch = lower.match(/order\s*#?(\d+)/i);
+    return { action: 'refund', orderId: oidMatch ? parseInt(oidMatch[1], 10) : undefined };
+  }
+
+  // Order tracking
+  if (/\b(?:track|where is|status of|when will|check)\s+(?:my\s+)?(?:order|delivery|package|items)\b/i.test(lower)) {
+    const oidMatch = lower.match(/#?(\d+)/);
+    return { action: 'track', orderId: oidMatch ? parseInt(oidMatch[1], 10) : undefined };
+  }
+
+  return null;
+}
 // === END CART HELPER FUNCTIONS ===
 
   // POST /api/chatbot & POST /api/chatbot/message
@@ -1860,6 +1968,352 @@ function findBestProductMatch(allProds: any[], rawQuery: string): any | null {
         }
       }
       // === END CART VIEW INTENT ===
+
+      // === CART CLEAR INTENT ===
+      if (detectCartClearIntent(message)) {
+        if (!userId) {
+          return res.json({
+            reply: 'To manage your cart, please log in first! Sign in using Google One-Tap or Email OTP at the top right. 🛒',
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+        try {
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          if (userCart) {
+            await db.delete(cartItems).where(eq(cartItems.cartId, userCart.id));
+          }
+          return res.json({
+            reply: '🛒 I have cleared all items from your cart. Your cart is now completely empty and ready for fresh additions!',
+            needsHuman: false,
+            cartUpdated: true,
+            cartCleared: true,
+            cartItems: [],
+          });
+        } catch (clearErr: any) {
+          console.error('[chatbot] Cart clear error:', clearErr);
+        }
+      }
+      // === END CART CLEAR INTENT ===
+
+      // === CART REMOVE INTENT ===
+      const removeTarget = detectCartRemoveIntent(message);
+      if (removeTarget) {
+        if (!userId) {
+          return res.json({
+            reply: `To remove items from your cart, please log in first! Sign in using Google One-Tap or Email OTP at the top right. 🛒`,
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+        try {
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          if (!userCart) {
+            return res.json({
+              reply: 'Your cart is currently empty! There are no items to remove. 🛒',
+              needsHuman: false,
+            });
+          }
+
+          const existingItems = await db
+            .select({
+              id: cartItems.id,
+              productId: cartItems.productId,
+              qty: cartItems.qty,
+              name: products.name,
+              price: products.price,
+            })
+            .from(cartItems)
+            .leftJoin(products, eq(cartItems.productId, products.id))
+            .where(eq(cartItems.cartId, userCart.id));
+
+          if (existingItems.length === 0) {
+            return res.json({
+              reply: 'Your cart is currently empty! There are no items to remove. 🛒',
+              needsHuman: false,
+            });
+          }
+
+          const allProdsList = existingItems.map(i => ({ id: i.productId, name: i.name || '' }));
+          const matchedProd = findBestProductMatch(allProdsList, removeTarget);
+
+          let itemToDelete = existingItems.find(i => matchedProd && i.productId === matchedProd.id);
+          if (!itemToDelete) {
+            const norm = removeTarget.toLowerCase().trim();
+            itemToDelete = existingItems.find(i => (i.name || '').toLowerCase().includes(norm));
+          }
+
+          if (itemToDelete) {
+            await db.delete(cartItems).where(eq(cartItems.id, itemToDelete.id));
+
+            const remaining = await db
+              .select({
+                id: cartItems.id,
+                productId: cartItems.productId,
+                qty: cartItems.qty,
+                name: products.name,
+                price: products.price,
+                unit: products.unit,
+                image: products.image,
+              })
+              .from(cartItems)
+              .leftJoin(products, eq(cartItems.productId, products.id))
+              .where(eq(cartItems.cartId, userCart.id));
+
+            return res.json({
+              reply: `🗑️ Removed **${itemToDelete.name || 'item'}** from your cart! ${remaining.length > 0 ? `You have ${remaining.length} item${remaining.length > 1 ? 's' : ''} remaining in your cart.` : 'Your cart is now empty.'}`,
+              needsHuman: false,
+              cartUpdated: true,
+              cartItems: remaining,
+            });
+          } else {
+            const currentItemNames = existingItems.map(i => i.name).filter(Boolean).join(', ');
+            return res.json({
+              reply: `I couldn't find "${removeTarget}" in your cart. Current items in your cart: **${currentItemNames}**. Which item would you like me to remove?`,
+              needsHuman: false,
+            });
+          }
+        } catch (removeErr: any) {
+          console.error('[chatbot] Cart remove error:', removeErr);
+        }
+      }
+      // === END CART REMOVE INTENT ===
+
+      // === CART UPDATE / REDUCE / INCREASE INTENT ===
+      const updateTarget = detectCartUpdateIntent(message);
+      if (updateTarget) {
+        if (!userId) {
+          return res.json({
+            reply: `To update item quantities in your cart, please log in first! 🛒`,
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+        try {
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          if (!userCart) {
+            return res.json({
+              reply: 'Your cart is currently empty! 🛒',
+              needsHuman: false,
+            });
+          }
+
+          const existingItems = await db
+            .select({
+              id: cartItems.id,
+              productId: cartItems.productId,
+              qty: cartItems.qty,
+              name: products.name,
+              price: products.price,
+              unit: products.unit,
+            })
+            .from(cartItems)
+            .leftJoin(products, eq(cartItems.productId, products.id))
+            .where(eq(cartItems.cartId, userCart.id));
+
+          const allProdsList = existingItems.map(i => ({ id: i.productId, name: i.name || '', unit: i.unit, price: i.price }));
+          const matchedProd = findBestProductMatch(allProdsList, updateTarget.rawProduct);
+
+          let itemToUpdate = existingItems.find(i => matchedProd && i.productId === matchedProd.id);
+          if (!itemToUpdate) {
+            const norm = updateTarget.rawProduct.toLowerCase().trim();
+            itemToUpdate = existingItems.find(i => (i.name || '').toLowerCase().includes(norm));
+          }
+
+          if (itemToUpdate) {
+            const qtyResult = resolveCartQty(updateTarget.rawQty, updateTarget.rawUnit, itemToUpdate);
+            const newUnits = qtyResult.unitsToAdd > 0 ? qtyResult.unitsToAdd : Math.max(1, Math.round(updateTarget.rawQty));
+
+            await db.update(cartItems).set({ qty: newUnits }).where(eq(cartItems.id, itemToUpdate.id));
+
+            const updatedCartItems = await db
+              .select({
+                id: cartItems.id,
+                productId: cartItems.productId,
+                qty: cartItems.qty,
+                name: products.name,
+                price: products.price,
+                unit: products.unit,
+                image: products.image,
+              })
+              .from(cartItems)
+              .leftJoin(products, eq(cartItems.productId, products.id))
+              .where(eq(cartItems.cartId, userCart.id));
+
+            return res.json({
+              reply: `✨ Updated **${itemToUpdate.name}** quantity to **${newUnits} pack${newUnits > 1 ? 's' : ''}** in your cart! 🛒`,
+              needsHuman: false,
+              cartUpdated: true,
+              cartItems: updatedCartItems,
+            });
+          }
+        } catch (updErr: any) {
+          console.error('[chatbot] Cart update error:', updErr);
+        }
+      }
+      // === END CART UPDATE INTENT ===
+
+      // === CUSTOMER PROFILE UPDATE INTENT ===
+      const profileUpdate = detectProfileUpdateIntent(message);
+      if (profileUpdate) {
+        if (!userId) {
+          return res.json({
+            reply: 'To update your delivery address or contact details, please log in first! Sign in at the top right so I can link your details to your verified account. 🔐',
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+
+        try {
+          if (profileUpdate.type === 'phone') {
+            await db.update(users).set({ phone: profileUpdate.value, updatedAt: new Date() }).where(eq(users.id, userId));
+            return res.json({
+              reply: `✅ I have updated your registered mobile number to: 📱 **${profileUpdate.value}**!\n\nOur delivery partners and automated dispatch alerts will use this phone number.`,
+              needsHuman: false,
+              profileUpdated: true,
+            });
+          }
+
+          if (profileUpdate.type === 'address') {
+            const updates: any = { address: profileUpdate.value, updatedAt: new Date() };
+            if (profileUpdate.extra?.pincode) {
+              updates.pincode = profileUpdate.extra.pincode;
+            }
+            await db.update(users).set(updates).where(eq(users.id, userId));
+
+            return res.json({
+              reply: `✅ I have updated your delivery address to:\n📍 **${profileUpdate.value}**${profileUpdate.extra?.pincode ? ` (PIN: ${profileUpdate.extra.pincode})` : ''}\n\nAll future orders will be delivered fresh to this address! 🏡`,
+              needsHuman: false,
+              profileUpdated: true,
+            });
+          }
+
+          if (profileUpdate.type === 'pincode') {
+            await db.update(users).set({ pincode: profileUpdate.value, updatedAt: new Date() }).where(eq(users.id, userId));
+            return res.json({
+              reply: `✅ I have updated your primary delivery pincode to: **${profileUpdate.value}**!`,
+              needsHuman: false,
+              profileUpdated: true,
+            });
+          }
+
+          if (profileUpdate.type === 'name') {
+            await db.update(users).set({ name: profileUpdate.value, updatedAt: new Date() }).where(eq(users.id, userId));
+            return res.json({
+              reply: `✅ Wonderful, I will address you as **${profileUpdate.value}**! Your account name has been updated.`,
+              needsHuman: false,
+              profileUpdated: true,
+            });
+          }
+
+          if (profileUpdate.type === 'dietary') {
+            const [prof] = await db.select().from(customerProfiles).where(eq(customerProfiles.userId, userId)).limit(1);
+            let prevData: any = {};
+            if (prof?.behaviorProfile) {
+              try { prevData = JSON.parse(prof.behaviorProfile); } catch {}
+            }
+            prevData.dietaryPreferences = profileUpdate.value;
+            prevData.updatedAt = new Date().toISOString();
+
+            if (prof) {
+              await db.update(customerProfiles).set({ behaviorProfile: JSON.stringify(prevData), updatedAt: new Date() }).where(eq(customerProfiles.id, prof.id));
+            } else {
+              await db.insert(customerProfiles).values({ userId, behaviorProfile: JSON.stringify(prevData) });
+            }
+
+            return res.json({
+              reply: `🌱 I have updated your wellness preferences to: **${profileUpdate.value.toUpperCase()}**!\n\nI will now prioritize low glycemic index millets, pesticide-free farm greens, and immunity-boosting produce tailored for your wellness goals! 🌾`,
+              needsHuman: false,
+              profileUpdated: true,
+            });
+          }
+        } catch (profErr: any) {
+          console.error('[chatbot] Profile update error:', profErr);
+        }
+      }
+      // === END CUSTOMER PROFILE UPDATE INTENT ===
+
+      // === ORDER SUPPORT INTENT ===
+      const orderSupport = detectOrderSupportIntent(message);
+      if (orderSupport) {
+        if (!userId) {
+          return res.json({
+            reply: 'To check your orders or manage deliveries, please sign in first! 📦',
+            needsHuman: false,
+            requiresLogin: true,
+          });
+        }
+
+        try {
+          if (orderSupport.action === 'track') {
+            let targetOrder: any = null;
+            if (orderSupport.orderId) {
+              const [o] = await db.select().from(orders).where(and(eq(orders.id, orderSupport.orderId), eq(orders.userId, userId))).limit(1);
+              targetOrder = o;
+            } else {
+              const [latest] = await db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.id)).limit(1);
+              targetOrder = latest;
+            }
+
+            if (!targetOrder) {
+              return res.json({
+                reply: `You don't have any recent orders placed yet. Would you like me to help you find some fresh farm produce? 🌾`,
+                needsHuman: false,
+              });
+            }
+
+            const statusEmoji = targetOrder.status === 'Delivered' ? '✅' : targetOrder.status === 'Out for Delivery' ? '🛵' : targetOrder.status === 'Packed' ? '📦' : '⏱️';
+            const trackReply = `📦 **Order Tracking Details:**\n\n` +
+              `• **Order ID:** #${targetOrder.id}\n` +
+              `• **Status:** ${statusEmoji} **${targetOrder.status}**\n` +
+              `• **Order Total:** ₹${Number(targetOrder.total || 0).toFixed(0)}\n` +
+              `• **Delivery Address:** 📍 ${targetOrder.deliveryAddress || 'Your registered address'}\n` +
+              `• **Ordered on:** 📅 ${new Date(targetOrder.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}\n\n` +
+              (targetOrder.status === 'Out for Delivery' ? `🛵 *Your delivery partner is on the way!*` : `🚚 *Estimated Delivery: Within scheduled slot.*`);
+
+            return res.json({
+              reply: trackReply,
+              needsHuman: false,
+            });
+          }
+
+          if (orderSupport.action === 'cancel' && orderSupport.orderId) {
+            const [o] = await db.select().from(orders).where(and(eq(orders.id, orderSupport.orderId), eq(orders.userId, userId))).limit(1);
+            if (!o) {
+              return res.json({
+                reply: `I could not find Order #${orderSupport.orderId} in your account. Please check the order number and try again.`,
+                needsHuman: false,
+              });
+            }
+
+            if (o.status === 'Delivered' || o.status === 'Out for Delivery') {
+              return res.json({
+                reply: `⚠️ Order #${o.id} is already **${o.status}** and cannot be cancelled automatically. If you need assistance with return or replacement upon delivery, please let me know!`,
+                needsHuman: false,
+              });
+            }
+
+            if (o.status === 'Cancelled') {
+              return res.json({
+                reply: `Order #${o.id} is already cancelled.`,
+                needsHuman: false,
+              });
+            }
+
+            // Cancel order
+            await db.update(orders).set({ status: 'Cancelled', updatedAt: new Date() }).where(eq(orders.id, o.id));
+
+            return res.json({
+              reply: `🛑 **Order #${o.id} (₹${Number(o.total || 0).toFixed(0)}) has been successfully cancelled as requested.**\n\nIf you made an online prepayment, your refund will be processed back to your original payment method within 24-48 hours.`,
+              needsHuman: false,
+              orderUpdated: true,
+            });
+          }
+        } catch (ordErr: any) {
+          console.error('[chatbot] Order support error:', ordErr);
+        }
+      }
+      // === END ORDER SUPPORT INTENT ===
 
       // === PINCODE DIRECT ETA LOOKUP ===
       const pincodeMatch = message.trim().match(/\b([1-9][0-9]{5})\b/);

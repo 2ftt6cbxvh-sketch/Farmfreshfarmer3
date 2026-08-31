@@ -470,10 +470,22 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       };
       setMessages((prev) => [...prev, reply]);
       
-      if (data.cartAdded) {
+      if (data.cartAdded || data.cartUpdated || data.cartCleared || data.cartModified) {
         queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
         queryClient.invalidateQueries({ queryKey: ['/api/cart/count'] });
         window.dispatchEvent(new CustomEvent('fff_cart_updated', { detail: { items: data.cartItems } }));
+        window.dispatchEvent(new CustomEvent('cart-updated', { detail: { items: data.cartItems } }));
+      }
+      if (data.profileUpdated) {
+        queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+        window.dispatchEvent(new CustomEvent('user-updated'));
+      }
+      if (data.orderUpdated) {
+        queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/orders/my'] });
+        window.dispatchEvent(new CustomEvent('orders-updated'));
       }
       if (data.speech) {
         speakText(data.reply, reply.id, language);

@@ -31,7 +31,7 @@ export default function SearchPage() {
     enabled: !isLoading && products.length === 0 && q.length > 0,
   });
 
-  // Real-time search signal tracking + Zero-Result Unmet Search pipeline for Vishnu AI
+  // Real-time search signal tracking + Zero-Result Unmet Search pipeline for Narayana AI
   useEffect(() => {
     if (q && q.trim().length > 1) {
       recordSearchQuery(q);
@@ -71,7 +71,7 @@ export default function SearchPage() {
             <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 via-card to-amber-950/10 p-6 md:p-10 text-center space-y-4 shadow-sm">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-extrabold animate-pulse">
                 <Radio size={14} className="text-amber-500" />
-                <span>Live Sourcing Alert Dispatched to Vishnu AI</span>
+                <span>Live Sourcing Alert Dispatched to Narayana AI</span>
               </div>
 
               <div className="max-w-md mx-auto space-y-1">
