@@ -20,8 +20,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Synchronous instant initialization from localStorage (0ms delay on refresh)
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const stored = localStorage.getItem("user") || localStorage.getItem("adminUser");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    const hasToken = typeof window !== "undefined" && Boolean(localStorage.getItem("accessToken") || localStorage.getItem("token"));
+    const hasUser = typeof window !== "undefined" && Boolean(localStorage.getItem("user") || localStorage.getItem("adminUser"));
+    return hasToken && !hasUser;
+  });
   const [promotedCustomerStars, setPromotedCustomerStars] = useState<number | null>(null);
   const [promotedStaffInfo, setPromotedStaffInfo] = useState<{ stars: number; title: string; role: string } | null>(null);
 
@@ -32,6 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser = data.user || null;
 
       if (newUser) {
+        localStorage.setItem("user", JSON.stringify(newUser));
+        if (newUser.role !== "customer") {
+          localStorage.setItem("adminUser", JSON.stringify(newUser));
+        }
+
         if (newUser.role === "customer") {
           const newStars = newUser.customerStars ?? 0;
           const storedKey = `seen_star_level_${newUser.id}`;
@@ -58,14 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           localStorage.setItem(storedStarKey, String(currentStars));
         }
+      } else {
+        localStorage.removeItem("user");
+        localStorage.removeItem("adminUser");
       }
 
       setUser(newUser);
-      if (newUser && newUser.role !== "customer") {
-        localStorage.setItem("adminUser", JSON.stringify(newUser));
-      }
     } catch {
-      setUser(null);
+      // If network fails, preserve existing local user if token is still valid
     } finally {
       setLoading(false);
     }
@@ -120,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("scroll", recordUserActivity, { passive: true });
     window.addEventListener("touchstart", recordUserActivity, { passive: true });
 
-    // Periodic check every 15 seconds
+    // Periodic check every 60 seconds (lightweight)
     const interval = setInterval(() => {
       const hasToken = localStorage.getItem("accessToken") || localStorage.getItem("token");
       const currentActivity = Number(localStorage.getItem("customer_last_activity") || String(Date.now()));
@@ -131,12 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("adminUser");
         localStorage.removeItem("customer_last_activity");
         sessionStorage.clear();
         queryClient.clear();
         setUser(null);
         try {
-          apiRequest("POST", "/api/logout").catch(() => {});
+          fetch("/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
         } catch {}
         return;
       }
@@ -145,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (hasToken) {
         refresh();
       }
-    }, 15000);
+    }, 60000);
 
     return () => {
       window.removeEventListener("farmfresh:user_blocked", onUserBlocked);
@@ -175,10 +192,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
     localStorage.setItem("customer_last_activity", String(Date.now()));
-    setUser(data.user);
-    if (data.user && data.user.role !== "customer") {
-      localStorage.setItem("adminUser", JSON.stringify(data.user));
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.user.role !== "customer") {
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+      }
     }
+    setUser(data.user);
     return data.user as AuthUser;
   }
 
@@ -186,24 +206,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiRequest("POST", "/api/register", payload);
     const data = await res.json();
     localStorage.setItem("customer_last_activity", String(Date.now()));
-    setUser(data.user);
-    if (data.user && data.user.role !== "customer") {
-      localStorage.setItem("adminUser", JSON.stringify(data.user));
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      if (data.user.role !== "customer") {
+        localStorage.setItem("adminUser", JSON.stringify(data.user));
+      }
     }
+    setUser(data.user);
     return data.user as AuthUser;
   }
 
   async function logout() {
+    // 1. Instant optimistic local teardown (0ms visual logout)
+    setUser(null);
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminUser");
+    localStorage.removeItem("customer_last_activity");
+    sessionStorage.clear();
+    queryClient.clear();
+
+    // 2. Fire backend session destroy in background
     try {
-      await apiRequest("POST", "/api/logout");
-    } catch (e) {
-      console.warn("[logout] API error:", e);
-    } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      queryClient.clear();
-      setUser(null);
-    }
+      fetch("/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    } catch {}
   }
 
   return (
@@ -298,10 +326,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let isCancelled = false;
 
     async function syncLivePrices() {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       try {
-        const res = await fetch("/api/products", { cache: "no-store" });
-        if (!res.ok) return;
-        const productsList: Product[] = await res.json();
+        const cachedProducts = queryClient.getQueryData<Product[]>(["/api/products"]);
+        const productsList: Product[] = cachedProducts || await apiGet<Product[]>("/api/products");
         if (isCancelled || !Array.isArray(productsList)) return;
 
         setItems((currentItems) => {
@@ -328,8 +356,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
 
-    const timer = setTimeout(syncLivePrices, 1000);
-    const interval = setInterval(syncLivePrices, 10000);
+    const timer = setTimeout(syncLivePrices, 2000);
+    const interval = setInterval(syncLivePrices, 60000);
 
     return () => {
       isCancelled = true;

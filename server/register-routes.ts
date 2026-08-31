@@ -782,10 +782,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.clearCookie("refreshToken");
     } catch {}
     if (req.session) {
-      req.session.destroy(() => res.json({ ok: true }));
-    } else {
-      res.json({ ok: true });
+      req.session.destroy((err) => {
+        if (err) console.warn("[logout] session destroy warning:", err?.message || err);
+      });
     }
+    res.json({ ok: true });
   });
 
   app.get("/api/me", h(async (req, res) => {
@@ -879,23 +880,28 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const q = req.query.q ? String(req.query.q) : undefined;
     const featured = req.query.featured === "1";
     const includeInactive = req.query.includeInactive === "1" || req.query.all === "1";
-    
-    // Always serve 100% live, fresh real-time pricing across storefront & checkout
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
 
-    const data = await storage.products.list({ category, q, featured, includeInactive });
+    const cacheKey = `products:cat=${category || ""}:q=${q || ""}:feat=${featured}:all=${includeInactive}`;
+    const data = await apiCache.getOrSet(
+      cacheKey,
+      () => storage.products.list({ category, q, featured, includeInactive }),
+      30,
+      ["products"]
+    );
+    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
     res.json(data);
   }));
 
   app.get("/api/products/:id", h(async (req, res) => {
     const id = Number(req.params.id);
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    const p = await storage.products.get(id);
+    const p = await apiCache.getOrSet(
+      `products:id:${id}`,
+      () => storage.products.get(id),
+      30,
+      ["products"]
+    );
     if (!p) return res.status(404).json({ message: "Not found" });
+    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
     res.json(p);
   }));
 
