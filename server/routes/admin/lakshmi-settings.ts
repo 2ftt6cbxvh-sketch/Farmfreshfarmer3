@@ -44,9 +44,9 @@ export function registerAdminLakshmiRoutes(app: Express) {
       }
 
       return res.json({
-        hasKey: Boolean(rawKey && rawKey.trim().length > 5 && rawKey.startsWith("AIzaSy")),
+        hasKey: Boolean(rawKey && rawKey.trim().length > 5),
         maskedKey,
-        rawKey: rawKey.startsWith("AIzaSy") ? rawKey : "",
+        rawKey: rawKey || "",
         model: allSettings.gemini_model || "gemini-2.5-flash",
         temperature: Number(allSettings.gemini_temperature ?? 0.5),
         maxTokens: Number(allSettings.gemini_max_tokens ?? 450),
@@ -137,7 +137,10 @@ export function registerAdminLakshmiRoutes(app: Express) {
 
           const testRes = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": cleanKey,
+            },
             body: JSON.stringify({
               system_instruction: {
                 parts: [{ text: "You are Lakshmi AI, the intelligent farm-fresh delivery assistant for FarmFreshFarmer. Respond warmly and concisely in 1-2 sentences." }],
@@ -194,7 +197,7 @@ export function registerAdminLakshmiRoutes(app: Express) {
         return res.status(400).json({
           success: false,
           latencyMs,
-          error: lastErrorMsg || "Failed to communicate with Google Gemini API. Please make sure you are using a valid Google AI Studio key starting with AIzaSy.",
+          error: lastErrorMsg || "Failed to communicate with Google Gemini API. Please check your API key status in Google AI Studio.",
         });
       }
 

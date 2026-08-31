@@ -238,7 +238,7 @@ export default function AdminLakshmiAI() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="geminiKey" className="text-xs font-bold uppercase text-muted-foreground">
-                      Gemini API Key (Must start with AIzaSy...)
+                      Gemini API Key
                     </Label>
                     {hasConfiguredKey && (
                       <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
@@ -252,7 +252,7 @@ export default function AdminLakshmiAI() {
                       type={showKey ? "text" : "password"}
                       value={apiKeyInput}
                       onChange={(e) => setApiKeyInput(e.target.value)}
-                      placeholder="AIzaSy..."
+                      placeholder="Paste your Google AI Studio API Key..."
                       className="pr-24 font-mono text-sm border-border/80 bg-background/50 h-11"
                     />
                     <div className="absolute right-2 flex items-center gap-1">
@@ -267,15 +267,6 @@ export default function AdminLakshmiAI() {
                       </Button>
                     </div>
                   </div>
-
-                  {apiKeyInput && !apiKeyInput.startsWith("AIzaSy") && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-                      <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Note:</strong> Google AI Studio Gemini API keys begin with <code className="font-mono font-bold">AIzaSy</code>. If you copied another credential (e.g. starting with <code className="font-mono">AQ..</code>), please click <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="underline font-bold text-amber-200">Get Free Gemini Key</a> to create an API key in Google AI Studio.
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Model Selector & Hyperparameters */}
