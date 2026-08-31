@@ -16,7 +16,8 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(self)" }
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(self)" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
@@ -38,7 +39,7 @@
       ]
     },
     {
-      "source": "/api/(products|categories|content/site-text|hero-showcase|settings/public|search/config|announcements/active)(.*)",
+      "source": "/api/products",
       "headers": [
         {
           "key": "Cache-Control",
@@ -47,11 +48,38 @@
       ]
     },
     {
-      "source": "/((?!assets/|images/|api/(products|categories|content/site-text|hero-showcase|settings/public|search/config|announcements/active)).*)",
+      "source": "/api/categories",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
+          "value": "public, max-age=120, s-maxage=600, stale-while-revalidate=1200"
+        }
+      ]
+    },
+    {
+      "source": "/api/content/site-text",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=120, s-maxage=600, stale-while-revalidate=1200"
+        }
+      ]
+    },
+    {
+      "source": "/api/hero-showcase",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=120, s-maxage=600, stale-while-revalidate=1200"
+        }
+      ]
+    },
+    {
+      "source": "/api/settings/public",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=120, s-maxage=600, stale-while-revalidate=1200"
         }
       ]
     }
