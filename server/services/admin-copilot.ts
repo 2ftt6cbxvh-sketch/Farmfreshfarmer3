@@ -259,7 +259,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       productId: pid,
       previousStock: product.stock,
       newStock: stockVal,
-      note: note || `Stock updated via Lakshmi Executive Copilot by ${adminUser.name || "Admin"}`,
+      note: note || `Stock updated via Vishnu AI by ${adminUser.name || "Admin"}`,
       adminUserId: adminUser.id,
     });
 
@@ -304,7 +304,7 @@ export async function executeCopilotTurn(
   ]);
 
   const systemInstruction = `
-You are Lakshmi Executive Copilot, the high-privilege AI Operations Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
+You are Vishnu AI, the high-privilege AI Operations & Executive Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
 You are assisting: ${adminUser.name || "Admin"} (Role: ${adminUser.role}, Super Admin: ${isSuperAdmin ? "YES" : "NO"}).
 
 LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS AND ANONYMOUS GUEST VISITORS):

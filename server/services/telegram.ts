@@ -606,7 +606,7 @@ export async function sendTelegramExecutiveAlert(message: string): Promise<boole
 
   const formatted = message.startsWith("🪔") || message.startsWith("🚨") || message.startsWith("🌾") || message.startsWith("🌙") || message.startsWith("⚠️")
     ? message
-    : `🪔 <b>[Lakshmi Executive Radar]</b>\n\n${message}`;
+    : `🪔 <b>[Vishnu AI Radar]</b>\n\n${message}`;
 
   const results = await Promise.all(
     chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, formatted))

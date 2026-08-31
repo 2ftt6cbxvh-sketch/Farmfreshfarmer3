@@ -46,7 +46,7 @@ export function AdminExecutiveCopilotModal() {
     {
       id: "welcome_init",
       role: "model",
-      content: `Hello **${user?.name || "Admin"}**! I am **Lakshmi Executive Copilot**, powered by Google Gemini AI.\n\nI have real-time access to your live **sales, orders, inventory stock levels, delivery dispatches, and security logs**.\n\nHow can I assist your operations right now?`,
+      content: `Hello **${user?.name || "Admin"}**! I am **Vishnu AI**, powered by Google Gemini AI.\n\nI have real-time access to your live **sales, orders, inventory stock levels, delivery dispatches, customer searches, and security logs**.\n\nHow can I assist your operations right now?`,
       suggestedFollowups: isSuperAdmin
         ? [
             "Give me today's financial summary & GMV",
@@ -236,14 +236,14 @@ export function AdminExecutiveCopilotModal() {
         <button
           onClick={() => setIsOpen((prev) => !prev)}
           className="group relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-amber-600 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border border-amber-300/40 cursor-pointer"
-          title="Open Lakshmi Executive Copilot (Alt + L / Cmd + K)"
+          title="Open Vishnu AI (Alt + L / Cmd + K)"
         >
           <span className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-300" />
           </span>
           <span className="text-base">🪔</span>
-          <span className="tracking-wide">Lakshmi Executive</span>
+          <span className="tracking-wide">Vishnu AI</span>
           <Badge variant="outline" className="bg-black/30 text-amber-200 border-amber-300/30 text-[9px] px-1.5 py-0">
             Alt+L
           </Badge>
@@ -263,12 +263,12 @@ export function AdminExecutiveCopilotModal() {
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="font-extrabold text-sm text-white">Lakshmi Executive</h3>
+                    <h3 className="font-extrabold text-sm text-white">Vishnu AI</h3>
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[9px] font-black px-1.5 py-0">
                       Gemini 2.5 AI
                     </Badge>
                   </div>
-                  <p className="text-[10px] text-gray-300">Live Operations &amp; Sourcing Assistant</p>
+                  <p className="text-[10px] text-gray-300">Operations &amp; Sourcing Intelligence</p>
                 </div>
               </div>
 
@@ -428,7 +428,7 @@ export function AdminExecutiveCopilotModal() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={language === "te" ? "లక్ష్మీని ఏదైనా అడగండి..." : "Ask Lakshmi Executive anything..."}
+                  placeholder={language === "te" ? "విష్ణు AI ని ఏదైనా అడగండి..." : "Ask Vishnu AI anything..."}
                   className="flex-1 text-xs h-10 rounded-xl bg-background border-card-border"
                 />
 

@@ -208,7 +208,7 @@ export default function AdminProcurementAI() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-                    Lakshmi AI • Inventory Sourcing &amp; Demand Radar
+                    Vishnu AI • Inventory Sourcing &amp; Demand Radar
                   </h1>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-extrabold">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />

@@ -78,7 +78,7 @@ export async function triggerHarvestBriefing(): Promise<{ ok: boolean; message: 
   }
 
   const prompt = `
-You are Lakshmi Executive AI. Generate a concise, highly strategic MORNING HARVEST PROCUREMENT BRIEFING for FarmFreshFarmer Super Admin.
+You are Vishnu AI. Generate a concise, highly strategic MORNING HARVEST PROCUREMENT BRIEFING for FarmFreshFarmer Super Admin.
 Operating location: Andhra Pradesh & Telangana, India.
 
 CONTEXT:
