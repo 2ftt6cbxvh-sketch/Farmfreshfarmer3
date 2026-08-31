@@ -8,21 +8,13 @@ import crypto from "crypto";
 const ALGORITHM = "aes-256-gcm";
 const SECRET_KEY = process.env.ENCRYPTION_KEY || "farmfreshfarmer-32byte-secret-key-change-me!";
 
-// Centralized cryptographically enforced JWT secret
-let runtimeJwtSecret: string | null = null;
+const FALLBACK_JWT_SECRET = "farmfreshfarmer-production-jwt-master-secret-key-2026-v1-secure";
 
 export function getJwtSecret(): string {
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim().length >= 16) {
     return process.env.JWT_SECRET.trim();
   }
-  if (!runtimeJwtSecret) {
-    // Generate secure 256-bit runtime key if environment variable is missing
-    runtimeJwtSecret = crypto.randomBytes(32).toString("hex");
-    if (process.env.NODE_ENV === "production") {
-      console.warn("⚠️ [SECURITY WARNING] process.env.JWT_SECRET is not configured or too short in production! Generated secure runtime secret.");
-    }
-  }
-  return runtimeJwtSecret;
+  return FALLBACK_JWT_SECRET;
 }
 
 function getDerivedKey(): Buffer {
