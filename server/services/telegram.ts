@@ -1070,30 +1070,48 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   // 🛠️ MAINTENANCE MODE COMMANDS
   if (
     lowerText.startsWith("/maintenance on") ||
+    lowerText.startsWith("/maintain on") ||
     lowerText.startsWith("/maint on") ||
-    lowerText.startsWith("/maintenanceon")
+    lowerText.startsWith("/maintenanceon") ||
+    lowerText.startsWith("/maintainon") ||
+    lowerText.startsWith("/mainton")
   ) {
     let rawArgs = "";
     if (lowerText.startsWith("/maintenance on")) rawArgs = text.slice(15).trim();
+    else if (lowerText.startsWith("/maintain on")) rawArgs = text.slice(12).trim();
     else if (lowerText.startsWith("/maint on")) rawArgs = text.slice(9).trim();
     else if (lowerText.startsWith("/maintenanceon")) rawArgs = text.slice(14).trim();
+    else if (lowerText.startsWith("/maintainon")) rawArgs = text.slice(11).trim();
+    else if (lowerText.startsWith("/mainton")) rawArgs = text.slice(8).trim();
 
     let minutes = 30;
     let customMsg = "";
 
-    // Parse potential duration like "30m", "1h", "45", etc.
+    // Parse potential duration like "30m", "2h", "1d", "45 mins", "3 hours", "2 days", etc.
     if (rawArgs) {
-      const match = rawArgs.match(/^(\d+)(m|h|min|mins|hours|hour)?\s*(.*)$/i);
+      const match = rawArgs.match(/^(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes)?\s*(.*)$/i);
       if (match) {
         const val = parseInt(match[1], 10);
         const unit = (match[2] || "m").toLowerCase();
-        if (unit.startsWith("h")) minutes = val * 60;
-        else minutes = val;
+        if (unit.startsWith("d")) {
+          minutes = val * 24 * 60; // Days to minutes
+        } else if (unit.startsWith("h")) {
+          minutes = val * 60; // Hours to minutes
+        } else {
+          minutes = val; // Minutes
+        }
         customMsg = (match[3] || "").trim();
       } else {
         customMsg = rawArgs;
       }
     }
+
+    const durationDisplay =
+      minutes >= 1440
+        ? `${(minutes / 1440).toFixed(minutes % 1440 === 0 ? 0 : 1)} Day(s)`
+        : minutes >= 60
+        ? `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)} Hour(s)`
+        : `${minutes} Minutes`;
 
     const { setMaintenance } = await import("./maintenance");
     const res = await setMaintenance(true, {
@@ -1104,15 +1122,18 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
       adminUserId: 1,
     });
 
-    const reply = `🛠️ <b>UNDER MAINTENANCE MODE ACTIVATED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏱️ <b>Estimated Duration:</b> ${minutes} Minutes\n📝 <b>Message:</b> ${res.message}\n🛡️ <b>Admin Access:</b> Unrestricted (Admins can still login to Admin Panel)\n\n<i>To turn off, send:</i> <code>/maintenance off</code>`;
+    const reply = `🛠️ <b>UNDER MAINTENANCE MODE ACTIVATED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏱️ <b>Estimated Duration:</b> ${durationDisplay} (~${minutes} mins)\n📝 <b>Message:</b> ${res.message}\n🛡️ <b>Admin Access:</b> Unrestricted (Admins can still login to Admin Panel)\n\n<i>To turn off, send:</i> <code>/maintain off</code> or <code>/maintenance off</code>`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
   }
 
   if (
     lowerText.startsWith("/maintenance off") ||
+    lowerText.startsWith("/maintain off") ||
     lowerText.startsWith("/maint off") ||
-    lowerText.startsWith("/maintenanceoff")
+    lowerText.startsWith("/maintenanceoff") ||
+    lowerText.startsWith("/maintainoff") ||
+    lowerText.startsWith("/maintoff")
   ) {
     const { setMaintenance } = await import("./maintenance");
     await setMaintenance(false, { adminUserId: 1 });
@@ -1121,10 +1142,25 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
-  if (lowerText === "/maintenance" || lowerText === "/maintenance status" || lowerText === "/maint") {
+  if (
+    lowerText === "/maintenance" ||
+    lowerText === "/maintain" ||
+    lowerText === "/maint" ||
+    lowerText === "/maintenance status" ||
+    lowerText === "/maintain status" ||
+    lowerText === "/maint status"
+  ) {
     const { getMaintenanceStatus } = await import("./maintenance");
     const mStatus = await getMaintenanceStatus();
-    const reply = `🛠️ <b>MAINTENANCE STATUS</b>\nStatus: ${mStatus.active ? "🟡 ACTIVE (Store in Maintenance)" : "🟢 INACTIVE (Store Online)"}\n${mStatus.active ? `⏱️ Estimated Duration: ${mStatus.estimatedMinutes || 30} mins\n📝 Message: ${mStatus.message}` : "Storefront is fully accessible to customers."}`;
+    const mins = mStatus.estimatedMinutes || 30;
+    const durationDisplay =
+      mins >= 1440
+        ? `${(mins / 1440).toFixed(mins % 1440 === 0 ? 0 : 1)} Day(s)`
+        : mins >= 60
+        ? `${(mins / 60).toFixed(mins % 60 === 0 ? 0 : 1)} Hour(s)`
+        : `${mins} Minutes`;
+
+    const reply = `🛠️ <b>MAINTENANCE STATUS</b>\nStatus: ${mStatus.active ? "🟡 ACTIVE (Store in Maintenance)" : "🟢 INACTIVE (Store Online)"}\n${mStatus.active ? `⏱️ Estimated Duration: ${durationDisplay}\n📝 Message: ${mStatus.message}` : "Storefront is fully accessible to customers."}`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
   }
@@ -1257,10 +1293,9 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
 
   if (lowerText === "/help" || lowerText === "/start") {
     const help = `🛡️ <b>SUPER ADMIN SECURITY BOT COMMANDS</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛠️ <code>/maintenance on [mins] [msg]</code> - Activate Scheduled Maintenance
-🟢 <code>/maintenance off</code> - Deactivate Scheduled Maintenance
-📊 <code>/maintenance</code> - Check Maintenance Mode details
+🛠️ <code>/maintain on [30m|2h|1d] [msg]</code> - Activate Scheduled Maintenance (m: mins, h: hours, d: days)
+🟢 <code>/maintain off</code> - Deactivate Scheduled Maintenance
+📊 <code>/maintain</code> - Check Maintenance Mode details
 🔒 <code>/lock on [reason]</code> - Activate Emergency Platform Lockdown
 🔓 <code>/lock off</code> - Deactivate Platform Lockdown
 ℹ️ <code>/status</code> - Check platform & system status
