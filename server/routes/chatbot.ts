@@ -1713,7 +1713,7 @@ function resolveCartQty(
           for (const p of topDiscounted) if (!combined.has(p.id)) combined.set(p.id, p);
 
           fullProductsContext = Array.from(combined.values())
-            .slice(0, 20)
+            .slice(0, 30)
             .map((p: any) => {
               const basePrice = Number(p.price) || 0;
               const discPercent = Number(p.discountPercent) || 0;
@@ -1721,7 +1721,9 @@ function resolveCartQty(
               const discountDetails = discPercent > 0
                 ? ` | 🔥 LIVE OFFER: ₹${effPrice} (${Math.round(discPercent)}% OFF! MRP: ₹${basePrice})`
                 : ` | Price: ₹${basePrice}`;
-              return `• ${p.name}${discountDetails}/${p.unit || 'unit'} | Stock: ${p.stock > 0 ? 'In Stock' : 'Out of Stock'} | ${p.description ? p.description.slice(0, 70) : 'Fresh natural harvest'}`;
+              const teluguTitle = p.nameTe ? ` (${p.nameTe})` : '';
+              const benefit = resolveProductBenefit(p.name, p.categorySlug);
+              return `• ${p.name}${teluguTitle} [Category: ${p.categorySlug || 'general'}]${discountDetails}/${p.unit || 'unit'} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'Out of Stock'} | Clinical Utility: "${benefit.reasonEn}"`;
             })
             .join('\n');
 
