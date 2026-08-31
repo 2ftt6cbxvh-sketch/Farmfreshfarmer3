@@ -12,7 +12,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
-import { products, categories, customerProfiles, guestBehaviorSessions, settings } from "@shared/schema";
+import { products, categories, customerProfiles, guestBehaviorSessions, unmetDemandEvents, settings } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface UnmetDemandItem {
@@ -69,6 +69,11 @@ let cachedResult: ProcurementAiResult | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+export function invalidateProcurementCache() {
+  cachedResult = null;
+  lastCacheTime = 0;
+}
+
 /** Retrieve Gemini API key from settings or environment */
 async function getGeminiApiKey(): Promise<string> {
   try {
@@ -103,9 +108,11 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   const activeProducts = allProducts.filter((p) => p.active !== false && p.approvalStatus !== "rejected");
   const allCategories = await db.select().from(categories);
 
-  // 2. Fetch live customer + guest behavioral signals
+  // 2. Fetch live customer + guest behavioral signals & raw unmet search events
   let allProfiles: any[] = [];
   let allGuestSessions: any[] = [];
+  let rawUnmetEvents: any[] = [];
+
   try {
     allProfiles = await db.select().from(customerProfiles);
   } catch (err: any) {
@@ -116,12 +123,19 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   } catch (err: any) {
     console.warn("[procurement-ai] guestBehaviorSessions fallback:", err?.message);
   }
+  try {
+    rawUnmetEvents = await db.select().from(unmetDemandEvents).orderBy(desc(unmetDemandEvents.id)).limit(200);
+  } catch (err: any) {
+    console.warn("[procurement-ai] unmetDemandEvents fallback:", err?.message);
+  }
+
   const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
 
   const searchCounts: Record<string, number> = {};
   const categoryCounts: Record<string, number> = {};
   const healthInquiries: Record<string, number> = {};
 
+  // Aggregate searches from behavior records
   for (const p of allBehaviorRecords) {
     if (!p.behaviorProfile) continue;
     try {
@@ -149,6 +163,15 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
     } catch {}
   }
 
+  // Also aggregate directly from live unmetDemandEvents (e.g. watermelon, dragonfruit)
+  for (const ev of rawUnmetEvents) {
+    if (!ev.query) continue;
+    const clean = String(ev.query).trim().toLowerCase();
+    if (clean && clean.length > 1) {
+      searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+    }
+  }
+
   // Identify unmet searches (searches with 0 or weak matches in catalog)
   const unmetSearches: { keyword: string; count: number }[] = [];
   const catalogNames = activeProducts.map((p) => p.name.toLowerCase());
@@ -159,6 +182,9 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
       unmetSearches.push({ keyword: kw, count });
     }
   }
+
+  // Sort unmet searches by count
+  unmetSearches.sort((a, b) => b.count - a.count);
 
   // Find low stock products
   const lowStockItems = activeProducts

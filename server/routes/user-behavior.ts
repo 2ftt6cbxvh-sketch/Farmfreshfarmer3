@@ -359,6 +359,12 @@ export function registerUserBehaviorRoutes(app: Express) {
         console.warn("[unmet-search] Insert event fallback:", insertErr?.message);
       }
 
+      // 2. Invalidate AI Procurement cached recommendations so next fetch is instant & fresh
+      try {
+        const { invalidateProcurementCache } = await import("../services/admin-procurement-ai");
+        invalidateProcurementCache();
+      } catch {}
+
       return res.json({ ok: true, query: cleanQuery, recordedAt: new Date().toISOString() });
     } catch (err: any) {
       console.error("[unmet-search] Error recording unmet search:", err?.message);

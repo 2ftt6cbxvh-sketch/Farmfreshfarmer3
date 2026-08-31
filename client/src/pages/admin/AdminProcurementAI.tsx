@@ -304,7 +304,7 @@ export default function AdminProcurementAI() {
                     <Search size={16} className="text-amber-400" />
                   </div>
                   <p className="text-2xl font-black text-amber-400">
-                    {data?.unmetDemands?.length || 0} Gaps
+                    {(liveStreamData?.events && liveStreamData.events.length > 0) ? liveStreamData.events.length : (data?.unmetDemands?.length || 0)} Gaps
                   </p>
                   <p className="text-[10px] text-muted-foreground">Searched items missing from catalog</p>
                 </CardContent>
@@ -538,6 +538,29 @@ export default function AdminProcurementAI() {
                           </td>
                           <td className="p-3 text-muted-foreground font-medium">
                             {u.sourcingAction}
+                          </td>
+                        </tr>
+                      ))
+                    ) : liveStreamData?.events && liveStreamData.events.length > 0 ? (
+                      liveStreamData.events.map((ev, i) => (
+                        <tr key={i} className="hover:bg-muted/30 transition">
+                          <td className="p-3 font-bold text-foreground capitalize flex items-center gap-2">
+                            <span>"{ev.query}"</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-extrabold">LIVE</span>
+                          </td>
+                          <td className="p-3 font-semibold text-amber-400">
+                            1+ searches
+                          </td>
+                          <td className="p-3 capitalize">
+                            <Badge variant="outline" className="text-[10px]">
+                              📍 {ev.city}
+                            </Badge>
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            Session: {ev.sessionId.slice(0, 10)}...
+                          </td>
+                          <td className="p-3 text-emerald-400 font-medium">
+                            Captured {new Date(ev.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} • Ready for procurement
                           </td>
                         </tr>
                       ))
