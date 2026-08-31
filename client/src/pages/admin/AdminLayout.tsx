@@ -72,12 +72,14 @@ function SidebarEnvironmentMasterSwitch({ isPrimaryAdmin }: { isPrimaryAdmin: bo
     queryKey: ["/api/admin/settings"],
     queryFn: () => apiGet<Record<string, string>>("/api/admin/settings"),
     enabled: isPrimaryAdmin,
+    staleTime: 60000,
   });
 
   const { data: staff2faConfig, isLoading: staff2faLoading } = useQuery<{ enabled: boolean }>({
     queryKey: ["/api/admin/staff/2fa-config"],
     queryFn: async () => (await apiRequest("GET", "/api/admin/staff/2fa-config")).json(),
     enabled: isPrimaryAdmin,
+    staleTime: 60000,
   });
 
   const isLockdown = settingsData?.stealth_admin_lockdown === "true";
@@ -150,7 +152,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const { user, loading, logout } = useAuth();
   const [location, navigate] = useLocation();
 
-  // Live-fetch user with permissions from server every 15s — ensures instant reflection when super-admin changes permissions
+  // User with permissions from server cached for 60s
   const { data: liveUser } = useQuery({
     queryKey: ["/api/me-live-perms"],
     queryFn: async () => {
@@ -167,10 +169,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       } catch {}
       return null;
     },
-    refetchInterval: 10000,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 60000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     enabled: true,
   });
 
