@@ -339,39 +339,66 @@ GUIDELINES:
     parts: [{ text: m.content }],
   }));
 
-  let rawReply = "";
-  try {
-    const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-    const res = await fetch(restUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1500,
-        },
-      }),
-    });
+  const candidateModels = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash-exp",
+  ];
 
-    if (res.ok) {
-      const data = await res.json();
-      rawReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  let rawReply = "";
+
+  // 1. Try REST API across candidate models
+  for (const mName of candidateModels) {
+    if (rawReply) break;
+    try {
+      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const res = await fetch(restUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1500,
+          },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        rawReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (rawReply) break;
+      }
+    } catch (err: any) {
+      console.warn(`[copilot] REST model ${mName} error:`, err?.message);
     }
-  } catch (err: any) {
-    console.warn("[copilot] REST call failed, falling back to SDK:", err?.message);
+  }
+
+  // 2. Fallback to @google/generative-ai SDK if REST calls failed
+  if (!rawReply) {
+    for (const mName of candidateModels) {
+      if (rawReply) break;
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({
+          model: mName,
+          systemInstruction,
+          generationConfig: { temperature: 0.3, maxOutputTokens: 1500 },
+        });
+        const result = await model.generateContent({ contents });
+        rawReply = (await result.response).text();
+        if (rawReply) break;
+      } catch (err: any) {
+        console.warn(`[copilot] SDK model ${mName} error:`, err?.message);
+      }
+    }
   }
 
   if (!rawReply) {
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction,
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1500 },
-    });
-    const result = await model.generateContent({ contents });
-    rawReply = (await result.response).text();
+    throw new Error("Unable to reach Gemini AI service. Please verify your Gemini API key in Lakshmi AI Settings.");
   }
 
   // Parse Action block if present

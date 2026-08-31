@@ -255,45 +255,74 @@ Return ONLY valid JSON matching this structure with NO markdown fences, NO extra
   let responseJsonText = "";
   let modelUsed = "gemini-2.5-flash";
 
-  // Try direct REST API for maximum speed and reliable JSON output
-  try {
-    const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-    const res = await fetch(restUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2500,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+  const candidateModels = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash-exp",
+  ];
 
-    if (res.ok) {
-      const data = await res.json();
-      responseJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  // 1. Try direct REST API for maximum speed and reliable JSON output
+  for (const mName of candidateModels) {
+    if (responseJsonText) break;
+    try {
+      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const res = await fetch(restUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 2500,
+            responseMimeType: "application/json",
+          },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        responseJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (responseJsonText) {
+          modelUsed = mName;
+          break;
+        }
+      }
+    } catch (e: any) {
+      console.warn(`[procurement-ai] REST model ${mName} error:`, e?.message);
     }
-  } catch (e: any) {
-    console.warn("[procurement-ai] REST call failed, trying SDK fallback:", e?.message);
   }
 
-  // Fallback to @google/generative-ai SDK if REST failed
+  // 2. Fallback to @google/generative-ai SDK if REST failed
   if (!responseJsonText) {
-    modelUsed = "gemini-1.5-flash";
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 2500,
-      },
-    });
+    for (const mName of candidateModels) {
+      if (responseJsonText) break;
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({
+          model: mName,
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 2500,
+          },
+        });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    responseJsonText = response.text();
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        responseJsonText = response.text();
+        if (responseJsonText) {
+          modelUsed = mName;
+          break;
+        }
+      } catch (e: any) {
+        console.warn(`[procurement-ai] SDK model ${mName} error:`, e?.message);
+      }
+    }
+  }
+
+  if (!responseJsonText) {
+    throw new Error("Unable to synthesize procurement intelligence with Gemini AI. Please check your API key.");
   }
 
   // Clean and parse JSON
