@@ -405,6 +405,7 @@ export default function Cart() {
   }, 0);
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
+  const produceDiscountSavings = Math.max(0, grossMrpTotal - displaySubtotal);
   const couponDiscountSavings = (coupon || (quote && Number((quote as any).couponDiscount) > 0))
     ? (quote && (quote as any).couponDiscount !== undefined ? Number((quote as any).couponDiscount) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0)
     : 0;
