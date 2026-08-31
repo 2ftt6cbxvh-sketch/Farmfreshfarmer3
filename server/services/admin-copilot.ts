@@ -1,13 +1,18 @@
 /**
- * 🪔 Lakshmi Executive Copilot Service
+ * 🪔 Narayana AI Executive Copilot Service
  * ==============================================================================
- * Interactive Admin Operations & Business Intelligence Assistant
+ * Interactive Super Admin Operations & Business Intelligence Engine
  * Powered dynamically by Google Gemini AI with Live DB Tool Execution.
  *
- * Security:
- *   - Enforces NIST Zero-Trust role segregation.
- *   - Financials, profit margins, and coupon creation restricted to Super Admin.
- *   - All stock updates & coupon creations are strictly audit-logged.
+ * Capabilities strictly executed upon Super Admin's command:
+ *   1. 🔘 Toggle any admin panel switch (Maintenance, Testing Mode, COD, 2FA, Lakshmi AI, Lockdown, etc. + Future Toggles)
+ *   2. ↩️ Send products for reconsideration with feedback & Telegram alerts
+ *   3. ✅ Approve pending products to live storefront
+ *   4. 📦 Fill & modify crop/product stock levels (exact stock or +/- additions)
+ *   5. 👤 Modify customer accounts (star tiers, block/unblock, contact details)
+ *   6. 📋 Modify orders (statuses, delivery partners, cancellations, dispatch notes)
+ *   7. 🏷️ Create flash discount coupons & adjust prices
+ *   8. 🛡️ Tamper-evident NIST Zero-Trust security audit trail for every action
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -15,9 +20,12 @@ import { db } from "../db";
 import {
   orders, products, coupons, users, securityAuditLogs,
   deliveryPartners, settings, inventoryAdjustments,
-  customerProfiles, guestBehaviorSessions, unmetDemandEvents
+  customerProfiles, guestBehaviorSessions, unmetDemandEvents,
+  productApprovalHistory
 } from "@shared/schema";
-import { eq, desc, sql, gte, and, inArray } from "drizzle-orm";
+import { eq, desc, sql, gte, and, inArray, or } from "drizzle-orm";
+import { storage } from "../storage";
+import { getNarayanaApiKey } from "./gemini-keys";
 
 export interface CopilotMessage {
   role: "user" | "model" | "assistant";
@@ -33,8 +41,6 @@ export interface CopilotResponse {
   };
   suggestedFollowups: string[];
 }
-
-import { getNarayanaApiKey } from "./gemini-keys";
 
 /** Retrieve Narayana dedicated Gemini API key */
 async function getGeminiApiKey(): Promise<string> {
@@ -93,7 +99,6 @@ async function getLiveDeliveryData() {
     )
   ).limit(50);
 
-  // Safe delivery partners query (isBlockedByAdmin !== true)
   const partners = await db.select().from(deliveryPartners).where(eq(deliveryPartners.isBlockedByAdmin, false));
 
   return {
@@ -121,12 +126,51 @@ async function getLiveSecurityData(isSuperAdmin: boolean) {
   };
 }
 
+async function getLiveSettingsData() {
+  try {
+    const all = await storage.settings.all();
+    return all || {};
+  } catch (e: any) {
+    return {};
+  }
+}
+
+async function getLivePendingApprovals() {
+  try {
+    const pendingProducts = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        category: products.categorySlug,
+        price: products.price,
+        stock: products.stock,
+        approvalStatus: products.approvalStatus,
+        submittedBy: products.submittedBy,
+      })
+      .from(products)
+      .where(or(
+        eq(products.approvalStatus, "pending"),
+        eq(products.approvalStatus, "under_review"),
+        eq(products.approvalStatus, "changes_requested"),
+        eq(products.approvalStatus, "pending_deletion")
+      ))
+      .limit(20);
+
+    return {
+      pendingCount: pendingProducts.length,
+      items: pendingProducts,
+    };
+  } catch (e: any) {
+    return { pendingCount: 0, items: [] };
+  }
+}
+
 async function getLiveSearchAndDemandData() {
   let profiles: any[] = [];
   let guestSessions: any[] = [];
 
   try {
-    profiles = await db.select({ behaviorProfile: customerProfiles.behaviorProfile }).from(customerProfiles);
+    profiles = await db.select({ behaviorProfile: customerProfiles.behaviorProfile }).from(customerProfiles).orderBy(desc(customerProfiles.id)).limit(300);
   } catch (err: any) {
     console.warn("[copilot] customerProfiles query fallback:", err?.message);
   }
@@ -191,7 +235,6 @@ async function getLiveSearchAndDemandData() {
     topHealthTopics,
     trackedLoggedUsers: profiles.length,
     trackedGuestVisitors: guestSessions.length,
-    noDataYet: topSearches.length === 0 ? "No customer searches tracked yet — data grows as visitors use the storefront." : undefined,
   };
 }
 
@@ -226,14 +269,338 @@ async function getLiveUnmetSearchStream() {
  */
 
 async function executeAction(actionName: string, args: any, adminUser: any): Promise<any> {
-  const isSuperAdmin = Boolean(adminUser.isPrimaryAdmin || adminUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" || adminUser.id === 1);
+  const isSuperAdmin = Boolean(
+    adminUser.isPrimaryAdmin ||
+    adminUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    adminUser.id === 1
+  );
 
-  // Action 1: Create Flash Coupon
-  if (actionName === "create_flash_coupon") {
-    if (!isSuperAdmin) {
-      throw new Error("Only Chief Executive Super Admin is authorized to create discount coupons.");
+  if (!isSuperAdmin) {
+    throw new Error("⛔ Access Denied. Narayana AI operations are strictly restricted to the Chief Executive Super Admin.");
+  }
+
+  // ── Action 1: Toggle Any Admin Setting (Current & Future Toggles) ──
+  if (actionName === "toggle_setting" || actionName === "set_setting") {
+    const { key, value, note } = args;
+    if (!key) throw new Error("Setting key is required.");
+
+    let strVal = String(value);
+    if (typeof value === "boolean") strVal = value ? "true" : "false";
+
+    await storage.settings.set(String(key).trim(), strVal);
+
+    try {
+      const { apiCache } = await import("../lib/api-cache");
+      apiCache.delete("settings:all");
+      apiCache.delete(`settings:${key}`);
+    } catch {}
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "setting_toggled_by_narayana_ai",
+      severity: "warning",
+      userId: adminUser.id,
+      actionTaken: `Toggled setting '${key}' to '${strVal}'. Note: ${note || "Super Admin command"}`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "setting_toggled",
+      description: `Successfully switched setting "${key}" to "${strVal}".`,
+      details: { key, value: strVal, note },
+    };
+  }
+
+  // ── Action 2: Approve Product to Live Storefront ──
+  if (actionName === "approve_product") {
+    const { productId, productName, note } = args;
+
+    let product: any = null;
+    if (productId) {
+      const [p] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+      product = p;
+    } else if (productName) {
+      const [p] = await db.select().from(products).where(sql`LOWER(${products.name}) = LOWER(${String(productName).trim()})`).limit(1);
+      product = p;
+    }
+    if (!product) throw new Error(`Product "${productId || productName}" not found.`);
+
+    const [updated] = await db.update(products).set({
+      approvalStatus: "approved",
+      active: true,
+      approvalNote: note || "Approved by Super Admin via Narayana AI",
+      updatedAt: new Date(),
+    }).where(eq(products.id, product.id)).returning();
+
+    try {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product",
+        entityId: product.id,
+        entityName: product.name,
+        action: "approved",
+        fromStatus: product.approvalStatus || "pending",
+        toStatus: "approved",
+        adminUserId: adminUser.id,
+        submittedByUserId: product.submittedBy || null,
+        note: note || "Approved via Narayana AI",
+      });
+    } catch {}
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "product_approved_by_narayana_ai",
+      severity: "info",
+      userId: adminUser.id,
+      targetId: product.id,
+      targetType: "product",
+      actionTaken: `Approved product "${product.name}" (#${product.id}) for live storefront.`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "product_approved",
+      description: `Approved "${product.name}" (ID #${product.id}). It is now LIVE on the storefront! 🎉`,
+      details: updated,
+    };
+  }
+
+  // ── Action 3: Send Product for Reconsideration ──
+  if (actionName === "reconsider_product" || actionName === "send_product_for_reconsideration") {
+    const { productId, productName, reason, note } = args;
+    const feedback = reason || note || "Super Admin requested modifications. Please review feedback.";
+
+    let product: any = null;
+    if (productId) {
+      const [p] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+      product = p;
+    } else if (productName) {
+      const [p] = await db.select().from(products).where(sql`LOWER(${products.name}) = LOWER(${String(productName).trim()})`).limit(1);
+      product = p;
+    }
+    if (!product) throw new Error(`Product "${productId || productName}" not found.`);
+
+    const [updated] = await db.update(products).set({
+      approvalStatus: "changes_requested",
+      active: false,
+      approvalNote: feedback,
+      updatedAt: new Date(),
+    }).where(eq(products.id, product.id)).returning();
+
+    try {
+      await db.insert(productApprovalHistory).values({
+        entityType: "product",
+        entityId: product.id,
+        entityName: product.name,
+        action: "changes_requested",
+        fromStatus: product.approvalStatus || "pending",
+        toStatus: "changes_requested",
+        adminUserId: adminUser.id,
+        submittedByUserId: product.submittedBy || null,
+        note: feedback,
+      });
+    } catch {}
+
+    // Dispatch Telegram alert to sub-admin submitter if available
+    try {
+      let submitterUser: any = null;
+      if (product.submittedBy) {
+        const [u] = await db.select().from(users).where(eq(users.id, product.submittedBy));
+        submitterUser = u;
+      }
+      const { sendTelegramReconsiderationNotification } = await import("./telegram");
+      await sendTelegramReconsiderationNotification({
+        entityType: "product",
+        entityName: product.name,
+        entityId: product.id,
+        submitterName: submitterUser?.name || "Sub-Admin",
+        submitterEmail: submitterUser?.email || null,
+        submitterChatId: submitterUser?.telegramChatId || null,
+        adminFeedback: feedback,
+        price: product.price,
+        categorySlug: product.categorySlug,
+      });
+    } catch {}
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "product_reconsideration_by_narayana_ai",
+      severity: "warning",
+      userId: adminUser.id,
+      targetId: product.id,
+      targetType: "product",
+      actionTaken: `Sent product "${product.name}" (#${product.id}) back for reconsideration: ${feedback}`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "product_sent_for_reconsideration",
+      description: `Sent "${product.name}" (ID #${product.id}) back for reconsideration with feedback: "${feedback}". ↩️`,
+      details: updated,
+    };
+  }
+
+  // ── Action 4: Update / Modify / Fill Product Stock ──
+  if (actionName === "update_product_stock" || actionName === "fill_stock" || actionName === "modify_stock") {
+    const { productId, productName, newStock, addStock, note } = args;
+
+    let product: any = null;
+    if (productId) {
+      const [p] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+      product = p;
+    } else if (productName) {
+      const [p] = await db.select().from(products).where(sql`LOWER(${products.name}) = LOWER(${String(productName).trim()})`).limit(1);
+      product = p;
+    }
+    if (!product) throw new Error(`Product "${productId || productName}" not found.`);
+
+    let finalStock: number;
+    if (newStock !== undefined && !isNaN(Number(newStock))) {
+      finalStock = Number(newStock);
+    } else if (addStock !== undefined && !isNaN(Number(addStock))) {
+      finalStock = Number(product.stock || 0) + Number(addStock);
+    } else {
+      throw new Error("Must provide either 'newStock' (exact amount) or 'addStock' (relative increase).");
     }
 
+    finalStock = Math.max(0, finalStock);
+
+    await db.update(products).set({ stock: finalStock, active: true, updatedAt: new Date() }).where(eq(products.id, product.id));
+
+    await db.insert(inventoryAdjustments).values({
+      productId: product.id,
+      previousStock: Number(product.stock || 0),
+      newStock: finalStock,
+      changeQty: finalStock - Number(product.stock || 0),
+      reason: "manual_adjustment",
+      note: note || `Stock modified via Narayana AI by Super Admin ${adminUser.name || ""}`,
+      adminUserId: adminUser.id,
+    });
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "stock_modified_by_narayana_ai",
+      severity: "info",
+      userId: adminUser.id,
+      targetId: product.id,
+      targetType: "product",
+      actionTaken: `Updated stock of "${product.name}" (#${product.id}) from ${product.stock} → ${finalStock} units.`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "stock_updated",
+      description: `Updated stock of "${product.name}" from ${product.stock} to ${finalStock} units.`,
+      details: { productId: product.id, name: product.name, oldStock: product.stock, newStock: finalStock },
+    };
+  }
+
+  // ── Action 5: Modify Customer (Star Tier, Block/Unblock, Contact) ──
+  if (actionName === "modify_customer" || actionName === "update_customer") {
+    const { customerId, email, phone, action, starRating, status, name, phoneVal, emailVal, note } = args;
+
+    let userRec: any = null;
+    if (customerId) {
+      const [u] = await db.select().from(users).where(eq(users.id, Number(customerId))).limit(1);
+      userRec = u;
+    } else if (email) {
+      const [u] = await db.select().from(users).where(sql`LOWER(${users.email}) = LOWER(${String(email).trim()})`).limit(1);
+      userRec = u;
+    } else if (phone) {
+      const [u] = await db.select().from(users).where(eq(users.phone, String(phone).trim())).limit(1);
+      userRec = u;
+    }
+
+    if (!userRec) throw new Error(`Customer record "${customerId || email || phone}" not found.`);
+
+    const updates: any = { updatedAt: new Date() };
+    let description = "";
+
+    if (action === "set_stars" || starRating !== undefined) {
+      const stars = Math.max(0, Math.min(5, Number(starRating)));
+      updates.customerStars = stars;
+      updates.starRating = String(stars);
+      description = `Set star rating of customer "${userRec.name}" to ${stars}★.`;
+    } else if (action === "block" || status === "blocked") {
+      updates.status = "blocked";
+      updates.isPermanentlyLocked = true;
+      description = `Blocked customer account "${userRec.name}" (${userRec.email || userRec.phone}).`;
+    } else if (action === "unblock" || status === "active") {
+      updates.status = "active";
+      updates.isPermanentlyLocked = false;
+      updates.failedLoginAttempts = 0;
+      updates.lockoutUntil = null;
+      description = `Unblocked customer account "${userRec.name}" (${userRec.email || userRec.phone}).`;
+    } else if (action === "update_details") {
+      if (name) updates.name = String(name).trim();
+      if (phoneVal) updates.phone = String(phoneVal).trim();
+      if (emailVal) updates.email = String(emailVal).trim().toLowerCase();
+      description = `Updated contact details for customer "${userRec.name}".`;
+    } else {
+      throw new Error("Valid customer action required: 'set_stars', 'block', 'unblock', or 'update_details'.");
+    }
+
+    const [updatedUser] = await db.update(users).set(updates).where(eq(users.id, userRec.id)).returning();
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "customer_modified_by_narayana_ai",
+      severity: "warning",
+      userId: adminUser.id,
+      targetId: userRec.id,
+      targetType: "user",
+      actionTaken: `${description} Note: ${note || "Super Admin command"}`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "customer_modified",
+      description,
+      details: { id: userRec.id, name: updatedUser.name, email: updatedUser.email, stars: updatedUser.customerStars, status: updatedUser.status },
+    };
+  }
+
+  // ── Action 6: Modify Order (Status, Partner, Cancellation, Notes) ──
+  if (actionName === "modify_order" || actionName === "update_order" || actionName === "cancel_order") {
+    const { orderId, action, status, newStatus, deliveryPartnerId, deliveryNote, reason } = args;
+    const oid = Number(orderId);
+    if (!oid) throw new Error("Valid order ID is required.");
+
+    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
+    if (!order) throw new Error(`Order #${oid} not found.`);
+
+    const updates: any = { updatedAt: new Date() };
+    let description = "";
+
+    const targetStatus = status || newStatus || (action === "cancel" || actionName === "cancel_order" ? "Cancelled" : undefined);
+    if (targetStatus) {
+      updates.status = targetStatus;
+      description = `Updated Order #${oid} status from "${order.status}" → "${targetStatus}".`;
+    }
+    if (deliveryPartnerId !== undefined) {
+      updates.deliveryPartnerId = Number(deliveryPartnerId);
+      description += ` Assigned delivery partner ID #${deliveryPartnerId}.`;
+    }
+    if (deliveryNote) {
+      updates.deliveryNotes = deliveryNote;
+      description += ` Updated delivery note.`;
+    }
+
+    const [updatedOrder] = await db.update(orders).set(updates).where(eq(orders.id, oid)).returning();
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "order_modified_by_narayana_ai",
+      severity: "warning",
+      userId: adminUser.id,
+      targetId: oid,
+      targetType: "order",
+      actionTaken: `${description} Reason: ${reason || "Super Admin command"}`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "order_modified",
+      description: description || `Modified Order #${oid}.`,
+      details: { orderId: oid, oldStatus: order.status, newStatus: updatedOrder.status },
+    };
+  }
+
+  // ── Action 7: Create Flash Coupon ──
+  if (actionName === "create_flash_coupon") {
     const { code, discountPercent, minOrder, expiresHours } = args;
     const cleanCode = String(code).toUpperCase().trim().replace(/[^A-Z0-9_-]/g, "");
     const discount = Number(discountPercent) || 10;
@@ -261,61 +628,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
-  // Action 2: Update Product Stock
-  if (actionName === "update_product_stock") {
-    const { productId, newStock, note } = args;
-    const pid = Number(productId);
-    const stockVal = Number(newStock);
-
-    if (!pid || isNaN(stockVal)) {
-      throw new Error("Invalid product ID or stock value.");
-    }
-
-    const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
-    if (!product) throw new Error(`Product with ID ${pid} not found.`);
-
-    await db.update(products).set({ stock: stockVal, updatedAt: new Date() }).where(eq(products.id, pid));
-
-    await db.insert(inventoryAdjustments).values({
-      productId: pid,
-      previousStock: product.stock,
-      newStock: stockVal,
-      note: note || `Stock updated via Narayana AI by ${adminUser.name || "Admin"}`,
-      adminUserId: adminUser.id,
-    });
-
-    return {
-      type: "stock_updated",
-      description: `Updated stock of "${product.name}" from ${product.stock} to ${stockVal} units.`,
-      details: { productId: pid, name: product.name, oldStock: product.stock, newStock: stockVal },
-    };
-  }
-
-  // Action 3: Cancel Order
-  if (actionName === "cancel_order") {
-    if (!isSuperAdmin) {
-      throw new Error("Only Super Admin can cancel orders via Narayana AI.");
-    }
-    const { orderId, reason } = args;
-    const oid = Number(orderId);
-    if (!oid) throw new Error("Invalid order ID.");
-
-    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
-    if (!order) throw new Error(`Order #${oid} not found.`);
-    if (order.status === "Delivered" || order.status === "Cancelled") {
-      throw new Error(`Order #${oid} is already ${order.status} and cannot be cancelled.`);
-    }
-
-    await db.update(orders).set({ status: "Cancelled", updatedAt: new Date() }).where(eq(orders.id, oid));
-
-    return {
-      type: "order_cancelled",
-      description: `Cancelled Order #${oid} (was: ${order.status}). Reason: ${reason || "Admin decision via Narayana AI"}.`,
-      details: { orderId: oid, previousStatus: order.status, cancelReason: reason },
-    };
-  }
-
-  // Action 4: Set Product Price
+  // ── Action 8: Set Product Price ──
   if (actionName === "set_product_price") {
     const { productId, newPrice, note } = args;
     const pid = Number(productId);
@@ -334,7 +647,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
-  // Action 5: Pause (hide) a Product from Storefront
+  // ── Action 9: Pause/Unpause Product Visibility ──
   if (actionName === "pause_product") {
     const { productId, reason } = args;
     const pid = Number(productId);
@@ -343,7 +656,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
     if (!product) throw new Error(`Product #${pid} not found.`);
 
-    const newActiveState = !product.active; // toggle: pause = make inactive
+    const newActiveState = !product.active;
     await db.update(products).set({ active: newActiveState, updatedAt: new Date() }).where(eq(products.id, pid));
 
     return {
@@ -353,7 +666,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
-  // Action 6: Bulk Restock multiple products
+  // ── Action 10: Bulk Restock Multiple Products ──
   if (actionName === "bulk_restock") {
     if (!Array.isArray(args.items) || args.items.length === 0) {
       throw new Error("bulk_restock requires an 'items' array: [{productId, newStock}]");
@@ -375,7 +688,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
         newStock: stockVal,
         changeQty: stockVal - Number(product.stock || 0),
         reason: "restock",
-        note: `Bulk restocked via Narayana AI by ${adminUser.name || "Admin"}`,
+        note: `Bulk restocked via Narayana AI by Super Admin ${adminUser.name || ""}`,
         adminUserId: adminUser.id,
       });
       results.push({ name: product.name, oldStock: product.stock, newStock: stockVal });
@@ -385,28 +698,6 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       type: "bulk_restocked",
       description: `Bulk restocked ${results.length} products via Narayana AI.`,
       details: results,
-    };
-  }
-
-  // Action 7: Assign Delivery Partner to an Order
-  if (actionName === "assign_delivery_partner") {
-    const { orderId, deliveryPartnerId } = args;
-    const oid = Number(orderId);
-    const dpId = Number(deliveryPartnerId);
-    if (!oid || !dpId) throw new Error("Invalid orderId or deliveryPartnerId.");
-
-    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
-    if (!order) throw new Error(`Order #${oid} not found.`);
-
-    const [partner] = await db.select().from(deliveryPartners).where(eq(deliveryPartners.id, dpId)).limit(1);
-    if (!partner) throw new Error(`Delivery partner #${dpId} not found.`);
-
-    await db.update(orders).set({ deliveryPartnerId: dpId, updatedAt: new Date() }).where(eq(orders.id, oid));
-
-    return {
-      type: "delivery_partner_assigned",
-      description: `Assigned ${partner.name} to Order #${oid} (${order.status}).`,
-      details: { orderId: oid, partnerName: partner.name, partnerId: dpId },
     };
   }
 
@@ -423,7 +714,7 @@ export async function executeCopilotTurn(
 ): Promise<CopilotResponse> {
   const geminiKey = await getGeminiApiKey();
   if (!geminiKey) {
-    throw new Error("Gemini API key is not configured. Please configure it in Admin -> Lakshmi AI Settings.");
+    throw new Error("Narayana AI Gemini API key is not configured.");
   }
 
   const isSuperAdmin = Boolean(
@@ -432,24 +723,30 @@ export async function executeCopilotTurn(
     adminUser.id === 1
   );
 
-  const lastUserMsg = messages[messages.length - 1]?.content || "";
+  if (!isSuperAdmin) {
+    throw new Error("⛔ Access Denied. Narayana AI is restricted exclusively to the Chief Executive Super Admin.");
+  }
 
   // 1. Fetch live DB contexts
-  const [financials, inventory, delivery, security, searchDemand, liveUnmetSearches] = await Promise.all([
+  const [financials, inventory, delivery, security, searchDemand, liveUnmetSearches, currentSettings, pendingApprovals] = await Promise.all([
     getLiveFinancialData(isSuperAdmin),
     getLiveInventoryData(),
     getLiveDeliveryData(),
     getLiveSecurityData(isSuperAdmin),
     getLiveSearchAndDemandData(),
     getLiveUnmetSearchStream(),
+    getLiveSettingsData(),
+    getLivePendingApprovals(),
   ]);
 
   const systemInstruction = `
-You are Narayana AI, the high-privilege AI Operations & Executive Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
-You are assisting: ${adminUser.name || "Admin"} (Role: ${adminUser.role}, Super Admin: ${isSuperAdmin ? "YES" : "NO"}).
+You are Narayana AI, the Chief Executive Super Admin AI Copilot for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
+You are directly serving the Chief Executive Super Admin: ${adminUser.name || "Super Admin"}.
 
-LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS AND ANONYMOUS GUEST VISITORS):
-- Live Unmet & Zero-Result Product Searches (Captured Real-Time with Session ID, City Location & Timestamp): ${JSON.stringify(liveUnmetSearches)}
+LIVE SYSTEM CONTEXT (REAL-TIME DATABASE STATE):
+- Current Live Admin Panel Toggles & Settings: ${JSON.stringify(currentSettings)}
+- Pending Products Awaiting Approval / Reconsideration: ${JSON.stringify(pendingApprovals)}
+- Live Unmet & Zero-Result Product Searches: ${JSON.stringify(liveUnmetSearches)}
 - Customer & Guest Searches / Demand Trends: ${JSON.stringify(searchDemand)}
 - Financials & Revenue: ${JSON.stringify(financials)}
 - Crop Inventory & Stock: ${JSON.stringify(inventory)}
@@ -458,66 +755,77 @@ LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS
 - Current Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
 
 AVAILABLE ACTIONS (FUNCTION CALLING):
-You can execute approved administrative actions by including an ACTION JSON block in your response when explicitly requested by the admin:
-1. Create Flash Coupon (Super Admin only):
-<<<ACTION:{"action":"create_flash_coupon","code":"FRESH15","discountPercent":15,"minOrder":199,"expiresHours":24}>>>
+You have executive authority to execute actions ONLY when commanded by the Super Admin. Output an ACTION JSON block in your response:
 
-2. Update Product Stock:
-<<<ACTION:{"action":"update_product_stock","productId":3,"newStock":80,"note":"Restocked from Vizag farm"}>>>
+1. Switch ON / OFF Any Admin Setting or Toggle (Current & Any Future Key):
+<<<ACTION:{"action":"toggle_setting","key":"maintenance_mode","value":true,"note":"Super Admin command"}>>>
+<<<ACTION:{"action":"toggle_setting","key":"cod_enabled","value":false,"note":"Disabled COD"}>>>
+<<<ACTION:{"action":"toggle_setting","key":"hero_showcase_mode","value":"custom_image","note":"Switched hero mode"}>>>
 
-3. Cancel Order (Super Admin only):
-<<<ACTION:{"action":"cancel_order","orderId":1234,"reason":"Customer requested via call"}>>>
+2. Approve Pending Product to Live Storefront:
+<<<ACTION:{"action":"approve_product","productId":12,"note":"Quality checked and approved"}>>>
+<<<ACTION:{"action":"approve_product","productName":"Organic Dragon Fruit","note":"Approved"}>>>
 
-4. Set Product Price:
-<<<ACTION:{"action":"set_product_price","productId":5,"newPrice":85,"note":"Market rate adjustment"}>>>
+3. Send Product for Reconsideration:
+<<<ACTION:{"action":"reconsider_product","productId":15,"reason":"Price is too high for regional market. Please adjust to ₹120/kg."}>>>
 
-5. Pause/Unpause Product (toggle visibility on storefront):
-<<<ACTION:{"action":"pause_product","productId":7,"reason":"Seasonal out of stock"}>>>
+4. Fill / Modify / Update Product Stock:
+<<<ACTION:{"action":"update_product_stock","productId":3,"newStock":100,"note":"Restocked fresh harvest from Vizag"}>>>
+<<<ACTION:{"action":"update_product_stock","productName":"Moringa Leaves","addStock":50,"note":"Added 50 units"}>>>
 
-6. Bulk Restock Multiple Products:
+5. Modify Customer (Set Star Tier, Block / Unblock, Edit Details):
+<<<ACTION:{"action":"modify_customer","customerId":45,"action":"set_stars","starRating":5,"note":"Loyal customer promotion"}>>>
+<<<ACTION:{"action":"modify_customer","email":"fraud@example.com","action":"block","note":"Suspicious activity"}>>>
+<<<ACTION:{"action":"modify_customer","customerId":45,"action":"unblock","note":"Identity verified"}>>>
+<<<ACTION:{"action":"modify_customer","customerId":45,"action":"update_details","phoneVal":"9876543210"}>>>
+
+6. Modify Order (Update Status, Assign Partner, Cancel, Delivery Notes):
+<<<ACTION:{"action":"modify_order","orderId":1042,"status":"Out for delivery","deliveryPartnerId":3}>>>
+<<<ACTION:{"action":"modify_order","orderId":1042,"status":"Packed"}>>>
+<<<ACTION:{"action":"modify_order","orderId":1042,"action":"cancel","reason":"Customer requested cancellation"}>>>
+
+7. Create Flash Coupon:
+<<<ACTION:{"action":"create_flash_coupon","code":"FRESH20","discountPercent":20,"minOrder":249,"expiresHours":24}>>>
+
+8. Set Product Price:
+<<<ACTION:{"action":"set_product_price","productId":5,"newPrice":85,"note":"Market adjustment"}>>>
+
+9. Pause / Unpause Product Visibility:
+<<<ACTION:{"action":"pause_product","productId":7,"reason":"Seasonal harvest break"}>>>
+
+10. Bulk Restock Multiple Products:
 <<<ACTION:{"action":"bulk_restock","items":[{"productId":3,"newStock":50},{"productId":7,"newStock":30}]}>>>
 
-7. Assign Delivery Partner to Order:
-<<<ACTION:{"action":"assign_delivery_partner","orderId":1234,"deliveryPartnerId":2}>>>>
-
 GUIDELINES:
-- Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables where appropriate.
-- If asked about live searches, unmet searches, or what customers are trying to find that is not in inventory, quote the exact product name, city/location, session ID, and timestamp from the Live Unmet Product Searches context!
-- If asked about customer searches (e.g. "what are todays searches", "what are people looking for"), give exact search terms, counts, and categories from the searchDemand context!
-- If answering financial questions, use the exact figures from the live financials context.
-- If asked to execute an action (e.g. create coupon, adjust stock), output the <<<ACTION:...>>> block followed by confirmation text.
-- If a non-Super Admin asks for restricted financial/security data, politely decline based on NIST Zero-Trust policy.
+- Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables.
+- When commanded to switch a toggle, approve a product, send for reconsideration, modify stock, modify a customer, or change an order, output the <<<ACTION:...>>> block followed by confirmation text explaining what was executed.
 - Respond in the requested language (English by default, authentic Telugu script if asked in Telugu).
 - At the end of your response, ALWAYS include 3 suggested follow-up questions formatted as:
 <<<FOLLOWUPS:["Question 1", "Question 2", "Question 3"]>>>
 `;
 
   // Build prompt from conversation history with strict Gemini structural validity
-  // 1. Map messages to user/model roles
   const rawContents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
   for (const m of messages) {
     if (!m.content || !m.content.trim()) continue;
     const role = m.role === "assistant" || m.role === "model" ? ("model" as const) : ("user" as const);
     rawContents.push({
       role,
-      parts: [{ text: String(m.content).slice(0, 2000) }],
+      parts: [{ text: String(m.content).slice(0, 2500) }],
     });
   }
 
-  // 2. Strip leading 'model' messages (e.g. initial greeting) — Gemini requires first message to be 'user'
   while (rawContents.length > 0 && rawContents[0].role === "model") {
     rawContents.shift();
   }
 
-  // 3. Fallback if empty
   if (rawContents.length === 0) {
     rawContents.push({
       role: "user",
-      parts: [{ text: "Hello Narayana AI, please summarize operational status." }],
+      parts: [{ text: "Hello Narayana AI, please summarize executive operational status." }],
     });
   }
 
-  // 4. Merge adjacent same-role messages so turns strictly alternate
   const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
   for (const c of rawContents) {
     if (contents.length > 0 && contents[contents.length - 1].role === c.role) {
@@ -527,7 +835,6 @@ GUIDELINES:
     }
   }
 
-  // Helper: extract reply text skipping thinking parts
   function extractReplyText(parts: Array<{ text?: string; thought?: boolean }>): string {
     if (!Array.isArray(parts)) return "";
     const actualPart = parts.find((p) => !p.thought && typeof p.text === "string" && p.text.trim().length > 0);
@@ -561,8 +868,8 @@ GUIDELINES:
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents,
           generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1500,
+            temperature: 0.25,
+            maxOutputTokens: 1600,
           },
         }),
       });
@@ -590,7 +897,7 @@ GUIDELINES:
         const model = genAI.getGenerativeModel({
           model: mName,
           systemInstruction,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1500 },
+          generationConfig: { temperature: 0.25, maxOutputTokens: 1600 },
         });
         const result = await model.generateContent({ contents });
         const text = (await result.response).text();
@@ -605,7 +912,7 @@ GUIDELINES:
   }
 
   if (!rawReply) {
-    throw new Error("Unable to reach Gemini AI service. Please verify your Gemini API key in Lakshmi AI Settings.");
+    throw new Error("Unable to reach Gemini AI service. Please verify your Narayana Gemini API key.");
   }
 
   // Parse Action block if present

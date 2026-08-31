@@ -136,12 +136,22 @@ export function AdminExecutiveCopilotModal() {
 
       if (data.actionExecuted) {
         toast({
-          title: "⚡ Admin Action Executed",
+          title: "⚡ Super Admin Action Executed",
           description: data.actionExecuted.description,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
         queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
         queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/content/site-text"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       }
     },
     onError: (err: any) => {
@@ -268,7 +278,7 @@ export function AdminExecutiveCopilotModal() {
                   <div className="flex items-center gap-1.5">
                     <h3 className="font-extrabold text-sm text-white">Narayana AI</h3>
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 text-[9px] font-black px-1.5 py-0">
-                      Gemini 2.5 AI
+                      Gemini 3.6 AI
                     </Badge>
                   </div>
                   <p className="text-[10px] text-gray-300">Operations &amp; Sourcing Intelligence</p>
