@@ -599,6 +599,21 @@ export async function sendTelegramSecurityAlertThrottled(key: string, message: s
 // Alias for backwards compatibility across existing security imports
 export const sendTelegramAlert = sendTelegramSecurityAlert;
 
+/** Dispatch Lakshmi Executive Intelligence and Autonomous Radar Alerts */
+export async function sendTelegramExecutiveAlert(message: string): Promise<boolean> {
+  const { botToken, chatIds } = await getTelegramSecurityCredentials();
+  if (!botToken || chatIds.length === 0) return false;
+
+  const formatted = message.startsWith("🪔") || message.startsWith("🚨") || message.startsWith("🌾") || message.startsWith("🌙") || message.startsWith("⚠️")
+    ? message
+    : `🪔 <b>[Lakshmi Executive Radar]</b>\n\n${message}`;
+
+  const results = await Promise.all(
+    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, formatted))
+  );
+  return results.some((r) => r === true);
+}
+
 /* ====================================================================
    3B. COMPACT WEBSITE VISITOR SECURITY ALERT (SECURITY BOT)
    ==================================================================== */
@@ -1291,23 +1306,92 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
-  if (lowerText === "/help" || lowerText === "/start") {
-    const help = `🛡️ <b>SUPER ADMIN SECURITY BOT COMMANDS</b>
-🛠️ <code>/maintain on [30m|2h|1d] [msg]</code> - Activate Scheduled Maintenance (m: mins, h: hours, d: days)
-🟢 <code>/maintain off</code> - Deactivate Scheduled Maintenance
-📊 <code>/maintain</code> - Check Maintenance Mode details
-🔒 <code>/lock on [reason]</code> - Activate Emergency Platform Lockdown
-🔓 <code>/lock off</code> - Deactivate Platform Lockdown
-ℹ️ <code>/status</code> - Check platform & system status
-📋 <code>/approvals</code> - View pending product & category approvals
-🔓 <code>/unlock &lt;email&gt;</code> - Unlock locked account & reset failure attempts
-🚫 <code>/subadmin block &lt;email&gt;</code> - Block a user or sub-admin
-✅ <code>/subadmin unblock &lt;email&gt;</code> - Unblock a user or sub-admin
-🔑 <code>/approve &lt;token&gt;</code> - Approve emergency unlock token
-👥 <code>/users</code> - View registered user count
-❓ <code>/help</code> - Show this commands manual
+  if (lowerText === "/briefing" || lowerText === "/morning") {
+    await sendRawTelegramMessage(botToken, senderChatId, "🧠 Generating live Gemini AI Morning Harvest Briefing...");
+    const { triggerHarvestBriefing } = await import("./autonomous-radar");
+    const res = await triggerHarvestBriefing();
+    return { handled: true, reply: res.briefingText };
+  }
 
-<i>Note: All security alerts and 24-hour / permanent lockout alerts are automatically sent to this bot!</i>`;
+  if (lowerText === "/digest" || lowerText === "/sales" || lowerText === "/night") {
+    const { triggerFinancialDigest } = await import("./autonomous-radar");
+    const res = await triggerFinancialDigest();
+    return { handled: true, reply: res.digestText };
+  }
+
+  if (lowerText.startsWith("/stock ")) {
+    const parts = text.slice(7).trim().split(/\s+/);
+    const prodId = parseInt(parts[0], 10);
+    const newQty = parseInt(parts[1], 10);
+
+    if (!prodId || isNaN(newQty)) {
+      const reply = `⚠️ Usage: <code>/stock &lt;productId&gt; &lt;newQuantity&gt;</code> (e.g. <code>/stock 3 80</code>)`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+
+    const { db } = await import("../db");
+    const { products } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const [prod] = await db.select().from(products).where(eq(products.id, prodId)).limit(1);
+    if (!prod) {
+      const reply = `❌ Product #${prodId} not found.`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+
+    await db.update(products).set({ stock: newQty, updatedAt: new Date() }).where(eq(products.id, prodId));
+    const reply = `✅ <b>STOCK UPDATED</b>\n• <b>Product:</b> ${prod.name} (#${prodId})\n• <b>Old Stock:</b> ${prod.stock} units\n• <b>New Stock:</b> ${newQty} units`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText.startsWith("/coupon ")) {
+    const parts = text.slice(8).trim().split(/\s+/);
+    const code = String(parts[0] || "").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const discount = parseInt(parts[1], 10) || 10;
+
+    if (!code) {
+      const reply = `⚠️ Usage: <code>/coupon &lt;CODE&gt; &lt;discountPercent&gt;</code> (e.g. <code>/coupon FLASH20 20</code>)`;
+      await sendRawTelegramMessage(botToken, senderChatId, reply);
+      return { handled: true, reply };
+    }
+
+    const { db } = await import("../db");
+    const { coupons } = await import("@shared/schema");
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.insert(coupons).values({
+      code,
+      discountPercent: String(discount),
+      minOrder: "0",
+      active: true,
+      maxUses: 1000,
+      expiresAt,
+      campaignCategory: "telegram_quick_action",
+    });
+
+    const reply = `🎉 <b>FLASH COUPON CREATED</b>\n• <b>Code:</b> <code>${code}</code>\n• <b>Discount:</b> ${discount}% OFF\n• <b>Expires:</b> Tomorrow (24 hours)`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText === "/help" || lowerText === "/start") {
+    const help = `🛡️ <b>SUPER ADMIN EXECUTIVE &amp; SECURITY BOT COMMANDS</b>
+🌾 <code>/briefing</code> - Generate live Morning Harvest Procurement Briefing (Gemini AI)
+🌙 <code>/digest</code> - Generate today's Financial &amp; GST Settlement Digest
+📦 <code>/stock &lt;id&gt; &lt;qty&gt;</code> - Instantly adjust crop stock (e.g. /stock 3 100)
+🎟️ <code>/coupon &lt;code&gt; &lt;%&gt;</code> - Create a 24h flash discount coupon (e.g. /coupon FLASH15 15)
+ℹ️ <code>/status</code> - Check platform &amp; system status
+📋 <code>/approvals</code> - View pending product &amp; category approvals
+🛠️ <code>/maintain on [30m|2h|1d]</code> - Activate Scheduled Maintenance
+🟢 <code>/maintain off</code> - Deactivate Maintenance
+🔒 <code>/lock on [reason]</code> - Emergency Platform Lockdown
+🔓 <code>/lock off</code> - Deactivate Platform Lockdown
+🔓 <code>/unlock &lt;email&gt;</code> - Unlock locked customer/admin account
+👥 <code>/users</code> - View registered user count
+❓ <code>/help</code> - Show this commands manual`;
     await sendRawTelegramMessage(botToken, senderChatId, help);
     return { handled: true, reply: help };
   }

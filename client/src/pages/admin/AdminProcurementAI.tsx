@@ -131,6 +131,58 @@ export default function AdminProcurementAI() {
     },
   });
 
+  // Autonomous Radar Action Mutations
+  const briefingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/radar/trigger-briefing", {});
+      return res.json();
+    },
+    onSuccess: (res) => {
+      toast({
+        title: "🌾 Morning Harvest Briefing Dispatched",
+        description: res.message || "Briefing sent to your Super Admin Telegram channel!",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to Dispatch Briefing", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const digestMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/radar/trigger-digest", {});
+      return res.json();
+    },
+    onSuccess: (res) => {
+      toast({
+        title: "🌙 Financial Settlement Digest Dispatched",
+        description: res.message || "Nightly digest sent to your Telegram channel!",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to Dispatch Digest", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const testAlertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/radar/test-alert", {
+        keyword: "Organic Dragon Fruit & Ginger",
+        count: 24,
+      });
+      return res.json();
+    },
+    onSuccess: (res) => {
+      toast({
+        title: "🚨 Sourcing Spike Alert Dispatched",
+        description: res.message || "Alert sent to your Telegram channel!",
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to Send Alert", description: err.message, variant: "destructive" });
+    },
+  });
+
   const getUrgencyBadge = (urgency: string) => {
     switch (urgency?.toLowerCase()) {
       case "high":
@@ -522,6 +574,113 @@ export default function AdminProcurementAI() {
                 </div>
               </div>
             )}
+
+            {/* ── SECTION 5: AUTONOMOUS TELEGRAM ALERTING & DAILY RADAR PIPELINE ── */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-card via-card to-emerald-950/30 border-2 border-emerald-500/30 shadow-xl space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xl shrink-0">
+                    🛰️
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2">
+                      Autonomous Proactive Radar &amp; Telegram Pipeline
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 text-[10px] font-extrabold">
+                        24/7 Active
+                      </Badge>
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Proactively monitors customer search spikes, warehouse stockouts, and payment gateways with 2-way Telegram bot commands.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+                <div className="p-4 rounded-2xl bg-background/80 border border-card-border space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-amber-400">
+                      <span>🌾 06:00 AM Harvest Briefing</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      AI-generated daily farm harvest procurement briefing dispatched to Super Admin Telegram.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => briefingMutation.mutate()}
+                    disabled={briefingMutation.isPending}
+                    className="w-full text-xs font-bold h-9 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl cursor-pointer"
+                  >
+                    {briefingMutation.isPending ? "Generating..." : "⚡ Dispatch Harvest Briefing"}
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-background/80 border border-card-border space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-sky-400">
+                      <span>🌙 11:30 PM Financial Digest</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Daily settlement, total GMV, delivered order count, and GST liability summary.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => digestMutation.mutate()}
+                    disabled={digestMutation.isPending}
+                    className="w-full text-xs font-bold h-9 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl cursor-pointer"
+                  >
+                    {digestMutation.isPending ? "Generating..." : "⚡ Dispatch Financial Digest"}
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-background/80 border border-card-border space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-red-400">
+                      <span>🚨 Sourcing Spike Test Alert</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Tests the real-time high-velocity unlisted crop search alert sent to your Telegram channel.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => testAlertMutation.mutate()}
+                    disabled={testAlertMutation.isPending}
+                    className="w-full text-xs font-bold h-9 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded-xl cursor-pointer"
+                  >
+                    {testAlertMutation.isPending ? "Sending..." : "⚡ Test Sourcing Spike Alert"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* 2-Way Telegram Bot Cheat Sheet */}
+              <div className="p-4 rounded-2xl bg-secondary/40 border border-card-border space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    📱 <strong>2-Way Telegram Bot Quick Commands (Manage from Phone)</strong>
+                  </span>
+                  <Badge variant="outline" className="text-[10px]">Super Admin Only</Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1 text-[11px]">
+                  <div className="p-2 rounded-xl bg-background border border-card-border">
+                    <code className="text-emerald-400 font-bold">/briefing</code>
+                    <p className="text-[10px] text-muted-foreground">Morning farm sourcing advice</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-background border border-card-border">
+                    <code className="text-sky-400 font-bold">/digest</code>
+                    <p className="text-[10px] text-muted-foreground">Today's GMV &amp; GST totals</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-background border border-card-border">
+                    <code className="text-amber-400 font-bold">/stock 3 100</code>
+                    <p className="text-[10px] text-muted-foreground">Update crop stock to 100 kg</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-background border border-card-border">
+                    <code className="text-purple-400 font-bold">/coupon FLASH15 15</code>
+                    <p className="text-[10px] text-muted-foreground">Create 15% 24h flash coupon</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>
