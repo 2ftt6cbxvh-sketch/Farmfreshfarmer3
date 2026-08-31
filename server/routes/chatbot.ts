@@ -232,66 +232,198 @@ function detectCartViewIntent(message: string): boolean {
   /what.*in.*my.*cart|show.*my.*cart|my.*cart.*item|cart.*detail/i.test(lower);
 }
 
-const STOP_WORDS = new Set([
-  'the', 'and', 'for', 'is', 'are', 'you', 'how', 'much', 'what', 'who', 'they',
-  'can', 'have', 'this', 'that', 'with', 'from', 'does', 'did', 'do', 'please',
-  'show', 'tell', 'want', 'need', 'get', 'give', 'any', 'some', 'many', 'more',
-  'about', 'where', 'when', 'why', 'which', 'will', 'your', 'their', 'there',
-  'here', 'also', 'just', 'like', 'than', 'then', 'them', 'both', 'each'
-]);
+// Comprehensive Multilingual & Health Semantic Dictionary
+const PRODUCT_SEMANTIC_MAP: Record<string, string[]> = {
+  // Fruits
+  mango: ['mango', 'alphonso', 'mamidi', 'mamidikaya', 'aam', 'banganapalli', 'totapuri', 'rasalu', 'chinna rasalu', 'pedda rasalu'],
+  banana: ['banana', 'bananas', 'ariti', 'aratipandu', 'aratikaya', 'kela', 'yelakki', 'robusta', 'chakkarakeli', 'karpooravalli'],
+  pomegranate: ['pomegranate', 'anar', 'danimma', 'danimmakaya'],
+  grapes: ['grape', 'grapes', 'angur', 'draksha'],
+  apple: ['apple', 'apples', 'seb', 'sepu'],
+  papaya: ['papaya', 'papita', 'boppayi', 'boppayikaya'],
+  guava: ['guava', 'amrood', 'jama', 'jamakaya'],
+  orange: ['orange', 'citrus', 'santhra', 'kamala', 'battayi', 'mosambi'],
+  watermelon: ['watermelon', 'tarbooj', 'puchakaya'],
 
-function stemWord(w: string): string {
-  let clean = (w || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-  if (clean.length <= 3) return clean;
-  if (clean.endsWith('ies')) return clean.slice(0, -3) + 'y';
-  if (clean.endsWith('es')) return clean.slice(0, -2);
-  if (clean.endsWith('s')) return clean.slice(0, -1);
-  return clean;
-}
+  // Vegetables
+  tomato: ['tomato', 'tomatoes', 'tamatar', 'tamata', 'tamatalu', 'thakkali'],
+  spinach: ['spinach', 'palak', 'palakura', 'aakukura', 'greens', 'leafy', 'saag', 'keerai', 'thotakura', 'bachali'],
+  okra: ['okra', 'ladyfinger', 'lady finger', 'bhindi', 'bhendi', 'bendakaya', 'benda'],
+  carrot: ['carrot', 'carrots', 'gajar', 'carrotu'],
+  potato: ['potato', 'potatoes', 'aloo', 'alu', 'bangaladumpa', 'batata'],
+  onion: ['onion', 'onions', 'pyaz', 'kanda', 'ullipaya', 'ulli', 'eragadda'],
+  brinjal: ['brinjal', 'eggplant', 'aubergine', 'baingan', 'vankaya', 'gutta vankaya'],
+  chilli: ['chilli', 'chili', 'mirchi', 'mirapa', 'pachi mirchi', 'green chilli'],
+  ginger: ['ginger', 'adrak', 'allam'],
+  garlic: ['garlic', 'lehsun', 'vellulli'],
 
-function matchesWord(w1: string, w2: string): boolean {
-  const s1 = stemWord(w1);
-  const s2 = stemWord(w2);
-  if (s1.length < 3 || s2.length < 3) return false;
-  return s1 === s2 || s1.includes(s2) || s2.includes(s1);
-}
+  // Pickles
+  pickle: ['pickle', 'pickles', 'achar', 'aachar', 'pachadi', 'ooragaya', 'avakaya', 'avakayi', 'pickle jar'],
+  avakaya: ['avakaya', 'avakayi', 'aam ka achar', 'mango pickle', 'mamidikaya pachadi', 'magaya'],
+  gongura: ['gongura', 'sorrel', 'gongura pachadi', 'gongura pickle', 'pulicha keerai'],
+  nonvegpickle: ['chicken pickle', 'mutton pickle', 'prawn pickle', 'fish pickle', 'kodi pachadi', 'royyala pachadi', 'meat pickle'],
 
-function isProductInquiry(message: string): boolean {
-  const lower = message.toLowerCase();
-  
-  const nonProductKeywords = [
-    'eta', 'delivery', 'pincode', 'location', 'where', 'when', 'time', 'hours',
-    'contact', 'phone', 'email', 'address', 'grievance', 'refund', 'return',
-    'cancel', 'status', 'order', 'tracking', 'track', 'help', 'hi', 'hello',
-    'namaste', 'healthy', 'health', 'benefit', 'benefits', 'side effect', 'nutrition',
-    'diabetic', 'diabetes', 'sugar', 'blood pressure', 'bp', 'eat', 'can someone',
-    'can i', 'is it safe', 'good for', 'bad for', 'harmful', 'who should', 'avoid',
-    'how to', 'why', 'recipe', 'cook', 'legal', 'policy',
-    'add them', 'add it', 'add to cart', 'add in cart', 'put them',
-    'put it in', 'yes add', 'yes please add', 'go ahead add'
-  ];
+  // Sweets & Snacks
+  sweets: ['sweet', 'sweets', 'mithai', 'laddu', 'ladoo', 'boondi', 'kaju', 'katli', 'mysore pak', 'pootharekulu', 'halwa', 'gulab jamun', 'dessert'],
+  snacks: ['snack', 'snacks', 'namkeen', 'mixture', 'murukku', 'janthikalu', 'chekodilu', 'chana', 'sev', 'crisps'],
 
-  if (nonProductKeywords.some(kw => lower.includes(kw))) {
-    return false;
+  // Millets & Grains
+  millets: ['millet', 'millets', 'siridhanya', 'siridhanyalu', 'ragi', 'ragulu', 'finger millet', 'bajra', 'sajjalu', 'pearl millet', 'jowar', 'jonnalu', 'sorghum', 'foxtail', 'korralu', 'kodo', 'arikelu', 'little millet', 'samalu', 'barnyard', 'udhalu', 'unpolished grain'],
+
+  // Pulses & Dal
+  pulses: ['pulse', 'pulses', 'dal', 'dhal', 'pappu', 'toor dal', 'kandi pappu', 'moong dal', 'pesara pappu', 'chana dal', 'senaga pappu', 'urad dal', 'minapa pappu', 'lentil', 'lentils'],
+
+  // Spices & Condiments
+  spices: ['spice', 'spices', 'masala', 'powder', 'podi', 'red chilli powder', 'mirchi powder', 'turmeric', 'haldi', 'pasupu', 'dhaniya', 'coriander', 'cumin', 'jeera', 'jeelakarra', 'mustard', 'avalu'],
+
+  // Dairy & Ghee
+  dairy: ['milk', 'dairy', 'doodh', 'paalu', 'ghee', 'neyyi', 'desi ghee', 'butter', 'venna', 'paneer', 'curd', 'dahi', 'perugu'],
+};
+
+// Health & Diet Semantic Categorization
+const HEALTH_INTENT_MAP: Record<string, string[]> = {
+  diabetes: ['diabetes', 'diabetic', 'sugar', 'blood sugar', 'low gi', 'glycemic', 'type 2'],
+  heart_bp: ['bp', 'blood pressure', 'hypertension', 'heart', 'cardiac', 'cholesterol', 'artery'],
+  weight_loss: ['weight loss', 'fat loss', 'diet', 'slim', 'slimming', 'low calorie', 'fibre', 'fiber', 'fit', 'fitness'],
+  immunity: ['immunity', 'immune', 'cold', 'cough', 'antioxidant', 'vitamin c', 'vitality', 'wellness', 'organic'],
+  protein: ['protein', 'gym', 'workout', 'muscle', 'bodybuilding', 'high protein', 'biceps', 'strength'],
+  deals: ['deal', 'deals', 'offer', 'offers', 'discount', 'discounts', 'sale', 'sales', 'special', 'cheap', 'save', 'saving', 'low price', 'best price'],
+};
+
+function resolveSmartProductSuggestions(
+  userMessage: string,
+  replyText: string | null,
+  activeProducts: any[]
+): any[] {
+  if (!activeProducts || activeProducts.length === 0) return [];
+  const lowerMsg = userMessage.toLowerCase().trim();
+  const lowerReply = (replyText || '').toLowerCase();
+
+  // Exclude non-product system requests (e.g. OTP updates, password reset, account deletion, phone changes)
+  const isStrictSystemNonProduct =
+    /change.*(password|email|phone|mobile)|verify mobile|otp|sign out|delete account|privacy policy|terms/i.test(lowerMsg) &&
+    !/price|buy|add|rate|cost|suggest|recommend|have|sell/i.test(lowerMsg);
+  if (isStrictSystemNonProduct) return [];
+
+  const rawWords = lowerMsg.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
+
+  // Detect health / diet intents
+  const activeHealthIntents: string[] = [];
+  for (const [intentKey, keywords] of Object.entries(HEALTH_INTENT_MAP)) {
+    if (keywords.some(kw => lowerMsg.includes(kw))) {
+      activeHealthIntents.push(intentKey);
+    }
   }
 
-  return true;
+  const scoredProducts: Array<{ product: any; score: number }> = [];
+
+  for (const p of activeProducts) {
+    let score = 0;
+    const pNameLower = p.name.toLowerCase();
+    const pCatLower = (p.categorySlug || '').toLowerCase();
+    const pDescLower = (p.description || '').toLowerCase();
+    const pWords = (pNameLower + ' ' + pCatLower).split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
+
+    // 1. Direct word / stem match in user message (+90)
+    for (const uw of rawWords) {
+      if (pWords.some(pw => matchesWord(uw, pw))) {
+        score += 80;
+      }
+      if (pNameLower.includes(uw) || uw.includes(pNameLower)) {
+        score += 95;
+      }
+    }
+
+    // 2. Multilingual synonym match (+75)
+    for (const [semanticKey, synonyms] of Object.entries(PRODUCT_SEMANTIC_MAP)) {
+      const productMatchesSemantic = synonyms.some(syn => pNameLower.includes(syn) || pCatLower.includes(syn) || pDescLower.includes(syn));
+      const userMatchesSemantic = synonyms.some(syn => lowerMsg.includes(syn));
+      if (productMatchesSemantic && userMatchesSemantic) {
+        score += 75;
+      }
+    }
+
+    // 3. Health & Nutrition intent alignment (+60)
+    if (activeHealthIntents.includes('diabetes')) {
+      if (/millet|ragi|foxtail|spinach|palak|tomato|dal|pulse/.test(pNameLower + ' ' + pCatLower)) {
+        score += 60;
+      }
+    }
+    if (activeHealthIntents.includes('heart_bp')) {
+      if (/pomegranate|spinach|palak|garlic|millet|oil/.test(pNameLower + ' ' + pCatLower)) {
+        score += 60;
+      }
+    }
+    if (activeHealthIntents.includes('weight_loss')) {
+      if (/millet|ragi|spinach|salad|fruit|vegetable/.test(pNameLower + ' ' + pCatLower)) {
+        score += 60;
+      }
+    }
+    if (activeHealthIntents.includes('protein')) {
+      if (/dal|pulse|toor|moong|chana|paneer|chicken|pickle/.test(pNameLower + ' ' + pCatLower)) {
+        score += 60;
+      }
+    }
+    if (activeHealthIntents.includes('immunity')) {
+      if (/turmeric|amla|pomegranate|honey|lemon|spices/.test(pNameLower + ' ' + pCatLower)) {
+        score += 60;
+      }
+    }
+    if (activeHealthIntents.includes('deals') || /deal|offer|discount|sale|special/i.test(lowerMsg)) {
+      if (Number(p.discountPercent) > 0) {
+        score += 70 + Number(p.discountPercent);
+      }
+    }
+
+    // 4. Mentioned in Lakshmi AI reply text (+65)
+    if (lowerReply) {
+      if (lowerReply.includes(pNameLower)) {
+        score += 65;
+      } else {
+        const significantPWords = pNameLower.split(/\s+/).filter(w => w.length >= 4 && !STOP_WORDS.has(w));
+        if (significantPWords.some(w => lowerReply.includes(w))) {
+          score += 45;
+        }
+      }
+    }
+
+    // 5. Bonus for In Stock & Active Deals
+    if (p.stock > 0) score += 10;
+    if (Number(p.discountPercent) > 0) score += 5;
+
+    if (score >= 35) {
+      scoredProducts.push({ product: p, score });
+    }
+  }
+
+  // Sort by score descending
+  scoredProducts.sort((a, b) => b.score - a.score);
+
+  // Return top 4 unique products formatted cleanly
+  const topProducts = scoredProducts.slice(0, 4).map(({ product: p }) => {
+    const baseP = Number(p.price) || 0;
+    const disc = Number(p.discountPercent || 0);
+    const effPrice = disc > 0 ? Math.round(baseP * (1 - disc / 100) * 100) / 100 : baseP;
+    return {
+      id: p.id,
+      name: p.name,
+      price: String(effPrice),
+      originalPrice: disc > 0 ? String(baseP) : undefined,
+      discountPercent: String(disc),
+      unit: p.unit || 'unit',
+      image: p.image,
+      stock: p.stock,
+      allowInternationalShipping: p.allowInternationalShipping,
+      categorySlug: p.categorySlug,
+      description: p.description,
+    };
+  });
+
+  return topProducts;
 }
 
 function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
-  if (!isProductInquiry(userMessage)) return [];
-
-  const rawWords = userMessage.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, ''));
-  const userWords = rawWords.filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
-  if (userWords.length === 0) return [];
-
-  return activeProducts.filter((p: any) => {
-    const pName = p.name.toLowerCase();
-    const cat = (p.categorySlug || '').toLowerCase();
-    const pWords = (pName + ' ' + cat).split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
-    
-    return userWords.some(uw => pWords.some(pw => matchesWord(uw, pw)));
-  });
+  return resolveSmartProductSuggestions(userMessage, null, activeProducts);
 }
 
 // In-memory query response cache for instant sub-millisecond replies (10 min TTL)
@@ -1338,40 +1470,19 @@ function resolveCartQty(
         }).catch((err) => console.warn('[chatbot] Failed to log AI reply:', err?.message));
       }
 
-      // Also scan Gemini's response for product name mentions
-      let responseProducts: any[] = [];
-      if (reply && globalActiveProducts && globalActiveProducts.length > 0) {
-        const replyLower = reply.toLowerCase();
-        responseProducts = globalActiveProducts.filter((p: any) => {
-          const productWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 5);
-          return productWords.some((w: string) => replyLower.includes(w));
-        }).map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: String(p.price),
-            discountPercent: String(p.discountPercent || 0),
-            unit: p.unit || 'unit',
-            image: p.image,
-            stock: p.stock,
-            allowInternationalShipping: p.allowInternationalShipping,
-            categorySlug: p.categorySlug,
-        })).slice(0, 4);
-      }
-
-      // Do NOT show product cards for ETA/delivery/pincode queries
+      // Resolve intelligent product suggestions across user query + AI reply text
       const isEtaOrDeliveryQuery = detectETAIntent(message) || /\b([1-9][0-9]{5})\b/.test(message);
-      const finalProducts = matchedProducts.length > 0 ? matchedProducts : responseProducts;
-      const showProductCards = !isEtaOrDeliveryQuery && finalProducts.length > 0 && (
-        isProductInquiry(message) || 
-        responseProducts.length > 0
-      );
+      let finalProducts: any[] = [];
+      if (!isEtaOrDeliveryQuery && globalActiveProducts && globalActiveProducts.length > 0) {
+        finalProducts = resolveSmartProductSuggestions(message, reply, globalActiveProducts);
+      }
 
       return res.json({
         reply,
         needsHuman,
         status: session?.status || 'bot',
         sessionToken: token,
-        products: showProductCards ? finalProducts : undefined,
+        products: finalProducts.length > 0 ? finalProducts : undefined,
       });
     } catch (err) {
       console.error('[chatbot] Error in message handler:', err);

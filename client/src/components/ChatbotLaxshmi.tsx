@@ -1180,57 +1180,98 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   >
                     {msg.content}
                   </div>
-                  {/* Interactive Product Cards */}
+                  {/* Enhanced Interactive Product Suggestion Cards */}
                   {msg.products && msg.products.length > 0 && (
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2.5 space-y-2">
+                      <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 uppercase tracking-wider">
+                        <span>✨ Recommended Farm Fresh Products</span>
+                      </div>
                       {msg.products.map((p: any) => {
                         const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.qty || 0;
                         const baseP = Number(p.originalPrice || p.price || 0);
                         const disc = Number(p.discountPercent || 0);
                         const currentPrice = disc > 0 && p.originalPrice ? Number(p.price) : disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                        const savings = disc > 0 ? Math.round(baseP - currentPrice) : 0;
+                        const isOutOfStock = p.stock !== undefined && p.stock <= 0;
 
                         return (
-                          <div key={p.id} className="flex items-center gap-2.5 p-2 bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 shadow-md transition hover:border-emerald-300">
-                            {p.image ? (
-                              <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
-                            ) : (
-                              <div className="w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 font-bold text-xs flex-shrink-0">
-                                🌿
-                              </div>
-                            )}
+                          <div key={p.id} className="group relative flex items-center gap-3 p-2.5 bg-card hover:bg-accent/40 rounded-2xl border border-border/80 hover:border-emerald-500/50 shadow-sm transition-all duration-200">
+                            {/* Product Image */}
+                            <a
+                              href={`/product/${p.id}`}
+                              className="relative w-13 h-13 rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 cursor-pointer group-hover:scale-105 transition-transform"
+                            >
+                              {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xl">🌿</span>
+                              )}
+                              {disc > 0 && (
+                                <span className="absolute top-0 left-0 bg-red-500 text-white text-[8px] font-black px-1 rounded-br">
+                                  {Math.round(disc)}%
+                                </span>
+                              )}
+                            </a>
+
+                            {/* Info */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{p.name}</p>
+                              <a
+                                href={`/product/${p.id}`}
+                                className="text-xs font-bold text-foreground hover:text-emerald-600 transition truncate block cursor-pointer"
+                              >
+                                {p.name}
+                              </a>
+                              
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₹{currentPrice}</span>
+                                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₹{Math.round(currentPrice)}</span>
                                 {disc > 0 && (
-                                  <span className="text-[10px] text-muted-foreground line-through font-semibold">₹{baseP}</span>
+                                  <>
+                                    <span className="text-[10px] text-muted-foreground line-through font-semibold">₹{Math.round(baseP)}</span>
+                                    {savings > 0 && (
+                                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                                        (Save ₹{savings})
+                                      </span>
+                                    )}
+                                  </>
                                 )}
-                                {disc > 0 && (
-                                  <span className="text-[9px] font-black px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 rounded">
-                                    {Math.round(disc)}% OFF
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-gray-400">/ {p.unit}</span>
+                                <span className="text-[10px] text-muted-foreground">/ {p.unit}</span>
                               </div>
-                              <div className="mt-0.5">
-                                {!p.allowInternationalShipping ? (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[9px] font-bold rounded-md">
-                                    📍 Local Only
+
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                {isOutOfStock ? (
+                                  <span className="px-1.5 py-0.2 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-[9px] font-bold rounded">
+                                    🔴 Out of Stock
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold rounded-md">
-                                    ⚡ Express Delivery
+                                  <span className="px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold rounded">
+                                    🟢 In Stock
+                                  </span>
+                                )}
+                                {!p.allowInternationalShipping ? (
+                                  <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[9px] font-bold rounded">
+                                    📍 Vijayawada Fast
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-[9px] font-bold rounded">
+                                    ⚡ Express
                                   </span>
                                 )}
                               </div>
                             </div>
+
+                            {/* Add to Cart Button */}
                             <Button
                               size="sm"
+                              disabled={isOutOfStock}
                               onClick={() => handleAddToCart({ ...p, price: currentPrice, discountPercent: disc })}
-                              className="h-7 px-2 text-[11px] font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white transition"
+                              className={`h-8 px-2.5 text-[11px] font-bold gap-1 transition-all duration-200 shadow-sm flex-shrink-0 ${
+                                inCartQty > 0
+                                  ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              }`}
                             >
-                              <ShoppingCart size={11} />
-                              {inCartQty > 0 ? `✓ ${inCartQty}` : "+ Add"}
+                              <ShoppingCart size={12} />
+                              {inCartQty > 0 ? `✓ In Cart (${inCartQty})` : "+ Add"}
                             </Button>
                           </div>
                         );
