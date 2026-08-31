@@ -205,6 +205,7 @@ export function Header() {
         .filter((p) => p.active !== false && p.approvalStatus !== "pending")
         .filter((p) =>
           p.name?.toLowerCase().includes(search.toLowerCase()) ||
+          (p as any).nameTe?.toLowerCase().includes(search.toLowerCase()) ||
           p.categorySlug?.toLowerCase().includes(search.toLowerCase()) ||
           p.description?.toLowerCase().includes(search.toLowerCase())
         )
@@ -374,6 +375,11 @@ export function Header() {
                             )}
                             <div className="truncate">
                               <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
+                              {(p as any).nameTe && (
+                                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                                  {(p as any).nameTe}
+                                </p>
+                              )}
                               <p className="text-[10px] text-muted-foreground">{p.unit}</p>
                             </div>
                           </div>
@@ -679,6 +685,11 @@ export function Header() {
                               )}
                               <div className="truncate">
                                 <p className="text-xs font-bold text-foreground group-hover/item:text-emerald-500 transition-colors truncate">{p.name}</p>
+                                {(p as any).nameTe && (
+                                  <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                                    {(p as any).nameTe}
+                                  </p>
+                                )}
                                 <p className="text-[10px] text-muted-foreground">{p.unit}</p>
                               </div>
                             </div>

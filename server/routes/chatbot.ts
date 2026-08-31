@@ -6,6 +6,7 @@ import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../servic
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middleware/rate-limit';
+import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
 
 const ALLOWED_STAFF_ROLES = [
   'admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin',
@@ -495,6 +496,7 @@ function resolveSmartProductSuggestions(
     return {
       id: p.id,
       name: p.name,
+      nameTe: p.nameTe || resolveTeluguProductName(p.name, p.categorySlug),
       price: String(effPrice),
       originalPrice: disc > 0 ? String(baseP) : undefined,
       discountPercent: String(disc),

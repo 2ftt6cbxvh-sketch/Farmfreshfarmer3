@@ -21,9 +21,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
+import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
+
 interface Form {
   id?: number;
   name: string;
+  nameTe: string;
   description: string;
   categorySlug: string;
   price: string;
@@ -39,7 +42,7 @@ interface Form {
 }
 
 const EMPTY: Form = {
-  name: "", description: "", categorySlug: "", price: "", discountPercent: "0", gstPercent: "",
+  name: "", nameTe: "", description: "", categorySlug: "", price: "", discountPercent: "0", gstPercent: "",
   unit: "250 Grams", image: "", stock: "50", dietTag: "none", featured: false, featuredInHero: false,
   allowInternationalShipping: true,
 };
@@ -77,8 +80,11 @@ export default function AdminProducts() {
         throw new Error("Please select a valid product Category");
       }
 
+      const teluguName = form.nameTe?.trim() || resolveTeluguProductName(form.name.trim(), selectedSlug);
+
       const payload = {
         name: form.name.trim(),
+        nameTe: teluguName,
         description: form.description.trim(),
         categorySlug: selectedSlug,
         price: parseFloat(form.price) || 0,
@@ -214,10 +220,19 @@ export default function AdminProducts() {
   }
   function openEdit(p: Product) {
     setForm({
-      id: p.id, name: p.name, description: p.description, categorySlug: p.categorySlug,
-      price: String(p.price), discountPercent: String(p.discountPercent),
+      id: p.id,
+      name: p.name,
+      nameTe: (p as any).nameTe || "",
+      description: p.description,
+      categorySlug: p.categorySlug,
+      price: String(p.price),
+      discountPercent: String(p.discountPercent),
       gstPercent: p.gstPercent != null ? String(p.gstPercent) : "",
-      unit: p.unit, image: p.image, stock: String(p.stock), dietTag: p.dietTag, featured: p.featured,
+      unit: p.unit,
+      image: p.image,
+      stock: String(p.stock),
+      dietTag: p.dietTag,
+      featured: p.featured,
       featuredInHero: (p as any).featuredInHero ?? false,
       allowInternationalShipping: (p as any).allowInternationalShipping !== false,
     });
@@ -349,8 +364,15 @@ export default function AdminProducts() {
                         <div className="h-9 w-9 rounded bg-secondary overflow-hidden shrink-0">
                           {p.image ? <img src={imgUrl(p.image)} alt="" className="h-full w-full object-cover" /> : null}
                         </div>
-                        <span className="font-medium">{p.name}</span>
-                        {p.featured ? <span className="text-[10px] bg-accent/30 rounded px-1">Featured</span> : null}
+                        <div>
+                          <span className="font-medium block">{p.name}</span>
+                          {(p as any).nameTe && (
+                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block font-sans">
+                              {(p as any).nameTe}
+                            </span>
+                          )}
+                        </div>
+                        {p.featured ? <span className="text-[10px] bg-accent/30 rounded px-1 ml-1">Featured</span> : null}
                       </div>
                     </td>
                     <td className="p-3 text-muted-foreground">{p.categorySlug}</td>
@@ -419,8 +441,43 @@ export default function AdminProducts() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-product-name" />
+              <Label>Product Name (English)</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  const autoTe = resolveTeluguProductName(newName, form.categorySlug);
+                  setForm({
+                    ...form,
+                    name: newName,
+                    nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
+                  });
+                }}
+                placeholder="e.g. Farm Tomatoes"
+                data-testid="input-product-name"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Telugu Sub-Name (తెలుగు పేరు)</Label>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, nameTe: resolveTeluguProductName(form.name, form.categorySlug) })}
+                  className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  ⚡ Auto-generate
+                </button>
+              </div>
+              <Input
+                value={form.nameTe}
+                onChange={(e) => setForm({ ...form, nameTe: e.target.value })}
+                placeholder="e.g. నాటు టమోటాలు"
+                className="font-medium text-emerald-700 dark:text-emerald-300"
+                data-testid="input-product-name-te"
+              />
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Authentic Telugu produce phrasing in Telugu letters. Auto-populates as you type!
+              </p>
             </div>
             <div>
               <Label>Description</Label>

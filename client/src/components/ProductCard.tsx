@@ -179,6 +179,11 @@ export function ProductCard({ product }: { product: Product }) {
             >
               {product.name}
             </h3>
+            {product.nameTe && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-sans tracking-wide mt-0.5 line-clamp-1">
+                {product.nameTe}
+              </p>
+            )}
           </Link>
           <p className="text-xs text-muted-foreground mt-0.5">{product.unit}</p>
 

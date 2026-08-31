@@ -1221,6 +1221,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                               >
                                 {p.name}
                               </a>
+                              {p.nameTe && (
+                                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                                  {p.nameTe}
+                                </p>
+                              )}
                               
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₹{Math.round(currentPrice)}</span>

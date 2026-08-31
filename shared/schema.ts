@@ -138,6 +138,7 @@ export type Category = typeof categories.$inferSelect;
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  nameTe: varchar("name_te", { length: 255 }), // Authentic Telugu script produce subname (e.g. నాటు టమోటాలు, పాలకూర)
   description: text("description").notNull().default(""),
   categorySlug: varchar("category_slug", { length: 128 }).notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
@@ -164,6 +165,7 @@ export const products = pgTable("products", {
   approvalIdx: index("products_approval_idx").on(t.approvalStatus),
 }));
 export const insertProductSchema = createInsertSchema(products, {
+  nameTe: z.string().optional().nullable(),
   price: z.coerce.number().min(0),
   discountPercent: z.coerce.number().min(0).max(100).optional(),
   stock: z.coerce.number().int().min(0).optional(),

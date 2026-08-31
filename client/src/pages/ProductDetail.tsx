@@ -151,6 +151,12 @@ export default function ProductDetail() {
               <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-extrabold text-foreground break-words">{product.name}</h1>
             </div>
 
+            {product.nameTe && (
+              <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 font-sans tracking-wide">
+                {product.nameTe}
+              </p>
+            )}
+
             {reviews.length > 0 && (
               <div className="flex items-center gap-2">
                 <Stars value={Math.round(avg)} />

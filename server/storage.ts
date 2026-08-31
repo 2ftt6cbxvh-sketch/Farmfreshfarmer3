@@ -26,6 +26,7 @@ import type {
   StarDiscountRule, InsertStarDiscountRule,
 } from "@shared/schema";
 import { eq, and, or, ne, ilike, desc, sql, inArray, notInArray, isNull, lte, gte } from "drizzle-orm";
+import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
 
 /* ================================ USERS ============================== */
 export const userStore = {
@@ -136,7 +137,7 @@ export const categoryStore = {
   },
 };
 
-/* ============================== PRODUCTS ============================ */
+/* ============================= PRODUCTS ============================= */
 export const productStore = {
   async list(opts?: { category?: string; q?: string; featured?: boolean; includeInactive?: boolean }) {
     const conds = [];
@@ -146,7 +147,15 @@ export const productStore = {
     }
     if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
     if (opts?.featured) conds.push(eq(products.featured, true));
-    if (opts?.q) conds.push(ilike(products.name, `%${opts.q}%`));
+    if (opts?.q) {
+      conds.push(
+        or(
+          ilike(products.name, `%${opts.q}%`),
+          ilike(products.nameTe, `%${opts.q}%`),
+          ilike(products.description, `%${opts.q}%`)
+        )!
+      );
+    }
     const where = conds.length ? and(...conds) : undefined;
     return db.select().from(products).where(where).orderBy(desc(products.createdAt));
   },
@@ -155,8 +164,11 @@ export const productStore = {
     return r;
   },
   async create(p: InsertProduct) {
+    const nameTe = (p.nameTe && p.nameTe.trim()) ? p.nameTe.trim() : resolveTeluguProductName(p.name, p.categorySlug);
     const [r] = await db.insert(products).values({
-      ...p, price: String(p.price),
+      ...p,
+      nameTe,
+      price: String(p.price),
       discountPercent: p.discountPercent != null ? String(p.discountPercent) : "0",
     } as any).returning();
     return r;
@@ -165,6 +177,9 @@ export const productStore = {
     const patch: any = { ...p, updatedAt: new Date() };
     if (p.price != null) patch.price = String(p.price);
     if (p.discountPercent != null) patch.discountPercent = String(p.discountPercent);
+    if (p.name && (!p.nameTe || !p.nameTe.trim())) {
+      patch.nameTe = resolveTeluguProductName(p.name, p.categorySlug);
+    }
     const [r] = await db.update(products).set(patch).where(eq(products.id, id)).returning();
     return r;
   },
