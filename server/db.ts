@@ -84,6 +84,7 @@ export async function runAutoMigrations(): Promise<void> {
 
   migrationsPromise = (async () => {
     const stmts: [string, string][] = [
+      ["ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)", "products.name_te"],
       ["ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS max_radius_km NUMERIC(5,2) NOT NULL DEFAULT 30", "warehouses.max_radius_km"],
       ["ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS average_speed_kmph NUMERIC(5,2) NOT NULL DEFAULT 30", "warehouses.average_speed_kmph"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions TEXT", "users.permissions"],
@@ -138,6 +139,7 @@ export async function runAutoMigrations(): Promise<void> {
           updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
         )`, "create.delivery_partners"],
       ["ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()", "delivery_partners.updated_at"],
+      ["ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)", "products.name_te"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE", "products.featured_in_hero"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS gst_percent NUMERIC(5,2)", "products.gst_percent"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_international_shipping BOOLEAN NOT NULL DEFAULT TRUE", "products.allow_international_shipping"],

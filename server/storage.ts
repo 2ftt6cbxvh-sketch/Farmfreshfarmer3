@@ -140,28 +140,61 @@ export const categoryStore = {
 /* ============================= PRODUCTS ============================= */
 export const productStore = {
   async list(opts?: { category?: string; q?: string; featured?: boolean; includeInactive?: boolean }) {
-    const conds = [];
-    if (!opts?.includeInactive) {
-      conds.push(eq(products.active, true));
-      conds.push(eq(products.approvalStatus, "approved"));
+    try {
+      const conds = [];
+      if (!opts?.includeInactive) {
+        conds.push(eq(products.active, true));
+        conds.push(eq(products.approvalStatus, "approved"));
+      }
+      if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
+      if (opts?.featured) conds.push(eq(products.featured, true));
+      if (opts?.q) {
+        conds.push(
+          or(
+            ilike(products.name, `%${opts.q}%`),
+            ilike(products.nameTe, `%${opts.q}%`),
+            ilike(products.description, `%${opts.q}%`)
+          )!
+        );
+      }
+      const where = conds.length ? and(...conds) : undefined;
+      return await db.select().from(products).where(where).orderBy(desc(products.createdAt));
+    } catch (err: any) {
+      if (err?.message?.includes("name_te") || err?.message?.includes("does not exist")) {
+        try {
+          const { pool: _pool } = await import("./db");
+          await _pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)");
+          const conds = [];
+          if (!opts?.includeInactive) {
+            conds.push(eq(products.active, true));
+            conds.push(eq(products.approvalStatus, "approved"));
+          }
+          if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
+          if (opts?.featured) conds.push(eq(products.featured, true));
+          const where = conds.length ? and(...conds) : undefined;
+          return await db.select().from(products).where(where).orderBy(desc(products.createdAt));
+        } catch (retryErr) {
+          console.error("[storage] products.list self-healing error:", retryErr);
+        }
+      }
+      throw err;
     }
-    if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
-    if (opts?.featured) conds.push(eq(products.featured, true));
-    if (opts?.q) {
-      conds.push(
-        or(
-          ilike(products.name, `%${opts.q}%`),
-          ilike(products.nameTe, `%${opts.q}%`),
-          ilike(products.description, `%${opts.q}%`)
-        )!
-      );
-    }
-    const where = conds.length ? and(...conds) : undefined;
-    return db.select().from(products).where(where).orderBy(desc(products.createdAt));
   },
   async get(id: number) {
-    const [r] = await db.select().from(products).where(eq(products.id, id));
-    return r;
+    try {
+      const [r] = await db.select().from(products).where(eq(products.id, id));
+      return r;
+    } catch (err: any) {
+      if (err?.message?.includes("name_te") || err?.message?.includes("does not exist")) {
+        try {
+          const { pool: _pool } = await import("./db");
+          await _pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)");
+          const [r] = await db.select().from(products).where(eq(products.id, id));
+          return r;
+        } catch {}
+      }
+      throw err;
+    }
   },
   async create(p: InsertProduct) {
     const nameTe = (p.nameTe && p.nameTe.trim()) ? p.nameTe.trim() : resolveTeluguProductName(p.name, p.categorySlug);
