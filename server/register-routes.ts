@@ -888,12 +888,15 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       30,
       ["products"]
     );
-    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.json(data);
   }));
 
   app.get("/api/products/:id", h(async (req, res) => {
     const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid product id" });
     const p = await apiCache.getOrSet(
       `products:id:${id}`,
       () => storage.products.get(id),
@@ -901,7 +904,9 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       ["products"]
     );
     if (!p) return res.status(404).json({ message: "Not found" });
-    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=60");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.json(p);
   }));
 

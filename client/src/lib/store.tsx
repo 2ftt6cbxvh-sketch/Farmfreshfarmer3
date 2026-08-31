@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("adminUser");
         localStorage.removeItem("customer_last_activity");
         sessionStorage.clear();
-        queryClient.clear();
+        queryClient.invalidateQueries();
         setUser(null);
         try {
           fetch("/api/logout", { method: "POST", credentials: "include" }).catch(() => {});
@@ -226,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("adminUser");
     localStorage.removeItem("customer_last_activity");
     sessionStorage.clear();
-    queryClient.clear();
+    queryClient.invalidateQueries();
 
     // 2. Fire backend session destroy in background
     try {
