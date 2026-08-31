@@ -506,8 +506,8 @@ function AppContent() {
     };
 
     checkPlatformStatus();
-    // Ultra-fast 3s polling interval for instant activation & deactivation
-    const interval = setInterval(checkPlatformStatus, 3000);
+    // Balanced 30s background check (instant on tab visibility & event-driven)
+    const interval = setInterval(checkPlatformStatus, 30000);
 
     // Instant event listeners for zero-latency overlay trigger
     const onMaintenanceActive = (e: any) => {

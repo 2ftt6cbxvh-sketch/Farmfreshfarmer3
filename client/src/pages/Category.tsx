@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/queryClient";
@@ -6,6 +7,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { DietDot } from "@/components/DietDot";
 import type { Category as Cat, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { recordCategoryVisit } from "@/lib/recommendation-store";
 
 export default function Category() {
   const [, params] = useRoute("/category/:slug");
@@ -20,11 +22,11 @@ export default function Category() {
   });
 
   // Real-time category tracking for instant recommendation pivot
-  useState(() => {
+  useEffect(() => {
     if (slug) {
-      import("@/lib/recommendation-store").then((m) => m.recordCategoryVisit(slug));
+      recordCategoryVisit(slug);
     }
-  });
+  }, [slug]);
 
   return (
     <Layout>

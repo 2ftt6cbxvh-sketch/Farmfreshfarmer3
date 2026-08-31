@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/queryClient";
@@ -5,6 +6,7 @@ import { Layout } from "@/components/Layout";
 import { ProductCard } from "@/components/ProductCard";
 import type { Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { recordSearchQuery } from "@/lib/recommendation-store";
 
 export default function SearchPage() {
   const searchString = useSearch();
@@ -17,11 +19,11 @@ export default function SearchPage() {
   });
 
   // Real-time search signal tracking for instant zero-refresh recommendation pivot
-  useState(() => {
+  useEffect(() => {
     if (q) {
-      import("@/lib/recommendation-store").then((m) => m.recordSearchQuery(q));
+      recordSearchQuery(q);
     }
-  });
+  }, [q]);
 
   return (
     <Layout>

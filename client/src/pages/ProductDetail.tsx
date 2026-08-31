@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart, Star, Sparkles } from "lucide-react";
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { recordProductView } from "@/lib/recommendation-store";
 
 function Stars({ value, onChange }: { value: number; onChange?: (n: number) => void }) {
   return (
@@ -53,11 +54,11 @@ export default function ProductDetail() {
   });
 
   // Real-time behavioral & recommendation signal tracking
-  useState(() => {
-    import("@/lib/recommendation-store").then((m) => {
-      if (id) m.recordProductView(id, product?.categorySlug);
-    });
-  });
+  useEffect(() => {
+    if (id) {
+      recordProductView(id, product?.categorySlug);
+    }
+  }, [id, product?.categorySlug]);
 
   const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: ["/api/reviews", id],

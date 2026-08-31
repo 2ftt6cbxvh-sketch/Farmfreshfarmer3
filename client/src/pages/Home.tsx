@@ -75,23 +75,6 @@ export default function Home() {
   const featuredHeroList = heroConfig?.featuredProducts || [];
   const [heroIdx, setHeroIdx] = useState(0);
 
-  // Smooth, Clamped Parallax Scroll Tracking with RAF
-  const [scrollY, setScrollY] = useState(0);
-  useEffect(() => {
-    let animationFrameId: number;
-    const handleScroll = () => {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(() => {
-        setScrollY(window.scrollY);
-      });
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
   // Auto-rotate hero photos smoothly if 2+ products are selected
   useEffect(() => {
     if (showcaseMode !== "featured_products" || featuredHeroList.length <= 1) return;
@@ -108,17 +91,16 @@ export default function Home() {
   });
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
 
-  // Live ads from admin — refetch every 10s for instant visibility
+  // Live ads from admin
   const { data: activeAds = [] } = useQuery<AnnouncementItem[]>({
     queryKey: ["/api/announcements/active"],
     queryFn: () => apiGet<AnnouncementItem[]>("/api/announcements/active"),
-    staleTime: 0,
-    refetchInterval: 10000,
+    staleTime: 60000,
   });
   const [adIdx, setAdIdx] = useState(0);
   useEffect(() => {
     if (activeAds.length <= 1) return;
-    const t = setInterval(() => setAdIdx((i) => (i + 1) % activeAds.length), 4000);
+    const t = setInterval(() => setAdIdx((i) => (i + 1) % activeAds.length), 5000);
     return () => clearInterval(t);
   }, [activeAds.length]);
 
@@ -131,11 +113,6 @@ export default function Home() {
     : Math.max(0, Math.min(5, Number(user?.customerStars) || 0));
 
   const homeStarTheme = getStarTheme(user ? homeStarsCount : 0, isStarThemeEnabled);
-
-  // Harmonious, carefully clamped parallax offsets (no erratic jumps or overlap)
-  const bgOrbOffset1 = Math.min(45, scrollY * 0.12);
-  const bgOrbOffset2 = Math.max(-45, scrollY * -0.10);
-  const heroCardOffset = Math.min(25, scrollY * 0.05);
 
   return (
     <Layout>
@@ -182,26 +159,22 @@ export default function Home() {
 
       {/* ── LUXURY OPENING HERO SECTION WITH BALANCED PARALLAX & 3D TILT ── */}
       <section className="relative overflow-hidden pt-10 pb-20 sm:py-24 bg-gradient-to-b from-emerald-950/25 via-background to-background">
-        {/* Parallax Layer 0: Ambient Glowing Aura Orbs (Subtle Depth) */}
+        {/* Parallax Layer 0: Ambient Glowing Aura Orbs (Pure GPU Composite) */}
         <div
-          className="absolute -top-28 -left-28 w-[420px] h-[420px] bg-emerald-500/18 rounded-full blur-[100px] pointer-events-none animate-pulse-glow parallax-layer"
-          style={{ transform: `translate3d(0, ${bgOrbOffset1}px, 0)` }}
+          className="absolute -top-28 -left-28 w-[420px] h-[420px] bg-emerald-500/18 rounded-full blur-[100px] pointer-events-none animate-pulse-glow"
         />
         <div
-          className="absolute top-1/4 -right-28 w-[420px] h-[420px] bg-amber-500/15 rounded-full blur-[100px] pointer-events-none animate-pulse-glow parallax-layer"
-          style={{ transform: `translate3d(0, ${bgOrbOffset2}px, 0)` }}
+          className="absolute top-1/4 -right-28 w-[420px] h-[420px] bg-amber-500/15 rounded-full blur-[100px] pointer-events-none animate-pulse-glow"
         />
 
         {/* Parallax Layer 1: Elegant Peripheral Organic Depth Accents */}
         <div
           className="absolute top-12 left-8 text-emerald-500/30 select-none pointer-events-none animate-float-slow hidden xl:block"
-          style={{ transform: `translate3d(0, ${bgOrbOffset1 * 0.5}px, 0)` }}
         >
           <Leaf size={36} className="rotate-12" />
         </div>
         <div
           className="absolute top-32 right-12 text-amber-500/25 select-none pointer-events-none animate-float-reverse hidden xl:block"
-          style={{ transform: `translate3d(0, ${bgOrbOffset2 * 0.5}px, 0)` }}
         >
           <Sparkles size={32} />
         </div>
