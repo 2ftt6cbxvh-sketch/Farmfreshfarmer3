@@ -33,6 +33,8 @@ interface LakshmiSettings {
   enableCreatorBio: boolean;
   creatorName?: string;
   creatorBio?: string;
+  suggestionMode?: "smart" | "admin";
+  pinnedProductIds?: number[];
 }
 
 export default function AdminLakshmiAI() {
@@ -41,7 +43,7 @@ export default function AdminLakshmiAI() {
 
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [model, setModel] = useState("gemini-2.0-flash");
+  const [model, setModel] = useState("gemini-3.5-flash");
   const [temperature, setTemperature] = useState(0.5);
   const [maxTokens, setMaxTokens] = useState(450);
   const [customPrompt, setCustomPrompt] = useState("");
@@ -51,6 +53,11 @@ export default function AdminLakshmiAI() {
   const [enableAds, setEnableAds] = useState(true);
   const [enableHealth, setEnableHealth] = useState(true);
   const [enableCreator, setEnableCreator] = useState(true);
+
+  // Suggestion Mode & Pinned Products
+  const [suggestionMode, setSuggestionMode] = useState<"smart" | "admin">("smart");
+  const [pinnedProductIds, setPinnedProductIds] = useState<number[]>([]);
+  const [productSearch, setProductSearch] = useState("");
 
   // Live Test Chat Playground State
   const [testQuery, setTestQuery] = useState("what is ideal for high bp");
@@ -65,10 +72,16 @@ export default function AdminLakshmiAI() {
     queryFn: () => apiGet<LakshmiSettings>("/api/admin/lakshmi/settings"),
   });
 
+  // Fetch all active products for the picker
+  const { data: allProducts = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+    queryFn: () => apiGet<any[]>("/api/products"),
+  });
+
   useEffect(() => {
     if (settingsData) {
       setApiKeyInput(settingsData.rawKey || "");
-      setModel(settingsData.model || "gemini-2.0-flash");
+      setModel(settingsData.model || "gemini-3.5-flash");
       setTemperature(settingsData.temperature ?? 0.5);
       setMaxTokens(settingsData.maxTokens ?? 450);
       setCustomPrompt(settingsData.customSystemPrompt || "");
@@ -78,6 +91,8 @@ export default function AdminLakshmiAI() {
       setEnableAds(settingsData.enableAdsContext ?? true);
       setEnableHealth(settingsData.enableHealthGuide ?? true);
       setEnableCreator(settingsData.enableCreatorBio ?? true);
+      if (settingsData.suggestionMode) setSuggestionMode(settingsData.suggestionMode);
+      if (Array.isArray(settingsData.pinnedProductIds)) setPinnedProductIds(settingsData.pinnedProductIds);
     }
   }, [settingsData]);
 
@@ -96,6 +111,8 @@ export default function AdminLakshmiAI() {
         lakshmi_enable_ads_context: enableAds,
         lakshmi_enable_health_guide: enableHealth,
         lakshmi_enable_creator_bio: enableCreator,
+        lakshmi_suggestion_mode: suggestionMode,
+        lakshmi_pinned_product_ids: pinnedProductIds,
       });
       return res.json();
     },
@@ -103,7 +120,7 @@ export default function AdminLakshmiAI() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/lakshmi/settings"] });
       toast({
         title: "✨ Lakshmi AI Settings Saved",
-        description: "Google Gemini AI configuration and context settings updated successfully.",
+        description: "Google Gemini AI configuration, suggestion modes, and context settings updated successfully.",
       });
     },
     onError: (err: any) => {
@@ -427,7 +444,180 @@ export default function AdminLakshmiAI() {
               </CardContent>
             </Card>
 
-            {/* Card 3: Custom System Persona & Instructions */}
+            {/* Card 3: Product Recommendations & Suggestions Engine */}
+            <Card className="border-border/80 shadow-lg rounded-2xl overflow-hidden bg-card/60 backdrop-blur-sm">
+              <CardHeader className="border-b border-border/40 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="text-emerald-400" size={20} />
+                    <CardTitle className="text-lg font-bold">Product Suggestions & Spotlight Engine</CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                    {suggestionMode === "admin" ? "📌 Admin Controlled" : "🎲 Dynamic & Randomized"}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Choose whether Lakshmi AI dynamically suggests relevant randomized produce or exclusively spotlights admin-selected products.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-5">
+                {/* Mode Selector Tabs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSuggestionMode("smart")}
+                    className={`p-3.5 rounded-xl border text-left transition-all ${
+                      suggestionMode === "smart"
+                        ? "bg-emerald-500/10 border-emerald-500 text-foreground ring-2 ring-emerald-500/20 shadow-sm"
+                        : "bg-secondary/20 border-border/60 text-muted-foreground hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold text-xs text-foreground mb-1">
+                      <Sparkles size={14} className="text-emerald-500" />
+                      <span>Smart Dynamic & Random Rotation</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      AI analyzes customer queries and health intents, rotating across diverse fresh produce so returning customers see fresh recommendations every time.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSuggestionMode("admin")}
+                    className={`p-3.5 rounded-xl border text-left transition-all ${
+                      suggestionMode === "admin"
+                        ? "bg-amber-500/10 border-amber-500 text-foreground ring-2 ring-amber-500/20 shadow-sm"
+                        : "bg-secondary/20 border-border/60 text-muted-foreground hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold text-xs text-foreground mb-1">
+                      <Sliders size={14} className="text-amber-500" />
+                      <span>Admin-Controlled Spotlight</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Lock suggestion cards to specific handpicked products chosen below (e.g. seasonal pickles, mangoes, special combos).
+                    </p>
+                  </button>
+                </div>
+
+                {/* Admin-Controlled Product Picker */}
+                {suggestionMode === "admin" && (
+                  <div className="space-y-4 pt-2 border-t border-border/40 animate-in fade-in">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">
+                        Search & Add Spotlight Products ({pinnedProductIds.length} Selected)
+                      </Label>
+                      <Input
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        placeholder="Search produce by English or Telugu name..."
+                        className="h-10 text-xs bg-background/50 border-border/80"
+                      />
+                    </div>
+
+                    {/* Filtered Product Quick-Add Chips */}
+                    {productSearch.trim().length > 0 && (
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 rounded-xl bg-background/40 border border-border/60">
+                        {allProducts
+                          .filter((p: any) =>
+                            p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                            (p.nameTe && p.nameTe.includes(productSearch)) ||
+                            (p.categorySlug && p.categorySlug.toLowerCase().includes(productSearch.toLowerCase()))
+                          )
+                          .slice(0, 8)
+                          .map((p: any) => {
+                            const isPinned = pinnedProductIds.includes(p.id);
+                            return (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-card/60 border border-border/40 hover:bg-secondary/40 transition-colors text-xs"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  {p.image && <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg object-cover" />}
+                                  <div>
+                                    <span className="font-bold text-foreground">{p.name}</span>
+                                    {p.nameTe && <span className="text-emerald-600 dark:text-emerald-400 font-semibold ml-1.5">({p.nameTe})</span>}
+                                    <span className="text-muted-foreground ml-2">₹{p.price}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant={isPinned ? "destructive" : "default"}
+                                  className="h-7 text-[10px] font-bold"
+                                  onClick={() => {
+                                    if (isPinned) {
+                                      setPinnedProductIds(pinnedProductIds.filter((id) => id !== p.id));
+                                    } else {
+                                      setPinnedProductIds([...pinnedProductIds, p.id]);
+                                    }
+                                  }}
+                                >
+                                  {isPinned ? "Remove" : "+ Add to Spotlight"}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+
+                    {/* Selected Pinned Products Grid */}
+                    {pinnedProductIds.length > 0 ? (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold text-foreground">
+                          Currently Pinned Products (Shown in Lakshmi Chat):
+                        </Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {pinnedProductIds.map((id) => {
+                            const p = allProducts.find((item: any) => item.id === id);
+                            if (!p) return null;
+                            return (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-amber-500/30 shadow-sm"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {p.image && <img src={p.image} alt={p.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />}
+                                  <div className="truncate">
+                                    <p className="font-bold text-xs truncate">{p.name}</p>
+                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                                      {p.nameTe || `₹${p.price}`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-500"
+                                  onClick={() => setPinnedProductIds(pinnedProductIds.filter((item) => item !== p.id))}
+                                >
+                                  ✕
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-amber-500/40 text-center text-xs text-muted-foreground bg-amber-500/5">
+                        No products pinned yet. Search above to add spotlight products!
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 text-xs"
+                  >
+                    Save Suggestion Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 4: Custom System Persona & Instructions */}
             <Card className="border-border/80 shadow-lg rounded-2xl overflow-hidden bg-card/60 backdrop-blur-sm">
               <CardHeader className="border-b border-border/40 pb-4">
                 <div className="flex items-center gap-2">

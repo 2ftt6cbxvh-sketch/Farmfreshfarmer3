@@ -60,6 +60,12 @@ export function registerAdminLakshmiRoutes(app: Express) {
         creatorName: allSettings.creator_name || "Buddaraju Ganesh Sai Varma (Ganesh Varma)",
         creatorBio: allSettings.creator_bio || "",
         creatorPortfolio: allSettings.creator_portfolio || "https://www.ganeshvarma.in/",
+        // ── Product Suggestion Mode ──
+        suggestionMode: (allSettings.lakshmi_suggestion_mode as "smart" | "admin") || "smart",
+        pinnedProductIds: (() => {
+          try { return JSON.parse(allSettings.lakshmi_pinned_product_ids || "[]") as number[]; }
+          catch { return [] as number[]; }
+        })(),
       });
     } catch (err: any) {
       console.error("[lakshmi-settings] Error fetching settings:", err?.message || err);
@@ -86,6 +92,12 @@ export function registerAdminLakshmiRoutes(app: Express) {
       if (body.lakshmi_enable_creator_bio !== undefined) updates.lakshmi_enable_creator_bio = String(Boolean(body.lakshmi_enable_creator_bio));
       if (body.creator_name !== undefined) updates.creator_name = String(body.creator_name).trim();
       if (body.creator_bio !== undefined) updates.creator_bio = String(body.creator_bio).trim();
+      // ── Product Suggestion Mode ──
+      if (body.lakshmi_suggestion_mode !== undefined) updates.lakshmi_suggestion_mode = body.lakshmi_suggestion_mode === "admin" ? "admin" : "smart";
+      if (body.lakshmi_pinned_product_ids !== undefined) {
+        const ids = Array.isArray(body.lakshmi_pinned_product_ids) ? body.lakshmi_pinned_product_ids.map(Number).filter(Boolean) : [];
+        updates.lakshmi_pinned_product_ids = JSON.stringify(ids);
+      }
 
       for (const [k, v] of Object.entries(updates)) {
         await storage.settings.set(k, v);

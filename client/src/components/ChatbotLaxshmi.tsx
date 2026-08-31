@@ -1212,105 +1212,116 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   </div>
                   {/* Enhanced Interactive Product Suggestion Cards */}
                   {msg.products && msg.products.length > 0 && (
-                    <div className="mt-2.5 space-y-2">
-                      <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 uppercase tracking-wider">
-                        <span>✨ Recommended Farm Fresh Products</span>
+                    <div className="mt-3 space-y-2.5">
+                      <div className="flex items-center justify-between px-1">
+                        <div className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                          <Sparkles size={13} className="text-emerald-500 animate-pulse" />
+                          <span>Recommended For You</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-medium">100% Farm Fresh</span>
                       </div>
-                      {msg.products.map((p: any) => {
-                        const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.qty || 0;
-                        const baseP = Number(p.originalPrice || p.price || 0);
-                        const disc = Number(p.discountPercent || 0);
-                        const currentPrice = disc > 0 && p.originalPrice ? Number(p.price) : disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
-                        const savings = disc > 0 ? Math.round(baseP - currentPrice) : 0;
-                        const isOutOfStock = p.stock !== undefined && p.stock <= 0;
 
-                        return (
-                          <div key={p.id} className="group relative flex items-center gap-3 p-2.5 bg-card hover:bg-accent/40 rounded-2xl border border-border/80 hover:border-emerald-500/50 shadow-sm transition-all duration-200">
-                            {/* Product Image */}
-                            <a
-                              href={`/product/${p.id}`}
-                              className="relative w-13 h-13 rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 cursor-pointer group-hover:scale-105 transition-transform"
+                      <div className="space-y-2">
+                        {msg.products.map((p: any) => {
+                          const inCartQty = (items || []).find((i: any) => (i?.product?.id ?? i?.productId ?? i?.id) === p.id)?.qty || 0;
+                          const baseP = Number(p.originalPrice || p.price || 0);
+                          const disc = Number(p.discountPercent || 0);
+                          const currentPrice = disc > 0 && p.originalPrice ? Number(p.price) : disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                          const savings = disc > 0 ? Math.round(baseP - currentPrice) : 0;
+                          const isOutOfStock = p.stock !== undefined && p.stock <= 0;
+                          const reasonText = language === "te" && p.suggestionReasonTe ? p.suggestionReasonTe : (p.suggestionReason || p.suggestionReasonTe || "");
+
+                          return (
+                            <div
+                              key={p.id}
+                              className="group relative flex flex-col p-3 bg-card/90 dark:bg-card hover:bg-card rounded-2xl border border-emerald-500/20 hover:border-emerald-500/50 shadow-sm hover:shadow-md transition-all duration-200"
                             >
-                              {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xl">🌿</span>
-                              )}
-                              {disc > 0 && (
-                                <span className="absolute top-0 left-0 bg-red-500 text-white text-[8px] font-black px-1 rounded-br">
-                                  {Math.round(disc)}%
-                                </span>
-                              )}
-                            </a>
+                              {/* Top Product Row */}
+                              <div className="flex items-start gap-3">
+                                {/* Thumbnail */}
+                                <a
+                                  href={`/product/${p.id}`}
+                                  className="relative w-14 h-14 rounded-xl overflow-hidden bg-muted/60 flex items-center justify-center flex-shrink-0 cursor-pointer group-hover:scale-105 transition-transform duration-200 border border-border/40"
+                                >
+                                  {p.image ? (
+                                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-2xl">🌿</span>
+                                  )}
+                                  {disc > 0 && (
+                                    <span className="absolute top-0.5 left-0.5 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-sm">
+                                      {Math.round(disc)}% OFF
+                                    </span>
+                                  )}
+                                </a>
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <a
-                                href={`/product/${p.id}`}
-                                className="text-xs font-bold text-foreground hover:text-emerald-600 transition truncate block cursor-pointer"
-                              >
-                                {p.name}
-                              </a>
-                              {p.nameTe && (
-                                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate">
-                                  {p.nameTe}
-                                </p>
-                              )}
-                              
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">₹{Math.round(currentPrice)}</span>
-                                {disc > 0 && (
-                                  <>
-                                    <span className="text-[10px] text-muted-foreground line-through font-semibold">₹{Math.round(baseP)}</span>
-                                    {savings > 0 && (
-                                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                                        (Save ₹{savings})
-                                      </span>
+                                {/* Name & Price */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <a
+                                      href={`/product/${p.id}`}
+                                      className="text-xs font-bold text-foreground hover:text-emerald-600 transition truncate block cursor-pointer leading-snug"
+                                    >
+                                      {p.name}
+                                    </a>
+                                  </div>
+
+                                  {p.nameTe && (
+                                    <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate mt-0.5">
+                                      {p.nameTe}
+                                    </p>
+                                  )}
+
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                      ₹{Math.round(currentPrice)}
+                                    </span>
+                                    {disc > 0 && (
+                                      <>
+                                        <span className="text-[10px] text-muted-foreground line-through font-medium">
+                                          ₹{Math.round(baseP)}
+                                        </span>
+                                        {savings > 0 && (
+                                          <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                                            Save ₹{savings}
+                                          </span>
+                                        )}
+                                      </>
                                     )}
-                                  </>
-                                )}
-                                <span className="text-[10px] text-muted-foreground">/ {p.unit}</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">/ {p.unit}</span>
+                                  </div>
+                                </div>
+
+                                {/* Add to Cart Button */}
+                                <Button
+                                  size="sm"
+                                  disabled={isOutOfStock}
+                                  onClick={() => handleAddToCart({ ...p, price: currentPrice, discountPercent: disc })}
+                                  className={`h-8 px-3 text-[11px] font-bold gap-1.5 transition-all duration-200 shadow-sm flex-shrink-0 rounded-xl active:scale-95 ${
+                                    inCartQty > 0
+                                      ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  }`}
+                                >
+                                  <ShoppingCart size={13} />
+                                  {inCartQty > 0 ? `In Cart (${inCartQty})` : "+ Add"}
+                                </Button>
                               </div>
 
-                              <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                {isOutOfStock ? (
-                                  <span className="px-1.5 py-0.2 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-[9px] font-bold rounded">
-                                    🔴 Out of Stock
-                                  </span>
-                                ) : (
-                                  <span className="px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold rounded">
-                                    🟢 In Stock
-                                  </span>
-                                )}
-                                {!p.allowInternationalShipping ? (
-                                  <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[9px] font-bold rounded">
-                                    📍 Vijayawada Fast
-                                  </span>
-                                ) : (
-                                  <span className="px-1.5 py-0.2 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-[9px] font-bold rounded">
-                                    ⚡ Express
-                                  </span>
-                                )}
-                              </div>
+                              {/* Why Suggested & Usefulness Pill */}
+                              {reasonText && (
+                                <div className="mt-2.5 pt-2 border-t border-border/40 flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                                  <Sparkles size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <span className="font-bold text-foreground">Why suggested: </span>
+                                    <span>{reasonText}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-
-                            {/* Add to Cart Button */}
-                            <Button
-                              size="sm"
-                              disabled={isOutOfStock}
-                              onClick={() => handleAddToCart({ ...p, price: currentPrice, discountPercent: disc })}
-                              className={`h-8 px-2.5 text-[11px] font-bold gap-1 transition-all duration-200 shadow-sm flex-shrink-0 ${
-                                inCartQty > 0
-                                  ? "bg-emerald-700 text-white hover:bg-emerald-800"
-                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                              }`}
-                            >
-                              <ShoppingCart size={12} />
-                              {inCartQty > 0 ? `✓ In Cart (${inCartQty})` : "+ Add"}
-                            </Button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 

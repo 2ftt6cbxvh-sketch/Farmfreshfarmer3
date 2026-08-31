@@ -7,6 +7,7 @@ import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middleware/rate-limit';
 import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
+import { resolveProductBenefit } from '@shared/produce-benefits';
 
 const ALLOWED_STAFF_ROLES = [
   'admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin',
@@ -395,21 +396,50 @@ function matchesWord(w1: string, w2: string): boolean {
   return s1.length >= 3 && (s1 === s2 || s1.includes(s2) || s2.includes(s1));
 }
 
+function formatSingleProductSuggestion(p: any) {
+  const baseP = Number(p.price) || 0;
+  const disc = Number(p.discountPercent || 0);
+  const effPrice = disc > 0 ? Math.round(baseP * (1 - disc / 100) * 100) / 100 : baseP;
+  const benefits = resolveProductBenefit(p.name, p.categorySlug);
+
+  return {
+    id: p.id,
+    name: p.name,
+    nameTe: p.nameTe || resolveTeluguProductName(p.name, p.categorySlug),
+    price: String(effPrice),
+    originalPrice: disc > 0 ? String(baseP) : undefined,
+    discountPercent: String(disc),
+    unit: p.unit || 'unit',
+    image: p.image,
+    stock: p.stock !== undefined ? Number(p.stock) : 10,
+    allowInternationalShipping: p.allowInternationalShipping,
+    categorySlug: p.categorySlug,
+    description: p.description,
+    suggestionReason: benefits.reasonEn,
+    suggestionReasonTe: benefits.reasonTe,
+  };
+}
+
 function resolveSmartProductSuggestions(
   userMessage: string,
-  replyText: string | null,
-  activeProducts: any[]
+  aiReplyText: string | null,
+  activeProducts: any[],
+  suggestionMode: 'smart' | 'admin' = 'smart',
+  pinnedProductIds: number[] = []
 ): any[] {
   if (!activeProducts || activeProducts.length === 0) return [];
-  const lowerMsg = userMessage.toLowerCase().trim();
-  const lowerReply = (replyText || '').toLowerCase();
 
-  // Exclude non-product system requests (e.g. OTP updates, password reset, account deletion, phone changes)
-  const isStrictSystemNonProduct =
-    /change.*(password|email|phone|mobile)|verify mobile|otp|sign out|delete account|privacy policy|terms/i.test(lowerMsg) &&
-    !/price|buy|add|rate|cost|suggest|recommend|have|sell|health|benefit|sugar|bp|millet|diet/i.test(lowerMsg);
-  if (isStrictSystemNonProduct) return [];
+  // 1. Admin-controlled Mode: If set to admin and pinned products exist, strictly prioritize pinned products
+  if (suggestionMode === 'admin' && pinnedProductIds && pinnedProductIds.length > 0) {
+    const pinned = activeProducts.filter(p => pinnedProductIds.includes(Number(p.id)));
+    if (pinned.length > 0) {
+      return pinned.slice(0, 4).map(formatSingleProductSuggestion);
+    }
+  }
 
+  // 2. Dynamic Smart & Randomized Matching
+  const lowerMsg = (userMessage || '').toLowerCase();
+  const lowerReply = (aiReplyText || '').toLowerCase();
   const rawWords = lowerMsg.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
 
   // Detect health / diet intents
@@ -495,12 +525,7 @@ function resolveSmartProductSuggestions(
       }
     }
 
-    // General produce / fresh inquiries bonus
-    if (/fresh|harvest|today|sell|produce|vegetable|fruit|millet|sweet|pickle|food|buy|organic/i.test(lowerMsg)) {
-      if (p.featured || p.stock > 0) score += 25;
-    }
-
-    // 4. Mentioned in Lakshmi AI reply text (+65)
+    // 4. Mentioned in Lakshmi AI reply text (+85)
     if (lowerReply) {
       if (lowerReply.includes(pNameLower)) {
         score += 85;
@@ -514,11 +539,13 @@ function resolveSmartProductSuggestions(
       }
     }
 
-    // 5. Bonus for In Stock & Active Deals
+    // 5. In-stock and Deal bonus
     if (p.stock > 0) score += 10;
     if (Number(p.discountPercent) > 0) score += 5;
 
+    // 6. Dynamic randomization jitter (+0 to +20) so multiple relevant products rotate nicely
     if (score >= 20) {
+      score += Math.floor(Math.random() * 20);
       scoredProducts.push({ product: p, score });
     }
   }
@@ -526,28 +553,35 @@ function resolveSmartProductSuggestions(
   // Sort by score descending
   scoredProducts.sort((a, b) => b.score - a.score);
 
-  // Return top 4 unique products formatted cleanly
-  const topProducts = scoredProducts.slice(0, 4).map(({ product: p }) => {
-    const baseP = Number(p.price) || 0;
-    const disc = Number(p.discountPercent || 0);
-    const effPrice = disc > 0 ? Math.round(baseP * (1 - disc / 100) * 100) / 100 : baseP;
-    return {
-      id: p.id,
-      name: p.name,
-      nameTe: p.nameTe || resolveTeluguProductName(p.name, p.categorySlug),
-      price: String(effPrice),
-      originalPrice: disc > 0 ? String(baseP) : undefined,
-      discountPercent: String(disc),
-      unit: p.unit || 'unit',
-      image: p.image,
-      stock: p.stock,
-      allowInternationalShipping: p.allowInternationalShipping,
-      categorySlug: p.categorySlug,
-      description: p.description,
-    };
-  });
+  // If we found targeted matches, return top 4
+  if (scoredProducts.length > 0) {
+    return scoredProducts.slice(0, 4).map(({ product: p }) => formatSingleProductSuggestion(p));
+  }
 
-  return topProducts;
+  // Otherwise (General conversation / creator query / greeting):
+  // Shuffle active products across diverse categories (vegetable, fruit, pickle/snack, millet/pulse)
+  const inStock = activeProducts.filter(p => p.stock !== 0);
+  const shuffled = [...inStock].sort(() => Math.random() - 0.5);
+  
+  // Pick across different categories for exciting variety
+  const picked: any[] = [];
+  const usedCats = new Set<string>();
+  for (const p of shuffled) {
+    const cat = p.categorySlug || 'general';
+    if (!usedCats.has(cat) && picked.length < 4) {
+      usedCats.add(cat);
+      picked.push(p);
+    }
+  }
+  // Fill remaining slots if needed
+  for (const p of shuffled) {
+    if (picked.length >= 4) break;
+    if (!picked.some(x => x.id === p.id)) {
+      picked.push(p);
+    }
+  }
+
+  return picked.slice(0, 4).map(formatSingleProductSuggestion);
 }
 
 function matchProductsFuzzy(userMessage: string, activeProducts: any[]): any[] {
@@ -723,11 +757,13 @@ STORE POLICIES & DELIVERY:
 - Customer support: WhatsApp/Phone +91 79897 93669.
 - Profile & Account: Track orders, tickets, and addresses at /account.
 
-CREATOR & INVENTOR (Buddaraju Ganesh Sai Varma):
-- When asked who made/built/created you or about Ganesh Varma:
-  * Proudly share that you were architected and created by Buddaraju Ganesh Sai Varma (Ganesh Varma).
-  * Education: PG in Advanced Data Science & AI from University of Liverpool, UK; B.Tech from KL University (GPA 8.87).
-  * Portfolio: https://www.ganeshvarma.in/ | Email: gp61080@gmail.com | Phone: +91 8555021322.
+CREATOR & ARCHITECT (Buddaraju Ganesh Sai Varma):
+- Whenever asked who made/built/created/developed you, or asked about Ganesh Varma / your origins / your background:
+  * Proudly, warmly, and directly answer that you were architected and engineered by Buddaraju Ganesh Sai Varma (Ganesh Varma).
+  * Share his impressive qualifications: PG in Advanced Data Science & AI from the University of Liverpool, UK (2025–2026); B.Tech in Computer Science from KL University (GPA 8.87/10).
+  * Mention his portfolio: https://www.ganeshvarma.in/ | Email: gp61080@gmail.com | Phone: +91 8555021322.
+  * Highlight that he engineered FarmFreshFarmer with live PostgreSQL, PhonePe integration, real-time farm logistics, and your intelligent Gemini AI brain!
+- If the customer asks a compound or multi-part question (e.g., "who created you and what are the best pickles?"), address BOTH parts clearly: first state your creator, then answer the second part of their question with specific recommendations!
 
 ${customInstructions ? `ADMIN CUSTOM DIRECTIVES:\n${customInstructions}\n` : ''}
 CAPABILITIES & DIRECTIVES:
@@ -894,8 +930,10 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       }
     }
 
-    // 2. Greetings (Namaste, Hello, Hi, Hey)
-    if (/^(hi|hello|namaste|hey|greetings|good\s*(morning|afternoon|evening)|halo|namaskaram)\b/i.test(lower) || lower === 'hi' || lower === 'hello' || lower === 'namaste') {
+    // 2. Pure Greetings (only when message is exclusively a greeting without questions)
+    const isQuestionOrCompound = lower.includes('?') || lower.includes('who') || lower.includes('what') || lower.includes('which') || lower.includes('how') || lower.includes('tell me') || lower.includes('create') || lower.includes('built') || lower.includes('made') || lower.includes('ganesh') || lower.includes('pickle') || lower.includes('sweet') || lower.includes('millet') || lower.includes('vegetable') || lower.includes('fruit') || lower.includes('price') || lower.includes('suggest') || lower.includes('recommend');
+    const isGreetingWord = /^(hi|hello|namaste|hey|greetings|good\s*(morning|afternoon|evening)|halo|namaskaram)\b/i.test(lower);
+    if (isGreetingWord && !isQuestionOrCompound && lower.split(/\s+/).length <= 3) {
       const namePart = customerName ? ` ${customerName}` : '';
       if (lang === 'te') {
         return {
@@ -1845,8 +1883,20 @@ function resolveCartQty(
       // Resolve intelligent product suggestions across user query + AI reply text
       const isEtaOrDeliveryQuery = detectETAIntent(message) || /\b([1-9][0-9]{5})\b/.test(message);
       let finalProducts: any[] = [];
+      const suggestionMode = (allSettings as any)?.lakshmi_suggestion_mode || 'smart';
+      let pinnedProductIds: number[] = [];
+      try {
+        pinnedProductIds = JSON.parse((allSettings as any)?.lakshmi_pinned_product_ids || '[]');
+      } catch {}
+
       if (!isEtaOrDeliveryQuery && globalActiveProducts && globalActiveProducts.length > 0) {
-        finalProducts = resolveSmartProductSuggestions(message, reply, globalActiveProducts);
+        finalProducts = resolveSmartProductSuggestions(
+          message,
+          reply,
+          globalActiveProducts,
+          suggestionMode,
+          pinnedProductIds
+        );
       }
 
       return res.json({
