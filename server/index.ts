@@ -129,7 +129,7 @@ export const routesReadyPromise = (async () => {
   // Send Telegram deploy/update alert to Super Admins on server boot
   try {
     const { notifyDeploymentIfNewVersion } = await import("./services/telegram");
-    notifyDeploymentIfNewVersion("v10.1.0").catch(() => {});
+    notifyDeploymentIfNewVersion("v10.1.1").catch(() => {});
   } catch {}
 
   // Start Vishnu AI Autonomous Radar (dispatch bottleneck checks, demand spike alerts, daily briefings)
