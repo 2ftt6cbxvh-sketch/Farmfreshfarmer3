@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Search, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Search, Clock, CheckCircle2, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
@@ -256,6 +256,29 @@ export default function AdminProducts() {
     return true;
   });
 
+  const [isAutoGeneratingTelugu, setIsAutoGeneratingTelugu] = useState(false);
+
+  async function handleAutoGenerateAllTeluguNames() {
+    setIsAutoGeneratingTelugu(true);
+    try {
+      const res = await apiRequest("POST", "/api/products/auto-generate-telugu-names", {});
+      const data = await res.json();
+      await queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "✨ Telugu Names Generated!",
+        description: `Successfully updated ${data.updatedCount ?? data.total} products with authentic Telugu phrasing.`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "Failed to generate Telugu names",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutoGeneratingTelugu(false);
+    }
+  }
+
   return (
     <AdminLayout title="Products">
       {/* Reconsideration Banner */}
@@ -287,9 +310,30 @@ export default function AdminProducts() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search products…" value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="input-filter" />
         </div>
-        <Button onClick={openAdd} data-testid="button-add-product">
-          <Plus size={16} className="mr-1" /> Add product
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAutoGenerateAllTeluguNames}
+            disabled={isAutoGeneratingTelugu}
+            className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs gap-1.5 h-10 shadow-sm"
+          >
+            {isAutoGeneratingTelugu ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Generating Telugu Names...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} className="text-emerald-500" />
+                <span>Auto-Generate Telugu Names (తెలుగు పేర్లు ✨)</span>
+              </>
+            )}
+          </Button>
+          <Button onClick={openAdd} data-testid="button-add-product" className="h-10">
+            <Plus size={16} className="mr-1" /> Add product
+          </Button>
+        </div>
       </div>
 
       {/* Status Filter Tabs */}

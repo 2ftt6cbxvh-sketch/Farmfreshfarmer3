@@ -911,6 +911,22 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json(p);
   }));
 
+  // Auto-generate authentic Telugu names for all products in database
+  app.post("/api/products/auto-generate-telugu-names", requireAdmin, h(async (_req, res) => {
+    const { resolveTeluguProductName } = await import("@shared/telugu-produce-namer");
+    const allProds = await db.select().from(products);
+    let updatedCount = 0;
+    for (const p of allProds) {
+      const te = resolveTeluguProductName(p.name, p.categorySlug);
+      if (te) {
+        await db.update(products).set({ nameTe: te }).where(eq(products.id, p.id));
+        updatedCount++;
+      }
+    }
+    apiCache.invalidateTags(["products", "hero"]);
+    return res.json({ success: true, total: allProds.length, updatedCount });
+  }));
+
   app.post("/api/products", requireAdmin, h(async (req, res) => {
     const parsed = insertProductSchema.safeParse(req.body);
     if (!parsed.success) {
