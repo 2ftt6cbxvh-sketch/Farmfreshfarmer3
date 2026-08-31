@@ -160,10 +160,16 @@ export const productStore = {
       const where = conds.length ? and(...conds) : undefined;
       return await db.select().from(products).where(where).orderBy(desc(products.createdAt));
     } catch (err: any) {
-      if (err?.message?.includes("name_te") || err?.message?.includes("does not exist")) {
+      if (err?.message?.includes("name_te") || err?.message?.includes("quantity_tiers") || err?.message?.includes("does not exist")) {
         try {
           const { pool: _pool } = await import("./db");
-          await _pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)");
+          await _pool.query(`
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255);
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS quantity_tiers TEXT;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS gst_percent NUMERIC(5,2);
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_international_shipping BOOLEAN NOT NULL DEFAULT TRUE;
+          `);
           const conds = [];
           if (!opts?.includeInactive) {
             conds.push(eq(products.active, true));
@@ -185,10 +191,16 @@ export const productStore = {
       const [r] = await db.select().from(products).where(eq(products.id, id));
       return r;
     } catch (err: any) {
-      if (err?.message?.includes("name_te") || err?.message?.includes("does not exist")) {
+      if (err?.message?.includes("name_te") || err?.message?.includes("quantity_tiers") || err?.message?.includes("does not exist")) {
         try {
           const { pool: _pool } = await import("./db");
-          await _pool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)");
+          await _pool.query(`
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255);
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS quantity_tiers TEXT;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS gst_percent NUMERIC(5,2);
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_international_shipping BOOLEAN NOT NULL DEFAULT TRUE;
+          `);
           const [r] = await db.select().from(products).where(eq(products.id, id));
           return r;
         } catch {}

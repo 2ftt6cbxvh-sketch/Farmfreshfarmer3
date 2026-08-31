@@ -152,9 +152,9 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Only run automatic migrations & seeding in local development (on Vercel CI, npm run db:migrate-ci handles it)
+  // Always run self-healing automatic schema migrations
+  runAutoMigrations().catch((e) => console.error("[migration] error:", e?.message || e));
   if (process.env.VERCEL !== "1") {
-    runAutoMigrations().catch((e) => console.error("[migration] error:", e?.message || e));
     ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
   }
 

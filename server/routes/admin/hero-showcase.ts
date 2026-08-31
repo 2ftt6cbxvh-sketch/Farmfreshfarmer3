@@ -55,17 +55,39 @@ export function registerHeroShowcaseRoutes(app: Express) {
     try {
       res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
       const data = await apiCache.getOrSet("hero:showcase", async () => {
-        const settings = await storage.settings.all();
+        let settings: any = {};
+        try {
+          settings = await storage.settings.all();
+        } catch {
+          settings = {};
+        }
+
         const mode = settings.hero_showcase_mode || "featured_products";
         const customImageUrl = settings.hero_showcase_custom_url || "/images/p-mango.jpg";
         const customTitle = settings.hero_showcase_custom_title || "Direct Farm Harvest";
         const customSubtitle = settings.hero_showcase_custom_subtitle || "Picked this morning";
 
-        // Query products flagged with featuredInHero === true
-        const featuredHeroProducts = await db
-          .select()
-          .from(products)
-          .where(and(eq(products.featuredInHero, true), eq(products.active, true)));
+        let featuredHeroProducts: any[] = [];
+        try {
+          featuredHeroProducts = await db
+            .select()
+            .from(products)
+            .where(and(eq(products.featuredInHero, true), eq(products.active, true)));
+        } catch (dbErr: any) {
+          try {
+            const { pool: _pool } = await import("../../db");
+            await _pool.query(`
+              ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE;
+              ALTER TABLE products ADD COLUMN IF NOT EXISTS quantity_tiers TEXT;
+            `);
+            featuredHeroProducts = await db
+              .select()
+              .from(products)
+              .where(and(eq(products.featuredInHero, true), eq(products.active, true)));
+          } catch {
+            featuredHeroProducts = [];
+          }
+        }
 
         return {
           mode,
@@ -79,7 +101,13 @@ export function registerHeroShowcaseRoutes(app: Express) {
       return res.json(data);
     } catch (err: any) {
       console.error("[hero-showcase] GET error:", err);
-      return res.status(500).json({ message: "Failed to fetch hero showcase config" });
+      return res.json({
+        mode: "featured_products",
+        customImageUrl: "/images/p-mango.jpg",
+        customTitle: "Direct Farm Harvest",
+        customSubtitle: "Picked this morning",
+        featuredProducts: [],
+      });
     }
   });
 

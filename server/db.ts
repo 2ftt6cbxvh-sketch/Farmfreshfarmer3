@@ -139,11 +139,11 @@ export async function runAutoMigrations(): Promise<void> {
           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
         )`, "create.delivery_partners"],
-      ["ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()", "delivery_partners.updated_at"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS name_te VARCHAR(255)", "products.name_te"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS featured_in_hero BOOLEAN NOT NULL DEFAULT FALSE", "products.featured_in_hero"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS gst_percent NUMERIC(5,2)", "products.gst_percent"],
       ["ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_international_shipping BOOLEAN NOT NULL DEFAULT TRUE", "products.allow_international_shipping"],
+      ["ALTER TABLE products ADD COLUMN IF NOT EXISTS quantity_tiers TEXT", "products.quantity_tiers"],
       [`CREATE TABLE IF NOT EXISTS employee_perk_settings (
           id SERIAL PRIMARY KEY,
           subadmin_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 15,
