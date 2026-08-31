@@ -18,6 +18,7 @@ import AdminLogin from "./AdminLogin";
 import Forbidden403 from "../Forbidden403";
 import { AdminDirectAccessWarning } from "./AdminDirectAccessWarning";
 import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
+import { AdminExecutiveCopilotModal } from "@/components/admin/AdminExecutiveCopilotModal";
 
 const NAV = [
   { section: "Core", items: [
@@ -648,6 +649,9 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
           {children}
         </main>
       </div>
+
+      {/* ── Lakshmi Executive Copilot Floating Trigger & Assistant Modal ── */}
+      <AdminExecutiveCopilotModal />
     </div>
   );
 }

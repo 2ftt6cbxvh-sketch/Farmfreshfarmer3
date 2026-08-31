@@ -80,6 +80,7 @@ import { registerAdminSessionRoutes } from "./routes/admin/sessions";
 import { registerAdminMarketingRoutes } from "./routes/admin/marketing";
 import { registerAdminLakshmiRoutes } from "./routes/admin/lakshmi-settings";
 import { registerAdminProcurementAiRoutes } from "./routes/admin/procurement-ai";
+import { registerAdminCopilotRoutes } from "./routes/admin/copilot";
 import { registerUserBehaviorRoutes } from "./routes/user-behavior";
 import { csrfProtection } from "./middleware/csrf";
 
@@ -3146,6 +3147,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   try { registerChatbotRoutes(app, storage); } catch (e) { console.error('[chatbot routes] Failed to register:', e); }
   try { registerAdminLakshmiRoutes(app); } catch (e) { console.error('[admin lakshmi routes] Failed to register:', e); }
   try { registerAdminProcurementAiRoutes(app); } catch (e) { console.error('[admin procurement ai routes] Failed to register:', e); }
+  try { registerAdminCopilotRoutes(app); } catch (e) { console.error('[admin copilot routes] Failed to register:', e); }
   try { registerTicketRoutes(app); } catch (e) { console.error('[ticket routes] Failed to register:', e); }
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);
