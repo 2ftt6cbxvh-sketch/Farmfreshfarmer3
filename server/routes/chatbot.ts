@@ -1745,7 +1745,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
           });
         } catch (visionErr: any) {
           console.error('[chatbot] Netra Vision analysis error:', visionErr?.message);
-          return res.status(500).json({
+          return res.json({
             reply: `⚠️ Netra Vision AI encountered an issue analyzing this image (${visionErr?.message || 'API error'}). Please ensure the photo is clear and try again!`,
             needsHuman: false,
           });

@@ -208,15 +208,48 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const handleImageFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      alert("Please select an image smaller than 10MB");
+    if (file.size > 20 * 1024 * 1024) {
+      alert("Please select an image smaller than 20MB");
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      const res = reader.result as string;
-      setSelectedImage(res);
-      setImagePreviewUrl(res);
+      const rawDataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1280;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          setSelectedImage(compressedDataUrl);
+          setImagePreviewUrl(compressedDataUrl);
+        } else {
+          setSelectedImage(rawDataUrl);
+          setImagePreviewUrl(rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        setSelectedImage(rawDataUrl);
+        setImagePreviewUrl(rawDataUrl);
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
     e.target.value = "";
