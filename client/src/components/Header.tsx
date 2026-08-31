@@ -170,7 +170,9 @@ export function Header() {
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!search.trim()) return;
-    navigate(`/search?q=${encodeURIComponent(search.trim())}`);
+    const cleanQ = search.trim();
+    import("@/lib/recommendation-store").then((m) => m.recordSearchQuery(cleanQ));
+    navigate(`/search?q=${encodeURIComponent(cleanQ)}`);
     setSearchFocused(false);
     closeMobileMenu();
   }
@@ -178,6 +180,7 @@ export function Header() {
   function handleProductSearchClick(productId: number) {
     setSearchFocused(false);
     closeMobileMenu();
+    import("@/lib/recommendation-store").then((m) => m.recordProductView(productId));
     navigate(`/product/${productId}`);
   }
 

@@ -15,6 +15,7 @@ import { TiltCard } from "@/components/TiltCard";
 import type { Category, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AnnouncementItem } from "@/components/NotificationBell";
+import { usePersonalizedRecommendations } from "@/lib/recommendation-store";
 
 const CAT_IMAGES: Record<string, string> = {
   fruits: "/images/cat-fruits.jpg",
@@ -34,11 +35,13 @@ export default function Home() {
     staleTime: 60000,
   });
 
-  const { data: featured = [], isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products", "featured"],
-    queryFn: () => apiGet<Product[]>("/api/products?featured=1"),
+  const { data: allProducts = [], isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    queryFn: () => apiGet<Product[]>("/api/products"),
     staleTime: 60000,
   });
+
+  const personalizedResult = usePersonalizedRecommendations(allProducts, { minCount: 4, maxCount: 8 });
 
   // Dynamic Site Text & Badges Query
   const { data: siteTextData } = useQuery({
@@ -414,16 +417,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Featured Products Section ── */}
+      {/* ── Dynamic Personalized & Seasonal Disease Defense Picks ── */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12">
-        <div className="flex items-end justify-between mb-8 border-b border-emerald-500/20 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 border-b border-emerald-500/20 pb-4 gap-3">
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30">
-              Peak Season Favorites
-            </span>
-            <h2 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-2">
+            <div className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-500/15 px-3.5 py-1.5 rounded-full border border-amber-500/30 shadow-sm">
+              <span className="text-sm">{personalizedResult.reason.icon}</span>
+              <span>{personalizedResult.reason.badgeText}</span>
+            </div>
+            <h2 className="font-serif text-3xl sm:text-4xl font-black tracking-tight text-foreground mt-2">
               Fresh Picks for You
             </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
+              {personalizedResult.reason.subText}
+            </p>
           </div>
         </div>
 
@@ -433,11 +440,11 @@ export default function Home() {
               <Skeleton key={i} className="h-88 rounded-3xl" />
             ))}
           </div>
-        ) : featured.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No featured products yet.</p>
+        ) : personalizedResult.products.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No products found matching your current preferences.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {featured.map((p) => (
+            {personalizedResult.products.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>

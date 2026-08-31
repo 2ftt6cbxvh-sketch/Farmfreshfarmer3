@@ -52,6 +52,13 @@ export default function ProductDetail() {
     queryFn: () => apiGet<Product>(`/api/products/${id}`),
   });
 
+  // Real-time behavioral & recommendation signal tracking
+  useState(() => {
+    import("@/lib/recommendation-store").then((m) => {
+      if (id) m.recordProductView(id, product?.categorySlug);
+    });
+  });
+
   const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: ["/api/reviews", id],
     queryFn: () => apiGet<Review[]>(`/api/reviews?productId=${id}`),

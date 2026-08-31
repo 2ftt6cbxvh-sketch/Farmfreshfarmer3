@@ -137,6 +137,10 @@ export function PrivacyPage() {
       </p>
 
       <p>
+        <strong>Automated Seasonal Personalization & Behavioral Privacy-</strong> To deliver tailored seasonal organic produce recommendations and disease-preventative farm harvests (such as immune-defense produce matching regional climates and seasons), our Platform processes anonymized browsing interactions, category visits, and AI health/culinary queries in real-time. For registered accounts, this behavioral intelligence is cryptographically isolated and strictly confidential to your account. We guarantee that your private search history, wellness queries, and produce preferences are NEVER sold, shared, or made accessible to third-party advertisers, other platform users, or unauthorized third parties.
+      </p>
+
+      <p>
         <strong>Usage-</strong> We use personal data to provide the services you request. To the extent we use your personal data to market to you, we will provide you the ability to opt-out of such uses. We use your personal data to assist sellers and business partners in handling and fulfilling orders; enhancing customer experience; to resolve disputes; troubleshoot problems; inform you about online and offline offers, products, services, and updates; customise your experience; detect and protect us against error, fraud and other criminal activity; enforce our terms and conditions; conduct marketing research, analysis and surveys; and as otherwise described to you at the time of collection of information. You understand that your access to these products/services may be affected in the event permission is not provided to us.
       </p>
 

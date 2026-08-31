@@ -84,6 +84,7 @@ export const customerProfiles = pgTable("customer_profiles", {
   totalOrders: integer("total_orders").notNull().default(0),
   totalSpent: numeric("total_spent", { precision: 12, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
+  behaviorProfile: text("behavior_profile"), // Encrypted/sanitized compact JSON rolling window of viewed items & health topics
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

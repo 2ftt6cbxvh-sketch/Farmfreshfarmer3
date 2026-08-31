@@ -79,6 +79,7 @@ import { registerAdminWebAuthnRoutes } from "./routes/admin/webauthn";
 import { registerAdminSessionRoutes } from "./routes/admin/sessions";
 import { registerAdminMarketingRoutes } from "./routes/admin/marketing";
 import { registerAdminLakshmiRoutes } from "./routes/admin/lakshmi-settings";
+import { registerUserBehaviorRoutes } from "./routes/user-behavior";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -3243,6 +3244,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   registerPasswordResetRoutes(app);
   registerAdminContentRoutes(app);
   registerAnnouncementRoutes(app);
+  registerUserBehaviorRoutes(app);
   app.use("/api/admin", gstRouter);
 
   // Telegram Security Bot webhook endpoint (Super Admin Remote Lockdown & Controls)

@@ -8,6 +8,7 @@ import https from 'https';
 import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middleware/rate-limit';
 import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
 import { resolveProductBenefit } from '@shared/produce-benefits';
+import { rankPersonalizedProducts } from '@shared/recommendation-engine';
 
 // High-performance persistent HTTPS Keep-Alive agent for Google AI API
 const googleApiHttpsAgent = new https.Agent({
@@ -1714,11 +1715,24 @@ function resolveCartQty(
         customerCartContext = userCartText;
 
         if (activeProducts && activeProducts.length > 0) {
+          const browsingCtx = req.body?.browsingContext || {};
+          const rankResult = rankPersonalizedProducts(
+            activeProducts,
+            {
+              activeSearchQuery: message,
+              activeCategory: browsingCtx.activeCategory || req.body?.activeCategory,
+              location: browsingCtx.location || { city: "Vijayawada", country: "India" },
+            },
+            { minCount: 1, maxCount: 6 }
+          );
+
           const fuzzyMatches = matchProductsFuzzy(message, activeProducts);
-          const topDiscounted = activeProducts.filter((p: any) => Number(p.discountPercent) > 0 || p.stock > 0).slice(0, 15);
           const combined = new Map<number, any>();
           for (const p of fuzzyMatches) combined.set(p.id, p);
-          for (const p of topDiscounted) if (!combined.has(p.id)) combined.set(p.id, p);
+          for (const p of rankResult.products) if (!combined.has(p.id)) combined.set(p.id, p);
+          for (const p of activeProducts.filter((p: any) => Number(p.discountPercent) > 0 || p.stock > 0)) {
+            if (!combined.has(p.id)) combined.set(p.id, p);
+          }
 
           fullProductsContext = Array.from(combined.values())
             .slice(0, 12)
@@ -1735,13 +1749,19 @@ function resolveCartQty(
             })
             .join('\n');
 
-          matchedProducts = fuzzyMatches.map((p: any) => {
+          // Dynamic card selection (1 to 6 cards matched to exact user inquiry)
+          const candidateList = fuzzyMatches.length > 0 ? fuzzyMatches : rankResult.products;
+          const dynamicCardLimit = Math.min(Math.max(candidateList.length, 1), 6);
+
+          matchedProducts = candidateList.slice(0, dynamicCardLimit).map((p: any) => {
             const baseP = Number(p.price) || 0;
             const disc = Number(p.discountPercent || 0);
             const effPrice = disc > 0 ? Math.round(baseP * (1 - disc / 100) * 100) / 100 : baseP;
+            const benefit = resolveProductBenefit(p.name, p.categorySlug);
             return {
               id: p.id,
               name: p.name,
+              nameTe: p.nameTe,
               price: String(effPrice),
               originalPrice: disc > 0 ? String(baseP) : undefined,
               discountPercent: String(disc),
@@ -1750,8 +1770,10 @@ function resolveCartQty(
               stock: p.stock,
               allowInternationalShipping: p.allowInternationalShipping,
               categorySlug: p.categorySlug,
+              suggestionReason: benefit.reasonEn,
+              suggestionReasonTe: benefit.reasonTe,
             };
-          }).slice(0, 4);
+          });
         }
 
         if (categoriesList && categoriesList.length > 0) {

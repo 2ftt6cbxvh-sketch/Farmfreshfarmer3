@@ -19,6 +19,13 @@ export default function Category() {
     queryFn: () => apiGet<Product[]>(`/api/products?category=${encodeURIComponent(slug)}`),
   });
 
+  // Real-time category tracking for instant recommendation pivot
+  useState(() => {
+    if (slug) {
+      import("@/lib/recommendation-store").then((m) => m.recordCategoryVisit(slug));
+    }
+  });
+
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-4 py-8">

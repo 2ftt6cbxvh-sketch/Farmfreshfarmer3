@@ -16,6 +16,13 @@ export default function SearchPage() {
     enabled: q.length > 0,
   });
 
+  // Real-time search signal tracking for instant zero-refresh recommendation pivot
+  useState(() => {
+    if (q) {
+      import("@/lib/recommendation-store").then((m) => m.recordSearchQuery(q));
+    }
+  });
+
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-4 py-8">

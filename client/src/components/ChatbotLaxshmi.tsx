@@ -417,6 +417,18 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       }
 
       const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+      
+      // Real-time synchronization: Record health/produce inquiries to live recommendation store
+      if (payload.message) {
+        import("@/lib/recommendation-store").then((m) => m.recordHealthInquiry("", payload.message));
+      }
+
+      let activeCategory = "";
+      try {
+        const trail = sessionStorage.getItem("fff_session_trail");
+        if (trail) activeCategory = JSON.parse(trail).activeCategory || "";
+      } catch {}
+
       const r = await fetch("/api/chatbot/message", {
         method: "POST",
         headers: {
@@ -429,6 +441,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
           language,
           userId: user?.id,
           customerName: user?.name,
+          browsingContext: {
+            activeCategory,
+          },
         }),
       });
       return r.json();
