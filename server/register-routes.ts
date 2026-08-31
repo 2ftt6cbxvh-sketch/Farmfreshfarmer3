@@ -78,6 +78,7 @@ import gstRouter from "./routes/admin/gst";
 import { registerAdminWebAuthnRoutes } from "./routes/admin/webauthn";
 import { registerAdminSessionRoutes } from "./routes/admin/sessions";
 import { registerAdminMarketingRoutes } from "./routes/admin/marketing";
+import { registerAdminLakshmiRoutes } from "./routes/admin/lakshmi-settings";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -3129,6 +3130,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   registerStaffRoutes(app);
   try { registerApprovalRoutes(app, storage); } catch (e) { console.error('[approval routes] Failed to register:', e); }
   try { registerChatbotRoutes(app, storage); } catch (e) { console.error('[chatbot routes] Failed to register:', e); }
+  try { registerAdminLakshmiRoutes(app); } catch (e) { console.error('[admin lakshmi routes] Failed to register:', e); }
   try { registerTicketRoutes(app); } catch (e) { console.error('[ticket routes] Failed to register:', e); }
   registerAdminDeliveryPartnerRoutes(app);
   registerDeliveryPartnerPortalRoutes(app);

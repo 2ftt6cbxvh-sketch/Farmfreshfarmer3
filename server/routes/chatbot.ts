@@ -623,7 +623,7 @@ async function fetchActiveAdsContext(): Promise<string> {
 }
 
   // Direct High-Performance Gemini API Engine
-  // Direct High-Performance Gemini API Engine
+  // Direct High-Performance Gemini API Engine — Primary Brain of Lakshmi AI
   async function callGeminiAPI(
     apiKey: string,
     message: string,
@@ -639,14 +639,18 @@ async function fetchActiveAdsContext(): Promise<string> {
     activeOffersContext?: string,
     customerOrdersContext?: string,
     customerCartContext?: string,
-    userId?: number | null
+    userId?: number | null,
+    selectedModel: string = 'gemini-2.0-flash',
+    temperature: number = 0.5,
+    maxTokens: number = 450,
+    customInstructions?: string
   ): Promise<string | null> {
     const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
     if (!cleanKey) return null;
 
     // 1. Check in-memory cache for generic/non-personalized inquiries ONLY (prevents data leakage across users)
     const isPersonalizedQuery = Boolean(userId) || Boolean(customerName) || /order|cart|track|status|account|address|my |bought|purchased|where is my/i.test(message);
-    const cacheKey = `${language}:${message.trim().toLowerCase()}`;
+    const cacheKey = `${selectedModel}:${language}:${message.trim().toLowerCase()}`;
 
     if (!isPersonalizedQuery) {
       const cached = chatResponseCache.get(cacheKey);
@@ -656,7 +660,7 @@ async function fetchActiveAdsContext(): Promise<string> {
     }
 
     const langName = language === 'te' ? 'Telugu' : language === 'hi' ? 'Hindi' : 'English';
-    const systemPrompt = `You are Lakshmi, the intelligent, warm, expert AI Assistant for FarmFreshFarmer (Vijayawada's premier 100% organic farm delivery platform).
+    const baseSystemPrompt = `You are Lakshmi, the intelligent, warm, expert AI Assistant for FarmFreshFarmer (Vijayawada's premier 100% organic farm delivery platform).
 
 AUTHENTICATED CUSTOMER CONTEXT (STRICTLY CONFIDENTIAL - THIS CUSTOMER ONLY):
 - CUSTOMER IDENTITY: ${customerName ? `"${customerName}" (Address them warmly by name as "${customerName}"!)` : 'Guest Visitor (Not logged in)'}
@@ -687,6 +691,7 @@ CREATOR & INVENTOR (Buddaraju Ganesh Sai Varma):
   * Education: PG in Advanced Data Science & AI from University of Liverpool, UK; B.Tech from KL University (GPA 8.87).
   * Portfolio: https://www.ganeshvarma.in/ | Email: gp61080@gmail.com | Phone: +91 8555021322.
 
+${customInstructions ? `ADMIN CUSTOM DIRECTIVES:\n${customInstructions}\n` : ''}
 CAPABILITIES & DIRECTIVES:
 1. ORDER TRACKING & STATUS:
    - When the customer asks about their order ("Where is my order?", "Order status", "What did I order?"), immediately check RECENT ORDER HISTORY above and provide their exact Order ID, Date, Status (Placed, Packed, Out for Delivery, Delivered), items, and total amount.
@@ -738,23 +743,23 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       return actualPart?.text?.trim() || '';
     }
 
-    // Fast-tier models ordered by speed & quality
-    const fastModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    // Models sequence starting with the chosen model
+    const candidateModels = Array.from(new Set([selectedModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']));
 
     // 1. Try Native REST API with AbortController timeout (fastest network latency)
-    for (const mName of fastModels) {
+    for (const mName of candidateModels) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4500);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${cleanKey}`;
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
+            system_instruction: { parts: [{ text: baseSystemPrompt }] },
             contents,
-            generationConfig: { maxOutputTokens: 350, temperature: 0.5 },
+            generationConfig: { maxOutputTokens: maxTokens, temperature },
           }),
           signal: controller.signal,
         });
@@ -774,7 +779,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
           }
         }
       } catch (err: any) {
-        // Attempt next fast model immediately
+        // Attempt next model
       }
     }
 
@@ -782,9 +787,9 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: systemPrompt,
-        generationConfig: { maxOutputTokens: 350, temperature: 0.5 },
+        model: selectedModel || 'gemini-1.5-flash',
+        systemInstruction: baseSystemPrompt,
+        generationConfig: { maxOutputTokens: maxTokens, temperature },
       });
       const result = await model.generateContent(contents);
       const response = await result.response;
@@ -1557,9 +1562,18 @@ function resolveCartQty(
       }
       // === END ETA INTENT ===
 
-      // Read API key from DB settings or process.env or fallback to DEFAULT_GEMINI_KEY
-      const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42S2hmTkxfa2hOeFdadWRMMmtyWU5iajhtRU1wbmRGN3JLWHl4LTV3TTQ4UQ==', 'base64').toString('ascii');
-      const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || DEFAULT_GEMINI_KEY;
+      // Read dynamic Gemini settings from DB settings or process.env
+      const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.0-flash';
+      const geminiTemp = Number((allSettings as any)?.gemini_temperature ?? 0.5);
+      const geminiMaxTokens = Number((allSettings as any)?.gemini_max_tokens ?? 450);
+      const customSystemPrompt = (allSettings as any)?.lakshmi_custom_system_prompt || '';
+
+      const enableProducts = (allSettings as any)?.lakshmi_enable_products_context !== 'false';
+      const enableOrders = (allSettings as any)?.lakshmi_enable_orders_context !== 'false';
+      const enableCart = (allSettings as any)?.lakshmi_enable_cart_context !== 'false';
+      const enableAds = (allSettings as any)?.lakshmi_enable_ads_context !== 'false';
+      const enableCreator = (allSettings as any)?.lakshmi_enable_creator_bio !== 'false';
 
       // Build live database context for Gemini AI
       let fullProductsContext = '';
@@ -1574,9 +1588,9 @@ function resolveCartQty(
         const [activeProducts, categoriesList, activeAdsText, userOrdersText, userCartText] = await Promise.all([
           storage.products.list(),
           Promise.resolve(storage.categories ? await (storage.categories as any).list().catch(() => []) : []),
-          fetchActiveAdsContext(),
-          fetchCustomerOrdersContext(userId),
-          fetchCustomerCartContext(userId),
+          enableAds ? fetchActiveAdsContext() : Promise.resolve(''),
+          enableOrders ? fetchCustomerOrdersContext(userId) : Promise.resolve(''),
+          enableCart ? fetchCustomerCartContext(userId) : Promise.resolve(''),
         ]);
         globalActiveProducts = activeProducts;
         activeOffersContext = activeAdsText;
@@ -1713,23 +1727,27 @@ function resolveCartQty(
       let reply: string | null = null;
       let needsHuman = false;
 
-      if (geminiApiKey && geminiApiKey !== DEFAULT_GEMINI_KEY && geminiApiKey.startsWith('AIzaSy')) {
+      if (geminiApiKey && geminiApiKey.trim().length > 5) {
         reply = await callGeminiAPI(
           geminiApiKey,
           message,
-          fullProductsContext,
+          enableProducts ? fullProductsContext : '',
           categoriesContext,
           securityAndAuthContext,
           legalContext,
           contactContext,
           lang,
           history,
-          creatorContext,
+          enableCreator ? creatorContext : '',
           customerName,
-          activeOffersContext,
-          customerOrdersContext,
-          customerCartContext,
-          userId
+          enableAds ? activeOffersContext : '',
+          enableOrders ? customerOrdersContext : '',
+          enableCart ? customerCartContext : '',
+          userId,
+          geminiModel,
+          geminiTemp,
+          geminiMaxTokens,
+          customSystemPrompt
         );
       }
 
