@@ -1092,54 +1092,6 @@ export default function Cart() {
                   <span className="font-mono">{formatINR(displaySubtotal)}</span>
                 </div>
 
-                {/* Subscription Bundle Savings */}
-                {totalBundleSavings > 0 && (
-                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>Subscription Plan Bundle Discount</span>
-                    <span className="font-mono">- {formatINR(totalBundleSavings)}</span>
-                  </div>
-                )}
-
-                {/* First Order Discount */}
-                {firstOrderSavings > 0 && (
-                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>🌱 Welcome First-Order Discount (10%)</span>
-                    <span className="font-mono">- {formatINR(firstOrderSavings)}</span>
-                  </div>
-                )}
-
-                {/* Referral Discount */}
-                {referralDiscountSavings > 0 && (
-                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>🎁 Referral Welcome Discount (10%)</span>
-                    <span className="font-mono">- {formatINR(referralDiscountSavings)}</span>
-                  </div>
-                )}
-
-                {/* Coupon Code Discount */}
-                {couponDiscountSavings > 0 && Boolean(coupon?.code || (quote && (quote as any).couponCode)) && (
-                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>🏷️ Coupon Savings ({coupon?.code || (quote as any)?.couponCode})</span>
-                    <span className="font-mono">- {formatINR(couponDiscountSavings)}</span>
-                  </div>
-                )}
-
-                {/* Star Member VIP Tier Discount */}
-                {starLoyaltySavings > 0 && (
-                  <div className="flex justify-between items-center text-amber-500 dark:text-yellow-400 font-semibold">
-                    <span>⭐ Star Loyalty VIP Discount ({quote?.starDiscountPercent || 5}%)</span>
-                    <span className="font-mono">- {formatINR(starLoyaltySavings)}</span>
-                  </div>
-                )}
-
-                {/* Referral Reward Wallet Redeemed */}
-                {referralRewardSavings > 0 && (
-                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>👛 Referral Wallet Reward Redeemed</span>
-                    <span className="font-mono">- {formatINR(referralRewardSavings)}</span>
-                  </div>
-                )}
-
                 {/* Taxable Subtotal & GST Breakdown */}
                 <div className="pt-2 pb-1 border-t border-dashed border-border/70 space-y-1.5 text-[11px] text-muted-foreground">
                   <div className="flex justify-between items-center">
@@ -1151,6 +1103,59 @@ export default function Cart() {
                     <span className="font-mono font-medium">{formatINR(totalGst)}</span>
                   </div>
                 </div>
+
+                {/* Applied Discounts & Coupons (Rendered directly after Taxable Base & GST) */}
+                {(firstOrderSavings > 0 || couponDiscountSavings > 0 || starLoyaltySavings > 0 || referralDiscountSavings > 0 || referralRewardSavings > 0 || totalBundleSavings > 0) && (
+                  <div className="pt-2 pb-1 border-t border-dashed border-border/70 space-y-1.5">
+                    {/* Subscription Bundle Savings */}
+                    {totalBundleSavings > 0 && (
+                      <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                        <span>Subscription Plan Bundle Discount</span>
+                        <span className="font-mono">- {formatINR(totalBundleSavings)}</span>
+                      </div>
+                    )}
+
+                    {/* First Order Discount */}
+                    {firstOrderSavings > 0 && (
+                      <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                        <span>🌱 Welcome First-Order Discount (10%)</span>
+                        <span className="font-mono">- {formatINR(firstOrderSavings)}</span>
+                      </div>
+                    )}
+
+                    {/* Referral Discount */}
+                    {referralDiscountSavings > 0 && (
+                      <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                        <span>🎁 Referral Welcome Discount (10%)</span>
+                        <span className="font-mono">- {formatINR(referralDiscountSavings)}</span>
+                      </div>
+                    )}
+
+                    {/* Coupon Code Discount */}
+                    {couponDiscountSavings > 0 && Boolean(coupon?.code || (quote && (quote as any).couponCode)) && (
+                      <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                        <span>🏷️ Coupon Savings ({coupon?.code || (quote as any)?.couponCode})</span>
+                        <span className="font-mono">- {formatINR(couponDiscountSavings)}</span>
+                      </div>
+                    )}
+
+                    {/* Star Member VIP Tier Discount */}
+                    {starLoyaltySavings > 0 && (
+                      <div className="flex justify-between items-center text-amber-500 dark:text-yellow-400 font-semibold">
+                        <span>⭐ Star Loyalty VIP Discount ({quote?.starDiscountPercent || 5}%)</span>
+                        <span className="font-mono">- {formatINR(starLoyaltySavings)}</span>
+                      </div>
+                    )}
+
+                    {/* Referral Reward Wallet Redeemed */}
+                    {referralRewardSavings > 0 && (
+                      <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                        <span>👛 Referral Wallet Reward Redeemed</span>
+                        <span className="font-mono">- {formatINR(referralRewardSavings)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Delivery & Logistics */}
                 <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/50">
