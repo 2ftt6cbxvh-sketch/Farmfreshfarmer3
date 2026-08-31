@@ -264,6 +264,44 @@ async function getLiveUnmetSearchStream() {
   };
 }
 
+async function getLiveCustomerAccounts() {
+  try {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        status: users.status,
+        customerStars: users.customerStars,
+        starRating: users.starRating,
+        totalOrders: users.totalOrders,
+        totalSpend: users.totalSpend,
+        isPermanentlyLocked: users.isPermanentlyLocked,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(desc(users.id))
+      .limit(100);
+
+    return allUsers.map((u) => ({
+      customerId: u.id,
+      name: u.name || "Guest Customer",
+      email: u.email || "N/A",
+      phone: u.phone || "N/A",
+      role: u.role || "customer",
+      loyaltyStars: u.customerStars ? `${u.customerStars}★` : (u.starRating ? `${u.starRating}★` : "0★"),
+      status: u.isPermanentlyLocked ? "blocked" : (u.status || "active"),
+      ordersCount: u.totalOrders || 0,
+      totalSpend: `₹${u.totalSpend || 0}`,
+    }));
+  } catch (err: any) {
+    console.warn("[copilot] getLiveCustomerAccounts error:", err?.message);
+    return [];
+  }
+}
+
 /**
  * ⚡ Live Action Executions (Function Calling)
  */
@@ -505,8 +543,14 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       const [u] = await db.select().from(users).where(eq(users.phone, String(phone).trim())).limit(1);
       userRec = u;
     }
+    
+    if (!userRec && (name || args.customerName)) {
+      const qName = String(name || args.customerName).trim().toLowerCase();
+      const allUsers = await db.select().from(users);
+      userRec = allUsers.find((u) => u.name?.toLowerCase().includes(qName) || qName.includes(u.name?.toLowerCase() || ""));
+    }
 
-    if (!userRec) throw new Error(`Customer record "${customerId || email || phone}" not found.`);
+    if (!userRec) throw new Error(`Customer record "${customerId || email || phone || name || args.customerName}" not found.`);
 
     const updates: any = { updatedAt: new Date() };
     let description = "";
@@ -728,7 +772,7 @@ export async function executeCopilotTurn(
   }
 
   // 1. Fetch live DB contexts
-  const [financials, inventory, delivery, security, searchDemand, liveUnmetSearches, currentSettings, pendingApprovals] = await Promise.all([
+  const [financials, inventory, delivery, security, searchDemand, liveUnmetSearches, currentSettings, pendingApprovals, liveCustomerAccounts] = await Promise.all([
     getLiveFinancialData(isSuperAdmin),
     getLiveInventoryData(),
     getLiveDeliveryData(),
@@ -737,6 +781,7 @@ export async function executeCopilotTurn(
     getLiveUnmetSearchStream(),
     getLiveSettingsData(),
     getLivePendingApprovals(),
+    getLiveCustomerAccounts(),
   ]);
 
   const systemInstruction = `
@@ -745,6 +790,7 @@ You are directly serving the Chief Executive Super Admin: ${adminUser.name || "S
 
 LIVE SYSTEM CONTEXT (REAL-TIME DATABASE STATE):
 - Current Live Admin Panel Toggles & Settings: ${JSON.stringify(currentSettings)}
+- Live Registered Customer Accounts & Customer IDs: ${JSON.stringify(liveCustomerAccounts)}
 - Pending Products Awaiting Approval / Reconsideration: ${JSON.stringify(pendingApprovals)}
 - Live Unmet & Zero-Result Product Searches: ${JSON.stringify(liveUnmetSearches)}
 - Customer & Guest Searches / Demand Trends: ${JSON.stringify(searchDemand)}
@@ -753,6 +799,13 @@ LIVE SYSTEM CONTEXT (REAL-TIME DATABASE STATE):
 - Active Deliveries & Dispatch: ${JSON.stringify(delivery)}
 - Security Surveillance & Lockouts: ${JSON.stringify(security)}
 - Current Time: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+
+CUSTOMER LISTING & MANAGEMENT RULES:
+- When the Super Admin asks for customers or accounts (e.g. "give me all customers list", "list out the customers with accounts", "show customer accounts", "who are my customers"):
+  * ALWAYS output a detailed, beautifully styled Markdown table using the data from "Live Registered Customer Accounts & Customer IDs":
+    | Customer ID | Name | Email | Phone | Loyalty Stars | Status | Orders | Total Spend |
+  * Include every individual customer's real ID (e.g. ID #1, ID #2) so the Super Admin can easily reference them.
+  * Follow the table with clear instructions on actionable commands they can give you (e.g., "Promote Customer ID #X to 5-star", "Block Customer ID #X", "Unblock customer [Name]").
 
 AVAILABLE ACTIONS (FUNCTION CALLING):
 You have executive authority to execute actions ONLY when commanded by the Super Admin. Output an ACTION JSON block in your response:
@@ -775,6 +828,7 @@ You have executive authority to execute actions ONLY when commanded by the Super
 
 5. Modify Customer (Set Star Tier, Block / Unblock, Edit Details):
 <<<ACTION:{"action":"modify_customer","customerId":45,"action":"set_stars","starRating":5,"note":"Loyal customer promotion"}>>>
+<<<ACTION:{"action":"modify_customer","name":"Ganesh Varma","action":"set_stars","starRating":5,"note":"Loyal customer promotion"}>>>
 <<<ACTION:{"action":"modify_customer","email":"fraud@example.com","action":"block","note":"Suspicious activity"}>>>
 <<<ACTION:{"action":"modify_customer","customerId":45,"action":"unblock","note":"Identity verified"}>>>
 <<<ACTION:{"action":"modify_customer","customerId":45,"action":"update_details","phoneVal":"9876543210"}>>>
