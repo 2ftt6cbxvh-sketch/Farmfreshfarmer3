@@ -36,3 +36,21 @@ export const otpRateLimit = rateLimit({
   legacyHeaders: false,
   message: { message: "Too many OTP requests. Please wait 10 minutes." },
 });
+
+/** Chatbot message rate limiter: 30 requests per minute per IP to prevent AI quota exhaustion */
+export const chatbotMessageRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { reply: "🙏 You are sending messages a bit too quickly. Please wait a few seconds before asking your next question!", needsHuman: false },
+});
+
+/** Chatbot human escalation rate limiter: 5 requests per 10 minutes per IP to prevent alert spam */
+export const chatbotEscalationRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Too many human support escalation requests. Our team is already notified! Please wait a moment." },
+});
