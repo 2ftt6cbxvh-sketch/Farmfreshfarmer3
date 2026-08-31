@@ -343,24 +343,13 @@ export function registerStaffRoutes(app: Express) {
 
       const currentUserId = (req as any).currentUser?.id || (req.session as any)?.userId;
 
-      const [target] = await db.select().from(users).where(eq(users.id, staffId)).limit(1);
-      if (!target) return res.status(404).json({ message: "Staff account not found" });
+      const { purgeUserCompletelyFromDatabase } = await import("../../services/user-purge");
+      const result = await purgeUserCompletelyFromDatabase(staffId, currentUserId ? Number(currentUserId) : undefined);
 
-      // Prevent self-deletion while logged in
-      if (currentUserId && target.id === Number(currentUserId)) {
-        return res.status(400).json({ message: "You cannot delete your own active account while logged in." });
-      }
-
-      // Root Primary Admin (admin@farmfreshfarmer.com / isPrimaryAdmin) is strictly protected
-      if (target.email.toLowerCase() === "admin@farmfreshfarmer.com" || target.isPrimaryAdmin) {
-        return res.status(403).json({ message: "Root Primary Admin (admin@farmfreshfarmer.com) is protected and cannot be deleted." });
-      }
-
-      await db.delete(users).where(eq(users.id, staffId));
-      return res.json({ success: true, message: `Staff account ${target.name} (${target.email}) deleted` });
+      return res.json({ success: true, message: `Staff account ${result.name} (${result.email}) and all associated permissions permanently purged from the database.` });
     } catch (err: any) {
       console.error("[staff] DELETE error:", err);
-      return res.status(500).json({ message: "Failed to delete staff account" });
+      return res.status(500).json({ message: err.message || "Failed to delete staff account" });
     }
   });
 

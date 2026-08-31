@@ -296,23 +296,33 @@ async function getLiveCustomerAccounts() {
         customerStars: users.customerStars,
         starRating: users.starRating,
         isPermanentlyLocked: users.isPermanentlyLocked,
+        isPrimaryAdmin: users.isPrimaryAdmin,
         createdAt: users.createdAt,
       })
       .from(users)
       .orderBy(desc(users.id))
       .limit(100);
 
-    return allUsers.map((u) => ({
-      customerId: u.id,
-      name: u.name || "Guest Customer",
-      email: u.email || "N/A",
-      phone: u.phone || "N/A",
-      role: u.role || "customer",
-      loyaltyStars: u.customerStars ? `${u.customerStars}★` : (u.starRating ? `${u.starRating}★` : "0★"),
-      status: u.isPermanentlyLocked ? "blocked" : (u.status || "active"),
-      ordersCount: 0,
-      totalSpend: "₹0",
-    }));
+    return allUsers.map((u) => {
+      const isStaffOrAdmin = Boolean(
+        u.isPrimaryAdmin ||
+        u.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+        ["admin", "superadmin", "manager_admin", "warehouse_admin", "subadmin", "customer_rep", "delivery_partner", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(u.role || "")
+      );
+
+      return {
+        customerId: u.id,
+        name: u.name || "Guest Customer",
+        email: u.email || "N/A",
+        phone: u.phone || "N/A",
+        role: u.isPrimaryAdmin ? "Chief Super Admin" : (u.role || "customer"),
+        accountType: isStaffOrAdmin ? "staff" : "customer",
+        loyaltyStars: u.customerStars ? `${u.customerStars}★` : (u.starRating ? `${u.starRating}★` : "0★"),
+        status: u.isPermanentlyLocked ? "blocked" : (u.status || "active"),
+        ordersCount: 0,
+        totalSpend: "₹0",
+      };
+    });
   } catch (err: any) {
     console.warn("[copilot] getLiveCustomerAccounts error:", err?.message);
     return [];
@@ -587,13 +597,21 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       updates.failedLoginAttempts = 0;
       updates.lockoutUntil = null;
       description = `Unblocked customer account "${userRec.name}" (${userRec.email || userRec.phone}).`;
+    } else if (action === "delete" || action === "purge" || actionName === "delete_customer" || actionName === "delete_user") {
+      const { purgeUserCompletelyFromDatabase } = await import("./user-purge");
+      const result = await purgeUserCompletelyFromDatabase(userRec.id, adminUser.id);
+      return {
+        type: "customer_deleted",
+        description: `Customer account "${result.name}" (ID #${userRec.id}) and all associated records permanently purged from the database. 🗑️`,
+        details: { id: userRec.id, name: result.name, email: result.email },
+      };
     } else if (action === "update_details") {
       if (name) updates.name = String(name).trim();
       if (phoneVal) updates.phone = String(phoneVal).trim();
       if (emailVal) updates.email = String(emailVal).trim().toLowerCase();
       description = `Updated contact details for customer "${userRec.name}".`;
     } else {
-      throw new Error("Valid customer action required: 'set_stars', 'block', 'unblock', or 'update_details'.");
+      throw new Error("Valid customer action required: 'set_stars', 'block', 'unblock', 'delete', or 'update_details'.");
     }
 
     const [updatedUser] = await db.update(users).set(updates).where(eq(users.id, userRec.id)).returning();
@@ -884,24 +902,37 @@ GUIDELINES:
     (lastUserMsg.includes("detail") || lastUserMsg.includes("all") || lastUserMsg.includes("list") || lastUserMsg.includes("show") || lastUserMsg.includes("give") || lastUserMsg.includes("who")) &&
     !lastUserMsg.includes("block") && !lastUserMsg.includes("unblock") && !lastUserMsg.includes("star") && !lastUserMsg.includes("modify")
   ) {
-    let tableMd = "### 👥 Live Registered Customer Accounts (" + liveCustomerAccounts.length + " Total)\n\n";
-    if (liveCustomerAccounts.length === 0) {
-      tableMd += "*No registered customer accounts found yet in the system.*";
+    const customerOnly = liveCustomerAccounts.filter((c) => c.accountType === "customer");
+    const staffOnly = liveCustomerAccounts.filter((c) => c.accountType === "staff");
+
+    let tableMd = "### 👥 Live Registered Customer Accounts (" + customerOnly.length + " Total)\n\n";
+    if (customerOnly.length === 0) {
+      tableMd += "*No registered customer accounts found in the database.*";
     } else {
-      tableMd += "| Customer ID | Name | Email | Phone | Loyalty Stars | Status | Role |\n";
-      tableMd += "| :---: | :--- | :--- | :--- | :---: | :---: | :---: |\n";
-      for (const c of liveCustomerAccounts) {
-        tableMd += "| **ID #" + c.customerId + "** | **" + c.name + "** | " + c.email + " | " + c.phone + " | " + c.loyaltyStars + " | " + c.status + " | " + c.role + " |\n";
+      tableMd += "| Customer ID | Name | Email | Phone | Loyalty Stars | Status |\n";
+      tableMd += "| :---: | :--- | :--- | :--- | :---: | :---: |\n";
+      for (const c of customerOnly) {
+        tableMd += "| **ID #" + c.customerId + "** | **" + c.name + "** | " + c.email + " | " + c.phone + " | " + c.loyaltyStars + " | " + c.status + " |\n";
       }
-      const firstId = liveCustomerAccounts[0]?.customerId || 1;
-      tableMd += "\n---\n### 🛠️ Executive Customer Actions:\nYou can command me to perform any of these actions:\n";
-      tableMd += "1. **Promote Star Tier:** *Promote Customer ID #" + firstId + " to 5-star*\n";
-      tableMd += "2. **Block Suspicious Account:** *Block Customer ID #" + firstId + "*\n";
-      tableMd += "3. **Unblock Account:** *Unblock Customer ID #" + firstId + "*\n";
-      tableMd += "4. **Update Customer Phone:** *Update phone for Customer ID #" + firstId + " to 9876543210*";
     }
 
-    const firstId = liveCustomerAccounts[0]?.customerId || 1;
+    if (staffOnly.length > 0) {
+      tableMd += "\n\n### 🛡️ Store Staff & Administrators (" + staffOnly.length + " Total)\n";
+      tableMd += "*Managed separately under the **Staff & Roles** admin tab.*\n\n";
+      tableMd += "| Staff ID | Name | Email | Role | Status |\n";
+      tableMd += "| :---: | :--- | :--- | :--- | :---: |\n";
+      for (const s of staffOnly) {
+        tableMd += "| **ID #" + s.customerId + "** | **" + s.name + "** | " + s.email + " | " + s.role + " | " + s.status + " |\n";
+      }
+    }
+
+    const firstId = customerOnly[0]?.customerId || liveCustomerAccounts[0]?.customerId || 1;
+    tableMd += "\n---\n### 🛠️ Executive Customer Actions:\nYou can command me to perform any of these actions:\n";
+    tableMd += "1. **Promote Star Tier:** *Promote Customer ID #" + firstId + " to 5-star*\n";
+    tableMd += "2. **Block Suspicious Account:** *Block Customer ID #" + firstId + "*\n";
+    tableMd += "3. **Permanently Delete Account:** *Delete Customer ID #" + firstId + "*\n";
+    tableMd += "4. **Update Customer Phone:** *Update phone for Customer ID #" + firstId + " to 9876543210*";
+
     return {
       reply: tableMd,
       actionExecuted: undefined,
