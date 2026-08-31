@@ -424,8 +424,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/login", authRateLimit, h(async (req, res) => {
     const { email, password } = req.body || {};
     if (!email) return res.status(400).json({ message: "Missing credentials" });
-    const cleanEmail = String(email).toLowerCase().trim();
-    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true";
+    const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true" || host.includes("aihhytdgagthawswghsgs") || host.includes("admin");
 
     // Immediate Access Denied for Master Admin without checking password or DB
     if (cleanEmail === "admin@farmfreshfarmer.com" && !isFromStealthGateway) {
