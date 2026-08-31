@@ -258,6 +258,41 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.webauthn_credentials"],
       ["CREATE UNIQUE INDEX IF NOT EXISTS webauthn_creds_cred_idx ON webauthn_credentials(credential_id)", "idx.webauthn_creds_cred"],
       ["CREATE INDEX IF NOT EXISTS webauthn_creds_user_idx ON webauthn_credentials(user_id)", "idx.webauthn_creds_user"],
+      [`CREATE TABLE IF NOT EXISTS customer_profiles (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          has_completed_first_order BOOLEAN NOT NULL DEFAULT FALSE,
+          first_order_id INTEGER,
+          total_orders INTEGER NOT NULL DEFAULT 0,
+          total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+          notes TEXT,
+          behavior_profile TEXT,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.customer_profiles"],
+      ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_orders INTEGER NOT NULL DEFAULT 0", "customer_profiles.total_orders"],
+      ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0", "customer_profiles.total_spent"],
+      ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS behavior_profile TEXT", "customer_profiles.behavior_profile"],
+      [`CREATE TABLE IF NOT EXISTS guest_behavior_sessions (
+          id SERIAL PRIMARY KEY,
+          session_id VARCHAR(128) NOT NULL UNIQUE,
+          behavior_profile TEXT,
+          ip_hash VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.guest_behavior_sessions"],
+      [`CREATE TABLE IF NOT EXISTS unmet_demand_events (
+          id SERIAL PRIMARY KEY,
+          query TEXT NOT NULL,
+          session_id VARCHAR(128),
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          city VARCHAR(64),
+          pincode VARCHAR(16),
+          result_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.unmet_demand_events"],
+      ["CREATE INDEX IF NOT EXISTS unmet_demand_events_query_idx ON unmet_demand_events(query)", "idx.unmet_demand_events_query"],
+      ["CREATE INDEX IF NOT EXISTS unmet_demand_events_created_at_idx ON unmet_demand_events(created_at)", "idx.unmet_demand_events_created_at"],
       // ── 1-TIME COUPONS & EMAIL CAMPAIGNS MIGRATIONS ──
       ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_uses INTEGER NOT NULL DEFAULT 1", "coupons.max_uses"],
       ["ALTER TABLE coupons ADD COLUMN IF NOT EXISTS used_count INTEGER NOT NULL DEFAULT 0", "coupons.used_count"],
