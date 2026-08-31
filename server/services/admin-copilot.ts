@@ -247,7 +247,26 @@ async function getLiveUnmetSearchStream() {
       .orderBy(desc(unmetDemandEvents.id))
       .limit(30);
   } catch (e: any) {
-    console.warn("[copilot] unmetDemandEvents query fallback:", e?.message);
+    try {
+      const { pool: _pool } = await import("../db");
+      await _pool.query(`
+        CREATE TABLE IF NOT EXISTS unmet_demand_events (
+          id SERIAL PRIMARY KEY,
+          query TEXT NOT NULL,
+          session_id VARCHAR(128),
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          city VARCHAR(64),
+          pincode VARCHAR(16),
+          result_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+      `);
+      unmetRows = await db
+        .select()
+        .from(unmetDemandEvents)
+        .orderBy(desc(unmetDemandEvents.id))
+        .limit(30);
+    } catch {}
   }
 
   const liveStream = unmetRows.map((r) => {
@@ -856,6 +875,44 @@ GUIDELINES:
 <<<FOLLOWUPS:["Question 1", "Question 2", "Question 3"]>>>
 `;
 
+  // ── Instant Real-Time Intent Interceptors (Zero Latency Execution) ──
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content?.toLowerCase().trim() || "";
+
+  // 1. Customer Accounts & User Listing Intent
+  if (
+    (lastUserMsg.includes("costumer") || lastUserMsg.includes("customer") || lastUserMsg.includes("users") || lastUserMsg.includes("accounts")) &&
+    (lastUserMsg.includes("detail") || lastUserMsg.includes("all") || lastUserMsg.includes("list") || lastUserMsg.includes("show") || lastUserMsg.includes("give") || lastUserMsg.includes("who")) &&
+    !lastUserMsg.includes("block") && !lastUserMsg.includes("unblock") && !lastUserMsg.includes("star") && !lastUserMsg.includes("modify")
+  ) {
+    let tableMd = "### 👥 Live Registered Customer Accounts (" + liveCustomerAccounts.length + " Total)\n\n";
+    if (liveCustomerAccounts.length === 0) {
+      tableMd += "*No registered customer accounts found yet in the system.*";
+    } else {
+      tableMd += "| Customer ID | Name | Email | Phone | Loyalty Stars | Status | Role |\n";
+      tableMd += "| :---: | :--- | :--- | :--- | :---: | :---: | :---: |\n";
+      for (const c of liveCustomerAccounts) {
+        tableMd += "| **ID #" + c.customerId + "** | **" + c.name + "** | " + c.email + " | " + c.phone + " | " + c.loyaltyStars + " | " + c.status + " | " + c.role + " |\n";
+      }
+      const firstId = liveCustomerAccounts[0]?.customerId || 1;
+      tableMd += "\n---\n### 🛠️ Executive Customer Actions:\nYou can command me to perform any of these actions:\n";
+      tableMd += "1. **Promote Star Tier:** *Promote Customer ID #" + firstId + " to 5-star*\n";
+      tableMd += "2. **Block Suspicious Account:** *Block Customer ID #" + firstId + "*\n";
+      tableMd += "3. **Unblock Account:** *Unblock Customer ID #" + firstId + "*\n";
+      tableMd += "4. **Update Customer Phone:** *Update phone for Customer ID #" + firstId + " to 9876543210*";
+    }
+
+    const firstId = liveCustomerAccounts[0]?.customerId || 1;
+    return {
+      reply: tableMd,
+      actionExecuted: undefined,
+      suggestedFollowups: [
+        "Promote Customer ID #" + firstId + " to 5 stars",
+        "Show me today's revenue and GMV summary",
+        "Which crops are running low in stock?"
+      ]
+    };
+  }
+
   // Build prompt from conversation history with strict Gemini structural validity
   const rawContents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
   for (const m of messages) {
@@ -909,7 +966,7 @@ GUIDELINES:
   for (const mName of candidateModels) {
     if (rawReply) break;
     try {
-      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      const restUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + mName + ":generateContent?key=" + encodeURIComponent(geminiKey);
       const res = await fetch(restUrl, {
         method: "POST",
         headers: {
@@ -937,7 +994,7 @@ GUIDELINES:
         }
       }
     } catch (err: any) {
-      console.warn(`[copilot] REST model ${mName} error:`, err?.message);
+      console.warn("[copilot] REST model " + mName + " error:", err?.message);
     }
   }
 
@@ -959,13 +1016,13 @@ GUIDELINES:
           break;
         }
       } catch (err: any) {
-        console.warn(`[copilot] SDK model ${mName} error:`, err?.message);
+        console.warn("[copilot] SDK model " + mName + " error:", err?.message);
       }
     }
   }
 
   if (!rawReply) {
-    rawReply = `⚡ **Narayana AI Executive Operations Update:**\n\n- **Store State**: Online and active with live dispatch monitoring.\n- **Inventory**: Checked 29 active catalog products with multi-tier pack pricing.\n- **Assistance**: You can ask me to adjust stock, inspect financial GMV, create coupons, or modify customer loyalty ratings anytime.`;
+    rawReply = "⚡ **Narayana AI Executive Operations Update:**\n\n- **Store State**: Online and active with live dispatch monitoring.\n- **Inventory**: Checked 29 active catalog products with multi-tier pack pricing.\n- **Assistance**: You can ask me to adjust stock, inspect financial GMV, create coupons, or modify customer loyalty ratings anytime.";
   }
 
   // Parse Action block if present
@@ -977,7 +1034,7 @@ GUIDELINES:
       actionExecuted = await executeAction(actionData.action, actionData, adminUser);
       rawReply = rawReply.replace(actionMatch[0], "").trim();
     } catch (e: any) {
-      rawReply += `\n\n⚠️ Action could not be completed: ${e.message}`;
+      rawReply += "\n\n⚠️ Action could not be completed: " + e.message;
     }
   }
 
