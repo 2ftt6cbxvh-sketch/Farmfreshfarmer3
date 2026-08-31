@@ -1140,15 +1140,18 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
       {/* ── Chat window (when open) ── */}
       {isOpen && (
         <div id="chatbot-window"
-          className="fixed z-[99999] flex flex-col bg-background text-foreground shadow-2xl rounded-2xl border border-black/10 dark:border-emerald-900/40 overflow-hidden
+          className="fixed z-[99999] flex flex-col bg-background text-foreground rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 overflow-hidden
             bottom-4 right-3 left-3 h-[520px] max-h-[82vh]
-            sm:left-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)]"
+            sm:left-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] transition-all duration-300"
           style={{ 
-            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.35), 0 10px 25px -5px rgba(5, 150, 105, 0.25)',
+            boxShadow: '0 30px 70px -10px rgba(0, 0, 0, 0.7), 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(16, 185, 129, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
           }}>
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)' }}>
+          {/* Header with embossed depth */}
+          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #854d0e 100%)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25)',
+            }}>
             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <span style={{ fontSize: '20px' }}>🪔</span>
             </div>
@@ -1320,12 +1323,15 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       <img src={msg.imageUrl} alt="Uploaded image" className="w-full h-auto object-cover max-h-48 rounded-xl" />
                     </div>
                   )}
-                  <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${
+                  <div className={`rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed ${
                     msg.role === "user"
                       ? "text-white rounded-tr-sm"
-                      : "bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 rounded-tl-sm"
+                      : "bg-card/90 dark:bg-zinc-800/90 text-gray-800 dark:text-gray-200 rounded-tl-sm border border-card-border/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]"
                   }`}
-                  style={msg.role === "user" ? { background: 'linear-gradient(135deg, #065f46, #ca8a04)' } : {}}
+                  style={msg.role === "user" ? { 
+                    background: 'linear-gradient(135deg, #065f46 0%, #047857 50%, #ca8a04 100%)',
+                    boxShadow: '0 4px 12px -2px rgba(6, 95, 70, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.25)',
+                  } : {}}
                   >
                     {msg.content}
                   </div>
@@ -1681,7 +1687,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageFilePicked} />
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFilePicked} />
 
-                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-2.5 py-1.5 border border-transparent focus-within:border-emerald-400 transition">
+                <div className="flex items-center gap-1.5 bg-gray-100/90 dark:bg-zinc-850/90 rounded-2xl px-2.5 py-1.5 border border-card-border focus-within:border-emerald-500/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.15),0_1px_2px_rgba(0,0,0,0.05)] transition">
                   {/* Camera Snap Button */}
                   <button
                     type="button"
