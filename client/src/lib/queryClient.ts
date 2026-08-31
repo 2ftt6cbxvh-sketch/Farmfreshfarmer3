@@ -23,6 +23,14 @@ async function throwIfResNotOk(res: Response) {
         window.dispatchEvent(new CustomEvent("farmfresh:user_blocked"));
       }
     }
+    if (res.status === 503 && typeof window !== "undefined") {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.maintenance) {
+          window.dispatchEvent(new CustomEvent("farmfresh:maintenance_active", { detail: parsed }));
+        }
+      } catch {}
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

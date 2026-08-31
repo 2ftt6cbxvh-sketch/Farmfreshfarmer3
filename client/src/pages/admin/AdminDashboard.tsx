@@ -107,22 +107,45 @@ export default function AdminDashboard() {
     queryFn: () => apiGet<OperationsStatus>("/api/admin/operations/status"),
   });
 
-  // Mutation for toggling operations
+  // Mutation for toggling operations with instant optimistic UI response
   const toggleMutation = useMutation({
     mutationFn: async ({ key, value, extra }: { key: string; value: any; extra?: any }) => {
       const res = await apiRequest("POST", "/api/admin/operations/toggle", { key, value, extra });
       return res.json();
+    },
+    onMutate: async ({ key, value }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/operations/status"] });
+      const prevData = queryClient.getQueryData<OperationsStatus>(["/api/admin/operations/status"]);
+      if (prevData) {
+        queryClient.setQueryData<OperationsStatus>(["/api/admin/operations/status"], {
+          ...prevData,
+          maintenance: key === "maintenance" ? { ...prevData.maintenance, active: Boolean(value) } : prevData.maintenance,
+          lockdown: key === "lockdown" ? { ...prevData.lockdown, active: Boolean(value) } : prevData.lockdown,
+          storeOrderingEnabled: key === "store_ordering_enabled" ? Boolean(value) : prevData.storeOrderingEnabled,
+          codEnabled: key === "cod_enabled" || key === "allow_cod" ? Boolean(value) : prevData.codEnabled,
+          onlinePaymentsEnabled: key === "online_payments_enabled" ? Boolean(value) : prevData.onlinePaymentsEnabled,
+          freeDeliveryBanner: key === "promo_free_delivery_banner" ? Boolean(value) : prevData.freeDeliveryBanner,
+          emailAuthEnabled: key === "auth_email_enabled" ? Boolean(value) : prevData.emailAuthEnabled,
+          googleAuthEnabled: key === "auth_google_enabled" ? Boolean(value) : prevData.googleAuthEnabled,
+          phoneOtpEnforced: key === "auth_phone_enforced" ? Boolean(value) : prevData.phoneOtpEnforced,
+          telegramAlertsEnabled: key === "telegram_alerts_enabled" ? Boolean(value) : prevData.telegramAlertsEnabled,
+        });
+      }
+      return { prevData };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/operations/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settings/public"] });
       toast({
-        title: "⚡ Control Switch Updated",
+        title: "⚡ Switch Updated Instantly",
         description: `Successfully toggled "${data.key}"!`,
       });
     },
-    onError: (err: any) => {
+    onError: (err: any, _vars, context: any) => {
+      if (context?.prevData) {
+        queryClient.setQueryData(["/api/admin/operations/status"], context.prevData);
+      }
       toast({
         title: "Action Failed",
         description: err.message || "Failed to update operation control switch.",

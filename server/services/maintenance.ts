@@ -78,6 +78,22 @@ export async function setMaintenance(
   const allowAdminBypass = options?.allowAdminBypass !== false;
   const adminUserId = options?.adminUserId;
 
+  const newStatus: MaintenanceStatus = {
+    active,
+    headline,
+    message,
+    estimatedMinutes,
+    estimatedEnd,
+    allowAdminBypass,
+    activatedAt: active ? now : null,
+    activatedBy: adminUserId || null,
+  };
+
+  // 1. Instantly update in-memory cache (ultra-low latency <1ms)
+  cachedStatus = newStatus;
+  cacheExpiry = Date.now() + 30_000;
+
+  // 2. Persist to DB
   await db
     .insert(maintenanceState)
     .values({
@@ -107,28 +123,25 @@ export async function setMaintenance(
         deactivatedAt: !active ? now : undefined,
         updatedAt: now,
       },
-    });
+    })
+    .catch((err) => console.error("[maintenance] DB persist error:", err));
 
-  cachedStatus = null;
-  cacheExpiry = 0;
-
-  try {
-    await db.insert(securityAuditLogs).values({
+  // Non-blocking background audit log
+  db.insert(securityAuditLogs)
+    .values({
       eventType: active ? "maintenance_on" : "maintenance_off",
       userId: adminUserId || null,
       actionTaken: active
         ? `Under Maintenance Mode activated: ${headline} (ETA: ${estimatedMinutes}m)`
         : "Under Maintenance Mode deactivated",
-    });
-  } catch {
-    /* non-critical */
-  }
+    })
+    .catch(() => {});
 
   console.log(
-    `[maintenance] ${active ? "ACTIVATED" : "DEACTIVATED"} by admin ${adminUserId || "system"}: ${headline} (${estimatedMinutes}m)`
+    `[maintenance] ${active ? "ACTIVATED" : "DEACTIVATED"} instantly by admin ${adminUserId || "system"}: ${headline} (${estimatedMinutes}m)`
   );
 
-  return getMaintenanceStatus();
+  return newStatus;
 }
 
 /**

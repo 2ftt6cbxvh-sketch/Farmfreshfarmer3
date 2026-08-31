@@ -488,12 +488,32 @@ function AppContent() {
           setMaintenanceData(mData);
         }
       } catch {
-        // ignore network errors
+        // ignore network error
       }
     };
+
     checkPlatformStatus();
-    const interval = setInterval(checkPlatformStatus, 30000);
-    return () => clearInterval(interval);
+    // Ultra-fast 3s polling interval for instant activation & deactivation
+    const interval = setInterval(checkPlatformStatus, 3000);
+
+    // Instant event listeners for zero-latency overlay trigger
+    const onMaintenanceActive = (e: any) => {
+      if (e?.detail) {
+        setMaintenanceData(e.detail);
+      }
+    };
+    window.addEventListener("farmfresh:maintenance_active", onMaintenanceActive);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") checkPlatformStatus();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("farmfresh:maintenance_active", onMaintenanceActive);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   // Strictly verify Super Admin / Staff session
