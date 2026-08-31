@@ -67,7 +67,7 @@ export default function AdminProducts() {
     user?.isPrimaryAdmin === true ||
     (user?.role === "admin" && (user?.id === 1 || user?.id === 0));
 
-  const { data: products = [], isLoading } = useQuery<Product[]>({
+  const { data: products = [], isLoading, refetch } = useQuery<Product[]>({
     queryKey: ["/api/products", "all"],
     queryFn: () => apiGet<Product[]>("/api/products?includeInactive=1"),
     refetchInterval: 5000,
@@ -316,6 +316,8 @@ export default function AdminProducts() {
       const res = await apiRequest("POST", "/api/admin/products/ai-studio-batch-upgrade", {});
       const data = await res.json();
       await queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/products", "all"] });
+      await refetch();
       toast({
         title: "✨ All Products Upgraded with Studio AI!",
         description: `Successfully upgraded ${data.upgradedCount || data.total} products with 100% crisp hero photography & Telugu metadata.`,
