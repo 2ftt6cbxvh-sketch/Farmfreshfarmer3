@@ -5,9 +5,18 @@ import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, 
 import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middleware/rate-limit';
+import https from 'https';
 import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
 import { resolveProductBenefit } from '@shared/produce-benefits';
+
+// High-performance persistent HTTPS Keep-Alive agent for Google AI API
+const googleApiHttpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 30,
+  maxFreeSockets: 10,
+  timeout: 60000,
+});
 
 const ALLOWED_STAFF_ROLES = [
   'admin', 'warehouse_admin', 'manager_admin', 'subadmin', 'custom_subadmin',
@@ -842,25 +851,22 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       return actualPart?.text?.trim() || '';
     }
 
-    // Models sequence starting with the chosen model, falling back to supported models
+    // Models sequence starting with the chosen model, followed by ultra-fast flash-lite fallbacks
     const candidateModels = Array.from(new Set([
-      selectedModel,
-      'gemini-3.5-flash',
+      selectedModel || 'gemini-3.5-flash',
       'gemini-3.1-flash-lite',
       'gemini-3.5-flash-lite',
-      'gemini-3-flash-preview',
-      'gemini-3.1-flash-lite-preview',
       'gemini-1.5-flash',
     ])).filter(Boolean);
 
-    // 1. Try Native REST API with AbortController timeout (fastest network latency)
+    // 1. Try Native REST API with keep-alive connection & fast 4.5s failover timeout
     for (const mName of candidateModels) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
 
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
-        const res = await fetch(endpoint, {
+        const res = await (fetch as any)(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -872,6 +878,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
             generationConfig: { maxOutputTokens: Math.max(maxTokens, 800), temperature },
           }),
           signal: controller.signal,
+          agent: googleApiHttpsAgent,
         });
         clearTimeout(timeoutId);
 
@@ -885,7 +892,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
           }
         }
       } catch (err: any) {
-        // Attempt next model
+        // Failover instantly to next fast model
       }
     }
 
@@ -1713,7 +1720,7 @@ function resolveCartQty(
           for (const p of topDiscounted) if (!combined.has(p.id)) combined.set(p.id, p);
 
           fullProductsContext = Array.from(combined.values())
-            .slice(0, 30)
+            .slice(0, 12)
             .map((p: any) => {
               const basePrice = Number(p.price) || 0;
               const discPercent = Number(p.discountPercent) || 0;
