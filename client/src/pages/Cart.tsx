@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PhoneVerificationModal } from "@/components/PhoneVerificationModal";
 import { EmailVerificationModal } from "@/components/EmailVerificationModal";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { Badge } from "@/components/ui/badge";
 
 interface CouponResult {
   valid: boolean;
