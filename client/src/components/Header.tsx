@@ -20,6 +20,7 @@ import {
   getInitialProducts,
   saveCachedProducts,
 } from "@/lib/catalog-seed";
+import { filterProductsUniversal } from "@shared/search-matcher";
 import { NotificationBell } from "./NotificationBell";
 import { VerifiedBadge } from "./VerifiedBadge";
 import {
@@ -146,7 +147,8 @@ export function Header() {
       return data;
     },
     initialData: getInitialProducts,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // 30s fresh catalog sync
+    refetchOnWindowFocus: true,
   });
 
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;
@@ -242,31 +244,7 @@ export function Header() {
     : ["Alphonso Mango", "Fresh Tomatoes", "Ghee Laddu", "Avakaya Pickle", "Organic Spinach"];
 
   const predictions = search.trim().length > 0
-    ? allProducts
-        .filter((p) => p.active !== false && p.approvalStatus !== "pending")
-        .filter((p) => {
-          const q = search.toLowerCase().trim();
-          const name = (p.name || "").toLowerCase();
-          const nameTe = ((p as any).nameTe || "").toLowerCase();
-          const desc = (p.description || "").toLowerCase();
-          const cat = (p.categorySlug || "").toLowerCase();
-
-          if (name.includes(q) || nameTe.includes(q) || cat.includes(q) || desc.includes(q)) {
-            return true;
-          }
-
-          // Multilingual & Regional Synonyms Matching (Telugu / Hindi / English)
-          const isGarlic = /garlic|vellulli|lahsun|lehsun|వెల్లుల్లి/i.test(q) && /garlic|vellulli|వెల్లుల్లి/i.test(name + " " + nameTe + " " + desc);
-          const isTomato = /tomato|tamata|తమట|టమోటా/i.test(q) && /tomato|tamata/i.test(name + " " + nameTe);
-          const isMango = /mango|mamidi|మామిడి/i.test(q) && /mango|mamidi/i.test(name + " " + nameTe);
-          const isSpinach = /spinach|palak|పాలకూర/i.test(q) && /spinach|palak/i.test(name + " " + nameTe);
-          const isCarrot = /carrot|gajjara|క్యారెట్/i.test(q) && /carrot/i.test(name + " " + nameTe);
-          const isPickle = /pickle|pachadi|avakaya|ఊరగాయ/i.test(q) && /pickle|avakaya/i.test(name + " " + nameTe + " " + cat);
-          const isLaddu = /laddu|ladoo|లడ్డు/i.test(q) && /laddu|ladoo/i.test(name + " " + nameTe);
-
-          return isGarlic || isTomato || isMango || isSpinach || isCarrot || isPickle || isLaddu;
-        })
-        .slice(0, 6)
+    ? filterProductsUniversal(allProducts, search, 6)
     : [];
 
   return (

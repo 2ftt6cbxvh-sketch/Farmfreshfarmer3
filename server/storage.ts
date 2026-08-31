@@ -27,6 +27,7 @@ import type {
 } from "@shared/schema";
 import { eq, and, or, ne, ilike, desc, sql, inArray, notInArray, isNull, lte, gte } from "drizzle-orm";
 import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
+import { PRODUCE_SYNONYMS } from "@shared/search-matcher";
 
 /* ================================ USERS ============================== */
 export const userStore = {
@@ -141,13 +142,25 @@ export const productStore = {
       if (opts?.category) conds.push(eq(products.categorySlug, opts.category));
       if (opts?.featured) conds.push(eq(products.featured, true));
       if (opts?.q) {
-        conds.push(
-          or(
-            ilike(products.name, `%${opts.q}%`),
-            ilike(products.nameTe, `%${opts.q}%`),
-            ilike(products.description, `%${opts.q}%`)
-          )!
-        );
+        const qClean = opts.q.trim().toLowerCase();
+        const searchTerms = [qClean];
+
+        for (const [key, syns] of Object.entries(PRODUCE_SYNONYMS)) {
+          if (key === qClean || syns.some((s) => s.toLowerCase() === qClean || qClean.includes(s.toLowerCase()))) {
+            searchTerms.push(key, ...syns);
+          }
+        }
+
+        const orConds = [];
+        for (const term of Array.from(new Set(searchTerms))) {
+          orConds.push(
+            ilike(products.name, `%${term}%`),
+            ilike(products.nameTe, `%${term}%`),
+            ilike(products.description, `%${term}%`),
+            ilike(products.categorySlug, `%${term}%`)
+          );
+        }
+        conds.push(or(...orConds)!);
       }
       const where = conds.length ? and(...conds) : undefined;
       return await db.select().from(products).where(where).orderBy(desc(products.createdAt));
