@@ -857,7 +857,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
     for (const mName of candidateModels) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
 
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
         const res = await fetch(endpoint, {
@@ -869,7 +869,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
           body: JSON.stringify({
             system_instruction: { parts: [{ text: baseSystemPrompt }] },
             contents,
-            generationConfig: { maxOutputTokens: maxTokens, temperature },
+            generationConfig: { maxOutputTokens: Math.max(maxTokens, 800), temperature },
           }),
           signal: controller.signal,
         });
@@ -879,12 +879,8 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
           const data = await res.json();
           const parts = data?.candidates?.[0]?.content?.parts || [];
           let replyText = extractReplyText(parts);
-          if (replyText) {
+          if (replyText && replyText.trim().length > 0) {
             replyText = replyText.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').trim();
-            // Cache generic queries only (never cache personalized data)
-            if (!isPersonalizedQuery && replyText.length > 20) {
-              chatResponseCache.set(cacheKey, { reply: replyText, expiresAt: Date.now() + 600_000 });
-            }
             return replyText;
           }
         }
