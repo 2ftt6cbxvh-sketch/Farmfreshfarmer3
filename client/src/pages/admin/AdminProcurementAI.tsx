@@ -74,13 +74,27 @@ interface ProcurementAiResult {
   seasonalHarvestGuidance: SeasonalGuidanceItem[];
 }
 
+import { useAuth } from "@/lib/store";
+import Forbidden403 from "../Forbidden403";
+
 export default function AdminProcurementAI() {
+  const { user } = useAuth();
+  const isSuperAdmin = Boolean(
+    user?.isPrimaryAdmin ||
+    user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+    user?.id === 1
+  );
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addedProductNames, setAddedProductNames] = useState<Set<string>>(new Set());
   const [restockedProductNames, setRestockedProductNames] = useState<Set<string>>(new Set());
   const [dispatchedBelts, setDispatchedBelts] = useState<Set<string>>(new Set());
   const [promoCreatedBelts, setPromoCreatedBelts] = useState<Set<string>>(new Set());
+
+  if (user && !isSuperAdmin) {
+    return <Forbidden403 />;
+  }
 
   // Fetch AI Procurement recommendations
   const { data, isLoading, isFetching, refetch } = useQuery<ProcurementAiResult>({

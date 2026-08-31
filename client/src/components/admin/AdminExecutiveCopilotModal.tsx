@@ -43,6 +43,8 @@ export function AdminExecutiveCopilotModal() {
     user?.id === 1
   );
 
+  if (!isSuperAdmin) return null;
+
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: "welcome_init",

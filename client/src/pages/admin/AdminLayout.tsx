@@ -260,8 +260,8 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const navToDisplay = NAV.map((section) => {
     const filteredItems = section.items
       .filter((item) => {
-        // Security, Settings, Staff, and Delivery Partners menus are strictly reserved for Primary Admin
-        if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings") {
+        // Security, Settings, Staff, Delivery Partners, and Narayana Sourcing AI menus are strictly reserved for Primary Admin
+        if (item.href === "/admin/staff" || item.href === "/admin/delivery-partners" || item.href === "/admin/security" || item.href === "/admin/settings" || item.href === "/admin/procurement-ai") {
           return isPrimaryAdmin;
         }
         return isPrimaryAdmin || allowedHrefs.includes(item.href) || (item.href === "/admin/approvals" && allowedHrefs.includes("/admin/products"));

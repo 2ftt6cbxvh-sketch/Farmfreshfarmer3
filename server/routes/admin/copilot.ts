@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { getJwtSecret } from "../../services/encryption";
 
 export function registerAdminCopilotRoutes(app: Express) {
-  async function requireAdminAuth(req: Request, res: Response, next: Function) {
+  async function requireSuperAdminAuth(req: Request, res: Response, next: Function) {
     let userId: number | undefined = (req as any).jwtUser?.userId || req.session?.userId;
     if (!userId) {
       const authHeader = req.headers.authorization;
@@ -22,18 +22,25 @@ export function registerAdminCopilotRoutes(app: Express) {
     if (!userId) return res.status(401).json({ message: "Authentication required" });
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const STAFF_ROLES = ["admin", "manager_admin", "subadmin", "custom_subadmin", "warehouse_admin", "customer_rep"];
-    if (!user || (!STAFF_ROLES.includes(user.role) && !user.isPrimaryAdmin)) {
-      return res.status(403).json({ message: "Admin operations access required" });
+    const isSuperAdmin = Boolean(
+      user?.isPrimaryAdmin === true ||
+      user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user?.id === 1
+    );
+
+    if (!user || !isSuperAdmin) {
+      return res.status(403).json({
+        message: "⛔ Access Denied. Narayana AI Executive Copilot is strictly restricted to the Chief Executive Super Admin.",
+      });
     }
     (req as any).adminUser = user;
     return next();
   }
 
   /**
-   * POST /api/admin/copilot/chat — Conversational turn with tool execution
+   * POST /api/admin/copilot/chat — Conversational turn with tool execution (Super Admin Only)
    */
-  app.post("/api/admin/copilot/chat", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/copilot/chat", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const { messages, language } = req.body || {};
       const adminUser = (req as any).adminUser;
@@ -51,9 +58,9 @@ export function registerAdminCopilotRoutes(app: Express) {
   });
 
   /**
-   * GET /api/admin/copilot/quick-insights — Real-time summary chips
+   * GET /api/admin/copilot/quick-insights — Real-time summary chips (Super Admin Only)
    */
-  app.get("/api/admin/copilot/quick-insights", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.get("/api/admin/copilot/quick-insights", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
       const isSuperAdmin = Boolean(

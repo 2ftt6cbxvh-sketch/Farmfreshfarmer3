@@ -6,7 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { getJwtSecret } from "../../services/encryption";
 
 export function registerAdminProcurementAiRoutes(app: Express) {
-  async function requireAdminAuth(req: Request, res: Response, next: Function) {
+  async function requireSuperAdminAuth(req: Request, res: Response, next: Function) {
     let userId: number | undefined = (req as any).jwtUser?.userId || req.session?.userId;
     if (!userId) {
       const authHeader = req.headers.authorization;
@@ -22,9 +22,13 @@ export function registerAdminProcurementAiRoutes(app: Express) {
     if (!userId) return res.status(401).json({ message: "Authentication required" });
 
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const STAFF_ROLES = ["admin", "superadmin", "manager_admin", "subadmin", "custom_subadmin", "warehouse_admin"];
-    if (!user || (!STAFF_ROLES.includes(user.role) && !user.isPrimaryAdmin)) {
-      return res.status(403).json({ message: "Admin access required" });
+    const isSuper = Boolean(
+      user?.isPrimaryAdmin === true ||
+      user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user?.id === 1
+    );
+    if (!isSuper) {
+      return res.status(403).json({ message: "⛔ Chief Executive Super Admin access required. Sourcing & Procurement AI is strictly restricted to the Super Admin." });
     }
     (req as any).adminUser = user;
     return next();
@@ -33,7 +37,7 @@ export function registerAdminProcurementAiRoutes(app: Express) {
   /**
    * GET /api/admin/procurement-ai/recommendations
    */
-  app.get("/api/admin/procurement-ai/recommendations", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.get("/api/admin/procurement-ai/recommendations", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const force = req.query.force === "true";
       const intelligence = await generateProcurementIntelligence(force);
@@ -47,7 +51,7 @@ export function registerAdminProcurementAiRoutes(app: Express) {
   /**
    * POST /api/admin/procurement-ai/add-product — 1-Click addition of AI recommended product
    */
-  app.post("/api/admin/procurement-ai/add-product", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/procurement-ai/add-product", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const { name, nameTe, categorySlug, price, unit, description, image, stock } = req.body || {};
 
@@ -87,9 +91,9 @@ export function registerAdminProcurementAiRoutes(app: Express) {
   });
 
   /**
-   * POST /api/admin/procurement-ai/auto-restock — 1-Click Auto Restock from Restock Radar
+   * POST /api/admin/procurement-ai/auto-restock — 1-Click Auto Restock from Restock Radar (Super Admin Only)
    */
-  app.post("/api/admin/procurement-ai/auto-restock", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/procurement-ai/auto-restock", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const { productId, productName, restockQty = 50 } = req.body || {};
       const qtyToAdd = Math.max(1, Number(restockQty));
@@ -138,9 +142,9 @@ export function registerAdminProcurementAiRoutes(app: Express) {
   });
 
   /**
-   * POST /api/admin/procurement-ai/dispatch-po-telegram — Send structured farm PO alert to Telegram
+   * POST /api/admin/procurement-ai/dispatch-po-telegram — Send structured farm PO alert to Telegram (Super Admin Only)
    */
-  app.post("/api/admin/procurement-ai/dispatch-po-telegram", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/procurement-ai/dispatch-po-telegram", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const { crop, cropTe, growingRegion, district, farmerHub, peakProcurementWindow, targetQty = "100 Kg", recommendedPrice } = req.body || {};
 
@@ -174,9 +178,9 @@ export function registerAdminProcurementAiRoutes(app: Express) {
   });
 
   /**
-   * POST /api/admin/procurement-ai/launch-flash-promo — Launch Flash Crop Promotion / Coupon
+   * POST /api/admin/procurement-ai/launch-flash-promo — Launch Flash Crop Promotion / Coupon (Super Admin Only)
    */
-  app.post("/api/admin/procurement-ai/launch-flash-promo", requireAdminAuth as any, async (req: Request, res: Response) => {
+  app.post("/api/admin/procurement-ai/launch-flash-promo", requireSuperAdminAuth as any, async (req: Request, res: Response) => {
     try {
       const { crop, discountPercent = "15.00" } = req.body || {};
       const cleanCrop = String(crop || "HARVEST").replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase();
