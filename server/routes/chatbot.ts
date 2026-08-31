@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray, isNotNull, isNull } from 'drizzle-orm';
-import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders } from '@shared/schema';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders, customerProfiles, coupons } from '@shared/schema';
 import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import https from 'https';
@@ -729,6 +729,85 @@ async function fetchActiveAdsContext(): Promise<string> {
   }
 }
 
+
+/** Load customer health profile (goals, past health topics, preferences) */
+async function loadCustomerHealthProfile(userId: number | null | undefined): Promise<string> {
+  if (!userId) return '';
+  try {
+    const [profile] = await db
+      .select({ behaviorProfile: customerProfiles.behaviorProfile })
+      .from(customerProfiles)
+      .where(eq(customerProfiles.userId, userId))
+      .limit(1);
+    if (!profile?.behaviorProfile) return '';
+    const data = JSON.parse(profile.behaviorProfile);
+    const goals: string[] = data.healthGoals || [];
+    const topics: string[] = (data.aiInquiryTopics || []).slice(0, 6);
+    const favCats: string[] = (data.viewedCategories || []).slice(0, 5);
+    const parts: string[] = [];
+    if (goals.length > 0) parts.push('Health Goals: ' + goals.join(', '));
+    if (topics.length > 0) parts.push('Past Health Topics Asked: ' + topics.join(', '));
+    if (favCats.length > 0) parts.push('Favourite Categories Browsed: ' + favCats.join(', '));
+    return parts.join(' | ');
+  } catch { return ''; }
+}
+
+/** Persist a health topic to customer profile for future personalization */
+async function saveHealthTopicToProfile(userId: number | null | undefined, topic: string): Promise<void> {
+  if (!userId || !topic) return;
+  try {
+    const clean = topic.toLowerCase().trim().slice(0, 60);
+    if (!clean) return;
+    const [existing] = await db
+      .select({ behaviorProfile: customerProfiles.behaviorProfile })
+      .from(customerProfiles).where(eq(customerProfiles.userId, userId)).limit(1);
+    if (existing) {
+      const data = existing.behaviorProfile ? JSON.parse(existing.behaviorProfile) : {};
+      if (!Array.isArray(data.aiInquiryTopics)) data.aiInquiryTopics = [];
+      if (!data.aiInquiryTopics.includes(clean)) {
+        data.aiInquiryTopics.unshift(clean);
+        data.aiInquiryTopics = data.aiInquiryTopics.slice(0, 30);
+      }
+      await db.update(customerProfiles)
+        .set({ behaviorProfile: JSON.stringify(data) })
+        .where(eq(customerProfiles.userId, userId));
+    } else {
+      await db.insert(customerProfiles)
+        .values({ userId, behaviorProfile: JSON.stringify({ aiInquiryTopics: [clean] }) });
+    }
+  } catch {}
+}
+
+/** Validate and return discount for a coupon code against cart subtotal */
+async function validateCouponForChat(
+  code: string, cartSubtotal: number
+): Promise<{ valid: boolean; discountAmount: number; message: string }> {
+  if (!code?.trim()) return { valid: false, discountAmount: 0, message: 'No coupon code provided.' };
+  try {
+    const cleanCode = code.toUpperCase().trim();
+    const [coupon] = await db.select().from(coupons).where(eq(coupons.code, cleanCode)).limit(1);
+    if (!coupon) return { valid: false, discountAmount: 0, message: '❌ Coupon **' + cleanCode + '** was not found. Check the code and try again!' };
+    if (!coupon.active) return { valid: false, discountAmount: 0, message: '❌ Coupon **' + cleanCode + '** is no longer active.' };
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      return { valid: false, discountAmount: 0, message: '❌ Coupon **' + cleanCode + '** expired on ' + new Date(coupon.expiresAt).toLocaleDateString('en-IN') + '.' };
+    }
+    const minOrder = Number(coupon.minOrder || 0);
+    if (cartSubtotal < minOrder) {
+      return {
+        valid: false, discountAmount: 0,
+        message: '❌ Coupon **' + cleanCode + '** needs a minimum cart of ₹' + minOrder + '. Your cart is ₹' + Math.floor(cartSubtotal) + ' — add ₹' + Math.ceil(minOrder - cartSubtotal) + ' more to unlock it!'
+      };
+    }
+    const discountPct = Number(coupon.discountPercent || 0);
+    const discountAmount = Math.round((cartSubtotal * discountPct) / 100);
+    const finalTotal = cartSubtotal - discountAmount;
+    return {
+      valid: true, discountAmount,
+      message: '✅ Coupon **' + cleanCode + '** applied! You save ₹' + discountAmount + ' (' + discountPct + '% OFF). New total: **₹' + finalTotal + '**. 🛒 Head to checkout to complete your order!'
+    };
+  } catch { return { valid: false, discountAmount: 0, message: 'Could not validate coupon right now. Please try at checkout.' }; }
+}
+
   // Direct High-Performance Gemini API Engine
   // Direct High-Performance Gemini API Engine — Primary Brain of Lakshmi AI
   async function callGeminiAPI(
@@ -771,6 +850,7 @@ async function fetchActiveAdsContext(): Promise<string> {
 
 AUTHENTICATED CUSTOMER CONTEXT (STRICTLY CONFIDENTIAL - THIS CUSTOMER ONLY):
 - CUSTOMER IDENTITY: ${customerName ? `"${customerName}" (Address them warmly by name as "${customerName}"!)` : 'Guest Visitor (Not logged in)'}
+- PERSONALIZED HEALTH & PREFERENCE MEMORY (from past sessions): ${await loadCustomerHealthProfile(userId)}
 - LIVE CART DETAILS:
 ${customerCartContext || 'Cart is currently empty or user is not logged in.'}
 - RECENT ORDER HISTORY & LIVE STATUS:
@@ -1235,48 +1315,63 @@ function detectETAIntent(message: string): boolean {
 }
 
 // === CART HELPER FUNCTIONS ===
+/** Single-item cart detection — delegates to multi-item parser */
 function detectCartIntent(message: string): { rawProduct: string; rawQty: number; rawUnit: string } | null {
+  const items = detectMultiCartIntent(message);
+  return items.length > 0 ? items[0] : null;
+}
+
+/** Multi-item cart detection — handles "add 2kg tomatoes and 1kg onions" in one message */
+function detectMultiCartIntent(message: string): Array<{ rawProduct: string; rawQty: number; rawUnit: string }> {
   const lower = message.toLowerCase().trim();
-  
-  // Must contain add/put/order/want intent
-  const hasAddIntent = /\\b(add|put|order|buy|get|want|need|give me|take)\\b/.test(lower);
-  if (!hasAddIntent) return null;
-  
-  // Must NOT be a question or general inquiry
-  if (/\\b(how|what|when|where|why|which|can i|should|do you|is there|are there|do we|available|price|cost|stock)\\b/.test(lower)) return null;
-  
-  // Try to extract quantity and unit first
-  const qtyUnitPatterns = [
-    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:kgs?|kilograms?)/i, unit: 'kg' },
-    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:grams?|gms?|\\bg\\b)/i, unit: 'g' },
-    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:pieces?|pcs?|nos?|numbers?)/i, unit: 'piece' },
-    { pattern: /(\\d+(?:[.,]\\d+)?)\\s*(?:packets?|packs?|bunches?|bundles?|dozens?|doz)/i, unit: 'pack' },
-    { pattern: /(\\d+(?:[.,]\\d+)?)/i, unit: 'unit' },
+
+  const hasAddIntent = /\b(add|put|order|buy|get|want|need|give me|take)\b/.test(lower);
+  if (!hasAddIntent) return [];
+
+  if (/\b(how|what|when|where|why|which|can i|should|do you|is there|are there|do we|available|price|cost|stock)\b/.test(lower)) return [];
+
+  const fillerSet = new Set(['add','put','order','buy','get','want','need','give','me','my','some','please','to','in','into','the','a','an','cart','basket','bag','take','also','and','plus','with','along']);
+
+  const qtyUnitPatterns: Array<{ pattern: RegExp; unit: string }> = [
+    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?)/i, unit: 'kg' },
+    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:grams?|gms?|\bg\b)/i, unit: 'g' },
+    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:pieces?|pcs?|nos?|numbers?)/i, unit: 'piece' },
+    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:packets?|packs?|bunches?|bundles?|dozens?|doz)/i, unit: 'pack' },
+    { pattern: /(\d+(?:[.,]\d+)?)/i, unit: 'unit' },
   ];
-  
-  let rawQty = 1;
-  let rawUnit = 'unit';
-  let messageWithoutQty = lower;
-  
-  for (const { pattern, unit } of qtyUnitPatterns) {
-    const m = lower.match(pattern);
-    if (m) {
-      rawQty = parseFloat(m[1].replace(',', '.'));
-      rawUnit = unit;
-      messageWithoutQty = lower.replace(m[0], ' ');
-      break;
+
+  // Split on conjunctions / commas to identify item segments
+  const segments = lower.split(/\b(?:and|also|,|\+|&|plus|along with)\b/).map(s => s.trim()).filter(s => s.length > 1);
+
+  const results: Array<{ rawProduct: string; rawQty: number; rawUnit: string }> = [];
+
+  for (const seg of segments) {
+    let rawQty = 1;
+    let rawUnit = 'unit';
+    let segClean = seg;
+
+    for (const { pattern, unit } of qtyUnitPatterns) {
+      const m = seg.match(pattern);
+      if (m) {
+        rawQty = parseFloat(m[1].replace(',', '.'));
+        rawUnit = unit;
+        segClean = seg.replace(m[0], ' ');
+        break;
+      }
     }
+
+    const words = segClean
+      .split(/\s+/)
+      .map(w => w.replace(/[^a-z]/g, ''))
+      .filter(w => w.length >= 2 && !fillerSet.has(w));
+
+    if (words.length === 0) continue;
+    const rawProduct = words.join(' ').trim();
+    if (rawProduct.length < 2) continue;
+    results.push({ rawProduct, rawQty, rawUnit });
   }
-  
-  // Remove common filler words to get product name
-  const fillerWords = ['add', 'put', 'order', 'buy', 'get', 'want', 'need', 'give', 'me', 'my', 'some', 'please', 'to', 'in', 'into', 'the', 'a', 'an', 'cart', 'basket', 'bag', 'take', 'also', 'and'];
-  const words = messageWithoutQty.split(/\\s+/).map(w => w.replace(/[^a-z]/g, '')).filter(w => w.length >= 2 && !fillerWords.includes(w));
-  
-  if (words.length === 0) return null;
-  const rawProduct = words.join(' ').trim();
-  if (rawProduct.length < 2) return null;
-  
-  return { rawProduct, rawQty, rawUnit };
+
+  return results;
 }
 
 function resolveCartQty(
@@ -1418,48 +1513,71 @@ function resolveCartQty(
       const allSettings = await storage.settings.all();
 
       // === CART ADD INTENT DETECTION ===
-      const cartIntent = detectCartIntent(message);
-      if (cartIntent) {
-        // Find matching product
-        const allProds = await storage.products.list();
-        const productMatches = allProds.filter((p: any) => {
-          const pname = p.name.toLowerCase();
-          const qname = cartIntent.rawProduct.toLowerCase();
-          return pname.includes(qname) || qname.includes(pname) ||
-            pname.split(' ').some((w: string) => w.length >= 3 && qname.includes(w));
-        });
-        
-        if (productMatches.length > 0) {
-          const product = productMatches[0];
-          const qtyResult = resolveCartQty(cartIntent.rawQty, cartIntent.rawUnit, product);
-          
-          if (qtyResult.unitsToAdd === 0 && qtyResult.explanation) {
-            // Fractional pack - explain and offer alternatives
-            return res.json({
-              reply: qtyResult.explanation,
-              needsHuman: false,
-              products: [product].map((p: any) => ({
-                id: p.id, name: p.name, price: String(p.price),
-                discountPercent: String(p.discountPercent || 0),
-                unit: p.unit || 'unit', image: p.image,
-                stock: p.stock, allowInternationalShipping: p.allowInternationalShipping,
-                categorySlug: p.categorySlug,
-              })),
-            });
+
+      // ── Coupon Application from Chat ──────────────────────────────────────
+      const couponMatch = message.match(/\b(?:apply|use|got|have|got a|use code|apply code|redeem)\s+(?:coupon\s+)?([A-Z0-9_\-]{3,20})/i)
+        || message.match(/(?:coupon|code|promo)\s*[:\-]?\s*([A-Z0-9_\-]{3,20})/i);
+      if (couponMatch && userId) {
+        const code = couponMatch[1].toUpperCase().trim();
+        // Fetch cart subtotal for validation
+        let cartSubtotalForCoupon = 0;
+        try {
+          const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
+          if (userCart) {
+            const cartItemsList = await db.select({ price: cartItems.price, quantity: cartItems.quantity })
+              .from(cartItems).where(eq(cartItems.cartId, userCart.id));
+            cartSubtotalForCoupon = cartItemsList.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
           }
-          
+        } catch {}
+        const couponResult = await validateCouponForChat(code, cartSubtotalForCoupon);
+        return res.json({ reply: couponResult.message, sessionToken: token, products: [] });
+      }
+
+      // Parse ALL items in the message (multi-item support e.g. "add 2kg tomatoes and 1kg onions")
+      const multiCartItems = detectMultiCartIntent(message);
+      if (multiCartItems.length > 0) {
+        const allProds = await storage.products.list();
+        
+        interface CartMatchResult {
+          item: { rawProduct: string; rawQty: number; rawUnit: string };
+          product: any;
+          qtyResult: { unitsToAdd: number; explanation?: string };
+        }
+        
+        const matchedItems: CartMatchResult[] = [];
+        const unmatchedQueries: string[] = [];
+
+        for (const item of multiCartItems) {
+          const qname = item.rawProduct.toLowerCase();
+          const matches = allProds.filter((p: any) => {
+            const pname = p.name.toLowerCase();
+            return pname.includes(qname) || qname.includes(pname) ||
+              pname.split(' ').some((w: string) => w.length >= 3 && qname.includes(w));
+          });
+
+          if (matches.length > 0) {
+            const product = matches[0];
+            const qtyResult = resolveCartQty(item.rawQty, item.rawUnit, product);
+            matchedItems.push({ item, product, qtyResult });
+          } else {
+            unmatchedQueries.push(item.rawProduct);
+          }
+        }
+
+        if (matchedItems.length > 0) {
           if (!userId) {
             // Not logged in
+            const first = matchedItems[0];
             return res.json({
-              reply: `To add ${cartIntent.rawQty}${cartIntent.rawUnit} of ${product.name} to your cart, please login first! Sign in using Google One-Tap or Email OTP at the top right corner, then I can add it right away for you.`,
+              reply: `To add ${matchedItems.map(m => `${m.item.rawQty}${m.item.rawUnit} of ${m.product.name}`).join(' and ')} to your cart, please login first! Sign in using Google One-Tap or Email OTP at the top right corner, then I can add them immediately for you.`,
               needsHuman: false,
               requiresLogin: true,
               pendingCartItem: {
-                productId: product.id,
-                quantity: qtyResult.unitsToAdd,
-                productName: product.name,
+                productId: first.product.id,
+                quantity: first.qtyResult.unitsToAdd,
+                productName: first.product.name,
               },
-              products: [product].map((p: any) => ({
+              products: matchedItems.map(m => m.product).map((p: any) => ({
                 id: p.id, name: p.name, price: String(p.price),
                 discountPercent: String(p.discountPercent || 0),
                 unit: p.unit || 'unit', image: p.image,
@@ -1468,44 +1586,51 @@ function resolveCartQty(
               })),
             });
           }
-          
-          // User is logged in - add to cart using DB directly
+
+          // User is logged in - add all matched items to cart
           try {
             let [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
             if (!userCart) {
               const [inserted] = await db.insert(carts).values({ userId }).returning();
               userCart = inserted;
             }
-            
-            let [existingItem] = await db.select().from(cartItems).where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, product.id))).limit(1);
-            
-            if (existingItem) {
-              await db.update(cartItems).set({ qty: existingItem.qty + qtyResult.unitsToAdd }).where(eq(cartItems.id, existingItem.id));
-            } else {
-              await db.insert(cartItems).values({ cartId: userCart.id, productId: product.id, qty: qtyResult.unitsToAdd });
+
+            let totalAddedCost = 0;
+            const summaryLines: string[] = [];
+
+            for (const { item, product, qtyResult } of matchedItems) {
+              if (qtyResult.unitsToAdd <= 0) continue;
+
+              const [existingItem] = await db
+                .select()
+                .from(cartItems)
+                .where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, product.id)))
+                .limit(1);
+
+              if (existingItem) {
+                await db.update(cartItems).set({ qty: existingItem.qty + qtyResult.unitsToAdd }).where(eq(cartItems.id, existingItem.id));
+              } else {
+                await db.insert(cartItems).values({ cartId: userCart.id, productId: product.id, qty: qtyResult.unitsToAdd });
+              }
+
+              const lineCost = qtyResult.unitsToAdd * Number(product.price || 0);
+              totalAddedCost += lineCost;
+              summaryLines.push(`• **${product.name}**: ${qtyResult.unitsToAdd} pack (${item.rawQty}${item.rawUnit}) — ₹${lineCost}`);
             }
-            
-            const totalCost = (qtyResult.unitsToAdd * product.price).toFixed(0);
+
+            let replyMsg = `🛒 **Added to your cart:**\n${summaryLines.join('\n')}\n\n💰 Total: **₹${totalAddedCost}**. You can checkout anytime from the cart icon at the top right!`;
+            if (unmatchedQueries.length > 0) {
+              replyMsg += `\n\n*(Note: Could not find "${unmatchedQueries.join(', ')}" in current stock)*`;
+            }
+
             return res.json({
-              reply: `Done! I have added ${qtyResult.unitsToAdd} pack${qtyResult.unitsToAdd > 1 ? 's' : ''} (${cartIntent.rawQty}${cartIntent.rawUnit}) of ${product.name} to your cart! Total: Rs.${totalCost}. You can checkout anytime from the cart icon at the top right.`,
+              reply: replyMsg,
               needsHuman: false,
               cartAdded: true,
-              cartItem: { productId: product.id, quantity: qtyResult.unitsToAdd },
+              cartItems: matchedItems.map(m => ({ productId: m.product.id, quantity: m.qtyResult.unitsToAdd })),
             });
           } catch (cartErr: any) {
-            console.error('[chatbot] Cart add error:', cartErr);
-            return res.json({
-              reply: `I found ${product.name} for you (Rs.${product.price} per ${product.unit}). To add it to your cart, please click the product card button or visit the product page. Our cart system is available in the main store!`,
-              needsHuman: false,
-              products: [product].map((p: any) => ({
-                id: p.id, name: p.name, price: String(p.price),
-                discountPercent: String(p.discountPercent || 0),
-                unit: p.unit || 'unit', image: p.image,
-                stock: p.stock,
-                allowInternationalShipping: p.allowInternationalShipping,
-                categorySlug: p.categorySlug,
-              })),
-            });
+            console.error('[chatbot] Multi-cart add error:', cartErr);
           }
         }
       }

@@ -195,7 +195,20 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   const currentMonthName = new Date().toLocaleString("en-US", { month: "long" });
   const categorySlugs = allCategories.map((c) => c.slug);
 
-  // 3. Prepare Gemini API Request
+  // 3. Build verified real data arrays — NEVER let Gemini invent these
+  const verifiedUnmetDemands = unmetSearches.slice(0, 12).map((u) => ({
+    keyword: u.keyword,
+    searchCount: u.count,
+  }));
+
+  const verifiedRestockItems = lowStockItems.slice(0, 8).map((p) => ({
+    productId: p.id,
+    productName: p.name,
+    currentStock: Number(p.stock),
+    categorySlug: p.category,
+  }));
+
+  // 4. Prepare Gemini API Request
   const geminiKey = await getGeminiApiKey();
   if (!geminiKey) {
     throw new Error("Gemini API key is not configured. Please set your Gemini key in Admin -> Lakshmi AI Settings.");
@@ -212,29 +225,38 @@ CURRENT PLATFORM CONTEXT:
 - Existing Catalog Count: ${activeProducts.length} active crops/products
 - Sample Catalog Items: ${JSON.stringify(activeProducts.slice(0, 30).map((p) => ({ id: p.id, name: p.name, category: p.categorySlug, price: p.price, stock: p.stock })))}
 - Live Customer Search Signals: ${JSON.stringify(Object.entries(searchCounts).slice(0, 25))}
-- Unmet Searches (0-match in catalog): ${JSON.stringify(unmetSearches.slice(0, 15))}
 - Live Lakshmi AI Health & Wellness Inquiries: ${JSON.stringify(Object.entries(healthInquiries))}
 - Top Visited Categories: ${JSON.stringify(Object.entries(categoryCounts))}
-- Low Stock Items: ${JSON.stringify(lowStockItems.slice(0, 10))}
 
-TASK:
-Produce a comprehensive, highly specific JSON report containing:
-1. "executiveSummary": A concise 2-3 sentence strategic overview of current consumer demand, seasonal wellness patterns, and immediate harvest procurement priorities.
-2. "unmetDemands": List of 3 to 6 high-value customer search demands that are currently missing from the catalog, with estimated search count, category, lost revenue potential in INR, and recommended sourcing action.
-3. "recommendedNewProducts": List of 4 to 8 brand-new products that FarmFreshFarmer should immediately procure from local organic farmers and add to the catalog. Each item MUST include:
-   - "name": English product name
-   - "nameTe": Authentic Telugu script name (e.g. నాటు గులాబీలు, సేంద్రీయ దానిమ్మ, కొండ అల్లం)
-   - "categorySlug": One of ${JSON.stringify(categorySlugs)}
-   - "suggestedPrice": Realistic retail price in INR (number)
-   - "suggestedUnit": e.g. "1 Kg", "500 Grams", "250 Grams", "1 Ltr"
-   - "description": 1-2 sentence enticing consumer description
-   - "sourcingReason": Why to procure now based on customer inquiries & season
-   - "clinicalHealthBenefits": Medicinal or nutritional benefits (e.g. respiratory decongestion, immunity, low glycemic)
-   - "urgency": "high" | "medium" | "low"
-   - "targetSeason": Peak harvest window
-   - "suggestedImage": Realistic image keyword or URL placeholder
-4. "restockAlerts": List of 2 to 5 existing catalog items that are seeing heavy demand spikes or low stock, with suggested re-order quantities.
-5. "seasonalHarvestGuidance": 2 to 4 regional farm harvesting insights for Andhra Pradesh / Telangana belts (e.g. Araku Valley, Guntur, East Godavari).
+⚠️ STRICT REAL-DATA INTEGRITY RULES (CRITICAL):
+1. For "unmetDemands":
+   - VERIFIED 0-MATCH SEARCH LIST: ${JSON.stringify(verifiedUnmetDemands)}
+   - YOU MUST USE ONLY items from this verified list above. DO NOT INVENT or HALLUCINATE ANY search queries.
+   - If the list is empty: return "unmetDemands": []
+   - If the list has items: for each item in the verified list, provide categorySuggestion, lostRevenuePotential (e.g. searchCount * ₹250), and recommended sourcingAction.
+2. For "restockAlerts":
+   - VERIFIED LOW-STOCK CATALOG ITEMS: ${JSON.stringify(verifiedRestockItems)}
+   - YOU MUST USE ONLY products from this verified low-stock list. DO NOT INVENT any product names.
+   - If the list is empty: return "restockAlerts": []
+   - For each item, provide demandVelocity, recommendedRestockQty, and rationale.
+3. For "recommendedNewProducts":
+   - Suggest 4 to 8 brand-new farm crops or traditional GI-tagged organic products for Andhra Pradesh & Telangana that FarmFreshFarmer should procure and add to the catalog.
+   - Each item MUST include:
+     * "name": English product name
+     * "nameTe": Authentic Telugu script name (e.g. నాటు గులాబీలు, సేంద్రీయ దానిమ్మ, కొండ అల్లం, ఆత్రేయపురం పూతరేకులు)
+     * "categorySlug": One of ${JSON.stringify(categorySlugs)}
+     * "suggestedPrice": Realistic retail price in INR (number)
+     * "suggestedUnit": e.g. "1 Kg", "500 Grams", "250 Grams", "1 Ltr"
+     * "description": 1-2 sentence enticing consumer description
+     * "sourcingReason": Sourcing rationale based on season & regional farm belts
+     * "clinicalHealthBenefits": Medicinal or nutritional benefits
+     * "urgency": "high" | "medium" | "low"
+     * "targetSeason": Peak harvest window
+     * "suggestedImage": Realistic image URL keyword
+4. For "seasonalHarvestGuidance":
+   - Provide 2 to 4 regional farm harvesting insights for AP / Telangana belts (e.g. Araku Valley, Guntur, East Godavari, Anantapur).
+5. For "executiveSummary":
+   - 2-3 sentence strategic overview based on actual search trends and seasonal harvest.
 
 OUTPUT FORMAT:
 Return ONLY valid JSON matching this structure with NO markdown fences, NO extra text:
@@ -242,7 +264,7 @@ Return ONLY valid JSON matching this structure with NO markdown fences, NO extra
   "executiveSummary": "...",
   "unmetDemands": [
     {
-      "keyword": "...",
+      "keyword": "exact keyword from verified list",
       "searchCount": 12,
       "categorySuggestion": "...",
       "lostRevenuePotential": "₹4,800",
@@ -379,13 +401,58 @@ Return ONLY valid JSON matching this structure with NO markdown fences, NO extra
     throw new Error("Failed to parse AI procurement response. Please try again.");
   }
 
+  // ── STRICT REAL-DATA ENFORCEMENT ON OUTPUT ──
+  // 1. Unmet demands: If DB has 0 unmet searches, force empty array. If DB has unmet searches, ensure only verified keywords are shown.
+  let finalUnmetDemands: UnmetDemandItem[] = [];
+  if (verifiedUnmetDemands.length > 0) {
+    const aiUnmetMap = new Map<string, any>();
+    if (Array.isArray(parsed.unmetDemands)) {
+      for (const item of parsed.unmetDemands) {
+        if (item?.keyword) aiUnmetMap.set(String(item.keyword).toLowerCase().trim(), item);
+      }
+    }
+    finalUnmetDemands = verifiedUnmetDemands.map((v) => {
+      const aiMatch = aiUnmetMap.get(v.keyword.toLowerCase().trim());
+      return {
+        keyword: v.keyword,
+        searchCount: v.searchCount,
+        categorySuggestion: aiMatch?.categorySuggestion || "Produce",
+        lostRevenuePotential: aiMatch?.lostRevenuePotential || `₹${v.searchCount * 250}`,
+        sourcingAction: aiMatch?.sourcingAction || `Procure fresh ${v.keyword} directly from local organic farmers to fulfill customer search demand.`,
+      };
+    });
+  }
+
+  // 2. Restock alerts: Only include real low-stock products from DB
+  let finalRestockAlerts: RestockAlertItem[] = [];
+  if (verifiedRestockItems.length > 0) {
+    const aiRestockMap = new Map<string, any>();
+    if (Array.isArray(parsed.restockAlerts)) {
+      for (const item of parsed.restockAlerts) {
+        if (item?.productName) aiRestockMap.set(String(item.productName).toLowerCase().trim(), item);
+      }
+    }
+    finalRestockAlerts = verifiedRestockItems.map((p) => {
+      const aiMatch = aiRestockMap.get(p.productName.toLowerCase().trim());
+      return {
+        productId: p.productId,
+        productName: p.productName,
+        categorySlug: p.categorySlug || "produce",
+        currentStock: p.currentStock,
+        demandVelocity: aiMatch?.demandVelocity || "Accelerating Demand",
+        recommendedRestockQty: aiMatch?.recommendedRestockQty || 30,
+        rationale: aiMatch?.rationale || `Current stock is ${p.currentStock} units. Sourcing re-order required to prevent out-of-stock.`,
+      };
+    });
+  }
+
   const resultData: ProcurementAiResult = {
     generatedAt: new Date().toISOString(),
     modelUsed,
     executiveSummary: parsed.executiveSummary || "Real-time demand analysis generated successfully.",
-    unmetDemands: Array.isArray(parsed.unmetDemands) ? parsed.unmetDemands : [],
+    unmetDemands: finalUnmetDemands,
     recommendedNewProducts: Array.isArray(parsed.recommendedNewProducts) ? parsed.recommendedNewProducts : [],
-    restockAlerts: Array.isArray(parsed.restockAlerts) ? parsed.restockAlerts : [],
+    restockAlerts: finalRestockAlerts,
     seasonalHarvestGuidance: Array.isArray(parsed.seasonalHarvestGuidance) ? parsed.seasonalHarvestGuidance : [],
   };
 
