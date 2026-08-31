@@ -41,7 +41,7 @@ export default function AdminCustomers() {
   const [editPhone, setEditPhone] = useState("");
   const [editVerified, setEditVerified] = useState(false);
 
-  const { data: customers = [], isLoading } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading, isError, error, refetch } = useQuery<Customer[]>({
     queryKey: ["/api/admin/customers"],
     queryFn: () => apiGet<Customer[]>("/api/admin/customers"),
   });
@@ -435,7 +435,19 @@ export default function AdminCustomers() {
                   </td>
                 </tr>
               ))}
-              {customers.length === 0 && <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No customers yet.</td></tr>}
+              {isError && (
+                <tr>
+                  <td colSpan={10} className="p-8 text-center text-red-400 font-bold">
+                    ⚠️ Error loading customers: {(error as any)?.message || "Session verification failed"}.
+                    <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-3 h-7 text-xs border-emerald-500/40 text-emerald-400">
+                      Retry
+                    </Button>
+                  </td>
+                </tr>
+              )}
+              {!isError && customers.length === 0 && (
+                <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No customers yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
