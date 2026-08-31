@@ -59,7 +59,7 @@ const UI_STRINGS = {
     listen: "Listen",
     stop: "Stop",
     placeholder: "Type your message...",
-    poweredBy: "Powered by Gemini AI · FarmFreshFarmer",
+    poweredBy: "Powered by Lakshmi AI & Netra AI · by FarmFreshFarmer",
     viewProduct: "View Product",
     goToCart: "Go to Cart & Checkout",
     thinking: "thinking",
@@ -72,7 +72,7 @@ const UI_STRINGS = {
     listen: "सुनें",
     stop: "रोकें",
     placeholder: "यहाँ टाइप करें...",
-    poweredBy: "Gemini AI द्वारा संचालित · FarmFreshFarmer",
+    poweredBy: "Lakshmi AI & Netra AI द्वारा संचालित · by FarmFreshFarmer",
     viewProduct: "उत्पाद देखें",
     goToCart: "कार्ट पर जाएं",
     thinking: "सोच रही हूँ",
@@ -85,7 +85,7 @@ const UI_STRINGS = {
     listen: "వినండి",
     stop: "ఆపండి",
     placeholder: "ఇక్కడ టైప్ చేయండి...",
-    poweredBy: "Gemini AI ద్వారా · FarmFreshFarmer",
+    poweredBy: "Lakshmi AI & Netra AI ద్వారా · by FarmFreshFarmer",
     viewProduct: "ఉత్పత్తి చూడండి",
     goToCart: "కార్ట్కు వెళ్ళండి",
     thinking: "ఆలోచిస్తోంది",
@@ -1345,8 +1345,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                           <Sparkles size={14} className="text-amber-500 animate-pulse" />
                           <span>{msg.visionResult.title || "Netra AI Visual Analysis"}</span>
                         </div>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                          Gemini 3.6 Vision
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <span>Netra AI</span>
+                          <span className="text-[8px] text-muted-foreground font-normal">by FarmFreshFarmer</span>
                         </span>
                       </div>
 

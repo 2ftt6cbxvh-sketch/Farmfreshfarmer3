@@ -185,7 +185,7 @@ Followed immediately by your clean, well-formatted, detailed response.`;
   let mode: VisionAnalysisResult["mode"] = "general_vision";
   let title = "👁️ Netra AI Visual Analysis";
   let dataPills: Array<{ label: string; value: string; color?: string }> = [
-    { label: "AI Engine", value: "Netra Vision 3.6", color: "emerald" },
+    { label: "AI Engine", value: "Netra AI (by FarmFreshFarmer)", color: "emerald" },
   ];
   let actionSuggestions: string[] = ["Ask Lakshmi AI for more details"];
 
