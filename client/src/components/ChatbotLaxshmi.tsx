@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2, Camera, ImagePlus, Eye, Activity, HeartPulse } from "lucide-react";
@@ -1068,102 +1069,84 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <>
+    <AnimatePresence mode="wait">
       {/* ── Floating button + bubble (when closed) ── */}
       {!isOpen && (
-        <div
+        <motion.div
+          key="lakshmi-closed-pill"
+          initial={{ opacity: 0, scale: 0.88, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.88, y: 8 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[9998] flex flex-col items-end gap-2 pointer-events-auto"
-          style={{ animation: 'laxFloat 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite' }}
         >
-          {/* Animated Speech bubble */}
+          {/* Subtle Speech bubble */}
           {showFloatingBubble && (
-            <div
-              className={`relative cursor-pointer transition-all duration-700 ${
-                isFadingBubble ? 'opacity-0 translate-y-3 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
-              }`}
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.95 }}
+              animate={{ opacity: isFadingBubble ? 0 : 1, y: isFadingBubble ? 4 : 0, scale: isFadingBubble ? 0.95 : 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className="relative cursor-pointer"
               onClick={() => setIsOpen(true)}
-              style={{ animation: isFadingBubble ? 'none' : 'laxBounce 3.5s cubic-bezier(0.45,0.05,0.55,0.95) infinite' }}
             >
               <div
-                className="bg-white/96 dark:bg-zinc-800/96 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2.5 text-xs font-semibold text-gray-800 dark:text-gray-100 border border-black/8 dark:border-white/10 max-w-[210px] flex items-center justify-between gap-2"
-                style={{
-                  boxShadow: '0 12px 32px -6px rgba(5,150,105,0.18), 0 4px 12px -2px rgba(0,0,0,0.1)',
-                }}
+                className="bg-card/95 dark:bg-zinc-900/95 backdrop-blur-xl rounded-2xl rounded-br-none px-3.5 py-2 text-xs font-semibold text-foreground border border-emerald-500/25 max-w-[210px] flex items-center justify-between gap-2 shadow-lg shadow-emerald-950/20"
               >
                 <span>{customGreeting || strings.bubbleGreeting}</span>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsFadingBubble(true);
-                    setTimeout(() => setShowFloatingBubble(false), 700);
+                    setTimeout(() => setShowFloatingBubble(false), 300);
                   }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-0.5 shrink-0"
+                  className="text-muted-foreground hover:text-foreground p-0.5 shrink-0 transition-colors"
                 >
                   <X size={12} />
                 </button>
               </div>
               <div
-                className="absolute -bottom-2 right-5 w-0 h-0"
-                style={{
-                  borderLeft: '8px solid transparent',
-                  borderRight: '8px solid transparent',
-                  borderTop: '8px solid rgba(255,255,255,0.96)',
-                }}
+                className="absolute -bottom-1.5 right-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-card/95"
               />
-            </div>
+            </motion.div>
           )}
 
-          {/* Main pill button */}
-          <div className="relative" style={{ contain: 'layout style', willChange: 'transform' }}>
-            {/* The pill button - hardware accelerated & GPU optimized */}
-            <button
-              id="chatbot-open-btn"
-              onClick={() => setIsOpen(true)}
-              className="relative overflow-hidden px-3.5 py-2 flex items-center gap-1.5 rounded-full hover:scale-[1.05] active:scale-95 transition-all duration-300 cursor-pointer shadow-lg will-change-transform"
-              style={{
-                background: 'linear-gradient(135deg, #14532d 0%, #065f46 50%, #ca8a04 100%)',
-                animation: 'laxGlow 6s ease-in-out infinite',
-              }}
-              aria-label="Open Lakshmi AI assistant"
-            >
-              {/* Shimmer sweep overlay */}
-              <div
-                className="absolute inset-0 pointer-events-none rounded-full"
-                style={{
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                  animation: 'laxShimmer 4s ease-in-out infinite 1.5s',
-                }}
-              />
+          {/* Main sleek pill button without gimmicky bounce or loud strobe */}
+          <button
+            id="chatbot-open-btn"
+            onClick={() => setIsOpen(true)}
+            className="group relative overflow-hidden px-4 py-2 flex items-center gap-2 rounded-full hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-950/25 border border-emerald-500/35 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-950 text-white select-none"
+            aria-label="Open Lakshmi AI assistant"
+          >
+            {/* Ambient diya */}
+            <span className="text-base leading-none">🪔</span>
 
-              {/* Diya icon */}
-              <span className="text-lg leading-none drop-shadow relative z-10">🪔</span>
+            {/* Single line clean branding */}
+            <span className="text-xs font-black uppercase tracking-wider text-white font-sans whitespace-nowrap flex items-center gap-1.5">
+              <span>LAKSHMI AI</span>
+              <Sparkles size={11} className="text-amber-300 shrink-0" />
+            </span>
 
-              {/* Single line text */}
-              <span className="text-[11px] font-black uppercase tracking-wider text-white font-sans whitespace-nowrap drop-shadow flex items-center gap-1 relative z-10">
-                LAKSHMI AI
-                <Sparkles
-                  size={10}
-                  className="text-yellow-300 shrink-0"
-                  style={{ animation: 'laxSparklePin 3s ease-in-out infinite' }}
-                />
-              </span>
-
-              {/* Online badge dot */}
-              <span className="w-2 h-2 rounded-full bg-emerald-400 border border-white/60 shrink-0 relative z-10" />
-            </button>
-          </div>
-        </div>
+            {/* Online status dot */}
+            <span className="w-2 h-2 rounded-full bg-emerald-400 border border-white/60 shrink-0" />
+          </button>
+        </motion.div>
       )}
 
       {/* ── Chat window (when open) ── */}
       {isOpen && (
-        <div id="chatbot-window"
+        <motion.div
+          id="chatbot-window"
+          key="lakshmi-open-window"
+          initial={{ opacity: 0, scale: 0.92, y: 20, transformOrigin: "bottom right" }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 15 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
           className="fixed z-[99999] flex flex-col bg-background text-foreground rounded-3xl border border-emerald-500/30 dark:border-emerald-500/25 overflow-hidden
-            bottom-4 right-3 left-3 h-[520px] max-h-[82vh]
-            sm:left-auto sm:bottom-6 sm:right-6 sm:w-[380px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] transition-all duration-300"
-          style={{ 
-            boxShadow: '0 30px 70px -10px rgba(0, 0, 0, 0.7), 0 15px 35px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(16, 185, 129, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-          }}>
+            bottom-3 right-3 left-3 h-[520px] max-h-[84vh]
+            sm:left-auto sm:bottom-6 sm:right-6 sm:w-[390px] sm:max-w-[calc(100vw-24px)] sm:h-[580px] sm:max-h-[calc(100vh-80px)] shadow-2xl shadow-black/70 origin-bottom-right"
+        >
           {/* Header with embossed depth */}
           <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0 relative overflow-hidden"
             style={{ 
@@ -1755,11 +1738,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
             )}
             <p className="text-center text-[9px] text-gray-400 mt-1">Powered by Lakshmi AI &amp; Netra Vision 3.6 · FarmFreshFarmer</p>
           </div>
-        </div>
+        </motion.div>
       )}
-
-
-    </>,
+    </AnimatePresence>,
     document.body
   );
 }
