@@ -7,6 +7,7 @@ import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
 import { Button } from "@/components/ui/button";
+import { LakshmiAiMessageRenderer } from "./LakshmiAiMessageRenderer";
 
 /* ─── Types ───────────────────────────────────────────────────── */
 type Language = "en" | "hi" | "te";
@@ -1323,17 +1324,17 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       <img src={msg.imageUrl} alt="Uploaded image" className="w-full h-auto object-cover max-h-48 rounded-xl" />
                     </div>
                   )}
-                  <div className={`rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words leading-relaxed ${
+                  <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                     msg.role === "user"
                       ? "text-white rounded-tr-sm"
-                      : "bg-card/90 dark:bg-zinc-800/90 text-gray-800 dark:text-gray-200 rounded-tl-sm border border-card-border/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]"
+                      : "bg-card/90 dark:bg-zinc-850 text-gray-800 dark:text-gray-200 rounded-tl-sm border border-card-border/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)]"
                   }`}
                   style={msg.role === "user" ? { 
                     background: 'linear-gradient(135deg, #065f46 0%, #047857 50%, #ca8a04 100%)',
                     boxShadow: '0 4px 12px -2px rgba(6, 95, 70, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.25)',
                   } : {}}
                   >
-                    {msg.content}
+                    <LakshmiAiMessageRenderer content={msg.content} isUser={msg.role === "user"} />
                   </div>
 
                   {/* Netra Multimodal Vision AI Result Card */}
@@ -1345,7 +1346,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                           <span>{msg.visionResult.title || "Netra AI Visual Analysis"}</span>
                         </div>
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                          Pure Gemini 2.5 Vision
+                          Gemini 3.6 Vision
                         </span>
                       </div>
 
