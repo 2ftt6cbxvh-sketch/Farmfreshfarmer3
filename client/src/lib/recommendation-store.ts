@@ -298,10 +298,14 @@ export function recordHealthInquiry(topicKey: string, queryText?: string) {
   }
 }
 
-/** Reset active filters (e.g. user clears search) */
+/** Reset active filters (e.g. user returns to homepage or clears search) */
 export function clearActiveRecommendationFilters() {
+  globalState.activeCategory = undefined;
   globalState.activeSearchQuery = undefined;
   globalState.activeHealthTopic = undefined;
+  try {
+    sessionStorage.removeItem(SESSION_TRAIL_KEY);
+  } catch {}
   emitUpdate();
 }
 

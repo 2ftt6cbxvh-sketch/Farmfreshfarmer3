@@ -15,7 +15,7 @@ import { TiltCard } from "@/components/TiltCard";
 import type { Category, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AnnouncementItem } from "@/components/NotificationBell";
-import { usePersonalizedRecommendations } from "@/lib/recommendation-store";
+import { usePersonalizedRecommendations, clearActiveRecommendationFilters } from "@/lib/recommendation-store";
 
 const CAT_IMAGES: Record<string, string> = {
   fruits: "/images/cat-fruits.jpg",
@@ -30,6 +30,11 @@ const CAT_IMAGES: Record<string, string> = {
 };
 
 export default function Home() {
+  // Reset subcategory filter when landing on homepage to show farm-wide seasonal wellness picks
+  useEffect(() => {
+    clearActiveRecommendationFilters();
+  }, []);
+
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
     staleTime: 60000,

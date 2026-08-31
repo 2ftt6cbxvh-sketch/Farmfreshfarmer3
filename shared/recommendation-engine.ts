@@ -256,7 +256,7 @@ export function rankPersonalizedProducts(
   }
 
   // Active products only
-  const candidates = allProducts.filter((p) => p.active !== false && p.approvalStatus !== "rejected");
+  let candidates = allProducts.filter((p) => p.active !== false && p.approvalStatus !== "rejected");
 
   const locationCity = ctx.location?.city || "Vijayawada";
   const locationCountry = ctx.location?.country || "India";
@@ -266,6 +266,29 @@ export function rankPersonalizedProducts(
   const explicitHealthTopic = ctx.activeHealthTopic ? HEALTH_GOAL_MAP[ctx.activeHealthTopic] : detectHealthTopic(ctx.activeSearchQuery);
   const isSearchActive = Boolean(ctx.activeSearchQuery && ctx.activeSearchQuery.trim().length > 1);
   const isCategoryActive = Boolean(ctx.activeCategory && ctx.activeCategory.trim().length > 0);
+
+  // ── STRICT ISOLATION FILTERS ──
+  // If an active category is set, recommendations MUST strictly be from that category only!
+  if (isCategoryActive) {
+    const activeCat = ctx.activeCategory!.toLowerCase().trim();
+    const categoryMatches = candidates.filter((p) => (p.categorySlug || "").toLowerCase().trim() === activeCat);
+    if (categoryMatches.length > 0) {
+      candidates = categoryMatches;
+    }
+  } else if (isSearchActive) {
+    const q = ctx.activeSearchQuery!.toLowerCase().trim();
+    const searchMatches = candidates.filter((p) => {
+      const pnorm = (p.name || "").toLowerCase();
+      const ptenorm = (p.nameTe || "").toLowerCase();
+      const catnorm = (p.categorySlug || "").toLowerCase();
+      const descNorm = (p.description || "").toLowerCase();
+      return pnorm.includes(q) || ptenorm.includes(q) || catnorm.includes(q) || descNorm.includes(q);
+    });
+    if (searchMatches.length > 0) {
+      candidates = searchMatches;
+    }
+  }
+
   const hasUserProfile = Boolean(
     ctx.userProfile &&
     ((ctx.userProfile.viewedProductIds && ctx.userProfile.viewedProductIds.length > 0) ||
