@@ -8,7 +8,7 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon, Sparkles, TrendingUp, Search, HeartPulse, PieChart } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,19 @@ export default function AdminCustomers() {
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/admin/customers"],
     queryFn: () => apiGet<Customer[]>("/api/admin/customers"),
+  });
+
+  // Chief Executive Super Admin Behavioral Analytics
+  const { data: behaviorAnalytics } = useQuery<{
+    totalTrackedProfiles: number;
+    topSearches: { keyword: string; count: number }[];
+    topCategories: { category: string; count: number }[];
+    topHealthTopics: { topic: string; count: number }[];
+  }>({
+    queryKey: ["/api/admin/analytics/behavior"],
+    queryFn: () => apiGet("/api/admin/analytics/behavior"),
+    enabled: isSuperAdmin,
+    staleTime: 30000,
   });
 
   const setStatus = useMutation({
@@ -135,6 +148,109 @@ export default function AdminCustomers() {
   return (
     <AdminLayout title="Customers">
       <p className="text-sm text-muted-foreground mb-4">All registered customers, their order history, loyalty stars, and referral performance.</p>
+
+      {/* ── Chief Executive Super Admin: Behavioral Analytics & Demand Intelligence ── */}
+      {isSuperAdmin && (
+        <div className="mb-8 p-5 rounded-2xl bg-gradient-to-br from-card via-card to-emerald-950/20 border-2 border-emerald-500/30 shadow-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-500/20 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-extrabold text-foreground flex items-center gap-2">
+                  Customer Behavioral Analytics &amp; Demand Insights
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px]">
+                    Super Admin Exclusive
+                  </Badge>
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Aggregated, privacy-safe analytics on trending produce searches, category views, and Lakshmi AI health topics.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-bold text-muted-foreground">Profiles Tracked: </span>
+              <span className="text-sm font-black text-emerald-400">
+                {behaviorAnalytics?.totalTrackedProfiles ?? customers.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            {/* Top Product & Website Searches */}
+            <div className="p-3.5 rounded-xl bg-background/60 border border-card-border space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500">
+                <Search size={14} />
+                <span>Trending Product Searches</span>
+              </div>
+              {behaviorAnalytics?.topSearches && behaviorAnalytics.topSearches.length > 0 ? (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {behaviorAnalytics.topSearches.map((s, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-card border border-card-border/60">
+                      <span className="font-semibold text-foreground truncate max-w-[140px] capitalize">"{s.keyword}"</span>
+                      <Badge variant="secondary" className="text-[10px] font-bold">
+                        {s.count} search{s.count > 1 ? "es" : ""}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No search queries recorded yet.</p>
+              )}
+            </div>
+
+            {/* Top Lakshmi AI Health Queries */}
+            <div className="p-3.5 rounded-xl bg-background/60 border border-card-border space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-500">
+                <HeartPulse size={14} />
+                <span>Top Lakshmi AI Health Inquiries</span>
+              </div>
+              {behaviorAnalytics?.topHealthTopics && behaviorAnalytics.topHealthTopics.length > 0 ? (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {behaviorAnalytics.topHealthTopics.map((t, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-card border border-card-border/60">
+                      <span className="font-semibold text-foreground truncate max-w-[140px] capitalize">
+                        {t.topic.replace(/_/g, " ")}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] font-bold">
+                        {t.count} quer{t.count > 1 ? "ies" : "y"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No AI inquiries recorded yet.</p>
+              )}
+            </div>
+
+            {/* Most Visited Produce Categories */}
+            <div className="p-3.5 rounded-xl bg-background/60 border border-card-border space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400">
+                <PieChart size={14} />
+                <span>Top Browsed Categories</span>
+              </div>
+              {behaviorAnalytics?.topCategories && behaviorAnalytics.topCategories.length > 0 ? (
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  {behaviorAnalytics.topCategories.map((c, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-card border border-card-border/60">
+                      <span className="font-semibold text-foreground truncate max-w-[140px] capitalize">
+                        {c.category.replace(/-/g, " ")}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] font-bold">
+                        {c.count} view{c.count > 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No category views recorded yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isLoading ? <Skeleton className="h-64 rounded-xl" /> : (
         <div className="rounded-xl border border-card-border bg-card overflow-x-auto">
           <table className="w-full text-sm">

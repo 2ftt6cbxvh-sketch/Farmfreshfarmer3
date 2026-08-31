@@ -145,4 +145,97 @@ export function registerUserBehaviorRoutes(app: Express) {
       return res.status(500).json({ message: "Failed to fetch profile" });
     }
   });
+
+  /**
+   * GET /api/admin/analytics/behavior — Aggregated customer behavioral analytics for Chief Executive Super Admin
+   */
+  app.get("/api/admin/analytics/behavior", async (req: Request, res: Response) => {
+    try {
+      const userId = await resolveAuthUser(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Verify Super Admin access
+      const [adminUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const isSuper = Boolean(
+        adminUser?.isPrimaryAdmin === true ||
+        adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+        adminUser?.id === 1
+      );
+      if (!isSuper) {
+        return res.status(403).json({ message: "⛔ Chief Executive Super Admin access required" });
+      }
+
+      const allProfiles = await db
+        .select({
+          id: customerProfiles.id,
+          userId: customerProfiles.userId,
+          behaviorProfile: customerProfiles.behaviorProfile,
+          updatedAt: customerProfiles.updatedAt,
+        })
+        .from(customerProfiles);
+
+      const searchCounts: Record<string, number> = {};
+      const categoryCounts: Record<string, number> = {};
+      const healthTopicCounts: Record<string, number> = {};
+      let totalTrackedProfiles = 0;
+
+      for (const p of allProfiles) {
+        if (!p.behaviorProfile) continue;
+        try {
+          const data = JSON.parse(p.behaviorProfile);
+          totalTrackedProfiles++;
+
+          if (Array.isArray(data.searchQueries)) {
+            for (const q of data.searchQueries) {
+              const clean = String(q).trim().toLowerCase();
+              if (clean) searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+            }
+          }
+
+          if (Array.isArray(data.viewedCategories)) {
+            for (const c of data.viewedCategories) {
+              const clean = String(c).trim().toLowerCase();
+              if (clean) categoryCounts[clean] = (categoryCounts[clean] || 0) + 1;
+            }
+          }
+
+          if (Array.isArray(data.aiInquiryTopics)) {
+            for (const t of data.aiInquiryTopics) {
+              const clean = String(t).trim().toLowerCase();
+              if (clean) healthTopicCounts[clean] = (healthTopicCounts[clean] || 0) + 1;
+            }
+          }
+        } catch {}
+      }
+
+      // Sort and extract top items
+      const topSearches = Object.entries(searchCounts)
+        .map(([keyword, count]) => ({ keyword, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 15);
+
+      const topCategories = Object.entries(categoryCounts)
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      const topHealthTopics = Object.entries(healthTopicCounts)
+        .map(([topic, count]) => ({ topic, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      return res.json({
+        totalTrackedProfiles,
+        topSearches,
+        topCategories,
+        topHealthTopics,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("[user-behavior] Analytics error:", err?.message);
+      return res.status(500).json({ message: "Failed to generate behavior analytics" });
+    }
+  });
 }

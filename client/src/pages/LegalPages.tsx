@@ -116,6 +116,9 @@ export function TermsPage() {
         <p>
           14. All concerns or communications relating to these Terms must be communicated to us using the contact information provided on this website
         </p>
+        <p>
+          15. <strong>Aggregated Behavioral Analytics &amp; Platform Optimization:</strong> You acknowledge and agree that authorized platform administrators (Super Admin) may inspect aggregated, non-personally identifiable behavioral analytics (including trending produce search keywords, category browsing volumes, and health/wellness inquiries) strictly for inventory planning, harvest procurement, logistics optimization, and AI model quality assurance. Individual personal identification records remain strictly protected under our Privacy Policy.
+        </p>
       </div>
     </PolicyShell>
   );
@@ -137,7 +140,11 @@ export function PrivacyPage() {
       </p>
 
       <p>
-        <strong>Automated Seasonal Personalization & Behavioral Privacy-</strong> To deliver tailored seasonal organic produce recommendations and disease-preventative farm harvests (such as immune-defense produce matching regional climates and seasons), our Platform processes anonymized browsing interactions, category visits, and AI health/culinary queries in real-time. For registered accounts, this behavioral intelligence is cryptographically isolated and strictly confidential to your account. We guarantee that your private search history, wellness queries, and produce preferences are NEVER sold, shared, or made accessible to third-party advertisers, other platform users, or unauthorized third parties.
+        <strong>Automated Seasonal Personalization &amp; Behavioral Privacy-</strong> To deliver tailored seasonal organic produce recommendations and disease-preventative farm harvests (such as immune-defense produce matching regional climates and seasons), our Platform processes anonymized browsing interactions, category visits, and AI health/culinary queries in real-time. For registered accounts, this behavioral intelligence is cryptographically isolated and strictly confidential to your account. We guarantee that your private search history, wellness queries, and produce preferences are NEVER sold, shared, or made accessible to third-party advertisers, other platform users, or unauthorized third parties.
+      </p>
+
+      <p>
+        <strong>Administrative Behavioral Analytics &amp; Demand Intelligence-</strong> Authorized Chief Executive Platform Administrators may access anonymized and aggregated behavioral analytics (such as top trending produce searches, popular health and nutritional queries, and frequently visited farm categories). This analytics data is used exclusively to forecast agricultural demand, improve organic crop procurement, optimize cold-storage logistics, and enhance Lakshmi AI precision. No individual customer profile is disclosed or shared with third-party advertisers.
       </p>
 
       <p>
