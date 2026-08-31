@@ -11,6 +11,7 @@ import {
   Trash2, TrendingUp, Boxes, Truck, ShieldCheck,
   CheckCircle2, ArrowRight, Zap, RefreshCw, Key, Bot
 } from "lucide-react";
+import { VishnuAiMessageRenderer } from "./VishnuAiMessageRenderer";
 
 interface CopilotMessage {
   id: string;
@@ -341,9 +342,7 @@ export function AdminExecutiveCopilotModal() {
                         : "bg-muted/80 border border-card-border/80 text-foreground rounded-tl-sm shadow-sm"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap font-medium">
-                      {msg.content}
-                    </div>
+                    <VishnuAiMessageRenderer content={msg.content} isUser={msg.role === "user"} />
 
                     {/* Action Executed Badge */}
                     {msg.actionExecuted && (
