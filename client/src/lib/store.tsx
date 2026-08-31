@@ -345,7 +345,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const updated = currentItems.map((item) => {
             const liveProd = productsList.find((p) => p.id === item.productId);
             if (!liveProd) return item;
-            const livePrice = effectivePrice(Number(liveProd.price), Number(liveProd.discountPercent || 0));
+
+            // Resolve quantity tier base price if item.unit matches
+            let liveBasePrice = Number(liveProd.price);
+            let activeUnit = item.unit || liveProd.unit;
+
+            if (item.unit && (liveProd as any).quantityTiers) {
+              try {
+                const parsedTiers = typeof (liveProd as any).quantityTiers === "string"
+                  ? JSON.parse((liveProd as any).quantityTiers)
+                  : (liveProd as any).quantityTiers;
+                if (Array.isArray(parsedTiers)) {
+                  const matchTier = parsedTiers.find((t: any) => t.quantity?.trim()?.toLowerCase() === item.unit?.trim()?.toLowerCase());
+                  if (matchTier && Number(matchTier.price) > 0) {
+                    liveBasePrice = Number(matchTier.price);
+                    activeUnit = matchTier.quantity;
+                  }
+                }
+              } catch {}
+            }
+
+            const livePrice = effectivePrice(liveBasePrice, Number(liveProd.discountPercent || 0));
             if (Math.abs(Number(item.price) - livePrice) > 0.01 || item.name !== liveProd.name) {
               hasPriceChanged = true;
               return {
@@ -353,7 +373,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 name: liveProd.name,
                 price: livePrice,
                 image: liveProd.image || item.image,
-                unit: liveProd.unit || item.unit,
+                unit: activeUnit,
               };
             }
             return item;
@@ -378,7 +398,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const syncToDb = (updatedItems: CartItem[]) => {
     if (user) {
       apiRequest("POST", "/api/cart", {
-        items: updatedItems.map((i) => ({ productId: i.productId, qty: i.qty })),
+        items: updatedItems.map((i) => ({ productId: i.productId, qty: i.qty, unit: i.unit, price: i.price, name: i.name })),
       }).catch(() => {});
     }
   };

@@ -38,14 +38,15 @@ export interface AuthUser {
   isPermanentlyLocked?: boolean;
 }
 
-// Effective price after the product's own discount
+// Effective price after the product's own discount (clean round rupees)
 export function effectivePrice(price: number, discountPercent: number): number {
-  const p = price * (1 - (discountPercent || 0) / 100);
-  return Math.round(p * 100) / 100;
+  const p = Number(price) * (1 - (Number(discountPercent) || 0) / 100);
+  return Math.round(p);
 }
 
 export function formatINR(n: number): string {
-  return "\u20B9" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  const val = Math.round(Number(n) || 0);
+  return "₹" + val.toLocaleString("en-IN");
 }
 
 // Diet tag dot: "veg" -> green, "nonveg" -> red, else none

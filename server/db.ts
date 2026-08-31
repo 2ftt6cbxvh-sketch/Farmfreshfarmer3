@@ -273,6 +273,7 @@ export async function runAutoMigrations(): Promise<void> {
       ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_orders INTEGER NOT NULL DEFAULT 0", "customer_profiles.total_orders"],
       ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0", "customer_profiles.total_spent"],
       ["ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS behavior_profile TEXT", "customer_profiles.behavior_profile"],
+      ["ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS unit VARCHAR(64)", "cart_items.unit"],
       [`CREATE TABLE IF NOT EXISTS guest_behavior_sessions (
           id SERIAL PRIMARY KEY,
           session_id VARCHAR(128) NOT NULL UNIQUE,

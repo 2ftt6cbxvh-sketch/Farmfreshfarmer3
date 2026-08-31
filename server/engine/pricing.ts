@@ -177,26 +177,43 @@ export async function resolveLines(
     }
     const pId = p.id;
     name = p.name;
-    unit = p.unit ?? i.unit ?? "";
-    const rawPrice = Number(p.price) || 0;
+    unit = i.unit || p.unit || "";
+
+    // Resolve accurate pack size tier price
+    let rawPrice = Number(p.price) || 0;
+    if (i.unit && p.quantityTiers) {
+      try {
+        const parsedTiers = typeof p.quantityTiers === "string" ? JSON.parse(p.quantityTiers) : p.quantityTiers;
+        if (Array.isArray(parsedTiers)) {
+          const matchTier = parsedTiers.find((t: any) => t.quantity?.trim()?.toLowerCase() === i.unit?.trim()?.toLowerCase());
+          if (matchTier && Number(matchTier.price) > 0) {
+            rawPrice = Number(matchTier.price);
+            unit = matchTier.quantity;
+          }
+        }
+      } catch {}
+    } else if (i.price && Number(i.price) > 0 && i.unit && i.unit !== p.unit) {
+      rawPrice = Number(i.price);
+    }
+
     const discPercent = Number(p.discountPercent) || 0;
-    unitPrice = discPercent > 0 ? round2(rawPrice * (1 - discPercent / 100)) : rawPrice;
+    unitPrice = discPercent > 0 ? Math.round(rawPrice * (1 - discPercent / 100)) : Math.round(rawPrice);
     const gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
 
-    const baseAmount = round2(unitPrice * qty);
+    const baseAmount = Math.round(unitPrice * qty);
     const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
     const sgstPercent = sgstEnabled ? round2(gstPercent / 2) : 0;
     const effectiveGstPercent = round2(cgstPercent + sgstPercent);
 
-    const cgstAmount = round2(baseAmount * (cgstPercent / 100));
-    const sgstAmount = round2(baseAmount * (sgstPercent / 100));
-    const gstAmount = round2(cgstAmount + sgstAmount);
-    const itemSubtotal = round2(baseAmount + gstAmount);
+    const cgstAmount = Math.round(baseAmount * (cgstPercent / 100) * 100) / 100;
+    const sgstAmount = Math.round(baseAmount * (sgstPercent / 100) * 100) / 100;
+    const gstAmount = Math.round((cgstAmount + sgstAmount) * 100) / 100;
+    const itemSubtotal = Math.round(baseAmount + gstAmount);
 
-    taxableSubtotal = round2(taxableSubtotal + baseAmount);
-    totalGst = round2(totalGst + gstAmount);
-    totalCgst = round2(totalCgst + cgstAmount);
-    totalSgst = round2(totalSgst + sgstAmount);
+    taxableSubtotal = Math.round(taxableSubtotal + baseAmount);
+    totalGst = Math.round((totalGst + gstAmount) * 100) / 100;
+    totalCgst = Math.round((totalCgst + cgstAmount) * 100) / 100;
+    totalSgst = Math.round((totalSgst + sgstAmount) * 100) / 100;
 
     lines.push({
       productId: pId,

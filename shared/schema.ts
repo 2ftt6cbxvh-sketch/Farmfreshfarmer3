@@ -258,6 +258,7 @@ export const cartItems = pgTable("cart_items", {
   cartId: integer("cart_id").notNull().references(() => carts.id, { onDelete: "cascade" }),
   productId: integer("product_id").notNull(),
   qty: integer("qty").notNull().default(1),
+  unit: varchar("unit", { length: 64 }),
 });
 
 /* =============================== ORDERS =========================== */

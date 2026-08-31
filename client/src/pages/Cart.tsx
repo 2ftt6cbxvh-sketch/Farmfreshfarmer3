@@ -342,7 +342,7 @@ export default function Cart() {
   const quoteMutation = useMutation({
     mutationFn: () =>
       apiRequest("POST", "/api/price/quote", {
-        items: items.map((i) => ({ productId: i.productId, qty: i.qty })),
+        items: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, price: i.price, qty: i.qty })),
         couponCode: coupon?.code ?? null,
         referralCode: referralInput.trim() || null,
         redeemReward,
@@ -354,7 +354,7 @@ export default function Cart() {
   });
 
   // Re-fetch the live quote whenever items/coupon/referral/redeem toggle change.
-  const itemsFingerprint = items.map((i) => `${i.productId}:${i.qty}:${i.price}`).join(",");
+  const itemsFingerprint = items.map((i) => `${i.productId}:${i.unit}:${i.qty}:${i.price}`).join(",");
   useEffect(() => {
     if (items.length === 0) {
       setQuote(null);
@@ -388,11 +388,39 @@ export default function Cart() {
   const totalBundleSavings = planSavingsInfo.reduce((sum, s) => sum + (s?.savings || 0), 0);
   const totalStoreValue = planSavingsInfo.reduce((sum, s) => sum + (s?.storeValue || 0), 0);
 
+  // Gross MRP total before any produce discounts
+  const grossMrpTotal = items.reduce((sum, item) => {
+    const prod = allProducts.find((p) => p.id === item.productId);
+    let basePrice = prod ? Number(prod.price) : Number(item.price);
+    if (item.unit && prod?.quantityTiers) {
+      try {
+        const parsed = typeof prod.quantityTiers === "string" ? JSON.parse(prod.quantityTiers) : prod.quantityTiers;
+        if (Array.isArray(parsed)) {
+          const t = parsed.find((tier: any) => tier.quantity?.trim()?.toLowerCase() === item.unit?.trim()?.toLowerCase());
+          if (t && Number(t.price) > 0) basePrice = Number(t.price);
+        }
+      } catch {}
+    }
+    return sum + Math.round(basePrice * item.qty);
+  }, 0);
+
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
-  const displayDiscount = quote ? Number(quote.discount) : coupon ? Math.round(subtotal * (coupon.discountPercent / 100) * 100) / 100 : 0;
-  const totalOrderSavings = displayDiscount + totalBundleSavings;
+  const produceDiscountSavings = Math.max(0, grossMrpTotal - displaySubtotal);
+  const couponDiscountSavings = quote ? Number(quote.discount || 0) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0;
+  const firstOrderSavings = quote ? Number(quote.firstOrderDiscount || 0) : 0;
+  const referralDiscountSavings = quote ? Number(quote.referralDiscount || 0) : 0;
+  const referralRewardSavings = quote ? Number(quote.referralRewardApplied || 0) : 0;
+  const starLoyaltySavings = quote ? Number(quote.starDiscountAmount || 0) : 0;
+
+  const totalAllSavings = produceDiscountSavings + couponDiscountSavings + firstOrderSavings + referralDiscountSavings + referralRewardSavings + starLoyaltySavings + totalBundleSavings;
+
+  const taxableBase = quote ? Number(quote.taxableSubtotal) : Math.round(displaySubtotal / 1.05);
+  const totalGst = quote ? Number(quote.totalGst) : Math.round(displaySubtotal - taxableBase);
+  const cgst = quote ? Number(quote.cgst) : Math.round(totalGst / 2);
+  const sgst = quote ? Number(quote.sgst) : Math.round(totalGst / 2);
+
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
-  const isFreeDelivery = subtotal >= freeDeliveryThreshold;
+  const isFreeDelivery = displaySubtotal >= freeDeliveryThreshold;
 
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
     ? 0
@@ -405,8 +433,8 @@ export default function Cart() {
     : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
 
   const displayTotal = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
-    ? (quote ? Math.round((Number(quote.total) - Number(quote.deliveryFee)) * 100) / 100 : Math.round((subtotal - displayDiscount) * 100) / 100)
-    : (quote ? Number(quote.total) : Math.round((subtotal - displayDiscount + fallbackDeliveryFee) * 100) / 100);
+    ? (quote ? Math.round(Number(quote.total) - Number(quote.deliveryFee)) : Math.round(displaySubtotal - couponDiscountSavings))
+    : (quote ? Math.round(Number(quote.total)) : Math.round(displaySubtotal - couponDiscountSavings + fallbackDeliveryFee));
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
@@ -1040,42 +1068,120 @@ export default function Cart() {
               )}
 
               {/* Price Calculation Breakdown */}
-              <dl className="space-y-2 pt-2 border-t border-card-border text-xs">
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <dt>Items subtotal</dt>
-                  <dd className="font-mono font-bold text-foreground">{formatINR(quote ? quote.subtotal : subtotal)}</dd>
-                </div>
-
-                {totalOrderSavings > 0 && (
-                  <div className="flex justify-between items-center text-emerald-400 font-bold">
-                    <dt>Total discount savings</dt>
-                    <dd className="font-mono">- {formatINR(totalOrderSavings)}</dd>
-                  </div>
-                )}
-
-                {deliveryEnabled && (
+              <div className="space-y-2 pt-3 border-t border-card-border text-xs">
+                {/* Total MRP / Gross Value */}
+                {grossMrpTotal > displaySubtotal && (
                   <div className="flex justify-between items-center text-muted-foreground">
-                    <dt>Delivery fee</dt>
-                    <dd className="font-mono font-bold text-foreground">
-                      {effectiveDeliveryFee > 0 ? (
-                        <span>
-                          {formatINR(effectiveDeliveryFee)}{" "}
-                          <span className="text-[10px] text-muted-foreground font-normal">(Free above {formatINR(freeDeliveryThreshold)})</span>
-                        </span>
-                      ) : (
-                        <span className="text-emerald-400 font-bold">
-                          FREE
-                        </span>
-                      )}
-                    </dd>
+                    <span>Total Produce MRP</span>
+                    <span className="font-mono line-through text-muted-foreground">{formatINR(grossMrpTotal)}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center border-t border-card-border pt-3 mt-2 font-black text-base text-foreground">
-                  <dt>Grand Total</dt>
-                  <dd className="font-mono text-emerald-400 text-lg">{formatINR(displayTotal)}</dd>
+                {/* Farm-Direct Produce & Pack Volume Savings */}
+                {produceDiscountSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>Harvest & Pack Volume Savings</span>
+                    <span className="font-mono">- {formatINR(produceDiscountSavings)}</span>
+                  </div>
+                )}
+
+                {/* Items Subtotal */}
+                <div className="flex justify-between items-center text-foreground font-bold">
+                  <span>Items Subtotal</span>
+                  <span className="font-mono">{formatINR(displaySubtotal)}</span>
                 </div>
-              </dl>
+
+                {/* Subscription Bundle Savings */}
+                {totalBundleSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>Subscription Plan Bundle Discount</span>
+                    <span className="font-mono">- {formatINR(totalBundleSavings)}</span>
+                  </div>
+                )}
+
+                {/* First Order Discount */}
+                {firstOrderSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>🌱 Welcome First-Order Discount (10%)</span>
+                    <span className="font-mono">- {formatINR(firstOrderSavings)}</span>
+                  </div>
+                )}
+
+                {/* Referral Discount */}
+                {referralDiscountSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>🎁 Referral Welcome Discount (10%)</span>
+                    <span className="font-mono">- {formatINR(referralDiscountSavings)}</span>
+                  </div>
+                )}
+
+                {/* Coupon Code Discount */}
+                {couponDiscountSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>🏷️ Coupon Savings ({coupon?.code || "APPLIED"})</span>
+                    <span className="font-mono">- {formatINR(couponDiscountSavings)}</span>
+                  </div>
+                )}
+
+                {/* Star Member VIP Tier Discount */}
+                {starLoyaltySavings > 0 && (
+                  <div className="flex justify-between items-center text-amber-500 dark:text-yellow-400 font-semibold">
+                    <span>⭐ Star Loyalty VIP Discount ({quote?.starDiscountPercent || 5}%)</span>
+                    <span className="font-mono">- {formatINR(starLoyaltySavings)}</span>
+                  </div>
+                )}
+
+                {/* Referral Reward Wallet Redeemed */}
+                {referralRewardSavings > 0 && (
+                  <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
+                    <span>👛 Referral Wallet Reward Redeemed</span>
+                    <span className="font-mono">- {formatINR(referralRewardSavings)}</span>
+                  </div>
+                )}
+
+                {/* Taxable Subtotal & GST Breakdown */}
+                <div className="pt-2 pb-1 border-t border-dashed border-border/70 space-y-1.5 text-[11px] text-muted-foreground">
+                  <div className="flex justify-between items-center">
+                    <span>Taxable Base Value</span>
+                    <span className="font-mono font-medium">{formatINR(taxableBase)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>GST (CGST {formatINR(cgst)} + SGST {formatINR(sgst)})</span>
+                    <span className="font-mono font-medium">{formatINR(totalGst)}</span>
+                  </div>
+                </div>
+
+                {/* Delivery & Logistics */}
+                <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/50">
+                  <span>Delivery & Handling</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {effectiveDeliveryFee > 0 ? (
+                      <span>
+                        {formatINR(effectiveDeliveryFee)}{" "}
+                        <span className="text-[10px] text-muted-foreground font-normal">(Free above {formatINR(freeDeliveryThreshold)})</span>
+                      </span>
+                    ) : (
+                      <span className="text-emerald-500 dark:text-emerald-400 font-black">
+                        FREE
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Total Savings Highlight Pill */}
+                {totalAllSavings > 0 && (
+                  <div className="my-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] flex items-center justify-between">
+                    <span>🎉 Total Savings on this Order</span>
+                    <span className="font-mono font-black">{formatINR(totalAllSavings)}</span>
+                  </div>
+                )}
+
+                {/* Grand Total */}
+                <div className="flex justify-between items-center border-t-2 border-emerald-500/30 pt-3 mt-2 font-black text-base text-foreground">
+                  <span>Grand Total</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xl font-black">{formatINR(displayTotal)}</span>
+                </div>
+              </div>
             </div>
 
             {/* MANDATORY VERIFICATION GATEKEEPER CARDS */}

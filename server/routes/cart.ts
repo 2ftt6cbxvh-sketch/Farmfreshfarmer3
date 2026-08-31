@@ -37,31 +37,57 @@ export function registerCartRoutes(app: Express) {
       const dbItems = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
       if (dbItems.length === 0) return res.json({ items: [] });
 
-      // Consolidate duplicate productId rows if any exist in DB
-      const consolidatedMap = new Map<number, number>();
+      // Consolidate duplicate productId + unit rows if any exist in DB
+      const consolidatedKeyMap = new Map<string, { productId: number; unit: string; qty: number }>();
       for (const i of dbItems) {
         if (i.productId && i.qty > 0) {
-          consolidatedMap.set(i.productId, (consolidatedMap.get(i.productId) || 0) + i.qty);
+          const key = `${i.productId}:${i.unit || ""}`;
+          const existing = consolidatedKeyMap.get(key);
+          if (existing) {
+            existing.qty += i.qty;
+          } else {
+            consolidatedKeyMap.set(key, { productId: i.productId, unit: i.unit || "", qty: i.qty });
+          }
         }
       }
 
-      const productIds = Array.from(consolidatedMap.keys());
+      const productIds = Array.from(new Set(Array.from(consolidatedKeyMap.values()).map((v) => v.productId)));
       if (productIds.length === 0) return res.json({ items: [] });
 
       const productList = await db.select().from(products).where(inArray(products.id, productIds));
       const productMap = new Map(productList.map((p) => [p.id, p]));
 
-      const items = productIds
-        .map((pId) => {
-          const p = productMap.get(pId);
+      const items = Array.from(consolidatedKeyMap.values())
+        .map(({ productId, unit, qty }) => {
+          const p = productMap.get(productId);
           if (!p) return null;
+
+          let rawPrice = Number(p.price) || 0;
+          let activeUnit = unit || p.unit;
+
+          if (unit && p.quantityTiers) {
+            try {
+              const tiers = typeof p.quantityTiers === "string" ? JSON.parse(p.quantityTiers) : p.quantityTiers;
+              if (Array.isArray(tiers)) {
+                const match = tiers.find((t: any) => t.quantity?.trim()?.toLowerCase() === unit.trim().toLowerCase());
+                if (match && Number(match.price) > 0) {
+                  rawPrice = Number(match.price);
+                  activeUnit = match.quantity;
+                }
+              }
+            } catch {}
+          }
+
+          const disc = Number(p.discountPercent || 0);
+          const effective = disc > 0 ? Math.round(rawPrice * (1 - disc / 100)) : Math.round(rawPrice);
+
           return {
             productId: p.id,
             name: p.name,
-            unit: p.unit,
-            price: Number(p.price) * (1 - Number(p.discountPercent || 0) / 100),
+            unit: activeUnit,
+            price: effective,
             image: p.image,
-            qty: consolidatedMap.get(pId) || 1,
+            qty,
           };
         })
         .filter(Boolean);
@@ -78,19 +104,23 @@ export function registerCartRoutes(app: Express) {
     const userId = await getUserIdFromReq(req);
     if (!userId) return res.json({ status: "guest" });
 
-    const rawItems: Array<{ productId: number; qty: number }> = req.body.items || [];
+    const rawItems: Array<{ productId: number; qty: number; unit?: string }> = req.body.items || [];
 
-    // Consolidate duplicate productIds from client payload
-    const itemMap = new Map<number, number>();
+    // Consolidate duplicate productId + unit combinations from client payload
+    const itemMap = new Map<string, { productId: number; qty: number; unit?: string }>();
     for (const item of rawItems) {
       if (item && typeof item.productId === "number" && !isNaN(item.productId)) {
-        itemMap.set(item.productId, (itemMap.get(item.productId) || 0) + (Number(item.qty) || 0));
+        const key = `${item.productId}:${item.unit || ""}`;
+        const existing = itemMap.get(key);
+        if (existing) {
+          existing.qty += Number(item.qty) || 0;
+        } else {
+          itemMap.set(key, { productId: item.productId, qty: Number(item.qty) || 0, unit: item.unit });
+        }
       }
     }
 
-    const clientItems = Array.from(itemMap.entries())
-      .filter(([_, qty]) => qty > 0)
-      .map(([productId, qty]) => ({ productId, qty }));
+    const clientItems = Array.from(itemMap.values()).filter((i) => i.qty > 0);
 
     try {
       let [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
@@ -107,6 +137,7 @@ export function registerCartRoutes(app: Express) {
               cartId: userCart.id,
               productId: i.productId,
               qty: i.qty,
+              unit: i.unit || null,
             }))
           );
         }
