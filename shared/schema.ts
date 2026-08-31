@@ -879,6 +879,23 @@ export const lockdownState = pgTable("lockdown_state", {
 });
 export type LockdownState = typeof lockdownState.$inferSelect;
 
+/* ===================== MAINTENANCE STATE ======================== */
+// Single-row table (id=1 always). Use upsert to toggle.
+export const maintenanceState = pgTable("maintenance_state", {
+  id: serial("id").primaryKey(),
+  active: boolean("active").notNull().default(false),
+  headline: varchar("headline", { length: 255 }).notNull().default("Scheduled Maintenance Underway"),
+  message: text("message").notNull().default("We are currently optimizing our farm-fresh catalog and ultrafast delivery infrastructure. We will be back shortly!"),
+  estimatedEnd: timestamp("estimated_end", { withTimezone: true }),
+  estimatedMinutes: integer("estimated_minutes").default(30),
+  allowAdminBypass: boolean("allow_admin_bypass").notNull().default(true),
+  activatedBy: integer("activated_by"), // admin user id
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type MaintenanceState = typeof maintenanceState.$inferSelect;
+
 /* ================= PRODUCT APPROVAL HISTORY =================== */
 // Append-only audit trail for all product/category approval actions.
 export const productApprovalHistory = pgTable("product_approval_history", {

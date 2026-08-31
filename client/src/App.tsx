@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, CartProvider, useAuth } from "@/lib/store";
 import LockdownOverlay from "@/components/LockdownOverlay";
+import MaintenanceOverlay from "@/components/MaintenanceOverlay";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { IntroLoader } from "@/components/IntroLoader";
 import { StarBumpCelebrationModal } from "@/components/StarBumpCelebrationModal";
@@ -452,10 +453,19 @@ function TierThemeSync() {
 function AppContent() {
   const [lockdownActive, setLockdownActive] = useState(false);
   const [lockdownReason, setLockdownReason] = useState("");
+  const [maintenanceData, setMaintenanceData] = useState<{
+    active: boolean;
+    headline: string;
+    message: string;
+    estimatedEnd?: string | null;
+    estimatedMinutes?: number | null;
+    allowAdminBypass?: boolean;
+  } | null>(null);
 
   useEffect(() => {
-    const checkLockdown = async () => {
+    const checkPlatformStatus = async () => {
       try {
+        // 1. Check Lockdown status
         const res = await fetch("/api/delivery/status");
         if (res.status === 423) {
           const data = await res.json();
@@ -470,30 +480,62 @@ function AppContent() {
             setLockdownActive(false);
           }
         }
+
+        // 2. Check Maintenance status
+        const maintRes = await fetch("/api/maintenance/status");
+        if (maintRes.ok) {
+          const mData = await maintRes.json();
+          setMaintenanceData(mData);
+        }
       } catch {
         // ignore network errors
       }
     };
-    checkLockdown();
-    const interval = setInterval(checkLockdown, 60000);
+    checkPlatformStatus();
+    const interval = setInterval(checkPlatformStatus, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Strictly verify Super Admin session during lockdown
-  const isSuperAdminUser = (() => {
+  // Strictly verify Super Admin / Staff session
+  const isStaffOrAdminUser = (() => {
     try {
       const user = JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "null");
       const token = localStorage.getItem("accessToken") || localStorage.getItem("admin_token") || localStorage.getItem("token");
-      return !!(token && user && (user.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user.role === "admin" || user.role === "superadmin" || user.isPrimaryAdmin));
+      return !!(
+        token &&
+        user &&
+        (user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+          user.role === "admin" ||
+          user.role === "superadmin" ||
+          user.role === "manager_admin" ||
+          user.role === "subadmin" ||
+          user.isPrimaryAdmin)
+      );
     } catch {
       return false;
     }
   })();
 
-  // If lockdown is active and user is NOT Primary Super Admin, completely UNMOUNT the app DOM
-  // so inspecting or deleting elements via Web Inspector / DevTools / Extensions reveals ZERO content.
-  if (lockdownActive && !isSuperAdminUser) {
+  const isCurrentAdminPath =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/login"));
+
+  // 🚨 Emergency Cyberattack Lockdown Mode: Unmount everything for non-superadmins
+  if (lockdownActive && !isStaffOrAdminUser) {
     return <LockdownOverlay active={true} reason={lockdownReason} />;
+  }
+
+  // 🛠️ Scheduled Under Maintenance Mode: Show polite branded maintenance screen for storefront visitors
+  if (maintenanceData?.active && !isStaffOrAdminUser && !isCurrentAdminPath) {
+    return (
+      <MaintenanceOverlay
+        headline={maintenanceData.headline}
+        message={maintenanceData.message}
+        estimatedEnd={maintenanceData.estimatedEnd}
+        estimatedMinutes={maintenanceData.estimatedMinutes}
+        allowAdminBypass={maintenanceData.allowAdminBypass}
+      />
+    );
   }
 
   return (

@@ -237,6 +237,21 @@ export async function runAutoMigrations(): Promise<void> {
           created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
         )`, "create.email_campaigns"],
       ["CREATE INDEX IF NOT EXISTS email_campaigns_created_at_idx ON email_campaigns(created_at)", "idx.email_campaigns_created_at"],
+      [`CREATE TABLE IF NOT EXISTS maintenance_state (
+          id SERIAL PRIMARY KEY,
+          active BOOLEAN NOT NULL DEFAULT FALSE,
+          headline VARCHAR(255) NOT NULL DEFAULT 'Scheduled Maintenance Underway',
+          message TEXT NOT NULL DEFAULT 'We are currently optimizing our farm-fresh catalog and ultrafast delivery infrastructure. We will be back shortly!',
+          estimated_end TIMESTAMP WITH TIME ZONE,
+          estimated_minutes INTEGER DEFAULT 30,
+          allow_admin_bypass BOOLEAN NOT NULL DEFAULT TRUE,
+          activated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          activated_at TIMESTAMP WITH TIME ZONE,
+          deactivated_at TIMESTAMP WITH TIME ZONE,
+          updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        )`, "create.maintenance_state"],
+      ["ALTER TABLE maintenance_state ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER DEFAULT 30", "maintenance_state.estimated_minutes"],
+      ["ALTER TABLE maintenance_state ADD COLUMN IF NOT EXISTS allow_admin_bypass BOOLEAN NOT NULL DEFAULT TRUE", "maintenance_state.allow_admin_bypass"],
     ];
 
     for (const [sql, label] of stmts) {

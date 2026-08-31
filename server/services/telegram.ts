@@ -1067,10 +1067,74 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
     return { handled: true, reply };
   }
 
+  // 🛠️ MAINTENANCE MODE COMMANDS
+  if (
+    lowerText.startsWith("/maintenance on") ||
+    lowerText.startsWith("/maint on") ||
+    lowerText.startsWith("/maintenanceon")
+  ) {
+    let rawArgs = "";
+    if (lowerText.startsWith("/maintenance on")) rawArgs = text.slice(15).trim();
+    else if (lowerText.startsWith("/maint on")) rawArgs = text.slice(9).trim();
+    else if (lowerText.startsWith("/maintenanceon")) rawArgs = text.slice(14).trim();
+
+    let minutes = 30;
+    let customMsg = "";
+
+    // Parse potential duration like "30m", "1h", "45", etc.
+    if (rawArgs) {
+      const match = rawArgs.match(/^(\d+)(m|h|min|mins|hours|hour)?\s*(.*)$/i);
+      if (match) {
+        const val = parseInt(match[1], 10);
+        const unit = (match[2] || "m").toLowerCase();
+        if (unit.startsWith("h")) minutes = val * 60;
+        else minutes = val;
+        customMsg = (match[3] || "").trim();
+      } else {
+        customMsg = rawArgs;
+      }
+    }
+
+    const { setMaintenance } = await import("./maintenance");
+    const res = await setMaintenance(true, {
+      estimatedMinutes: minutes,
+      headline: "Scheduled Maintenance Underway",
+      message: customMsg || "We are currently optimizing our farm-fresh catalog and ultrafast delivery infrastructure. We will be back shortly!",
+      allowAdminBypass: true,
+      adminUserId: 1,
+    });
+
+    const reply = `🛠️ <b>UNDER MAINTENANCE MODE ACTIVATED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏱️ <b>Estimated Duration:</b> ${minutes} Minutes\n📝 <b>Message:</b> ${res.message}\n🛡️ <b>Admin Access:</b> Unrestricted (Admins can still login to Admin Panel)\n\n<i>To turn off, send:</i> <code>/maintenance off</code>`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
+  if (
+    lowerText.startsWith("/maintenance off") ||
+    lowerText.startsWith("/maint off") ||
+    lowerText.startsWith("/maintenanceoff")
+  ) {
+    const { setMaintenance } = await import("./maintenance");
+    await setMaintenance(false, { adminUserId: 1 });
+    const reply = `🟢 <b>MAINTENANCE MODE DEACTIVATED</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nStorefront is now live and accepting orders!`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
+  if (lowerText === "/maintenance" || lowerText === "/maintenance status" || lowerText === "/maint") {
+    const { getMaintenanceStatus } = await import("./maintenance");
+    const mStatus = await getMaintenanceStatus();
+    const reply = `🛠️ <b>MAINTENANCE STATUS</b>\nStatus: ${mStatus.active ? "🟡 ACTIVE (Store in Maintenance)" : "🟢 INACTIVE (Store Online)"}\n${mStatus.active ? `⏱️ Estimated Duration: ${mStatus.estimatedMinutes || 30} mins\n📝 Message: ${mStatus.message}` : "Storefront is fully accessible to customers."}`;
+    await sendRawTelegramMessage(botToken, senderChatId, reply);
+    return { handled: true, reply };
+  }
+
   if (lowerText === "/status" || lowerText === "/lock") {
     const { getLockdownStatus } = await import("./lockdown");
+    const { getMaintenanceStatus } = await import("./maintenance");
     const status = await getLockdownStatus();
-    const reply = `ℹ️ <b>SYSTEM STATUS</b>\nLockdown: ${status.active ? "🔴 ACTIVE" : "🟢 ONLINE"}\n${status.reason ? `Reason: ${status.reason}` : ""}`;
+    const mStatus = await getMaintenanceStatus();
+    const reply = `ℹ️ <b>SYSTEM STATUS OVERVIEW</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚨 Emergency Lockdown: ${status.active ? "🔴 ACTIVE" : "🟢 ONLINE"}\n${status.reason ? `• Reason: ${status.reason}\n` : ""}🛠️ Maintenance Mode: ${mStatus.active ? `🟡 ACTIVE (${mStatus.estimatedMinutes || 30}m)` : "🟢 INACTIVE"}\n\n<i>Use /help to view all executive control commands.</i>`;
     await sendRawTelegramMessage(botToken, senderChatId, reply);
     return { handled: true, reply };
   }
@@ -1194,9 +1258,12 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   if (lowerText === "/help" || lowerText === "/start") {
     const help = `🛡️ <b>SUPER ADMIN SECURITY BOT COMMANDS</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔒 <code>/lock on [reason]</code> - Activate platform lockdown
-🔓 <code>/lock off</code> - Deactivate platform lockdown
-ℹ️ <code>/status</code> - Check lockdown & platform status
+🛠️ <code>/maintenance on [mins] [msg]</code> - Activate Scheduled Maintenance
+🟢 <code>/maintenance off</code> - Deactivate Scheduled Maintenance
+📊 <code>/maintenance</code> - Check Maintenance Mode details
+🔒 <code>/lock on [reason]</code> - Activate Emergency Platform Lockdown
+🔓 <code>/lock off</code> - Deactivate Platform Lockdown
+ℹ️ <code>/status</code> - Check platform & system status
 📋 <code>/approvals</code> - View pending product & category approvals
 🔓 <code>/unlock &lt;email&gt;</code> - Unlock locked account & reset failure attempts
 🚫 <code>/subadmin block &lt;email&gt;</code> - Block a user or sub-admin

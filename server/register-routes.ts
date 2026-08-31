@@ -58,7 +58,8 @@ import { registerCartRoutes } from "./routes/cart";
 import { authRateLimit, otpRateLimit, apiRateLimit } from "./middleware/rate-limit";
 import { requireRootAdmin } from "./middleware/authorization";
 import { getJwtSecret } from "./services/encryption";
-import { lockdownMiddleware } from "./services/lockdown";
+import { lockdownMiddleware, getLockdownStatus, setLockdown } from "./services/lockdown";
+import { maintenanceMiddleware, getMaintenanceStatus, setMaintenance } from "./services/maintenance";
 import { processSecurityTelegramWebhook, processGrievanceTelegramWebhook, sendTelegramApprovalNotification } from "./services/telegram";
 import { registerAdminSecurityRoutes } from "./routes/admin/security";
 import { registerAdminWarehouseRoutes } from "./routes/admin/warehouses";
@@ -166,8 +167,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Apply general API rate limit
   app.use("/api", apiRateLimit);
 
-  // Apply lockdown middleware (allows /health, /api/admin, /api/auth)
+  // Apply lockdown middleware (emergency siren mode)
   app.use("/api", lockdownMiddleware);
+
+  // Apply maintenance middleware (customer-facing maintenance mode)
+  app.use("/api", maintenanceMiddleware);
 
   // Register JWT auth routes (parallel to session auth)
   registerAuthJwtRoutes(app);
@@ -2905,6 +2909,96 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       return res.json({ message: `✨ Test email successfully dispatched to ${recipient}! Check your inbox.` });
     } else {
       return res.status(400).json({ message: `SMTP Failure: ${result.error || "Please check your SMTP host, port, user & password settings."}` });
+    }
+  }));
+
+  /* ===================== MAINTENANCE & OPERATIONS CONTROL ==================== */
+  /** GET /api/maintenance/status — Public maintenance status */
+  app.get("/api/maintenance/status", h(async (_req, res) => {
+    const status = await getMaintenanceStatus();
+    res.json(status);
+  }));
+
+  /** POST /api/admin/maintenance — Admin toggle maintenance */
+  app.post("/api/admin/maintenance", requireAdmin, h(async (req, res) => {
+    const { active, headline, message, estimatedMinutes, allowAdminBypass } = req.body || {};
+    const adminUser = (req as any).resolvedUser || (req as any).user;
+    const status = await setMaintenance(Boolean(active), {
+      headline,
+      message,
+      estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : 30,
+      allowAdminBypass: allowAdminBypass !== false,
+      adminUserId: adminUser?.id || req.session?.userId,
+    });
+    res.json({ success: true, status });
+  }));
+
+  /** GET /api/admin/operations/status — Dashboard Operations Hub State */
+  app.get("/api/admin/operations/status", requireAdmin, h(async (_req, res) => {
+    const mStatus = await getMaintenanceStatus();
+    const lStatus = await getLockdownStatus();
+    const all = await storage.settings.all();
+    res.json({
+      maintenance: mStatus,
+      lockdown: lStatus,
+      storeOrderingEnabled: all.store_ordering_enabled !== "false",
+      codEnabled: all.cod_enabled !== "false" && all.allow_cod !== "false",
+      onlinePaymentsEnabled: all.online_payments_enabled !== "false",
+      freeDeliveryBanner: all.promo_free_delivery_banner !== "false",
+      emailAuthEnabled: all.auth_email_enabled !== "false",
+      googleAuthEnabled: all.auth_google_enabled !== "false",
+      phoneOtpEnforced: all.auth_phone_enforced !== "false",
+      telegramAlertsEnabled: all.telegram_alerts_enabled !== "false",
+    });
+  }));
+
+  /** POST /api/admin/operations/toggle — Quick Dashboard Switcher */
+  app.post("/api/admin/operations/toggle", requireAdmin, h(async (req, res) => {
+    const { key, value, extra } = req.body || {};
+    const adminUser = (req as any).resolvedUser || (req as any).user;
+    if (!key) return res.status(400).json({ message: "Key parameter is required" });
+
+    if (key === "maintenance") {
+      const mStatus = await setMaintenance(Boolean(value), {
+        ...extra,
+        adminUserId: adminUser?.id || req.session?.userId,
+      });
+      return res.json({ success: true, key, value: mStatus.active, data: mStatus });
+    }
+
+    if (key === "lockdown") {
+      await setLockdown(Boolean(value), extra?.reason || "Admin Dashboard emergency toggle", adminUser?.id || req.session?.userId);
+      const lStatus = await getLockdownStatus();
+      return res.json({ success: true, key, value: lStatus.active, data: lStatus });
+    }
+
+    const strVal = String(value);
+    await storage.settings.set(key, strVal);
+    apiCache.invalidateGroup("settings");
+
+    return res.json({ success: true, key, value: strVal });
+  }));
+
+  /** POST /api/admin/operations/test-telegram — Send instant test alert to Telegram Security Bot */
+  app.post("/api/admin/operations/test-telegram", requireAdmin, h(async (req, res) => {
+    const { getTelegramSecurityCredentials } = await import("./services/telegram");
+    const { botToken, chatId } = await getTelegramSecurityCredentials();
+    if (!botToken || !chatId) {
+      return res.status(400).json({ message: "Telegram Security Bot token or chat ID is not configured." });
+    }
+
+    const testMsg = `🔔 <b>FARM FRESH FARMER TEST PING</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Telegram Real-Time Alerts are fully CONNECTED and active!\n⏰ Timestamp: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+    const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    const tgRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: testMsg, parse_mode: "HTML" }),
+    });
+    const tgData = await tgRes.json();
+    if (tgData.ok) {
+      return res.json({ success: true, message: "Test alert dispatched to Telegram successfully!" });
+    } else {
+      return res.status(400).json({ message: tgData.description || "Failed to dispatch Telegram message." });
     }
   }));
 
