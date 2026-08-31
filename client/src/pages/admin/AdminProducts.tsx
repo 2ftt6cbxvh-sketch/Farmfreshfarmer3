@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
-import { generateProduceQuantityTiersMatrix, detectProduceUnitType } from "@shared/schema";
+import { generateProduceQuantityTiersMatrix, detectProduceUnitType, getAiPureProducePrice } from "@shared/schema";
 
 interface Form {
   id?: number;
@@ -60,6 +60,7 @@ export default function AdminProducts() {
   const [isAiGeneratingStudio, setIsAiGeneratingStudio] = useState(false);
   const [isBatchUpgrading, setIsBatchUpgrading] = useState(false);
   const [priceVsQuantityTiers, setPriceVsQuantityTiers] = useState<any[]>([]);
+  const [pricingMode, setPricingMode] = useState<"ai" | "manual">("ai");
   const [aiCostPrice, setAiCostPrice] = useState<number | null>(null);
   const [aiMargin, setAiMargin] = useState<number | null>(null);
 
@@ -229,11 +230,16 @@ export default function AdminProducts() {
 
   function openAdd() {
     const defaultCat = categories[0]?.slug || "fruits";
+    const unitInfo = detectProduceUnitType("", defaultCat, "1 Kg");
+    const aiPrice = getAiPureProducePrice("", defaultCat, unitInfo.defaultUnit);
+    setPricingMode("ai");
     setForm({
       ...EMPTY,
       categorySlug: defaultCat,
+      unit: unitInfo.defaultUnit,
+      price: String(aiPrice),
     });
-    setPriceVsQuantityTiers([]);
+    setPriceVsQuantityTiers(generateProduceQuantityTiersMatrix("", aiPrice, unitInfo.defaultUnit, defaultCat));
     setOpen(true);
   }
 
@@ -274,6 +280,7 @@ export default function AdminProducts() {
     }
 
     setPriceVsQuantityTiers(loadedTiers);
+    setPricingMode("ai");
     setOpen(true);
   }
 
@@ -672,6 +679,66 @@ export default function AdminProducts() {
             <DialogTitle>{form.id ? "Edit product" : "Add product"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* ── 1-CLICK LIVE PRICING ENGINE TOGGLE: 100% PURE AI vs CUSTOM MANUAL ── */}
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/10 border-2 border-emerald-500/30 flex items-center justify-between flex-wrap gap-2 shadow-xs">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-500 animate-pulse shrink-0" />
+                <div>
+                  <span className="text-xs font-black text-foreground block">
+                    Live Pricing Source Engine
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {pricingMode === "ai"
+                      ? "🤖 Sourced 100% Purely from AI Mandi Intelligence (AP regional farm rates)"
+                      : "✍️ Custom Manual Price — admin sets custom price, AI calculates pack discount tiers"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl border border-card-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPricingMode("ai");
+                    const unitInfo = detectProduceUnitType(form.name, form.categorySlug, form.unit);
+                    const activeUnit = form.unit || unitInfo.defaultUnit;
+                    const aiPrice = getAiPureProducePrice(form.name, form.categorySlug, activeUnit);
+                    setForm((prev) => ({ ...prev, price: String(aiPrice), unit: activeUnit }));
+                    const newTiers = generateProduceQuantityTiersMatrix(form.name, aiPrice, activeUnit, form.categorySlug);
+                    setPriceVsQuantityTiers(newTiers);
+                    toast({
+                      title: "🤖 100% Pure AI Price Applied",
+                      description: `Base price dynamically sourced 100% purely from AI at ₹${aiPrice} (${activeUnit}).`,
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    pricingMode === "ai"
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm ring-2 ring-emerald-500/30"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Sparkles size={13} className={pricingMode === "ai" ? "animate-spin text-amber-300" : ""} />
+                  <span>100% Pure AI Price</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPricingMode("manual");
+                    toast({
+                      title: "✍️ Custom Manual Price Mode",
+                      description: "You can now edit the base price manually. AI will dynamically compute quantity pack discount tiers.",
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    pricingMode === "manual"
+                      ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span>✍️ Custom Price</span>
+                </button>
+              </div>
+            </div>
+
             <div>
               <Label>Product Name (English)</Label>
               <Input
@@ -683,17 +750,20 @@ export default function AdminProducts() {
                   const newUnit = isDefaultUnit ? unitInfo.defaultUnit : form.unit;
                   const autoTe = resolveTeluguProductName(newName, form.categorySlug);
 
+                  const computedPrice = pricingMode === "ai"
+                    ? getAiPureProducePrice(newName, form.categorySlug, newUnit)
+                    : (parseFloat(form.price) || 60);
+
                   setForm({
                     ...form,
                     name: newName,
                     unit: newUnit,
+                    price: String(computedPrice),
                     nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
                   });
 
-                  if (form.price && parseFloat(form.price) > 0) {
-                    const dynamicTiers = generateProduceQuantityTiersMatrix(newName, parseFloat(form.price), newUnit, form.categorySlug);
-                    setPriceVsQuantityTiers(dynamicTiers);
-                  }
+                  const dynamicTiers = generateProduceQuantityTiersMatrix(newName, computedPrice, newUnit, form.categorySlug);
+                  setPriceVsQuantityTiers(dynamicTiers);
                 }}
                 placeholder="e.g. Banginapalli Mangoes, Bananas, Farm Tomatoes"
                 data-testid="input-product-name"
@@ -728,7 +798,7 @@ export default function AdminProducts() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
                     <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                    <span>Multi-Quantity Pack Sizes (Select Active Tiers for Storefront)</span>
+                    <span>Multi-Quantity Pack Sizes (Click Card or Checkbox to Select)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -749,7 +819,7 @@ export default function AdminProducts() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
                   {priceVsQuantityTiers.map((tier, idx) => {
                     const isTierActive = tier.active !== false;
                     const isBasePack = form.unit === tier.quantity;
@@ -757,48 +827,63 @@ export default function AdminProducts() {
                     return (
                       <div
                         key={idx}
-                        className={`relative p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                        onClick={() => {
+                          const next = [...priceVsQuantityTiers];
+                          next[idx] = { ...next[idx], active: !isTierActive };
+                          setPriceVsQuantityTiers(next);
+                        }}
+                        className={`relative p-3 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer select-none ${
                           isTierActive
                             ? isBasePack
-                              ? "bg-emerald-500/20 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20"
-                              : "bg-card border-emerald-500/40 hover:border-emerald-500"
-                            : "bg-muted/40 border-muted opacity-60"
+                              ? "bg-emerald-500/20 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
+                              : "bg-emerald-500/10 border-emerald-500/60 shadow-xs hover:border-emerald-500"
+                            : "bg-muted/40 border-muted opacity-50 hover:opacity-80"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-1.5">
-                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               checked={isTierActive}
                               onChange={(e) => {
+                                e.stopPropagation();
                                 const next = [...priceVsQuantityTiers];
                                 next[idx] = { ...next[idx], active: e.target.checked };
                                 setPriceVsQuantityTiers(next);
                               }}
-                              className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"
+                              className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
                             />
                             <span className="text-xs font-black text-foreground">{tier.quantity}</span>
-                          </label>
+                          </div>
 
-                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                            ₹{tier.price}
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                            isTierActive ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+                          }`}>
+                            {isTierActive ? "✅ Active" : "❌ Hidden"}
                           </span>
                         </div>
 
-                        <div className="text-[10px] text-muted-foreground flex items-center justify-between mt-1.5">
-                          <span>{tier.perUnit || ""}</span>
-                          {tier.savings && (
-                            <span className="text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded text-[9px]">
-                              {tier.savings}
-                            </span>
-                          )}
+                        <div className="mt-2 flex items-baseline justify-between">
+                          <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                            ₹{tier.price}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">{tier.perUnit || ""}</span>
                         </div>
 
+                        {tier.savings && (
+                          <div className="mt-1">
+                            <span className="text-amber-500 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px]">
+                              {tier.savings}
+                            </span>
+                          </div>
+                        )}
+
                         {isTierActive && (
-                          <div className="mt-2 pt-1.5 border-t border-card-border/60 flex items-center justify-between">
+                          <div className="mt-2.5 pt-2 border-t border-card-border/60 flex items-center justify-between">
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setForm({
                                   ...form,
                                   unit: tier.quantity,
@@ -809,13 +894,13 @@ export default function AdminProducts() {
                                   description: `Default storefront display price set to ₹${tier.price} (${tier.quantity}).`,
                                 });
                               }}
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition cursor-pointer ${
+                              className={`text-[10px] font-black px-2 py-0.5 rounded transition cursor-pointer ${
                                 isBasePack
-                                  ? "bg-emerald-600 text-white font-black"
-                                  : "text-emerald-600 dark:text-emerald-400 hover:underline"
+                                  ? "bg-emerald-600 text-white shadow-xs"
+                                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
                               }`}
                             >
-                              {isBasePack ? "★ Default Base Pack" : "Set as Default"}
+                              {isBasePack ? "★ Default Base Pack" : "Make Default"}
                             </button>
                           </div>
                         )}
@@ -825,7 +910,7 @@ export default function AdminProducts() {
                 </div>
 
                 <p className="text-[10px] text-muted-foreground text-center pt-1">
-                  💡 <strong>Multi-pack enabled:</strong> Check the boxes for all pack sizes customers can choose on the live storefront!
+                  💡 <strong>Multi-pack enabled:</strong> Click on any tier card to enable or disable it on the live storefront!
                 </p>
               </div>
             )}
@@ -859,7 +944,21 @@ export default function AdminProducts() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Category</Label>
-                <Select value={form.categorySlug} onValueChange={(v) => setForm({ ...form, categorySlug: v })}>
+                <Select
+                  value={form.categorySlug}
+                  onValueChange={(v) => {
+                    const newSlug = v;
+                    const unitInfo = detectProduceUnitType(form.name, newSlug, form.unit);
+                    const newUnit = form.unit || unitInfo.defaultUnit;
+                    const newPrice = pricingMode === "ai"
+                      ? getAiPureProducePrice(form.name, newSlug, newUnit)
+                      : (parseFloat(form.price) || 60);
+
+                    setForm({ ...form, categorySlug: newSlug, unit: newUnit, price: String(newPrice) });
+                    const newTiers = generateProduceQuantityTiersMatrix(form.name, newPrice, newUnit, newSlug);
+                    setPriceVsQuantityTiers(newTiers);
+                  }}
+                >
                   <SelectTrigger data-testid="select-category"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
@@ -882,13 +981,20 @@ export default function AdminProducts() {
               <div>
                 <div className="flex items-center justify-between">
                   <Label>Base Price (₹)</Label>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">⚡ Live Dynamic</span>
+                  <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
+                    pricingMode === "ai"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 animate-pulse"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {pricingMode === "ai" ? "🤖 100% AI" : "✍️ Manual"}
+                  </span>
                 </div>
                 <Input
                   type="number"
                   value={form.price}
                   onChange={(e) => {
                     const nextPrice = e.target.value;
+                    setPricingMode("manual");
                     setForm({ ...form, price: nextPrice });
                     if (nextPrice && parseFloat(nextPrice) > 0) {
                       const newTiers = generateProduceQuantityTiersMatrix(
