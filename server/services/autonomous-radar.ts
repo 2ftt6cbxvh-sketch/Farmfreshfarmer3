@@ -1,277 +1,397 @@
 /**
- * 🛰️ Autonomous Proactive Radar & Telegram Alerting Pipeline
- * ==============================================================================
- * Powered by Google Gemini AI & Telegram Multi-Bot Pipeline.
+ * 🛰️ Vishnu AI Autonomous Radar Service
+ * =======================================
+ * Proactively monitors FarmFreshFarmer operations and fires:
+ *  - Morning Harvest Procurement Briefing (6:00 AM IST daily)
+ *  - Nightly Financial & Real GST Digest (10:00 PM IST daily)
+ *  - Dispatch Bottleneck Check (every 30 minutes)
+ *  - Demand Spike Alert (fires when OOS items are searched 5+ times)
  *
- * Capabilities:
- *   1. Sourcing Demand Spike Radar: Instant alert when unlisted/out-of-stock crops are searched.
- *   2. Morning 6:00 AM Harvest Procurement Briefing: Automated strategic sourcing guidance.
- *   3. Nightly 11:30 PM Financial & GST Digest: Daily settlement & GMV breakdown.
- *   4. Anomaly & Delivery Bottleneck Radar: Detects delayed dispatches.
+ * All alerts are sent to the Super Admin Telegram channel via
+ * `sendTelegramExecutiveAlert` from the Telegram service.
  */
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
 import {
-  orders, products, customerProfiles, guestBehaviorSessions, coupons, settings
+  orders, orderItems, products, customerProfiles,
+  guestBehaviorSessions, unmetDemandEvents,
 } from "@shared/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { desc, eq, and, sql, gte } from "drizzle-orm";
 import { sendTelegramExecutiveAlert } from "./telegram";
 
-/** Retrieve Gemini API key from settings or environment */
-async function getGeminiApiKey(): Promise<string> {
+let _geminiKey = "";
+async function getKey(): Promise<string> {
+  if (_geminiKey) return _geminiKey;
   try {
     const { storage } = await import("../storage");
     const all = await storage.settings.all();
-    const k = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-    if (k.length > 5) return k;
-  } catch {}
-
-  try {
-    const allSettings = await db.select().from(settings);
-    const keySetting = allSettings.find((s) => s.key === "gemini_api_key");
-    if (keySetting && keySetting.value && keySetting.value.trim().length > 5) {
-      return keySetting.value.trim();
-    }
-  } catch {}
-
-  return (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+    _geminiKey = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+  } catch {
+    _geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+  }
+  return _geminiKey;
 }
 
-/**
- * 1. Trigger Morning Harvest Procurement Briefing to Telegram
- */
-export async function triggerHarvestBriefing(): Promise<{ ok: boolean; message: string; briefingText: string }> {
-  const allProds = await db.select().from(products).where(eq(products.active, true));
-  let allProfiles: any[] = [];
-  let allGuestSessions: any[] = [];
-  try {
-    allProfiles = await db.select().from(customerProfiles);
-  } catch (err: any) {
-    console.warn("[radar] customerProfiles fallback:", err?.message);
-  }
-  try {
-    allGuestSessions = await db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500);
-  } catch (err: any) {
-    console.warn("[radar] guestBehaviorSessions fallback:", err?.message);
-  }
-  const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
+async function callGeminiText(prompt: string): Promise<string> {
+  const key = await getKey();
+  if (!key) return "";
 
-  const searchCounts: Record<string, number> = {};
-  const healthInquiries: Record<string, number> = {};
-
-  for (const p of allBehaviorRecords) {
-    if (!p.behaviorProfile) continue;
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-3.5-flash"];
+  for (const mName of models) {
     try {
-      const data = JSON.parse(p.behaviorProfile);
-      if (Array.isArray(data.searchQueries)) {
-        for (const q of data.searchQueries) {
-          const clean = String(q).trim().toLowerCase();
-          if (clean) searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.35, maxOutputTokens: 800 },
+          }),
         }
-      }
-      if (Array.isArray(data.aiInquiryTopics)) {
-        for (const t of data.aiInquiryTopics) {
-          const clean = String(t).trim().toLowerCase();
-          if (clean) healthInquiries[clean] = (healthInquiries[clean] || 0) + 1;
-        }
-      }
-    } catch {}
-  }
-
-  const geminiKey = await getGeminiApiKey();
-  if (!geminiKey) {
-    throw new Error("Gemini API key is required to synthesize the harvest briefing.");
-  }
-
-  const prompt = `
-You are Vishnu AI. Generate a concise, highly strategic MORNING HARVEST PROCUREMENT BRIEFING for FarmFreshFarmer Super Admin.
-Operating location: Andhra Pradesh & Telangana, India.
-
-CONTEXT:
-- Active Catalog: ${allProds.length} crops
-- Recent Top Searches: ${JSON.stringify(Object.entries(searchCounts).slice(0, 15))}
-- Customer Health Inquiries: ${JSON.stringify(Object.entries(healthInquiries))}
-- Date: ${new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-
-FORMAT FOR TELEGRAM (Keep concise, use bolding, emojis, and bullet points):
-🌾 <b>EXECUTIVE MORNING HARVEST BRIEFING</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-📅 <b>Date:</b> [Today's Date]
-🧠 <b>Demand Intelligence:</b> [1-2 sentences summarizing consumer demand & weather impact]
-
-🚜 <b>TOP 4 CROPS TO PROCURE TODAY:</b>
-1. [Crop Name in English & Telugu] - [Target quantity] - [Why: based on searches/health inquiries]
-2. [Crop Name] - [Target quantity] - [Sourcing region e.g. Araku/Vizag/Guntur]
-3. [Crop Name] - [Target quantity] - [Rationale]
-4. [Crop Name] - [Target quantity] - [Rationale]
-
-📦 <b>WAREHOUSE REPLENISHMENT ADVICE:</b>
-• [1-2 practical notes on cold-storage / leafy greens packaging]
-
-<i>Generated automatically by Google Gemini AI • FarmFreshFarmer Autonomous Radar</i>
-`;
-
-  let briefingText = "";
-  const candidateModels = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
-  ];
-
-  // 1. Try REST API
-  for (const mName of candidateModels) {
-    if (briefingText) break;
-    try {
-      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
-      const res = await fetch(restUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": geminiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 1000 },
-        }),
-      });
+      );
       if (res.ok) {
         const data = await res.json();
         const parts = data?.candidates?.[0]?.content?.parts || [];
-        const actualPart = parts.find((p: any) => !p.thought && typeof p.text === "string" && p.text.trim().length > 0);
-        const text = actualPart?.text?.trim() || parts?.[0]?.text?.trim() || "";
-        if (text) {
-          briefingText = text;
-          break;
-        }
+        const text = parts.find((p: any) => !p.thought && typeof p.text === "string" && p.text.trim())?.text?.trim();
+        if (text) return text;
       }
-    } catch (err: any) {
-      console.warn(`[radar] REST model ${mName} error:`, err?.message);
-    }
+    } catch {}
   }
-
-  // 2. Fallback to SDK
-  if (!briefingText) {
-    for (const mName of candidateModels) {
-      if (briefingText) break;
-      try {
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: mName });
-        const result = await model.generateContent(prompt);
-        briefingText = (await result.response).text();
-        if (briefingText) break;
-      } catch (err: any) {
-        console.warn(`[radar] SDK model ${mName} error:`, err?.message);
-      }
-    }
-  }
-
-  // Dispatch to Super Admin Telegram
-  const sent = await sendTelegramExecutiveAlert(briefingText);
-
-  return {
-    ok: sent,
-    message: sent ? "Harvest briefing dispatched to Super Admin Telegram channel!" : "Failed to dispatch Telegram alert (check bot credentials).",
-    briefingText,
-  };
+  return "";
 }
 
-/**
- * 2. Trigger Nightly Financial & Settlement Digest to Telegram
- */
-export async function triggerFinancialDigest(): Promise<{ ok: boolean; message: string; digestText: string }> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const allOrders = await db.select().from(orders).where(sql`${orders.createdAt} >= ${todayStart.toISOString()}`);
-  const todayGmv = allOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-  const delivered = allOrders.filter((o) => o.status === "Delivered");
-  const pending = allOrders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled");
-  const cancelled = allOrders.filter((o) => o.status === "Cancelled");
+async function getSearchDemand() {
+  const searchCounts: Record<string, number> = {};
+  const healthInquiries: Record<string, number> = {};
 
-  const estGst = todayGmv * 0.05; // 5% standard organic agricultural rate
-
-  const digestText = `🌙 <b>NIGHTLY FINANCIAL &amp; SETTLEMENT DIGEST</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-📅 <b>Date:</b> ${new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-
-💰 <b>TODAY'S SALES &amp; REVENUE:</b>
-• <b>Total GMV:</b> ₹${todayGmv.toLocaleString("en-IN")}
-• <b>Delivered Orders:</b> ${delivered.length} orders
-• <b>Pending Dispatches:</b> ${pending.length} orders
-• <b>Cancelled / Refunded:</b> ${cancelled.length} orders
-• <b>Est. GST Liability (5%):</b> ₹${estGst.toLocaleString("en-IN")}
-
-📊 <b>OPERATIONAL HIGHLIGHTS:</b>
-• <b>Order Completion Rate:</b> ${allOrders.length > 0 ? Math.round((delivered.length / allOrders.length) * 100) : 100}%
-• <b>Platform Status:</b> 🟢 100% Operational
-
-<i>Generated automatically by FarmFreshFarmer Autonomous Operations Radar</i>`;
-
-  const sent = await sendTelegramExecutiveAlert(digestText);
-
-  return {
-    ok: sent,
-    message: sent ? "Financial digest dispatched to Super Admin Telegram channel!" : "Failed to dispatch Telegram message.",
-    digestText,
-  };
-}
-
-/**
- * 3. Trigger High Sourcing Demand Spike Alert
- */
-export async function triggerSourcingSpikeAlert(
-  customKeyword?: string,
-  customCount?: number
-): Promise<{ ok: boolean; message: string }> {
-  const kw = customKeyword || "Organic Honey & Ginger";
-  const count = customCount || 18;
-
-  const alertText = `🚨 <b>HIGH SOURCING DEMAND SPIKE DETECTED</b>
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌾 <b>Search Demand:</b> "${kw}"
-👥 <b>Customer Inquiries:</b> ${count} searches in past 4 hours
-📦 <b>Catalog Inventory:</b> 0 kg (Out of Stock / Unlisted)
-💸 <b>Est. Lost Revenue:</b> ~₹${(count * 240).toLocaleString("en-IN")}
-
-⚡ <b>RECOMMENDED ACTION:</b>
-Procure ${count * 2} kg from Araku / Vizag organic orchards and publish to store catalog.
-
-👉 <i>Use <code>/stock &lt;id&gt; &lt;qty&gt;</code> on Telegram to update stock instantly.</i>`;
-
-  const sent = await sendTelegramExecutiveAlert(alertText);
-
-  return {
-    ok: sent,
-    message: sent ? `Sourcing spike alert for "${kw}" sent to Telegram!` : "Failed to dispatch alert.",
-  };
-}
-
-/**
- * 4. Background Anomaly Check (Runs periodically)
- */
-export async function runBackgroundAnomalyChecks() {
   try {
-    // Check for delayed dispatches (> 3 hours in Placed/Packed)
-    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
-    const stuckOrders = await db.select().from(orders).where(
-      and(
-        sql`${orders.status} = 'Placed' OR ${orders.status} = 'Packed'`,
-        sql`${orders.createdAt} < ${threeHoursAgo.toISOString()}`
-      )
-    ).limit(10);
+    const profiles = await db.select({ bp: customerProfiles.behaviorProfile }).from(customerProfiles);
+    const guests = await db
+      .select({ bp: guestBehaviorSessions.behaviorProfile })
+      .from(guestBehaviorSessions)
+      .orderBy(desc(guestBehaviorSessions.id))
+      .limit(300);
 
-    if (stuckOrders.length > 0) {
-      const msg = `⚠️ <b>DISPATCH BOTTLENECK RADAR</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nFound <b>${stuckOrders.length} order(s)</b> placed > 3 hours ago still in packing queue:\n` +
-        stuckOrders.map((o) => `• Order #${o.id} - ${o.customerName} (₹${o.total})`).join("\n") +
-        `\n\n👉 <i>Please review Warehouse & Delivery Partner assignments.</i>`;
+    for (const r of [...profiles, ...guests]) {
+      if (!r.bp) continue;
+      try {
+        const data = JSON.parse(r.bp);
+        for (const q of data.searchQueries || []) {
+          const k = String(q).trim().toLowerCase();
+          if (k.length > 1) searchCounts[k] = (searchCounts[k] || 0) + 1;
+        }
+        for (const t of data.aiInquiryTopics || []) {
+          const k = String(t).trim().toLowerCase();
+          if (k) healthInquiries[k] = (healthInquiries[k] || 0) + 1;
+        }
+      } catch {}
+    }
+  } catch {}
 
-      await sendTelegramExecutiveAlert(msg);
+  return { searchCounts, healthInquiries };
+}
+
+// ─── 1. Morning Harvest Procurement Briefing ──────────────────────────────
+
+export async function triggerHarvestBriefing(): Promise<void> {
+  try {
+    const allProds = await db
+      .select({ id: products.id, name: products.name, stock: products.stock, categorySlug: products.categorySlug })
+      .from(products)
+      .where(eq(products.active, true));
+
+    const { searchCounts, healthInquiries } = await getSearchDemand();
+
+    const prompt = `You are Vishnu AI. Generate a concise strategic MORNING HARVEST PROCUREMENT BRIEFING for FarmFreshFarmer Super Admin in Andhra Pradesh & Telangana.
+
+CONTEXT:
+- Active Catalog: ${allProds.length} crops
+- Date: ${new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+- Top Searches This Week: ${JSON.stringify(Object.entries(searchCounts).sort((a, b) => b[1] - a[1]).slice(0, 12))}
+- Customer Health Inquiries: ${JSON.stringify(Object.entries(healthInquiries).sort((a, b) => b[1] - a[1]).slice(0, 8))}
+
+FORMAT FOR TELEGRAM (HTML, concise, use emojis, bold, bullet points):
+🌾 <b>EXECUTIVE MORNING HARVEST BRIEFING</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 <b>Date:</b> [Today's Date]
+🧠 <b>Demand Intelligence:</b> [1-2 sentences on top consumer demand, health trends, and any seasonal notes for AP/Telangana]
+
+🚜 <b>TOP 4 CROPS TO PROCURE TODAY:</b>
+1. [Crop English & Telugu Name] — [Quantity] — [Reason: demand signal or health inquiry]
+2. [Crop] — [Quantity] — [Sourcing region e.g. Araku/Vizag/Guntur/East Godavari]
+3. [Crop] — [Quantity] — [Rationale]
+4. [Crop] — [Quantity] — [Rationale]
+
+📦 <b>WAREHOUSE TIP:</b>
+• [1 brief cold-storage or leafy-green packaging note]
+
+<i>🤖 Auto-generated by Vishnu AI • FarmFreshFarmer Autonomous Radar • ${new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })}</i>`;
+
+    const brief = await callGeminiText(prompt);
+    if (brief) {
+      await sendTelegramExecutiveAlert(brief);
+      console.log("[autonomous-radar] Morning harvest briefing sent.");
     }
   } catch (err: any) {
-    console.error("[autonomous-radar] Error running anomaly check:", err.message);
+    console.error("[autonomous-radar] Morning briefing error:", err?.message);
   }
+}
+
+// ─── 2. Nightly Financial & Accurate GST Digest ──────────────────────────
+
+export async function triggerFinancialDigest(): Promise<void> {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Fetch today's orders with items for accurate per-category GST
+    const todayOrders = await db
+      .select()
+      .from(orders)
+      .where(gte(orders.createdAt, todayStart))
+      .orderBy(desc(orders.id));
+
+    const totalGmv = todayOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+    const delivered = todayOrders.filter((o) => o.status === "Delivered").length;
+    const pending = todayOrders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled").length;
+    const cancelled = todayOrders.filter((o) => o.status === "Cancelled").length;
+    const completionRate = todayOrders.length > 0 ? ((delivered / todayOrders.length) * 100).toFixed(1) : "0.0";
+
+    // Real GST per category slab (category-slug based)
+    const gstSlabs: Record<string, number> = {
+      "fresh-vegetables": 0.0, "fresh-fruits": 0.0, "greens": 0.0, "leafy": 0.0,
+      "millets": 0.05, "pulses": 0.05, "spices": 0.05,
+      "pickles": 0.05, "sweets": 0.05, "snacks-namkeen": 0.12,
+      "oils": 0.12, "honey": 0.05, "dairy": 0.0,
+    };
+
+    // Fetch order items for a sample of today's orders (max 100)
+    let estimatedGst = 0;
+    try {
+      const sampleOrderIds = todayOrders.slice(0, 100).map((o) => o.id);
+      if (sampleOrderIds.length > 0) {
+        const allItems = await db
+          .select({ productId: orderItems.productId, price: orderItems.price, qty: orderItems.quantity })
+          .from(orderItems)
+          .where(sql`${orderItems.orderId} = ANY(${sampleOrderIds})`);
+
+        // Get product categories for all products in these orders
+        const productIds = [...new Set(allItems.map((i) => i.productId).filter(Boolean))] as number[];
+        if (productIds.length > 0) {
+          const prods = await db
+            .select({ id: products.id, categorySlug: products.categorySlug })
+            .from(products)
+            .where(sql`${products.id} = ANY(${productIds})`);
+
+          const prodCatMap = new Map(prods.map((p) => [p.id, p.categorySlug || ""]));
+
+          for (const item of allItems) {
+            const slug = prodCatMap.get(item.productId as number) || "";
+            const gstRate = Object.entries(gstSlabs).find(([k]) => slug.includes(k))?.[1] ?? 0;
+            const lineTotal = Number(item.price || 0) * Number(item.qty || 1);
+            estimatedGst += lineTotal * gstRate;
+          }
+        }
+      }
+    } catch {}
+
+    const date = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric" });
+    const message = `📊 <b>NIGHTLY FINANCIAL & GST DIGEST</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 <b>Date:</b> ${date}
+
+💰 <b>Today's GMV:</b> ₹${totalGmv.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+📦 <b>Total Orders:</b> ${todayOrders.length} (${delivered} Delivered · ${pending} Pending · ${cancelled} Cancelled)
+✅ <b>Completion Rate:</b> ${completionRate}%
+🧾 <b>Est. GST Liability:</b> ₹${estimatedGst.toLocaleString("en-IN", { maximumFractionDigits: 2 })} <i>(real per-category slab: 0%/5%/12%)</i>
+
+<i>🤖 Auto-generated by Vishnu AI • FarmFreshFarmer Autonomous Radar</i>`;
+
+    await sendTelegramExecutiveAlert(message);
+    console.log("[autonomous-radar] Nightly financial digest sent.");
+  } catch (err: any) {
+    console.error("[autonomous-radar] Financial digest error:", err?.message);
+  }
+}
+
+// ─── 3. Dispatch Bottleneck Check ────────────────────────────────────────
+
+export async function runDispatchBottleneckCheck(): Promise<void> {
+  try {
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+
+    const stuckOrders = await db
+      .select({ id: orders.id, status: orders.status, total: orders.total, createdAt: orders.createdAt })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.status} IN ('Placed', 'Packed')`,
+          sql`${orders.createdAt} < ${threeHoursAgo.toISOString()}`
+        )
+      )
+      .limit(10);
+
+    if (stuckOrders.length === 0) return;
+
+    const orderList = stuckOrders
+      .map((o) => {
+        const ageMin = Math.floor((Date.now() - new Date(o.createdAt).getTime()) / 60000);
+        return `• Order #${o.id} — ${o.status} — ₹${Number(o.total || 0).toFixed(0)} — ⏱ ${ageMin} mins old`;
+      })
+      .join("\n");
+
+    const message = `⚠️ <b>DISPATCH BOTTLENECK ALERT</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${stuckOrders.length} order(s) stuck in <b>Placed / Packed</b> for over 3 hours:
+
+${orderList}
+
+👉 Please assign delivery partners or escalate warehouse re-packing immediately.
+
+<i>🤖 Vishnu AI Autonomous Radar • ${new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })}</i>`;
+
+    await sendTelegramExecutiveAlert(message);
+    console.log(`[autonomous-radar] Dispatch bottleneck alert sent for ${stuckOrders.length} stuck orders.`);
+  } catch (err: any) {
+    console.error("[autonomous-radar] Dispatch check error:", err?.message);
+  }
+}
+
+// ─── 4. Demand Spike Alert for OOS Products ──────────────────────────────
+
+export async function runDemandSpikeCheck(): Promise<void> {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    // Find items searched in last hour that are OOS
+    const recentUnmet = await db
+      .select({ query: unmetDemandEvents.query, city: unmetDemandEvents.city })
+      .from(unmetDemandEvents)
+      .where(gte(unmetDemandEvents.createdAt, oneHourAgo))
+      .limit(200);
+
+    if (recentUnmet.length === 0) return;
+
+    // Count frequency
+    const spikeMap: Record<string, { count: number; cities: Set<string> }> = {};
+    for (const r of recentUnmet) {
+      const k = r.query.toLowerCase().trim();
+      if (!spikeMap[k]) spikeMap[k] = { count: 0, cities: new Set() };
+      spikeMap[k].count++;
+      if (r.city) spikeMap[k].cities.add(r.city);
+    }
+
+    // Alert only if any item searched 5+ times in the last hour
+    const spikes = Object.entries(spikeMap).filter(([, v]) => v.count >= 5);
+    if (spikes.length === 0) return;
+
+    const spikeList = spikes
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+      .map(([item, v]) => {
+        const estRevLoss = v.count * 240;
+        const estQty = v.count * 2;
+        return `• <b>"${item}"</b> — ${v.count} searches in 1 hr — Cities: ${[...v.cities].join(", ")} — Est. lost ₹${estRevLoss} — Restock ~${estQty}kg`;
+      })
+      .join("\n");
+
+    const message = `🔥 <b>DEMAND SPIKE ALERT — UNMET SEARCHES</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Customers are urgently searching for OUT-OF-STOCK items right now:
+
+${spikeList}
+
+👉 Procure from local farmers & update stock via Vishnu AI to recover these sales!
+
+<i>🤖 Vishnu AI Autonomous Radar • ${new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })}</i>`;
+
+    await sendTelegramExecutiveAlert(message);
+    console.log(`[autonomous-radar] Demand spike alert sent for ${spikes.length} items.`);
+  } catch (err: any) {
+    console.error("[autonomous-radar] Demand spike check error:", err?.message);
+  }
+}
+
+// ─── 5. Manual Sourcing Spike Alert (for admin radar route /api/admin/radar/test-alert) ───
+
+export async function triggerSourcingSpikeAlert(
+  keyword = "Organic Honey & Ginger",
+  count = 18
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const estRevLoss = count * 240;
+    const estQty = count * 2;
+    const message = `🔥 <b>SOURCING SPIKE ALERT</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛒 <b>Item:</b> ${keyword}
+📊 <b>Searches:</b> ${count} in last hour
+💸 <b>Est. Lost Revenue:</b> ₹${estRevLoss}
+📦 <b>Recommended Restock:</b> ${estQty} kg
+
+👉 Procure from local farmers & update stock via Vishnu AI to recover these sales!
+
+<i>🤖 Vishnu AI Autonomous Radar • ${new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })}</i>`;
+
+    await sendTelegramExecutiveAlert(message);
+    return { success: true, message: `Sourcing spike alert sent for "${keyword}" (${count} searches).` };
+  } catch (err: any) {
+    console.error("[autonomous-radar] Sourcing spike alert error:", err?.message);
+    return { success: false, message: err?.message || "Failed to send alert." };
+  }
+}
+
+// ─── Scheduler Bootstrap ─────────────────────────────────────────────────
+
+let _radarStarted = false;
+
+export function startAutonomousRadar(): void {
+  if (_radarStarted) return;
+  _radarStarted = true;
+
+  console.log("[autonomous-radar] 🛰️ Vishnu AI Autonomous Radar activated.");
+
+  // Check dispatch bottlenecks every 30 minutes
+  setInterval(() => runDispatchBottleneckCheck().catch(() => {}), 30 * 60 * 1000);
+
+  // Check demand spikes every 15 minutes
+  setInterval(() => runDemandSpikeCheck().catch(() => {}), 15 * 60 * 1000);
+
+  // Schedule daily morning briefing at 6:00 AM IST and nightly digest at 10:00 PM IST
+  scheduleDaily();
+}
+
+function scheduleDaily(): void {
+  const now = new Date();
+  const IST_OFFSET = 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+
+  function msUntilTime(hour: number, minute: number): number {
+    const utcNow = now.getTime();
+    const istNow = utcNow + IST_OFFSET;
+    const istDate = new Date(istNow);
+    istDate.setUTCHours(hour - 5, minute - 30, 0, 0); // Convert IST to UTC for next occurrence
+    const target = istDate.getTime() - IST_OFFSET;
+    const diff = target - utcNow;
+    return diff > 0 ? diff : diff + 24 * 60 * 60 * 1000;
+  }
+
+  // Schedule 6:00 AM IST (harvest briefing)
+  const msToMorning = msUntilTime(6, 0);
+  setTimeout(() => {
+    triggerHarvestBriefing().catch(() => {});
+    setInterval(() => triggerHarvestBriefing().catch(() => {}), 24 * 60 * 60 * 1000);
+  }, msToMorning);
+
+  // Schedule 10:00 PM IST (nightly financial digest)
+  const msToNight = msUntilTime(22, 0);
+  setTimeout(() => {
+    triggerFinancialDigest().catch(() => {});
+    setInterval(() => triggerFinancialDigest().catch(() => {}), 24 * 60 * 60 * 1000);
+  }, msToNight);
+
+  console.log(
+    `[autonomous-radar] Morning briefing in ${Math.round(msToMorning / 60000)} min, Nightly digest in ${Math.round(msToNight / 60000)} min.`
+  );
 }

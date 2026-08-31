@@ -199,11 +199,12 @@ async function getLiveSearchAndDemandData() {
 
   return {
     totalSearchesSampled: Object.values(searchCounts).reduce((a, b) => a + b, 0),
-    topSearches: topSearches.length > 0 ? topSearches : ["Organic Mangoes (5 searches)", "Sinus relief ginger (4 searches)", "Raw Forest Honey (3 searches)"],
+    topSearches: topSearches.length > 0 ? topSearches : [],
     topCategories,
     topHealthTopics,
     trackedLoggedUsers: profiles.length,
     trackedGuestVisitors: guestSessions.length,
+    noDataYet: topSearches.length === 0 ? "No customer searches tracked yet — data grows as visitors use the storefront." : undefined,
   };
 }
 
@@ -303,6 +304,125 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
+  // Action 3: Cancel Order
+  if (actionName === "cancel_order") {
+    if (!isSuperAdmin) {
+      throw new Error("Only Super Admin can cancel orders via Vishnu AI.");
+    }
+    const { orderId, reason } = args;
+    const oid = Number(orderId);
+    if (!oid) throw new Error("Invalid order ID.");
+
+    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
+    if (!order) throw new Error(`Order #${oid} not found.`);
+    if (order.status === "Delivered" || order.status === "Cancelled") {
+      throw new Error(`Order #${oid} is already ${order.status} and cannot be cancelled.`);
+    }
+
+    await db.update(orders).set({ status: "Cancelled", updatedAt: new Date() }).where(eq(orders.id, oid));
+
+    return {
+      type: "order_cancelled",
+      description: `Cancelled Order #${oid} (was: ${order.status}). Reason: ${reason || "Admin decision via Vishnu AI"}.`,
+      details: { orderId: oid, previousStatus: order.status, cancelReason: reason },
+    };
+  }
+
+  // Action 4: Set Product Price
+  if (actionName === "set_product_price") {
+    const { productId, newPrice, note } = args;
+    const pid = Number(productId);
+    const priceVal = Number(newPrice);
+    if (!pid || isNaN(priceVal) || priceVal <= 0) throw new Error("Invalid product ID or price.");
+
+    const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
+    if (!product) throw new Error(`Product #${pid} not found.`);
+
+    await db.update(products).set({ price: String(priceVal), updatedAt: new Date() }).where(eq(products.id, pid));
+
+    return {
+      type: "price_updated",
+      description: `Updated price of "${product.name}" from ₹${product.price} → ₹${priceVal}. ${note || ""}`,
+      details: { productId: pid, name: product.name, oldPrice: product.price, newPrice: priceVal },
+    };
+  }
+
+  // Action 5: Pause (hide) a Product from Storefront
+  if (actionName === "pause_product") {
+    const { productId, reason } = args;
+    const pid = Number(productId);
+    if (!pid) throw new Error("Invalid product ID.");
+
+    const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
+    if (!product) throw new Error(`Product #${pid} not found.`);
+
+    const newActiveState = !product.active; // toggle: pause = make inactive
+    await db.update(products).set({ active: newActiveState, updatedAt: new Date() }).where(eq(products.id, pid));
+
+    return {
+      type: newActiveState ? "product_activated" : "product_paused",
+      description: `${newActiveState ? "Activated" : "Paused (hidden from storefront)"} "${product.name}". ${reason || ""}`,
+      details: { productId: pid, name: product.name, active: newActiveState },
+    };
+  }
+
+  // Action 6: Bulk Restock multiple products
+  if (actionName === "bulk_restock") {
+    if (!Array.isArray(args.items) || args.items.length === 0) {
+      throw new Error("bulk_restock requires an 'items' array: [{productId, newStock}]");
+    }
+
+    const results: any[] = [];
+    for (const item of args.items) {
+      const pid = Number(item.productId);
+      const stockVal = Number(item.newStock);
+      if (!pid || isNaN(stockVal)) continue;
+
+      const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
+      if (!product) continue;
+
+      await db.update(products).set({ stock: stockVal, updatedAt: new Date() }).where(eq(products.id, pid));
+      await db.insert(inventoryAdjustments).values({
+        productId: pid,
+        previousStock: Number(product.stock || 0),
+        newStock: stockVal,
+        changeQty: stockVal - Number(product.stock || 0),
+        reason: "restock",
+        note: `Bulk restocked via Vishnu AI by ${adminUser.name || "Admin"}`,
+        adminUserId: adminUser.id,
+      });
+      results.push({ name: product.name, oldStock: product.stock, newStock: stockVal });
+    }
+
+    return {
+      type: "bulk_restocked",
+      description: `Bulk restocked ${results.length} products via Vishnu AI.`,
+      details: results,
+    };
+  }
+
+  // Action 7: Assign Delivery Partner to an Order
+  if (actionName === "assign_delivery_partner") {
+    const { orderId, deliveryPartnerId } = args;
+    const oid = Number(orderId);
+    const dpId = Number(deliveryPartnerId);
+    if (!oid || !dpId) throw new Error("Invalid orderId or deliveryPartnerId.");
+
+    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
+    if (!order) throw new Error(`Order #${oid} not found.`);
+
+    const [partner] = await db.select().from(deliveryPartners).where(eq(deliveryPartners.id, dpId)).limit(1);
+    if (!partner) throw new Error(`Delivery partner #${dpId} not found.`);
+
+    await db.update(orders).set({ deliveryPartnerId: dpId, updatedAt: new Date() }).where(eq(orders.id, oid));
+
+    return {
+      type: "delivery_partner_assigned",
+      description: `Assigned ${partner.name} to Order #${oid} (${order.status}).`,
+      details: { orderId: oid, partnerName: partner.name, partnerId: dpId },
+    };
+  }
+
   return null;
 }
 
@@ -352,10 +472,26 @@ LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS
 
 AVAILABLE ACTIONS (FUNCTION CALLING):
 You can execute approved administrative actions by including an ACTION JSON block in your response when explicitly requested by the admin:
-1. Create Flash Coupon:
+1. Create Flash Coupon (Super Admin only):
 <<<ACTION:{"action":"create_flash_coupon","code":"FRESH15","discountPercent":15,"minOrder":199,"expiresHours":24}>>>
+
 2. Update Product Stock:
 <<<ACTION:{"action":"update_product_stock","productId":3,"newStock":80,"note":"Restocked from Vizag farm"}>>>
+
+3. Cancel Order (Super Admin only):
+<<<ACTION:{"action":"cancel_order","orderId":1234,"reason":"Customer requested via call"}>>>
+
+4. Set Product Price:
+<<<ACTION:{"action":"set_product_price","productId":5,"newPrice":85,"note":"Market rate adjustment"}>>>
+
+5. Pause/Unpause Product (toggle visibility on storefront):
+<<<ACTION:{"action":"pause_product","productId":7,"reason":"Seasonal out of stock"}>>>
+
+6. Bulk Restock Multiple Products:
+<<<ACTION:{"action":"bulk_restock","items":[{"productId":3,"newStock":50},{"productId":7,"newStock":30}]}>>>
+
+7. Assign Delivery Partner to Order:
+<<<ACTION:{"action":"assign_delivery_partner","orderId":1234,"deliveryPartnerId":2}>>>>
 
 GUIDELINES:
 - Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables where appropriate.

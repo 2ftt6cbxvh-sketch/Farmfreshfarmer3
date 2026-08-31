@@ -128,6 +128,17 @@ export const routesReadyPromise = (async () => {
     notifyDeploymentIfNewVersion("v10.1.0").catch(() => {});
   } catch {}
 
+  // Start Vishnu AI Autonomous Radar (dispatch bottleneck checks, demand spike alerts, daily briefings)
+  if (process.env.VERCEL !== "1") {
+    // Only run background timers in non-serverless environments
+    try {
+      const { startAutonomousRadar } = await import("./services/autonomous-radar");
+      startAutonomousRadar();
+    } catch (err: any) {
+      console.warn("[index] Autonomous radar startup skipped:", err?.message);
+    }
+  }
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
