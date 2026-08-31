@@ -851,12 +851,13 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       return actualPart?.text?.trim() || '';
     }
 
-    // Models sequence starting with the chosen model, followed by ultra-fast flash-lite fallbacks
+    // Models sequence starting with the chosen model (if valid), prioritized by speed:
     const candidateModels = Array.from(new Set([
-      selectedModel || 'gemini-3.5-flash',
-      'gemini-3.1-flash-lite',
+      (selectedModel && !selectedModel.includes('1.5') && !selectedModel.includes('2.0') && !selectedModel.includes('2.5')) ? selectedModel : 'gemini-3.5-flash-lite',
       'gemini-3.5-flash-lite',
-      'gemini-1.5-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-3.5-flash',
     ])).filter(Boolean);
 
     // 1. Try Native REST API with keep-alive connection & fast 4.5s failover timeout
