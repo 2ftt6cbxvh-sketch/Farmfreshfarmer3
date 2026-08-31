@@ -12,7 +12,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
-import { products, categories, customerProfiles, settings } from "@shared/schema";
+import { products, categories, customerProfiles, guestBehaviorSessions, settings } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface UnmetDemandItem {
@@ -96,14 +96,18 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   const activeProducts = allProducts.filter((p) => p.active !== false && p.approvalStatus !== "rejected");
   const allCategories = await db.select().from(categories);
 
-  // 2. Fetch live user behavioral signals
-  const allProfiles = await db.select().from(customerProfiles);
+  // 2. Fetch live customer + guest behavioral signals
+  const [allProfiles, allGuestSessions] = await Promise.all([
+    db.select().from(customerProfiles),
+    db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
+  ]);
+  const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
 
   const searchCounts: Record<string, number> = {};
   const categoryCounts: Record<string, number> = {};
   const healthInquiries: Record<string, number> = {};
 
-  for (const p of allProfiles) {
+  for (const p of allBehaviorRecords) {
     if (!p.behaviorProfile) continue;
     try {
       const data = JSON.parse(p.behaviorProfile);

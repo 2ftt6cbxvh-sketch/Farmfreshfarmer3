@@ -92,6 +92,20 @@ export const customerProfiles = pgTable("customer_profiles", {
 }));
 export type CustomerProfile = typeof customerProfiles.$inferSelect;
 
+/* =================== GUEST BEHAVIOR SESSIONS ================== */
+export const guestBehaviorSessions = pgTable("guest_behavior_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 128 }).notNull().unique(),
+  behaviorProfile: text("behavior_profile"), // compact JSON rolling window of viewed items, searches & health topics
+  ipHash: varchar("ip_hash", { length: 64 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  sessionIdx: uniqueIndex("guest_behavior_session_idx").on(t.sessionId),
+  updatedIdx: index("guest_behavior_updated_idx").on(t.updatedAt),
+}));
+export type GuestBehaviorSession = typeof guestBehaviorSessions.$inferSelect;
+
 /* ============================== ADDRESSES =========================== */
 export const addresses = pgTable("addresses", {
   id: serial("id").primaryKey(),

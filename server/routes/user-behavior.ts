@@ -1,18 +1,19 @@
 /**
- * 🔒 Secure Customer Behavioral Intelligence Route
+ * 🔒 Secure Customer & Guest Behavioral Intelligence Route
  * ==============================================================================
  * Security Invariants:
- *   - Strictly isolated to the authenticated user (Zero cross-user data leakage)
- *   - Public / Unauthenticated callers receive 401 Unauthorized
- *   - Input sanitized and bounded (Max 50 product IDs, 20 categories, 20 clean searches)
- *   - Compact JSON rolling window in customer_profiles table (< 4 KB per user)
+ *   - Strictly isolated to the authenticated user or anonymous guest session ID.
+ *   - Non-logged-in (Guest) visitors are tracked anonymously via guest_behavior_sessions.
+ *   - Input sanitized and bounded (Max 50 product IDs, 20 categories, 20 clean searches).
+ *   - Aggregated in real-time for Super Admin Behavioral Analytics & AI Sourcing Intelligence.
  */
 
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { customerProfiles, users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { customerProfiles, guestBehaviorSessions, users } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 import { getJwtSecret } from "../services/encryption";
+import { createHash, randomBytes } from "crypto";
 
 // Helper to authenticate user via session or Bearer token
 async function resolveAuthUser(req: Request): Promise<number | null> {
@@ -35,17 +36,12 @@ async function resolveAuthUser(req: Request): Promise<number | null> {
 
 export function registerUserBehaviorRoutes(app: Express) {
   /**
-   * POST /api/user/behavior/track — Update authenticated user's private rolling behavioral trail
+   * POST /api/user/behavior/track — Update logged-in user or anonymous guest behavioral trail
    */
   app.post("/api/user/behavior/track", async (req: Request, res: Response) => {
     try {
       const userId = await resolveAuthUser(req);
-      if (!userId) {
-        // Guests store behavior exclusively in client-side RAM (0ms privacy preservation)
-        return res.status(200).json({ ok: true, guest: true });
-      }
-
-      const { viewedProductIds, viewedCategories, searchQueries, aiInquiryTopics } = req.body || {};
+      const { sessionId, viewedProductIds, viewedCategories, searchQueries, aiInquiryTopics } = req.body || {};
 
       // Sanitize inputs
       const safeProductIds = Array.isArray(viewedProductIds)
@@ -70,46 +66,98 @@ export function registerUserBehaviorRoutes(app: Express) {
             .slice(0, 20)
         : undefined;
 
-      // Find or create customer profile
-      const [profile] = await db
+      // ── 1. Authenticated User Flow ──
+      if (userId) {
+        const [profile] = await db
+          .select()
+          .from(customerProfiles)
+          .where(eq(customerProfiles.userId, userId))
+          .limit(1);
+
+        let currentBehavior: any = {};
+        if (profile?.behaviorProfile) {
+          try {
+            currentBehavior = JSON.parse(profile.behaviorProfile);
+          } catch {}
+        }
+
+        const mergedBehavior = {
+          viewedProductIds: safeProductIds || currentBehavior.viewedProductIds || [],
+          viewedCategories: safeCategories || currentBehavior.viewedCategories || [],
+          searchQueries: safeSearches || currentBehavior.searchQueries || [],
+          aiInquiryTopics: safeAiTopics || currentBehavior.aiInquiryTopics || [],
+          lastUpdated: new Date().toISOString(),
+        };
+
+        const jsonString = JSON.stringify(mergedBehavior);
+
+        if (profile) {
+          await db
+            .update(customerProfiles)
+            .set({
+              behaviorProfile: jsonString,
+              updatedAt: new Date(),
+            })
+            .where(eq(customerProfiles.userId, userId));
+        } else {
+          await db.insert(customerProfiles).values({
+            userId,
+            behaviorProfile: jsonString,
+          });
+        }
+
+        return res.json({ ok: true, type: "user" });
+      }
+
+      // ── 2. Anonymous Guest Visitor Flow ──
+      const guestSid = String(
+        sessionId ||
+        req.headers["x-guest-session-id"] ||
+        `gst_${randomBytes(12).toString("hex")}`
+      ).slice(0, 128);
+
+      const ipHash = createHash("sha256").update(req.ip || "unknown").digest("hex").slice(0, 32);
+
+      const [existingGuest] = await db
         .select()
-        .from(customerProfiles)
-        .where(eq(customerProfiles.userId, userId))
+        .from(guestBehaviorSessions)
+        .where(eq(guestBehaviorSessions.sessionId, guestSid))
         .limit(1);
 
-      let currentBehavior: any = {};
-      if (profile?.behaviorProfile) {
+      let guestBehavior: any = {};
+      if (existingGuest?.behaviorProfile) {
         try {
-          currentBehavior = JSON.parse(profile.behaviorProfile);
+          guestBehavior = JSON.parse(existingGuest.behaviorProfile);
         } catch {}
       }
 
-      const mergedBehavior = {
-        viewedProductIds: safeProductIds || currentBehavior.viewedProductIds || [],
-        viewedCategories: safeCategories || currentBehavior.viewedCategories || [],
-        searchQueries: safeSearches || currentBehavior.searchQueries || [],
-        aiInquiryTopics: safeAiTopics || currentBehavior.aiInquiryTopics || [],
+      const mergedGuestBehavior = {
+        viewedProductIds: safeProductIds || guestBehavior.viewedProductIds || [],
+        viewedCategories: safeCategories || guestBehavior.viewedCategories || [],
+        searchQueries: safeSearches || guestBehavior.searchQueries || [],
+        aiInquiryTopics: safeAiTopics || guestBehavior.aiInquiryTopics || [],
         lastUpdated: new Date().toISOString(),
       };
 
-      const jsonString = JSON.stringify(mergedBehavior);
+      const guestJson = JSON.stringify(mergedGuestBehavior);
 
-      if (profile) {
+      if (existingGuest) {
         await db
-          .update(customerProfiles)
+          .update(guestBehaviorSessions)
           .set({
-            behaviorProfile: jsonString,
+            behaviorProfile: guestJson,
             updatedAt: new Date(),
           })
-          .where(eq(customerProfiles.userId, userId));
+          .where(eq(guestBehaviorSessions.sessionId, guestSid));
       } else {
-        await db.insert(customerProfiles).values({
-          userId,
-          behaviorProfile: jsonString,
+        await db.insert(guestBehaviorSessions).values({
+          sessionId: guestSid,
+          behaviorProfile: guestJson,
+          ipHash,
         });
       }
 
-      return res.json({ ok: true });
+      return res.json({ ok: true, type: "guest", sessionId: guestSid });
     } catch (err: any) {
       console.error("[user-behavior] Tracking error:", err?.message);
       return res.status(500).json({ message: "Failed to record behavior" });
@@ -147,7 +195,7 @@ export function registerUserBehaviorRoutes(app: Express) {
   });
 
   /**
-   * GET /api/admin/analytics/behavior — Aggregated customer behavioral analytics for Chief Executive Super Admin
+   * GET /api/admin/analytics/behavior — Aggregated customer + guest behavioral analytics for Chief Executive Super Admin
    */
   app.get("/api/admin/analytics/behavior", async (req: Request, res: Response) => {
     try {
@@ -167,20 +215,28 @@ export function registerUserBehaviorRoutes(app: Express) {
         return res.status(403).json({ message: "⛔ Chief Executive Super Admin access required" });
       }
 
-      const allProfiles = await db
-        .select({
+      const [allProfiles, allGuestSessions] = await Promise.all([
+        db.select({
           id: customerProfiles.id,
           userId: customerProfiles.userId,
           behaviorProfile: customerProfiles.behaviorProfile,
           updatedAt: customerProfiles.updatedAt,
-        })
-        .from(customerProfiles);
+        }).from(customerProfiles),
+        db.select({
+          id: guestBehaviorSessions.id,
+          sessionId: guestBehaviorSessions.sessionId,
+          behaviorProfile: guestBehaviorSessions.behaviorProfile,
+          updatedAt: guestBehaviorSessions.updatedAt,
+        }).from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
+      ]);
 
       const searchCounts: Record<string, number> = {};
       const categoryCounts: Record<string, number> = {};
       const healthTopicCounts: Record<string, number> = {};
       let totalTrackedProfiles = 0;
+      let totalGuestSessions = 0;
 
+      // Process logged in users
       for (const p of allProfiles) {
         if (!p.behaviorProfile) continue;
         try {
@@ -210,24 +266,56 @@ export function registerUserBehaviorRoutes(app: Express) {
         } catch {}
       }
 
+      // Process guest / non-logged in sessions
+      for (const g of allGuestSessions) {
+        if (!g.behaviorProfile) continue;
+        try {
+          const data = JSON.parse(g.behaviorProfile);
+          totalGuestSessions++;
+
+          if (Array.isArray(data.searchQueries)) {
+            for (const q of data.searchQueries) {
+              const clean = String(q).trim().toLowerCase();
+              if (clean) searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+            }
+          }
+
+          if (Array.isArray(data.viewedCategories)) {
+            for (const c of data.viewedCategories) {
+              const clean = String(c).trim().toLowerCase();
+              if (clean) categoryCounts[clean] = (categoryCounts[clean] || 0) + 1;
+            }
+          }
+
+          if (Array.isArray(data.aiInquiryTopics)) {
+            for (const t of data.aiInquiryTopics) {
+              const clean = String(t).trim().toLowerCase();
+              if (clean) healthTopicCounts[clean] = (healthTopicCounts[clean] || 0) + 1;
+            }
+          }
+        } catch {}
+      }
+
       // Sort and extract top items
       const topSearches = Object.entries(searchCounts)
         .map(([keyword, count]) => ({ keyword, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 15);
+        .slice(0, 20);
 
       const topCategories = Object.entries(categoryCounts)
         .map(([category, count]) => ({ category, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .slice(0, 15);
 
       const topHealthTopics = Object.entries(healthTopicCounts)
         .map(([topic, count]) => ({ topic, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .slice(0, 15);
 
       return res.json({
         totalTrackedProfiles,
+        totalGuestSessions,
+        totalCombinedVisitors: totalTrackedProfiles + totalGuestSessions,
         topSearches,
         topCategories,
         topHealthTopics,

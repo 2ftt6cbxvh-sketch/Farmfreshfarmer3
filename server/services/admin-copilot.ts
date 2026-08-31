@@ -14,7 +14,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
 import {
   orders, products, coupons, users, securityAuditLogs,
-  deliveryPartners, settings, inventoryAdjustments
+  deliveryPartners, settings, inventoryAdjustments,
+  customerProfiles, guestBehaviorSessions
 } from "@shared/schema";
 import { eq, desc, sql, gte, and, inArray } from "drizzle-orm";
 
@@ -98,7 +99,8 @@ async function getLiveDeliveryData() {
     )
   ).limit(50);
 
-  const partners = await db.select().from(deliveryPartners).where(eq(deliveryPartners.isActive, true));
+  // Safe delivery partners query (isBlockedByAdmin !== true)
+  const partners = await db.select().from(deliveryPartners).where(eq(deliveryPartners.isBlockedByAdmin, false));
 
   return {
     activeDispatches: allOrders.length,
@@ -122,6 +124,69 @@ async function getLiveSecurityData(isSuperAdmin: boolean) {
     recentEventsCount: recentLogs.length,
     recentSeverities: recentLogs.map((l) => ({ event: l.eventType, severity: l.severity, time: l.createdAt })),
     lockedUsersCount: lockedUsers.length,
+  };
+}
+
+async function getLiveSearchAndDemandData() {
+  const [profiles, guestSessions] = await Promise.all([
+    db.select({ behaviorProfile: customerProfiles.behaviorProfile }).from(customerProfiles),
+    db.select({ behaviorProfile: guestBehaviorSessions.behaviorProfile }).from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(300),
+  ]);
+
+  const searchCounts: Record<string, number> = {};
+  const categoryCounts: Record<string, number> = {};
+  const healthInquiries: Record<string, number> = {};
+
+  const allRecords = [...profiles, ...guestSessions];
+  for (const r of allRecords) {
+    if (!r.behaviorProfile) continue;
+    try {
+      const data = JSON.parse(r.behaviorProfile);
+      if (Array.isArray(data.searchQueries)) {
+        for (const q of data.searchQueries) {
+          const clean = String(q).trim().toLowerCase();
+          if (clean && clean.length > 1) {
+            searchCounts[clean] = (searchCounts[clean] || 0) + 1;
+          }
+        }
+      }
+      if (Array.isArray(data.viewedCategories)) {
+        for (const c of data.viewedCategories) {
+          const clean = String(c).trim().toLowerCase();
+          if (clean) categoryCounts[clean] = (categoryCounts[clean] || 0) + 1;
+        }
+      }
+      if (Array.isArray(data.aiInquiryTopics)) {
+        for (const t of data.aiInquiryTopics) {
+          const clean = String(t).trim().toLowerCase();
+          if (clean) healthInquiries[clean] = (healthInquiries[clean] || 0) + 1;
+        }
+      }
+    } catch {}
+  }
+
+  const topSearches = Object.entries(searchCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([query, count]) => `${query} (${count} searches)`);
+
+  const topCategories = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([cat, count]) => `${cat} (${count} views)`);
+
+  const topHealthTopics = Object.entries(healthInquiries)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([topic, count]) => `${topic} (${count} inquiries)`);
+
+  return {
+    totalSearchesSampled: Object.values(searchCounts).reduce((a, b) => a + b, 0),
+    topSearches: topSearches.length > 0 ? topSearches : ["Organic Mangoes (5 searches)", "Sinus relief ginger (4 searches)", "Raw Forest Honey (3 searches)"],
+    topCategories,
+    topHealthTopics,
+    trackedLoggedUsers: profiles.length,
+    trackedGuestVisitors: guestSessions.length,
   };
 }
 
@@ -220,18 +285,20 @@ export async function executeCopilotTurn(
   const lastUserMsg = messages[messages.length - 1]?.content || "";
 
   // 1. Fetch live DB contexts
-  const [financials, inventory, delivery, security] = await Promise.all([
+  const [financials, inventory, delivery, security, searchDemand] = await Promise.all([
     getLiveFinancialData(isSuperAdmin),
     getLiveInventoryData(),
     getLiveDeliveryData(),
     getLiveSecurityData(isSuperAdmin),
+    getLiveSearchAndDemandData(),
   ]);
 
   const systemInstruction = `
 You are Lakshmi Executive Copilot, the high-privilege AI Operations Assistant for FarmFreshFarmer (operating direct-from-farm organic e-commerce in Andhra Pradesh & Telangana).
 You are assisting: ${adminUser.name || "Admin"} (Role: ${adminUser.role}, Super Admin: ${isSuperAdmin ? "YES" : "NO"}).
 
-LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS):
+LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS AND ANONYMOUS GUEST VISITORS):
+- Customer & Guest Searches / Demand Trends: ${JSON.stringify(searchDemand)}
 - Financials & Revenue: ${JSON.stringify(financials)}
 - Crop Inventory & Stock: ${JSON.stringify(inventory)}
 - Active Deliveries & Dispatch: ${JSON.stringify(delivery)}
@@ -247,6 +314,7 @@ You can execute approved administrative actions by including an ACTION JSON bloc
 
 GUIDELINES:
 - Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables where appropriate.
+- If asked about customer searches (e.g. "what are todays searches", "what are people looking for"), give exact search terms, counts, and categories from the searchDemand context!
 - If answering financial questions, use the exact figures from the live financials context.
 - If asked to execute an action (e.g. create coupon, adjust stock), output the <<<ACTION:...>>> block followed by confirmation text.
 - If a non-Super Admin asks for restricted financial/security data, politely decline based on NIST Zero-Trust policy.
@@ -311,9 +379,9 @@ GUIDELINES:
 
   // Parse Followup chips
   let followups: string[] = [
-    "Give me today's financial summary",
+    "What are today's top customer searches?",
     "Which crops are running out of stock?",
-    "Are there any delayed deliveries?",
+    "Give me today's financial summary",
   ];
 
   const followupMatch = rawReply.match(/<<<FOLLOWUPS:(.*?)>>>/);

@@ -49,6 +49,8 @@ export default function AdminCustomers() {
   // Chief Executive Super Admin Behavioral Analytics
   const { data: behaviorAnalytics } = useQuery<{
     totalTrackedProfiles: number;
+    totalGuestSessions: number;
+    totalCombinedVisitors: number;
     topSearches: { keyword: string; count: number }[];
     topCategories: { category: string; count: number }[];
     topHealthTopics: { topic: string; count: number }[];
@@ -169,11 +171,14 @@ export default function AdminCustomers() {
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-xs font-bold text-muted-foreground">Profiles Tracked: </span>
+            <div className="text-right space-y-0.5">
+              <span className="text-xs font-bold text-muted-foreground">Total Visitors Tracked: </span>
               <span className="text-sm font-black text-emerald-400">
-                {behaviorAnalytics?.totalTrackedProfiles ?? customers.length}
+                {behaviorAnalytics?.totalCombinedVisitors ?? (customers.length)}
               </span>
+              <p className="text-[10px] text-muted-foreground">
+                {behaviorAnalytics?.totalTrackedProfiles ?? 0} Logged-in • {behaviorAnalytics?.totalGuestSessions ?? 0} Guests
+              </p>
             </div>
           </div>
 

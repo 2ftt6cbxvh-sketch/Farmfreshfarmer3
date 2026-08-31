@@ -127,12 +127,25 @@ if (typeof window !== "undefined") {
  * SECURE BACKEND BEHAVIOR SYNC (Logged-In User)
  * ───────────────────────────────────────────────────────────────────────────── */
 
+function getOrCreateGuestSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let sid = localStorage.getItem("fff_guest_session_id");
+  if (!sid) {
+    sid = "gst_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    try {
+      localStorage.setItem("fff_guest_session_id", sid);
+    } catch {}
+  }
+  return sid;
+}
+
 async function syncBehaviorToBackend(update: Partial<UserBehaviorProfile>) {
   try {
-    const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
-    if (!token) return; // Guest user — stays local in browser RAM
-
-    await apiRequest("POST", "/api/user/behavior/track", update).catch(() => {});
+    const sessionId = getOrCreateGuestSessionId();
+    await apiRequest("POST", "/api/user/behavior/track", {
+      ...update,
+      sessionId,
+    }).catch(() => {});
   } catch {}
 }
 

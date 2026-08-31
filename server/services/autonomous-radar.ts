@@ -13,7 +13,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "../db";
 import {
-  orders, products, customerProfiles, coupons, settings
+  orders, products, customerProfiles, guestBehaviorSessions, coupons, settings
 } from "@shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { sendTelegramExecutiveAlert } from "./telegram";
@@ -36,12 +36,16 @@ async function getGeminiApiKey(): Promise<string> {
  */
 export async function triggerHarvestBriefing(): Promise<{ ok: boolean; message: string; briefingText: string }> {
   const allProds = await db.select().from(products).where(eq(products.active, true));
-  const allProfiles = await db.select().from(customerProfiles);
+  const [allProfiles, allGuestSessions] = await Promise.all([
+    db.select().from(customerProfiles),
+    db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
+  ]);
+  const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
 
   const searchCounts: Record<string, number> = {};
   const healthInquiries: Record<string, number> = {};
 
-  for (const p of allProfiles) {
+  for (const p of allBehaviorRecords) {
     if (!p.behaviorProfile) continue;
     try {
       const data = JSON.parse(p.behaviorProfile);
