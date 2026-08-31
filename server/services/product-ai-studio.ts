@@ -9,7 +9,7 @@
  */
 
 import { db } from "../db";
-import { products, securityAuditLogs } from "@shared/schema";
+import { products, securityAuditLogs, generateProduceQuantityTiersMatrix, detectProduceUnitType } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getFarmFreshMasterApiKey, getLakshmiApiKey } from "./gemini-keys";
 import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
@@ -183,6 +183,9 @@ export async function generateProductStudioPackage(params: {
   const heroImage = resolveStudioHeroImage(name, categorySlug);
   const fallbackTe = resolveTeluguProductName(name, categorySlug) || `${name} (సేంద్రీయ)`;
 
+  const defaultUnitInfo = detectProduceUnitType(name, categorySlug, unit || "");
+  const activeUnit = unit || defaultUnitInfo.defaultUnit;
+
   const defaultPrice = categorySlug.includes("sweet") || categorySlug.includes("pickle") ? 320 : 60;
   const defaultCost = Math.round(defaultPrice * 0.65);
 
@@ -195,16 +198,10 @@ export async function generateProductStudioPackage(params: {
     costPrice: defaultCost,
     discountPercent: 10,
     profitMarginPercent: 35,
-    unit,
+    unit: activeUnit,
     dietTag: categorySlug.includes("non-veg") ? "nonveg" : "veg",
     image: heroImage,
-    priceVsQuantity: [
-      { quantity: "250g", price: Math.round(defaultPrice * 0.3), perUnit: `₹${Math.round(defaultPrice * 1.2)}/kg`, savings: "Trial Pack" },
-      { quantity: "500g", price: Math.round(defaultPrice * 0.55), perUnit: `₹${Math.round(defaultPrice * 1.1)}/kg`, savings: "5% Savings (Popular)" },
-      { quantity: "1 Kg", price: defaultPrice, perUnit: `₹${defaultPrice}/kg`, savings: "10% Savings (Best Value)", isPopular: true },
-      { quantity: "3 Kg", price: Math.round(defaultPrice * 2.7), perUnit: `₹${Math.round(defaultPrice * 0.9)}/kg`, savings: "15% Family Pack" },
-      { quantity: "5 Kg", price: Math.round(defaultPrice * 4.2), perUnit: `₹${Math.round(defaultPrice * 0.84)}/kg`, savings: "20% Wholesale Farm Crate" },
-    ],
+    priceVsQuantity: generateProduceQuantityTiersMatrix(name, defaultPrice, activeUnit, categorySlug),
   };
 
   if (!apiKey) {
@@ -298,19 +295,15 @@ export async function batchUpgradeAllProductsInDb(): Promise<{
     let defaultPrice = Number(prod.price) || 60;
     if (defaultPrice <= 0) defaultPrice = 60;
 
-    const baseKgPrice = prod.unit?.toLowerCase().includes("250")
-      ? defaultPrice * 4
-      : prod.unit?.toLowerCase().includes("500")
-      ? defaultPrice * 2
-      : defaultPrice;
+    const defaultUnitInfo = detectProduceUnitType(prod.name, prod.categorySlug, prod.unit || "");
+    const activeUnit = prod.unit || defaultUnitInfo.defaultUnit;
 
-    const qtyTiers: QuantityTier[] = [
-      { quantity: "250g", price: Math.round(baseKgPrice * 0.3), perUnit: `₹${Math.round(baseKgPrice * 1.2)}/kg`, savings: "Trial Pack", active: true },
-      { quantity: "500g", price: Math.round(baseKgPrice * 0.55), perUnit: `₹${Math.round(baseKgPrice * 1.1)}/kg`, savings: "5% Savings (Popular)", active: true },
-      { quantity: "1 Kg", price: Math.round(baseKgPrice), perUnit: `₹${Math.round(baseKgPrice)}/kg`, savings: "10% OFF (Best Value)", isPopular: true, active: true },
-      { quantity: "3 Kg", price: Math.round(baseKgPrice * 2.7), perUnit: `₹${Math.round(baseKgPrice * 0.9)}/kg`, savings: "15% Family Pack", active: true },
-      { quantity: "5 Kg", price: Math.round(baseKgPrice * 4.2), perUnit: `₹${Math.round(baseKgPrice * 0.84)}/kg`, savings: "20% Wholesale Crate", active: true },
-    ];
+    const qtyTiers: QuantityTier[] = generateProduceQuantityTiersMatrix(
+      prod.name,
+      defaultPrice,
+      activeUnit,
+      prod.categorySlug
+    );
 
     const richDescription = `100% naturally grown, certified chemical-free ${prod.name} (${teluguName}) sourced directly from local Andhra Pradesh partner farms. Harvested fresh daily with zero artificial ripening agents, synthetic pesticides, or chemical preservatives. Packed fresh for direct doorstep delivery.`;
 
@@ -318,6 +311,7 @@ export async function batchUpgradeAllProductsInDb(): Promise<{
     await db.update(products).set({
       image: heroImage,
       nameTe: teluguName,
+      unit: activeUnit,
       description: richDescription,
       quantityTiers: JSON.stringify(qtyTiers),
       updatedAt: new Date(),

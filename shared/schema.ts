@@ -1113,3 +1113,318 @@ export const emergencyRecoveryCodes = pgTable("emergency_recovery_codes", {
   userIdIdx: index("emergency_recovery_codes_user_id_idx").on(t.userId),
 }));
 export type EmergencyRecoveryCode = typeof emergencyRecoveryCodes.$inferSelect;
+
+/* ================= PRODUCE UNIT & DYNAMIC PRICING ENGINE ================= */
+export type ProduceUnitType = "weight" | "dozen" | "bunch" | "piece" | "count";
+
+export interface ProduceTypeInfo {
+  unitType: ProduceUnitType;
+  defaultUnit: string;
+  unitLabel: string;
+}
+
+/**
+ * Accurately detects whether a produce item is sold by Weight (kg/g), Dozens (bananas),
+ * Bunches (spinach/leafy greens), Single Pieces (coconuts/watermelons), or Count (lemons).
+ */
+export function detectProduceUnitType(productName: string, categorySlug: string = "", unit: string = ""): ProduceTypeInfo {
+  const norm = (productName + " " + unit + " " + categorySlug).toLowerCase();
+
+  // 1. Dozen / Banana-specific
+  if (norm.includes("banana") || norm.includes("arati") || norm.includes("kela") || norm.includes("dozen")) {
+    return { unitType: "dozen", defaultUnit: "1 Dozen", unitLabel: "Dozen" };
+  }
+
+  // 2. Leafy greens / Bunch-specific
+  if (
+    norm.includes("spinach") ||
+    norm.includes("palak") ||
+    norm.includes("palakura") ||
+    norm.includes("palakoora") ||
+    norm.includes("coriander") ||
+    norm.includes("kothimeera") ||
+    norm.includes("cilantro") ||
+    norm.includes("mint") ||
+    norm.includes("pudina") ||
+    norm.includes("methi") ||
+    norm.includes("menthikura") ||
+    norm.includes("gongura") ||
+    norm.includes("curry leaves") ||
+    norm.includes("karivepaku") ||
+    norm.includes("bunch") ||
+    norm.includes("bundle")
+  ) {
+    return { unitType: "bunch", defaultUnit: "1 Bunch", unitLabel: "Bunch" };
+  }
+
+  // 3. Single Large Fruit / Piece-specific
+  if (
+    norm.includes("coconut") ||
+    norm.includes("kobbari") ||
+    norm.includes("watermelon") ||
+    norm.includes("tarbooja") ||
+    norm.includes("papaya") ||
+    norm.includes("boppayi") ||
+    norm.includes("pineapple") ||
+    norm.includes("anasa") ||
+    norm.includes("jackfruit") ||
+    norm.includes("panasa") ||
+    norm.includes("cabbage") ||
+    norm.includes("cauliflower") ||
+    norm.includes("piece")
+  ) {
+    return { unitType: "piece", defaultUnit: "1 Piece", unitLabel: "Piece" };
+  }
+
+  // 4. Small count / pack items
+  if (
+    norm.includes("lemon") ||
+    norm.includes("nimma") ||
+    norm.includes("sweet corn") ||
+    norm.includes("corn") ||
+    norm.includes("mokkajonna") ||
+    norm.includes("custard apple") ||
+    norm.includes("seethaphal") ||
+    norm.includes("sapota") ||
+    norm.includes("egg")
+  ) {
+    return { unitType: "count", defaultUnit: "4 Pieces", unitLabel: "Pieces" };
+  }
+
+  // 5. Default: Weight-based (Tomatoes, Potatoes, Onions, Dal, Millets, Sweets, Namkeen, Pickles)
+  return { unitType: "weight", defaultUnit: "1 Kg", unitLabel: "Kg" };
+}
+
+/**
+ * Dynamically computes a realistic 5-tier multi-quantity pricing matrix for any given produce
+ * based on its base unit and base price with farm-direct volume discounts.
+ */
+export function generateProduceQuantityTiersMatrix(
+  productName: string,
+  basePriceInput: number | string,
+  unitInput: string = "",
+  categorySlug: string = ""
+): QuantityTier[] {
+  let price = typeof basePriceInput === "string" ? parseFloat(basePriceInput) : basePriceInput;
+  if (isNaN(price) || price <= 0) price = 60;
+
+  const { unitType } = detectProduceUnitType(productName, categorySlug, unitInput);
+
+  // ── 1. DOZEN (e.g. Bananas) ──────────────────────────────────────────────
+  if (unitType === "dozen") {
+    // Treat price as 1 Dozen price
+    const dPrice = unitInput.toLowerCase().includes("half") || unitInput.toLowerCase().includes("6")
+      ? price * 2
+      : price;
+
+    return [
+      {
+        quantity: "6 Pcs (Half Dozen)",
+        price: Math.round(dPrice * 0.55),
+        perUnit: `₹${Math.round(dPrice * 1.1)}/dz`,
+        savings: "Trial Pack",
+        active: true,
+      },
+      {
+        quantity: "1 Dozen (12 pcs)",
+        price: Math.round(dPrice),
+        perUnit: `₹${Math.round(dPrice)}/dz`,
+        savings: "Standard Pack",
+        isPopular: true,
+        active: true,
+      },
+      {
+        quantity: "2 Dozen (24 pcs)",
+        price: Math.round(dPrice * 1.85),
+        perUnit: `₹${Math.round(dPrice * 0.925)}/dz`,
+        savings: "8% Savings (Family Pack)",
+        active: true,
+      },
+      {
+        quantity: "5 Dozen (Wholesale Crate)",
+        price: Math.round(dPrice * 4.2),
+        perUnit: `₹${Math.round(dPrice * 0.84)}/dz`,
+        savings: "16% Wholesale Crate",
+        active: true,
+      },
+      {
+        quantity: "10 Dozen (Bulk Party Pack)",
+        price: Math.round(dPrice * 8.0),
+        perUnit: `₹${Math.round(dPrice * 0.8)}/dz`,
+        savings: "20% Bulk Savings",
+        active: true,
+      },
+    ];
+  }
+
+  // ── 2. BUNCH (e.g. Spinach, Coriander, Mint, Methi) ─────────────────────
+  if (unitType === "bunch") {
+    const bPrice = price; // Treat price as 1 Bunch price
+
+    return [
+      {
+        quantity: "1 Bunch",
+        price: Math.round(bPrice),
+        perUnit: `₹${Math.round(bPrice)}/bunch`,
+        savings: "Fresh Daily Pick",
+        active: true,
+      },
+      {
+        quantity: "2 Bunches",
+        price: Math.round(bPrice * 1.9),
+        perUnit: `₹${Math.round(bPrice * 0.95)}/bunch`,
+        savings: "5% Savings",
+        active: true,
+      },
+      {
+        quantity: "3 Bunches",
+        price: Math.round(bPrice * 2.7),
+        perUnit: `₹${Math.round(bPrice * 0.9)}/bunch`,
+        savings: "10% OFF (Best Value)",
+        isPopular: true,
+        active: true,
+      },
+      {
+        quantity: "5 Bunches (Family Pack)",
+        price: Math.round(bPrice * 4.2),
+        perUnit: `₹${Math.round(bPrice * 0.84)}/bunch`,
+        savings: "16% Savings",
+        active: true,
+      },
+      {
+        quantity: "10 Bunches (Fresh Crate)",
+        price: Math.round(bPrice * 8.0),
+        perUnit: `₹${Math.round(bPrice * 0.8)}/bunch`,
+        savings: "20% Wholesale",
+        active: true,
+      },
+    ];
+  }
+
+  // ── 3. SINGLE PIECE (e.g. Coconut, Watermelon, Papaya, Cabbage) ─────────
+  if (unitType === "piece") {
+    const pPrice = price; // Treat price as 1 Piece price
+
+    return [
+      {
+        quantity: "1 Piece",
+        price: Math.round(pPrice),
+        perUnit: `₹${Math.round(pPrice)}/pc`,
+        savings: "Single Fresh",
+        active: true,
+      },
+      {
+        quantity: "2 Pieces (Twin Pack)",
+        price: Math.round(pPrice * 1.9),
+        perUnit: `₹${Math.round(pPrice * 0.95)}/pc`,
+        savings: "5% OFF",
+        active: true,
+      },
+      {
+        quantity: "4 Pieces (Family Box)",
+        price: Math.round(pPrice * 3.6),
+        perUnit: `₹${Math.round(pPrice * 0.9)}/pc`,
+        savings: "10% OFF (Best Value)",
+        isPopular: true,
+        active: true,
+      },
+      {
+        quantity: "8 Pieces (Farm Crate)",
+        price: Math.round(pPrice * 6.8),
+        perUnit: `₹${Math.round(pPrice * 0.85)}/pc`,
+        savings: "15% Wholesale",
+        active: true,
+      },
+    ];
+  }
+
+  // ── 4. COUNT (e.g. Lemons, Sweet Corn, Custard Apples) ───────────────────
+  if (unitType === "count") {
+    const base4Price = price;
+
+    return [
+      {
+        quantity: "4 Pieces",
+        price: Math.round(base4Price),
+        perUnit: `₹${Math.round(base4Price / 4)}/pc`,
+        savings: "Daily Pack",
+        active: true,
+      },
+      {
+        quantity: "8 Pieces",
+        price: Math.round(base4Price * 1.9),
+        perUnit: `₹${Math.round((base4Price * 1.9) / 8)}/pc`,
+        savings: "5% OFF",
+        active: true,
+      },
+      {
+        quantity: "15 Pieces (Family Pack)",
+        price: Math.round(base4Price * 3.3),
+        perUnit: `₹${Math.round((base4Price * 3.3) / 15)}/pc`,
+        savings: "12% OFF (Best Value)",
+        isPopular: true,
+        active: true,
+      },
+      {
+        quantity: "30 Pieces (Bulk Crate)",
+        price: Math.round(base4Price * 6.0),
+        perUnit: `₹${Math.round((base4Price * 6.0) / 30)}/pc`,
+        savings: "20% OFF Bulk",
+        active: true,
+      },
+    ];
+  }
+
+  // ── 5. WEIGHT-BASED (e.g. Tomatoes, Potatoes, Onions, Mangoes, Dal, Sweets) ─
+  // Normalize base price to 1 Kg
+  const uLower = (unitInput || "1 Kg").toLowerCase();
+  let baseKgPrice = price;
+  if (uLower.includes("250g") || uLower.includes("250 g") || uLower.includes("250 gram")) {
+    baseKgPrice = price * 4;
+  } else if (uLower.includes("500g") || uLower.includes("500 g") || uLower.includes("500 gram")) {
+    baseKgPrice = price * 2;
+  } else if (uLower.includes("2 kg") || uLower.includes("2kg")) {
+    baseKgPrice = price / 2;
+  } else if (uLower.includes("5 kg") || uLower.includes("5kg")) {
+    baseKgPrice = price / 5;
+  }
+
+  return [
+    {
+      quantity: "250g",
+      price: Math.round(baseKgPrice * 0.28),
+      perUnit: `₹${Math.round(baseKgPrice * 1.12)}/kg`,
+      savings: "Trial Pack",
+      active: true,
+    },
+    {
+      quantity: "500g",
+      price: Math.round(baseKgPrice * 0.52),
+      perUnit: `₹${Math.round(baseKgPrice * 1.04)}/kg`,
+      savings: "5% Savings (Popular)",
+      active: true,
+    },
+    {
+      quantity: "1 Kg",
+      price: Math.round(baseKgPrice),
+      perUnit: `₹${Math.round(baseKgPrice)}/kg`,
+      savings: "10% OFF (Best Value)",
+      isPopular: true,
+      active: true,
+    },
+    {
+      quantity: "3 Kg",
+      price: Math.round(baseKgPrice * 2.7),
+      perUnit: `₹${Math.round(baseKgPrice * 0.9)}/kg`,
+      savings: "15% Family Pack",
+      active: true,
+    },
+    {
+      quantity: "5 Kg",
+      price: Math.round(baseKgPrice * 4.2),
+      perUnit: `₹${Math.round(baseKgPrice * 0.84)}/kg`,
+      savings: "20% Wholesale Crate",
+      active: true,
+    },
+  ];
+}

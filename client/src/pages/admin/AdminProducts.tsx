@@ -22,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
+import { generateProduceQuantityTiersMatrix, detectProduceUnitType } from "@shared/schema";
 
 interface Form {
   id?: number;
@@ -227,14 +228,19 @@ export default function AdminProducts() {
   }
 
   function openAdd() {
+    const defaultCat = categories[0]?.slug || "fruits";
     setForm({
       ...EMPTY,
-      categorySlug: categories[0]?.slug || "fruits",
+      categorySlug: defaultCat,
     });
     setPriceVsQuantityTiers([]);
     setOpen(true);
   }
+
   function openEdit(p: Product) {
+    const unitInfo = detectProduceUnitType(p.name, p.categorySlug, p.unit || "");
+    const activeUnit = p.unit || unitInfo.defaultUnit;
+
     setForm({
       id: p.id,
       name: p.name,
@@ -244,7 +250,7 @@ export default function AdminProducts() {
       price: String(p.price),
       discountPercent: String(p.discountPercent),
       gstPercent: p.gstPercent != null ? String(p.gstPercent) : "",
-      unit: p.unit,
+      unit: activeUnit,
       image: p.image,
       stock: String(p.stock),
       dietTag: p.dietTag,
@@ -252,16 +258,22 @@ export default function AdminProducts() {
       featuredInHero: (p as any).featuredInHero ?? false,
       allowInternationalShipping: (p as any).allowInternationalShipping !== false,
     });
+
+    let loadedTiers: any[] = [];
     if ((p as any).quantityTiers) {
       try {
         const parsed = JSON.parse((p as any).quantityTiers);
-        setPriceVsQuantityTiers(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setPriceVsQuantityTiers([]);
-      }
-    } else {
-      setPriceVsQuantityTiers([]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          loadedTiers = parsed;
+        }
+      } catch {}
     }
+
+    if (loadedTiers.length === 0) {
+      loadedTiers = generateProduceQuantityTiersMatrix(p.name, Number(p.price), activeUnit, p.categorySlug);
+    }
+
+    setPriceVsQuantityTiers(loadedTiers);
     setOpen(true);
   }
 
@@ -365,6 +377,10 @@ export default function AdminProducts() {
       }
     } catch (_err) {
       // Instant Client Fallback Resolver so UI NEVER hangs or breaks
+      const unitInfo = detectProduceUnitType(form.name, form.categorySlug, form.unit);
+      const activeUnit = form.unit || unitInfo.defaultUnit;
+      const dynamicTiers = generateProduceQuantityTiersMatrix(form.name, defaultP, activeUnit, form.categorySlug);
+
       setForm((prev) => ({
         ...prev,
         nameTe: autoTe,
@@ -372,15 +388,10 @@ export default function AdminProducts() {
         price: String(defaultP),
         discountPercent: prev.discountPercent || "10",
         image: fallbackImg,
+        unit: activeUnit,
       }));
 
-      setPriceVsQuantityTiers([
-        { quantity: "250g", price: Math.round(defaultP * 0.3), perUnit: `₹${Math.round(defaultP * 1.2)}/kg`, savings: "Trial Pack" },
-        { quantity: "500g", price: Math.round(defaultP * 0.55), perUnit: `₹${Math.round(defaultP * 1.1)}/kg`, savings: "5% Savings (Popular)" },
-        { quantity: "1 Kg", price: defaultP, perUnit: `₹${defaultP}/kg`, savings: "10% OFF (Best Value)", isPopular: true },
-        { quantity: "3 Kg", price: Math.round(defaultP * 2.7), perUnit: `₹${Math.round(defaultP * 0.9)}/kg`, savings: "15% Family Pack" },
-        { quantity: "5 Kg", price: Math.round(defaultP * 4.2), perUnit: `₹${Math.round(defaultP * 0.84)}/kg`, savings: "20% Farm Wholesale" },
-      ]);
+      setPriceVsQuantityTiers(dynamicTiers);
       setAiCostPrice(Math.round(defaultP * 0.65));
       setAiMargin(35);
 
@@ -667,14 +678,24 @@ export default function AdminProducts() {
                 value={form.name}
                 onChange={(e) => {
                   const newName = e.target.value;
+                  const unitInfo = detectProduceUnitType(newName, form.categorySlug, form.unit);
+                  const isDefaultUnit = !form.unit || form.unit === EMPTY.unit || form.unit === "250 Grams" || form.unit === "1 Kg";
+                  const newUnit = isDefaultUnit ? unitInfo.defaultUnit : form.unit;
                   const autoTe = resolveTeluguProductName(newName, form.categorySlug);
+
                   setForm({
                     ...form,
                     name: newName,
+                    unit: newUnit,
                     nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
                   });
+
+                  if (form.price && parseFloat(form.price) > 0) {
+                    const dynamicTiers = generateProduceQuantityTiersMatrix(newName, parseFloat(form.price), newUnit, form.categorySlug);
+                    setPriceVsQuantityTiers(dynamicTiers);
+                  }
                 }}
-                placeholder="e.g. Banginapalli Mangoes"
+                placeholder="e.g. Banginapalli Mangoes, Bananas, Farm Tomatoes"
                 data-testid="input-product-name"
               />
               <div className="mt-1.5 flex items-center justify-between gap-2">
@@ -859,8 +880,34 @@ export default function AdminProducts() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <Label>Price (₹)</Label>
-                <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} data-testid="input-price" />
+                <div className="flex items-center justify-between">
+                  <Label>Base Price (₹)</Label>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">⚡ Live Dynamic</span>
+                </div>
+                <Input
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => {
+                    const nextPrice = e.target.value;
+                    setForm({ ...form, price: nextPrice });
+                    if (nextPrice && parseFloat(nextPrice) > 0) {
+                      const newTiers = generateProduceQuantityTiersMatrix(
+                        form.name,
+                        parseFloat(nextPrice),
+                        form.unit,
+                        form.categorySlug
+                      );
+                      setPriceVsQuantityTiers((prevTiers) => {
+                        return newTiers.map((nt) => {
+                          const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
+                          return existing ? { ...nt, active: existing.active } : nt;
+                        });
+                      });
+                    }
+                  }}
+                  placeholder="e.g. 100"
+                  data-testid="input-price"
+                />
               </div>
               <div>
                 <Label>Discount %</Label>
@@ -876,8 +923,33 @@ export default function AdminProducts() {
               </div>
             </div>
             <div>
-              <Label>Unit / pack size</Label>
-              <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="e.g. 250 Grams, 1 Kg, 1 piece" data-testid="input-unit" />
+              <div className="flex items-center justify-between">
+                <Label>Base Unit / Pack Size</Label>
+                <span className="text-[10px] text-muted-foreground">Auto-detected by produce type (e.g. Bananas = Dozen, Spinach = Bunch)</span>
+              </div>
+              <Input
+                value={form.unit}
+                onChange={(e) => {
+                  const nextUnit = e.target.value;
+                  setForm({ ...form, unit: nextUnit });
+                  if (form.price && parseFloat(form.price) > 0) {
+                    const newTiers = generateProduceQuantityTiersMatrix(
+                      form.name,
+                      parseFloat(form.price),
+                      nextUnit,
+                      form.categorySlug
+                    );
+                    setPriceVsQuantityTiers((prevTiers) => {
+                      return newTiers.map((nt) => {
+                        const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
+                        return existing ? { ...nt, active: existing.active } : nt;
+                      });
+                    });
+                  }
+                }}
+                placeholder="e.g. 1 Kg, 1 Dozen, 1 Bunch, 1 Piece"
+                data-testid="input-unit"
+              />
             </div>
             <div>
               <div className="flex items-center justify-between">
