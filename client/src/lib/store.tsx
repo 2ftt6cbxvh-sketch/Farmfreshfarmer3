@@ -270,19 +270,22 @@ function round2(val: number): number {
 
 function consolidateCartItems(rawItems: CartItem[]): CartItem[] {
   if (!Array.isArray(rawItems)) return [];
-  const map = new Map<number, CartItem>();
+  const map = new Map<string, CartItem>();
   for (const item of rawItems) {
     if (!item || typeof item.productId !== "number" || isNaN(item.productId)) continue;
     const qty = Math.max(0, Math.floor(Number(item.qty) || 0));
     if (qty <= 0) continue;
 
-    if (map.has(item.productId)) {
-      const existing = map.get(item.productId)!;
+    const unitKey = (item.unit || "default").trim();
+    const key = `${item.productId}:::${unitKey}`;
+
+    if (map.has(key)) {
+      const existing = map.get(key)!;
       existing.qty += qty;
       if (item.price != null) existing.price = round2(item.price);
       if (item.name) existing.name = item.name;
     } else {
-      map.set(item.productId, {
+      map.set(key, {
         ...item,
         price: round2(item.price),
         qty,
@@ -294,9 +297,9 @@ function consolidateCartItems(rawItems: CartItem[]): CartItem[] {
 
 interface CartContextType {
   items: CartItem[];
-  add: (product: Product, qty?: number) => void;
-  setQty: (productId: number, qty: number) => void;
-  remove: (productId: number) => void;
+  add: (product: Product, qty?: number, tier?: { quantity: string; price: number }) => void;
+  setQty: (productId: number, qty: number, unit?: string) => void;
+  remove: (productId: number, unit?: string) => void;
   clear: () => void;
   count: number;
   subtotal: number;
@@ -436,13 +439,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  function add(product: Product, qty = 1) {
+  function add(product: Product, qty = 1, tier?: { quantity: string; price: number }) {
     lastLocalEditRef.current = Date.now();
     setItems((prev) => {
-      const price = effectivePrice(Number(product.price), Number(product.discountPercent));
+      const activeUnit = tier?.quantity || product.unit;
+      const basePrice = tier ? tier.price : Number(product.price);
+      const price = effectivePrice(basePrice, Number(product.discountPercent || 0));
       const maxStock = Number(product.stock || 0) > 0 ? Number(product.stock) : 999;
       
-      const existingItem = prev.find((i) => i.productId === product.id);
+      const existingItem = prev.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""));
       const currentInCart = existingItem?.qty || 0;
       const availableToAdd = Math.max(0, maxStock - currentInCart);
       const targetAddQty = Math.min(availableToAdd, Math.max(1, qty));
@@ -452,7 +457,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       let next: CartItem[];
       if (existingItem) {
         next = prev.map((i) =>
-          i.productId === product.id ? { ...i, qty: i.qty + targetAddQty, price } : i
+          i.productId === product.id && (i.unit || "") === (activeUnit || "")
+            ? { ...i, qty: i.qty + targetAddQty, price }
+            : i
         );
       } else {
         next = [
@@ -460,7 +467,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           {
             productId: product.id,
             name: product.name,
-            unit: product.unit,
+            unit: activeUnit,
             price,
             image: product.image,
             qty: targetAddQty,
@@ -474,23 +481,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  function setQty(productId: number, qty: number) {
+  function setQty(productId: number, qty: number, unit?: string) {
     lastLocalEditRef.current = Date.now();
     setItems((prev) => {
       const targetQty = Math.max(0, Math.floor(qty));
       const nextRaw = targetQty <= 0
-        ? prev.filter((i) => i.productId !== productId)
-        : prev.map((i) => (i.productId === productId ? { ...i, qty: targetQty } : i));
+        ? prev.filter((i) => !(i.productId === productId && (!unit || i.unit === unit)))
+        : prev.map((i) => (i.productId === productId && (!unit || i.unit === unit) ? { ...i, qty: targetQty } : i));
       const consolidated = consolidateCartItems(nextRaw);
       syncToDb(consolidated);
       return consolidated;
     });
   }
 
-  function remove(productId: number) {
+  function remove(productId: number, unit?: string) {
     lastLocalEditRef.current = Date.now();
     setItems((prev) => {
-      const nextRaw = prev.filter((i) => i.productId !== productId);
+      const nextRaw = prev.filter((i) => !(i.productId === productId && (!unit || i.unit === unit)));
       const consolidated = consolidateCartItems(nextRaw);
       syncToDb(consolidated);
       return consolidated;

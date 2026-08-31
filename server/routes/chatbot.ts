@@ -2755,7 +2755,21 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
                 : ` | Price: ₹${basePrice}`;
               const teluguTitle = p.nameTe ? ` (${p.nameTe})` : '';
               const benefit = resolveProductBenefit(p.name, p.categorySlug);
-              return `• ${p.name}${teluguTitle} [Category: ${p.categorySlug || 'general'}]${discountDetails}/${p.unit || 'unit'} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'Out of Stock'} | Clinical Utility: "${benefit.reasonEn}"`;
+
+              let packSizesStr = '';
+              if (p.quantityTiers) {
+                try {
+                  const tiers = typeof p.quantityTiers === 'string' ? JSON.parse(p.quantityTiers) : p.quantityTiers;
+                  if (Array.isArray(tiers) && tiers.length > 0) {
+                    const activeT = tiers.filter((t: any) => t.active !== false);
+                    if (activeT.length > 0) {
+                      packSizesStr = ` | Multi-Pack Options: ${activeT.map((t: any) => `${t.quantity} (₹${t.price}${t.savings ? `, ${t.savings}` : ''})`).join(', ')}`;
+                    }
+                  }
+                } catch {}
+              }
+
+              return `• ${p.name}${teluguTitle} [Category: ${p.categorySlug || 'general'}]${discountDetails}/${p.unit || 'unit'}${packSizesStr} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'Out of Stock'} | Clinical Utility: "${benefit.reasonEn}"`;
             })
             .join('\n');
 

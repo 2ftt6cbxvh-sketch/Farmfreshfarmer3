@@ -295,14 +295,31 @@ export async function batchUpgradeAllProductsInDb(): Promise<{
     const heroImage = resolveStudioHeroImage(prod.name, prod.categorySlug);
     const teluguName = resolveTeluguProductName(prod.name, prod.categorySlug) || prod.nameTe || `${prod.name} (సేంద్రీయ)`;
 
-    const defaultPrice = Number(prod.price) || 60;
+    let defaultPrice = Number(prod.price) || 60;
+    if (defaultPrice <= 0) defaultPrice = 60;
+
+    const baseKgPrice = prod.unit?.toLowerCase().includes("250")
+      ? defaultPrice * 4
+      : prod.unit?.toLowerCase().includes("500")
+      ? defaultPrice * 2
+      : defaultPrice;
+
+    const qtyTiers: QuantityTier[] = [
+      { quantity: "250g", price: Math.round(baseKgPrice * 0.3), perUnit: `₹${Math.round(baseKgPrice * 1.2)}/kg`, savings: "Trial Pack", active: true },
+      { quantity: "500g", price: Math.round(baseKgPrice * 0.55), perUnit: `₹${Math.round(baseKgPrice * 1.1)}/kg`, savings: "5% Savings (Popular)", active: true },
+      { quantity: "1 Kg", price: Math.round(baseKgPrice), perUnit: `₹${Math.round(baseKgPrice)}/kg`, savings: "10% OFF (Best Value)", isPopular: true, active: true },
+      { quantity: "3 Kg", price: Math.round(baseKgPrice * 2.7), perUnit: `₹${Math.round(baseKgPrice * 0.9)}/kg`, savings: "15% Family Pack", active: true },
+      { quantity: "5 Kg", price: Math.round(baseKgPrice * 4.2), perUnit: `₹${Math.round(baseKgPrice * 0.84)}/kg`, savings: "20% Wholesale Crate", active: true },
+    ];
+
     const richDescription = `100% naturally grown, certified chemical-free ${prod.name} (${teluguName}) sourced directly from local Andhra Pradesh partner farms. Harvested fresh daily with zero artificial ripening agents, synthetic pesticides, or chemical preservatives. Packed fresh for direct doorstep delivery.`;
 
-    // Update product in DB with crisp studio hero image, telugu name & rich description
+    // Update product in DB with crisp studio hero image, telugu name, rich description & quantity tiers
     await db.update(products).set({
       image: heroImage,
       nameTe: teluguName,
       description: richDescription,
+      quantityTiers: JSON.stringify(qtyTiers),
       updatedAt: new Date(),
     }).where(eq(products.id, prod.id));
 

@@ -86,6 +86,11 @@ export default function AdminProducts() {
 
       const teluguName = form.nameTe?.trim() || resolveTeluguProductName(form.name.trim(), selectedSlug);
 
+      const activeTiers = priceVsQuantityTiers.map((t) => ({
+        ...t,
+        active: t.active !== false,
+      }));
+
       const payload = {
         name: form.name.trim(),
         nameTe: teluguName,
@@ -95,6 +100,7 @@ export default function AdminProducts() {
         discountPercent: parseFloat(form.discountPercent) || 0,
         gstPercent: form.gstPercent === "" ? null : (parseFloat(form.gstPercent) ?? null),
         unit: form.unit.trim() || "250 Grams",
+        quantityTiers: activeTiers.length > 0 ? JSON.stringify(activeTiers) : null,
         image: form.image.trim(),
         stock: parseInt(form.stock) || 0,
         dietTag: form.dietTag,
@@ -112,6 +118,8 @@ export default function AdminProducts() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products", "all"] });
+      refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/hero-showcase"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/approvals/products"] });
       setOpen(false);
@@ -220,6 +228,7 @@ export default function AdminProducts() {
       ...EMPTY,
       categorySlug: categories[0]?.slug || "fruits",
     });
+    setPriceVsQuantityTiers([]);
     setOpen(true);
   }
   function openEdit(p: Product) {
@@ -240,6 +249,16 @@ export default function AdminProducts() {
       featuredInHero: (p as any).featuredInHero ?? false,
       allowInternationalShipping: (p as any).allowInternationalShipping !== false,
     });
+    if ((p as any).quantityTiers) {
+      try {
+        const parsed = JSON.parse((p as any).quantityTiers);
+        setPriceVsQuantityTiers(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setPriceVsQuantityTiers([]);
+      }
+    } else {
+      setPriceVsQuantityTiers([]);
+    }
     setOpen(true);
   }
 
@@ -679,48 +698,110 @@ export default function AdminProducts() {
               </div>
             </div>
 
-            {/* AI Price vs Quantity Matrix */}
+            {/* AI Dynamic Multi-Quantity Pack Selection Matrix */}
             {priceVsQuantityTiers.length > 0 && (
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 via-background to-amber-500/10 border border-emerald-500/30 space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-background to-teal-500/10 border-2 border-emerald-500/40 space-y-2.5 shadow-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
-                    <Sparkles size={13} className="text-amber-500" />
-                    <span>AI Dynamic Price vs Quantity Matrix</span>
+                    <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                    <span>Multi-Quantity Pack Sizes (Select Active Tiers for Storefront)</span>
                   </div>
-                  {aiCostPrice && (
-                    <span className="text-[10px] font-bold text-muted-foreground">
-                      Cost: ₹{aiCostPrice} | Margin: {aiMargin}%
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
-                  {priceVsQuantityTiers.map((tier, idx) => (
+                  <div className="flex items-center gap-2">
                     <button
-                      key={idx}
                       type="button"
                       onClick={() => {
-                        setForm({
-                          ...form,
-                          unit: tier.quantity,
-                          price: String(tier.price),
-                        });
-                        toast({ title: `Applied ${tier.quantity}`, description: `Set base pack size to ${tier.quantity} at ₹${tier.price}` });
+                        const allActive = priceVsQuantityTiers.every((t) => t.active !== false);
+                        setPriceVsQuantityTiers(priceVsQuantityTiers.map((t) => ({ ...t, active: !allActive })));
                       }}
-                      className={`p-2 rounded-lg border text-left transition hover:border-emerald-500/60 cursor-pointer ${form.unit === tier.quantity ? "bg-emerald-500/20 border-emerald-500 font-bold" : "bg-card border-card-border"}`}
+                      className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 cursor-pointer"
                     >
-                      <div className="flex items-center justify-between text-xs font-black">
-                        <span>{tier.quantity}</span>
-                        <span className="text-emerald-600 dark:text-emerald-400">₹{tier.price}</span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground flex items-center justify-between mt-0.5">
-                        <span>{tier.perUnit || ""}</span>
-                        {tier.savings && <span className="text-amber-500 font-bold">{tier.savings}</span>}
-                      </div>
+                      {priceVsQuantityTiers.every((t) => t.active !== false) ? "Deselect All" : "✅ Select All"}
                     </button>
-                  ))}
+                    {aiCostPrice && (
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        Cost: ₹{aiCostPrice} | Margin: {aiMargin}%
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground text-center">
-                  💡 Click any quantity card above to apply it as the product base pack size &amp; price!
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                  {priceVsQuantityTiers.map((tier, idx) => {
+                    const isTierActive = tier.active !== false;
+                    const isBasePack = form.unit === tier.quantity;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`relative p-2.5 rounded-xl border-2 text-left transition-all duration-200 ${
+                          isTierActive
+                            ? isBasePack
+                              ? "bg-emerald-500/20 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20"
+                              : "bg-card border-emerald-500/40 hover:border-emerald-500"
+                            : "bg-muted/40 border-muted opacity-60"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1.5">
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isTierActive}
+                              onChange={(e) => {
+                                const next = [...priceVsQuantityTiers];
+                                next[idx] = { ...next[idx], active: e.target.checked };
+                                setPriceVsQuantityTiers(next);
+                              }}
+                              className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-foreground">{tier.quantity}</span>
+                          </label>
+
+                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                            ₹{tier.price}
+                          </span>
+                        </div>
+
+                        <div className="text-[10px] text-muted-foreground flex items-center justify-between mt-1.5">
+                          <span>{tier.perUnit || ""}</span>
+                          {tier.savings && (
+                            <span className="text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded text-[9px]">
+                              {tier.savings}
+                            </span>
+                          )}
+                        </div>
+
+                        {isTierActive && (
+                          <div className="mt-2 pt-1.5 border-t border-card-border/60 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm({
+                                  ...form,
+                                  unit: tier.quantity,
+                                  price: String(tier.price),
+                                });
+                                toast({
+                                  title: `Base Pack: ${tier.quantity}`,
+                                  description: `Default storefront display price set to ₹${tier.price} (${tier.quantity}).`,
+                                });
+                              }}
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition cursor-pointer ${
+                                isBasePack
+                                  ? "bg-emerald-600 text-white font-black"
+                                  : "text-emerald-600 dark:text-emerald-400 hover:underline"
+                              }`}
+                            >
+                              {isBasePack ? "★ Default Base Pack" : "Set as Default"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[10px] text-muted-foreground text-center pt-1">
+                  💡 <strong>Multi-pack enabled:</strong> Check the boxes for all pack sizes customers can choose on the live storefront!
                 </p>
               </div>
             )}

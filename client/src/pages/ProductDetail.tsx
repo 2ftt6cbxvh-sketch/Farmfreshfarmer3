@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart, Star, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { DietDot } from "@/components/DietDot";
 import { ProductCard } from "@/components/ProductCard";
-import type { Product, Review } from "@/lib/types";
+import type { Product, Review, QuantityTier } from "@/lib/types";
 import { effectivePrice, formatINR } from "@/lib/types";
 import { getStarTheme } from "@/lib/starTheme";
 import { useCart, useAuth } from "@/lib/store";
@@ -52,6 +52,35 @@ export default function ProductDetail() {
     queryKey: ["/api/products", id],
     queryFn: () => apiGet<Product>(`/api/products/${id}`),
   });
+
+  const tiers: QuantityTier[] = useMemo(() => {
+    if (!(product as any)?.quantityTiers) return [];
+    try {
+      const parsed = typeof (product as any).quantityTiers === "string"
+        ? JSON.parse((product as any).quantityTiers)
+        : (product as any).quantityTiers;
+      return Array.isArray(parsed) ? parsed.filter((t: any) => t.active !== false) : [];
+    } catch {
+      return [];
+    }
+  }, [(product as any)?.quantityTiers]);
+
+  const [selectedTier, setSelectedTier] = useState<QuantityTier | null>(null);
+
+  useEffect(() => {
+    if (tiers.length > 0) {
+      setSelectedTier((prev) => {
+        if (prev && tiers.some((t) => t.quantity === prev.quantity)) return prev;
+        return tiers.find((t) => t.quantity === product?.unit) || tiers[0];
+      });
+    } else {
+      setSelectedTier(null);
+    }
+  }, [tiers, product?.unit]);
+
+  const activeUnitPrice = selectedTier ? selectedTier.price : Number(product?.price || 0);
+  const activeUnit = selectedTier ? selectedTier.quantity : (product?.unit || "1 Pack");
+  const price = effectivePrice(activeUnitPrice, Number(product?.discountPercent || 0));
 
   // Real-time behavioral & recommendation signal tracking
   useEffect(() => {
@@ -115,7 +144,6 @@ export default function ProductDetail() {
     return <Layout><div className="mx-auto max-w-5xl px-4 py-16 text-center text-muted-foreground">Product not found.</div></Layout>;
   }
 
-  const price = effectivePrice(Number(product.price), Number(product.discountPercent));
   const hasDiscount = Number(product.discountPercent || 0) > 0;
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
@@ -173,9 +201,61 @@ export default function ProductDetail() {
             )}
 
             <p className="text-sm text-muted-foreground leading-relaxed break-words">{product.description || "Fresh farm produce delivered directly with care."}</p>
-            <div className="flex flex-wrap items-center gap-2 w-full">
+            
+            {/* Multi-Quantity Pack Selector Cards */}
+            {tiers.length > 1 && (
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                    <span>Select Pack Size / Quantity:</span>
+                  </label>
+                  <span className="text-xs font-extrabold text-muted-foreground">
+                    Selected: <strong className="text-foreground text-emerald-500">{activeUnit}</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {tiers.map((t, idx) => {
+                    const isSelected = activeUnit === t.quantity;
+                    const tierEffective = effectivePrice(t.price, Number(product.discountPercent || 0));
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedTier(t)}
+                        className={`relative p-3 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? "bg-gradient-to-br from-emerald-500/20 via-card to-teal-500/20 border-emerald-500 shadow-md ring-2 ring-emerald-500/30 scale-102"
+                            : "bg-card/70 border-emerald-500/20 hover:border-emerald-500/60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-black text-foreground">{t.quantity}</span>
+                          <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                            {formatINR(tierEffective)}
+                          </span>
+                        </div>
+
+                        <div className="text-[10.5px] text-muted-foreground flex items-center justify-between mt-1">
+                          <span>{t.perUnit || ""}</span>
+                          {t.savings && (
+                            <span className="text-amber-500 font-extrabold bg-amber-500/10 px-1.5 py-0.5 rounded text-[9.5px]">
+                              {t.savings}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 w-full pt-1">
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 max-w-full truncate">
-                Pack Size: {product.unit}
+                Pack Size: {activeUnit}
               </span>
               {(product as any).allowInternationalShipping === false ? (
                 <span className="text-xs font-extrabold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1 max-w-full truncate">
@@ -190,7 +270,8 @@ export default function ProductDetail() {
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <span className="text-3xl font-serif font-black text-primary">{formatINR(price)}</span>
-              {hasDiscount && <span className="text-lg text-muted-foreground line-through">{formatINR(Number(product.price))}</span>}
+              <span className="text-sm text-muted-foreground font-medium">/ {activeUnit}</span>
+              {hasDiscount && <span className="text-lg text-muted-foreground line-through">{formatINR(activeUnitPrice)}</span>}
               {user && (
                 (() => {
                   const isSuperAdmin = Boolean(user?.isPrimaryAdmin || user?.email?.toLowerCase() === "admin@farmfreshfarmer.com" || user?.id === 1);
@@ -211,7 +292,7 @@ export default function ProductDetail() {
                 <p className="text-xs font-bold text-emerald-500">In Stock: {product.stock} unit(s) available</p>
                 <div className="flex flex-wrap items-stretch gap-3 w-full">
                   <div className="flex items-center rounded-xl border border-emerald-500/30 bg-secondary/50 p-1 shrink-0">
-                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Decrease"><Minus size={16} /></button>
+                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="p-2 hover:bg-card rounded-lg transition-colors cursor-pointer" aria-label="Decrease"><Minus size={16} /></button>
                     <span className="w-9 text-center font-bold">{qty}</span>
                     <button onClick={() => {
                       if (qty >= product.stock) {
@@ -219,21 +300,21 @@ export default function ProductDetail() {
                         return;
                       }
                       setQty((q) => Math.min(product.stock, q + 1));
-                    }} className="p-2 hover:bg-card rounded-lg transition-colors" aria-label="Increase"><Plus size={16} /></button>
+                    }} className="p-2 hover:bg-card rounded-lg transition-colors cursor-pointer" aria-label="Increase"><Plus size={16} /></button>
                   </div>
                   
                   <Button onClick={() => { 
-                    const inCart = items.find((i) => i.productId === product.id)?.qty || 0;
+                    const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
                     const available = Math.max(0, product.stock - inCart);
                     if (available <= 0) {
                       toast({ title: "Stock Limit Reached", description: `You already have the maximum available stock (${product.stock} units) in your cart.`, variant: "destructive" });
                       return;
                     }
                     const finalQty = Math.min(available, qty);
-                    add(product, finalQty); 
-                    toast({ title: "✨ Added to cart", description: `${finalQty} × ${product.name}` }); 
+                    add(product, finalQty, selectedTier || undefined); 
+                    toast({ title: "✨ Added to cart", description: `${finalQty} × ${product.name} (${activeUnit})` }); 
                   }} className="flex-1 min-w-[140px] gap-2 px-6 py-5 rounded-xl bg-gradient-to-r from-emerald-600 via-primary to-green-500 text-white font-bold shadow-lg shadow-emerald-900/30 cursor-pointer" data-testid="button-add-detail">
-                    <ShoppingCart size={18} /> Add to Cart
+                    <ShoppingCart size={18} /> Add {qty > 1 ? `${qty} × ${activeUnit}` : activeUnit} to Cart
                   </Button>
 
                   {items.some(i => i.productId === product.id) && (

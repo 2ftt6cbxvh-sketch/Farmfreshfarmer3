@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { Minus, Plus, ShoppingCart, Sparkles, Trash2, Check } from "lucide-react";
-import type { Product } from "@/lib/types";
+import type { Product, QuantityTier } from "@/lib/types";
 import { effectivePrice, formatINR } from "@/lib/types";
 import { useCart, useAuth } from "@/lib/store";
 import { useLocation } from "wouter";
@@ -19,11 +19,44 @@ export function ProductCard({ product }: { product: Product }) {
   const [animating, setAnimating] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
-  const cartItem = items.find((i) => i.productId === product.id);
+  const tiers: QuantityTier[] = useMemo(() => {
+    if (!(product as any).quantityTiers) return [];
+    try {
+      const parsed = typeof (product as any).quantityTiers === "string"
+        ? JSON.parse((product as any).quantityTiers)
+        : (product as any).quantityTiers;
+      return Array.isArray(parsed) ? parsed.filter((t: any) => t.active !== false) : [];
+    } catch {
+      return [];
+    }
+  }, [(product as any).quantityTiers]);
+
+  const [selectedTier, setSelectedTier] = useState<QuantityTier | null>(() => {
+    if (tiers.length > 0) {
+      return tiers.find((t) => t.quantity === product.unit) || tiers[0];
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (tiers.length > 0) {
+      setSelectedTier((prev) => {
+        if (prev && tiers.some((t) => t.quantity === prev.quantity)) return prev;
+        return tiers.find((t) => t.quantity === product.unit) || tiers[0];
+      });
+    } else {
+      setSelectedTier(null);
+    }
+  }, [tiers, product.unit]);
+
+  const activeUnitPrice = selectedTier ? selectedTier.price : Number(product.price);
+  const activeUnit = selectedTier ? selectedTier.quantity : product.unit;
+
+  const cartItem = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""));
   const inCartQty = cartItem?.qty || 0;
 
   const hasDiscount = Number(product.discountPercent || 0) > 0;
-  const price = effectivePrice(Number(product.price), Number(product.discountPercent));
+  const price = effectivePrice(activeUnitPrice, Number(product.discountPercent));
   const outOfStock = product.stock <= 0;
 
   function addToCart(e: React.MouseEvent) {
@@ -44,10 +77,10 @@ export function ProductCard({ product }: { product: Product }) {
     }
     const finalAdd = Math.min(available, qty);
     setAnimating(true);
-    add(product, finalAdd);
+    add(product, finalAdd, selectedTier || undefined);
     toast({
       title: "✨ Added to Cart",
-      description: `${finalAdd} × ${product.name}`,
+      description: `${finalAdd} × ${product.name} (${activeUnit})`,
     });
     setTimeout(() => setAnimating(false), 500);
     setQty(1);
@@ -57,10 +90,10 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
     if (inCartQty <= 1) {
-      removeFromCart(product.id);
-      toast({ title: "Removed from Cart", description: product.name });
+      removeFromCart(product.id, activeUnit);
+      toast({ title: "Removed from Cart", description: `${product.name} (${activeUnit})` });
     } else {
-      setCartQty(product.id, inCartQty - 1);
+      setCartQty(product.id, inCartQty - 1, activeUnit);
     }
   }
 
@@ -75,14 +108,14 @@ export function ProductCard({ product }: { product: Product }) {
       });
       return;
     }
-    setCartQty(product.id, inCartQty + 1);
+    setCartQty(product.id, inCartQty + 1, activeUnit);
   }
 
   function handleRemoveAll(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    removeFromCart(product.id);
-    toast({ title: "Removed from Cart", description: product.name });
+    removeFromCart(product.id, activeUnit);
+    toast({ title: "Removed from Cart", description: `${product.name} (${activeUnit})` });
   }
 
   function handleDecQty(e: React.MouseEvent) {
@@ -185,7 +218,35 @@ export function ProductCard({ product }: { product: Product }) {
               </p>
             )}
           </Link>
-          <p className="text-xs text-muted-foreground mt-0.5">{product.unit}</p>
+          {/* Multi-Quantity Pack Selector Pills */}
+          {tiers.length > 1 ? (
+            <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar relative z-20">
+              {tiers.map((t, idx) => {
+                const isSelected = activeUnit === t.quantity;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedTier(t);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[10.5px] font-black tracking-tight transition-all shrink-0 cursor-pointer border ${
+                      isSelected
+                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 shadow-xs ring-1 ring-emerald-400/50 scale-102"
+                        : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                    }`}
+                  >
+                    <span>{t.quantity}</span>
+                    <span className="ml-1 opacity-90 font-bold">· ₹{t.price}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-0.5">{activeUnit}</p>
+          )}
 
           <div className="mt-auto pt-3 flex items-baseline justify-between">
             <div className="flex items-baseline gap-2">
@@ -195,9 +256,10 @@ export function ProductCard({ product }: { product: Product }) {
               >
                 {formatINR(price)}
               </span>
+              <span className="text-[11px] text-muted-foreground font-medium">/ {activeUnit}</span>
               {hasDiscount && (
                 <span className="text-xs text-muted-foreground line-through">
-                  {formatINR(Number(product.price))}
+                  {formatINR(activeUnitPrice)}
                 </span>
               )}
             </div>

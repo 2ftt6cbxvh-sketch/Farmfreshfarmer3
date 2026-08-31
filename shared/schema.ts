@@ -175,6 +175,7 @@ export const products = pgTable("products", {
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   discountPercent: numeric("discount_percent", { precision: 5, scale: 2 }).notNull().default("0"),
   unit: varchar("unit", { length: 64 }).notNull().default("250 Grams"),
+  quantityTiers: text("quantity_tiers"), // JSON string of QuantityTier[] e.g. [{"quantity":"250g","price":18,"savings":"Trial Pack"},{"quantity":"1 Kg","price":60,"savings":"10% OFF","isPopular":true}]
   image: text("image").notNull().default(""),
   stock: integer("stock").notNull().default(50),
   lowStockThreshold: integer("low_stock_threshold").notNull().default(10),
@@ -203,9 +204,19 @@ export const insertProductSchema = createInsertSchema(products, {
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   gstPercent: z.coerce.number().min(0).max(100).optional().nullable(),
   allowInternationalShipping: z.boolean().optional(),
+  quantityTiers: z.string().optional().nullable(),
 }).omit({ id: true, createdAt: true, updatedAt: true, approvalStatus: true, submittedBy: true, approvalNote: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
+
+export interface QuantityTier {
+  quantity: string;
+  price: number;
+  perUnit?: string;
+  savings?: string;
+  isPopular?: boolean;
+  active?: boolean;
+}
 
 /* =========================== PRODUCT IMAGES ======================== */
 export const productImages = pgTable("product_images", {
