@@ -305,21 +305,20 @@ export async function runAutoMigrations(): Promise<void> {
       await runStatement(sql, label);
     }
 
-    // ── AUTO-POPULATE TELUGU PRODUCT NAMES FOR ALL PRODUCTS MISSING name_te ──
+    // ── AUTO-POPULATE TELUGU PRODUCT NAMES FOR ALL PRODUCTS ──
     try {
       const { resolveTeluguProductName } = await import("@shared/telugu-produce-namer");
-      const unpopulated = await pool.query(
-        "SELECT id, name, category_slug FROM products WHERE name_te IS NULL OR TRIM(name_te) = ''"
-      );
-      if (unpopulated.rows.length > 0) {
-        console.log(`[db] Auto-generating Telugu names for ${unpopulated.rows.length} products...`);
-        for (const p of unpopulated.rows) {
-          const te = resolveTeluguProductName(p.name, p.category_slug);
-          if (te) {
-            await pool.query("UPDATE products SET name_te = $1 WHERE id = $2", [te, p.id]);
-          }
+      const prods = await pool.query("SELECT id, name, category_slug, name_te FROM products");
+      let syncCount = 0;
+      for (const p of prods.rows) {
+        const te = resolveTeluguProductName(p.name, p.category_slug);
+        if (te && te !== p.name_te) {
+          await pool.query("UPDATE products SET name_te = $1 WHERE id = $2", [te, p.id]);
+          syncCount++;
         }
-        console.log(`[db] Successfully populated Telugu names for ${unpopulated.rows.length} products!`);
+      }
+      if (syncCount > 0) {
+        console.log(`[db] Successfully updated Telugu names for ${syncCount} products!`);
       }
     } catch (teluguPopulateErr: any) {
       console.warn('[db] Telugu auto-populate warning:', teluguPopulateErr?.message);
