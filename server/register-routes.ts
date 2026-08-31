@@ -28,8 +28,6 @@ import { apiCache } from "./services/cache";
 import { db, runAutoMigrations } from "./db";
 import { eq, ne, and, or, sql, inArray } from "drizzle-orm";
 
-// Automatically cap any existing customer stars to maximum of 5 in DB
-db.execute(sql`UPDATE users SET customer_stars = 5 WHERE customer_stars > 5`).catch(() => {});
 import { ensureSeeded } from "./seed-runner";
 import {
   insertProductSchema, insertCouponSchema, insertReviewSchema, users,
@@ -154,12 +152,11 @@ function h(fn: (req: Request, res: Response) => Promise<any>) {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  // Ensure database schema columns are migrated immediately on cold start
-  runAutoMigrations().catch((e) => console.error("[migration] error:", e?.message || e));
-
-  // Ensure fresh database is seeded with categories, products & admin user on cold start
-  // Seed runs in background — does NOT block route registration or first request
-  ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
+  // Only run automatic migrations & seeding in local development (on Vercel CI, npm run db:migrate-ci handles it)
+  if (process.env.VERCEL !== "1") {
+    runAutoMigrations().catch((e) => console.error("[migration] error:", e?.message || e));
+    ensureSeeded({ log: true }).catch((e) => console.error("[seed] error:", e?.message || e));
+  }
 
   // Behind the Elastic Beanstalk load balancer / nginx we trust the first proxy
   // hop so secure cookies are honoured when TLS terminates upstream.
