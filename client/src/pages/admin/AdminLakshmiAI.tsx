@@ -280,10 +280,10 @@ export default function AdminLakshmiAI() {
                       onChange={(e) => setModel(e.target.value)}
                       className="w-full h-11 rounded-xl bg-background/80 border border-border/80 px-3 text-sm font-medium focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended — Ultra-Fast, Intelligent & Multimodal)</option>
-                      <option value="gemini-1.5-flash">gemini-1.5-flash (Stable Production Flash — 1M Context)</option>
-                      <option value="gemini-1.5-pro">gemini-1.5-pro (Deep Reasoning & Analysis)</option>
-                      <option value="gemini-2.5-pro">gemini-2.5-pro (Advanced Multi-Step Logic)</option>
+                      <option value="gemini-1.5-flash">gemini-1.5-flash (Recommended — Ultra-Fast, Stable & Universal)</option>
+                      <option value="gemini-1.5-pro">gemini-1.5-pro (Deep Reasoning & Nutrition Intelligence)</option>
+                      <option value="gemini-1.5-flash-8b">gemini-1.5-flash-8b (High-Volume Low-Latency)</option>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Next-Gen Experimental)</option>
                     </select>
                   </div>
 

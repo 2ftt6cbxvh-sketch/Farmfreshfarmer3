@@ -784,12 +784,12 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
     // Models sequence starting with the chosen model, falling back to supported models
     const candidateModels = Array.from(new Set([
       selectedModel,
-      'gemini-2.5-flash',
       'gemini-1.5-flash',
-      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-8b',
       'gemini-1.5-pro',
-      'gemini-2.5-pro',
-    ]));
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ])).filter(Boolean);
 
     // 1. Try Native REST API with AbortController timeout (fastest network latency)
     for (const mName of candidateModels) {
@@ -797,10 +797,13 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${cleanKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
         const res = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': cleanKey,
+          },
           body: JSON.stringify({
             system_instruction: { parts: [{ text: baseSystemPrompt }] },
             contents,
