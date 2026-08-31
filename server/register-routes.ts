@@ -242,11 +242,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       secret: process.env.SESSION_SECRET || "farmfreshfarmer-dev-secret",
       resave: false,
       saveUninitialized: false,
+      rolling: true, // Resets cookie expiration timer on every active request
       cookie: {
         httpOnly: true,
         sameSite: "lax",
         secure: cookieSecure,
-        maxAge: 1000 * 60 * 60 * 24 * 30,
+        maxAge: 1000 * 60 * 60 * 2, // Strict 2 hours of inactivity timeout
       },
     }),
   );

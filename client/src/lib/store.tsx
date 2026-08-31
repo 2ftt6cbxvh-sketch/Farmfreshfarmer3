@@ -71,7 +71,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // ========================================================
+  // ⏱️ 2-HOUR CUSTOMER INACTIVITY AUTO-LOGOUT ENGINE
+  // ========================================================
+  const CUSTOMER_INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours (7,200,000 ms)
+
   useEffect(() => {
+    // Check if user was previously inactive for > 2 hours before mounting
+    const lastActive = Number(localStorage.getItem("customer_last_activity") || "0");
+    const now = Date.now();
+
+    if (lastActive > 0 && now - lastActive >= CUSTOMER_INACTIVITY_LIMIT_MS) {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("customer_last_activity");
+      sessionStorage.clear();
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     refresh();
 
     const onUserBlocked = () => {
@@ -80,16 +102,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("farmfresh:user_blocked", onUserBlocked);
 
-    // Poll /api/me periodically when tab is visible (every 4s for instant status sync)
+    // Initial activity stamp
+    localStorage.setItem("customer_last_activity", String(now));
+
+    let lastRecorded = now;
+    const recordUserActivity = () => {
+      const current = Date.now();
+      if (current - lastRecorded > 15000) {
+        lastRecorded = current;
+        localStorage.setItem("customer_last_activity", String(current));
+      }
+    };
+
+    window.addEventListener("mousemove", recordUserActivity, { passive: true });
+    window.addEventListener("mousedown", recordUserActivity, { passive: true });
+    window.addEventListener("keydown", recordUserActivity, { passive: true });
+    window.addEventListener("scroll", recordUserActivity, { passive: true });
+    window.addEventListener("touchstart", recordUserActivity, { passive: true });
+
+    // Periodic check every 15 seconds
     const interval = setInterval(() => {
+      const hasToken = localStorage.getItem("accessToken") || localStorage.getItem("token");
+      const currentActivity = Number(localStorage.getItem("customer_last_activity") || String(Date.now()));
+
+      if (hasToken && Date.now() - currentActivity >= CUSTOMER_INACTIVITY_LIMIT_MS) {
+        // Expire session
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("customer_last_activity");
+        sessionStorage.clear();
+        queryClient.clear();
+        setUser(null);
+        try {
+          apiRequest("POST", "/api/logout").catch(() => {});
+        } catch {}
+        return;
+      }
+
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      if (localStorage.getItem("accessToken") || localStorage.getItem("token")) {
+      if (hasToken) {
         refresh();
       }
-    }, 4000);
+    }, 15000);
 
     return () => {
       window.removeEventListener("farmfresh:user_blocked", onUserBlocked);
+      window.removeEventListener("mousemove", recordUserActivity);
+      window.removeEventListener("mousedown", recordUserActivity);
+      window.removeEventListener("keydown", recordUserActivity);
+      window.removeEventListener("scroll", recordUserActivity);
+      window.removeEventListener("touchstart", recordUserActivity);
       clearInterval(interval);
     };
   }, []);
@@ -110,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
     }
+    localStorage.setItem("customer_last_activity", String(Date.now()));
     setUser(data.user);
     if (data.user && data.user.role !== "customer") {
       localStorage.setItem("adminUser", JSON.stringify(data.user));
@@ -120,13 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function register(payload: { name: string; email: string; password: string; phone?: string }) {
     const res = await apiRequest("POST", "/api/register", payload);
     const data = await res.json();
+    localStorage.setItem("customer_last_activity", String(Date.now()));
     setUser(data.user);
     if (data.user && data.user.role !== "customer") {
       localStorage.setItem("adminUser", JSON.stringify(data.user));
     }
     return data.user as AuthUser;
   }
-
 
   async function logout() {
     try {

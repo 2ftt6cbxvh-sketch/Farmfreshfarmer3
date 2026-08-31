@@ -12,7 +12,7 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 
 import { getJwtSecret } from "./encryption";
 
-const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "30d";
+const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "2h";
 const REFRESH_EXPIRES_IN_DAYS = parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS || "90", 10);
 
 export interface JwtPayload {
@@ -47,8 +47,8 @@ export async function issueTokenPair(
   const payload: JwtPayload = { userId, role, platform: opts.platform || "web" };
   const isAdminOrStaff = STAFF_ADMIN_ROLES.has(role);
 
-  // Admin & Staff tokens strictly expire after 1 hour (3600s). Customers use standard expiry.
-  const tokenExpiry = isAdminOrStaff ? "1h" : (ACCESS_EXPIRES_IN || "15m");
+  // Admin & Staff: 1 hour (3600s). Customers/Users: strictly 2 hours of inactivity (7200s).
+  const tokenExpiry = isAdminOrStaff ? "1h" : "2h";
 
   const accessToken = jwt.sign(payload, getJwtSecret(), {
     expiresIn: tokenExpiry as any,
@@ -59,11 +59,12 @@ export async function issueTokenPair(
   const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
 
   const expiresAt = new Date();
-  // Admin refresh tokens expire after 1 hour of inactivity.
   if (isAdminOrStaff) {
+    // Admin refresh tokens expire after 1 hour of inactivity.
     expiresAt.setHours(expiresAt.getHours() + 1);
   } else {
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_IN_DAYS);
+    // Customer/User refresh tokens expire after 2 hours of inactivity.
+    expiresAt.setHours(expiresAt.getHours() + 2);
   }
 
   await db.insert(refreshTokens).values({
