@@ -59,10 +59,11 @@ async function callGeminiVision(
   }
 
   const candidateModels = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
   ];
 
   let lastError: any = null;
@@ -84,8 +85,8 @@ async function callGeminiVision(
               parts: [
                 { text: prompt },
                 {
-                  inline_data: {
-                    mime_type: mimeType,
+                  inlineData: {
+                    mimeType: mimeType,
                     data: base64Data,
                   },
                 },

@@ -936,11 +936,12 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
 
     // Models sequence starting with the chosen model (if valid), prioritized by speed:
     const candidateModels = Array.from(new Set([
-      (selectedModel && !selectedModel.includes('1.5') && !selectedModel.includes('2.0') && !selectedModel.includes('2.5')) ? selectedModel : 'gemini-3.5-flash-lite',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite',
-      'gemini-3-flash-preview',
+      (selectedModel && !selectedModel.includes('1.5') && !selectedModel.includes('2.0') && !selectedModel.includes('2.5')) ? selectedModel : 'gemini-3.6-flash',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
       'gemini-3.5-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
     ])).filter(Boolean);
 
     // 1. Try Native REST API with keep-alive connection & fast 4.5s failover timeout
