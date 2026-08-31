@@ -1504,22 +1504,30 @@ function detectCartIntent(message: string): { rawProduct: string; rawQty: number
   return items.length > 0 ? items[0] : null;
 }
 
-/** Multi-item cart detection — handles "add 2kg tomatoes and 1kg onions" in one message */
+/** Multi-item cart detection — handles "add 2kg tomatoes and 1kg onions" or "bunch of spinach to cart" */
 function detectMultiCartIntent(message: string): Array<{ rawProduct: string; rawQty: number; rawUnit: string }> {
   const lower = message.toLowerCase().trim();
 
-  const hasAddIntent = /\b(add|put|order|buy|get|want|need|give me|take)\b/.test(lower);
+  const hasAddIntent = /\b(add|put|order|buy|get|want|need|give me|take|send|include|pack|cart)\b/.test(lower) ||
+    /\b(to\s+cart|in\s+cart|into\s+cart|to\s+basket|in\s+basket)\b/.test(lower);
   if (!hasAddIntent) return [];
 
-  if (/\b(how|what|when|where|why|which|can i|should|do you|is there|are there|do we|available|price|cost|stock)\b/.test(lower)) return [];
+  if (/\b(how|what|when|where|why|which|can i|should|do you|is there|are there|do we|available|price|cost|stock)\b/.test(lower) && !/\b(to\s+cart|in\s+cart|into\s+cart)\b/.test(lower)) return [];
 
-  const fillerSet = new Set(['add','put','order','buy','get','want','need','give','me','my','some','please','to','in','into','the','a','an','cart','basket','bag','take','also','and','plus','with','along']);
+  const fillerSet = new Set([
+    'add','put','order','buy','get','want','need','give','me','my','some','please','to','in','into',
+    'the','a','an','cart','basket','bag','take','also','and','plus','with','along','of','bunch','bunches',
+    'bundle','bundles','pack','packs','packet','packets','item','items','kg','kgs','kilo','kilos','gram',
+    'grams','gm','gms','piece','pieces','dozen','dozens','unit','units'
+  ]);
 
-  const qtyUnitPatterns: Array<{ pattern: RegExp; unit: string }> = [
-    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?)/i, unit: 'kg' },
+  const qtyUnitPatterns: Array<{ pattern: RegExp; unit: string; defaultQty?: number }> = [
+    { pattern: /(\d+(?:[.,]\d+)?)\s*(?:kgs?|kilograms?|kilos?)/i, unit: 'kg' },
     { pattern: /(\d+(?:[.,]\d+)?)\s*(?:grams?|gms?|\bg\b)/i, unit: 'g' },
     { pattern: /(\d+(?:[.,]\d+)?)\s*(?:pieces?|pcs?|nos?|numbers?)/i, unit: 'piece' },
     { pattern: /(\d+(?:[.,]\d+)?)\s*(?:packets?|packs?|bunches?|bundles?|dozens?|doz)/i, unit: 'pack' },
+    { pattern: /\b(?:a|one|1)\s+(?:bunch|bundle|packet|pack|piece|dozen|kg|kilo)\b/i, unit: 'bunch', defaultQty: 1 },
+    { pattern: /\b(?:bunch|bundle|packet|pack)\s+of\b/i, unit: 'bunch', defaultQty: 1 },
     { pattern: /(\d+(?:[.,]\d+)?)/i, unit: 'unit' },
   ];
 
@@ -1533,19 +1541,21 @@ function detectMultiCartIntent(message: string): Array<{ rawProduct: string; raw
     let rawUnit = 'unit';
     let segClean = seg;
 
-    for (const { pattern, unit } of qtyUnitPatterns) {
+    for (const { pattern, unit, defaultQty } of qtyUnitPatterns) {
       const m = seg.match(pattern);
       if (m) {
-        rawQty = parseFloat(m[1].replace(',', '.'));
+        rawQty = defaultQty || (m[1] ? parseFloat(m[1].replace(',', '.')) : 1);
         rawUnit = unit;
         segClean = seg.replace(m[0], ' ');
         break;
       }
     }
 
+    segClean = segClean.replace(/\b(?:to|in|into)\s+(?:my\s+)?(?:cart|basket)\b/gi, ' ');
+
     const words = segClean
       .split(/\s+/)
-      .map(w => w.replace(/[^a-z]/g, ''))
+      .map(w => w.replace(/[^a-z0-9]/g, ''))
       .filter(w => w.length >= 2 && !fillerSet.has(w));
 
     if (words.length === 0) continue;
@@ -1562,10 +1572,12 @@ function resolveCartQty(
   requestedUnit: string,
   product: any
 ): { unitsToAdd: number; explanation: string | null; alternatives: string[] | null } {
-  // product.unit is the pack unit (e.g. 'kg', '500g', 'piece', 'bunch')
-  // product.weight might also be set
   const productUnit = (product.unit || 'kg').toLowerCase();
   
+  if (requestedUnit === 'bunch' || requestedUnit === 'pack' || requestedUnit === 'piece' || productUnit.includes('bunch') || productUnit.includes('piece')) {
+    return { unitsToAdd: Math.max(1, Math.round(requestedQty)), explanation: null, alternatives: null };
+  }
+
   // Parse product pack size in kg
   let packSizeKg = 1; // default 1 kg
   if (productUnit.includes('500g') || productUnit.includes('500 g')) packSizeKg = 0.5;
@@ -1595,7 +1607,7 @@ function resolveCartQty(
     
     return {
       unitsToAdd: 0,
-      explanation: `Sorry! ${product.name} is sold in ${unitLabel} packs. We don't have a ${requestedQty}${requestedUnit} option. I can add:\n• ${floorPacks} pack${floorPacks !== 1 ? 's' : ''} = ${lowerKg}kg for ₹${(floorPacks * product.price).toFixed(0)}\n• ${ceilPacks} pack${ceilPacks !== 1 ? 's' : ''} = ${upperKg}kg for ₹${(ceilPacks * product.price).toFixed(0)}\n\nWhich would you prefer? (Reply with the quantity)`,
+      explanation: `Sorry! ${product.name} is sold in ${unitLabel} packs. We don't have a ${requestedQty}${requestedUnit} option. I can add:\n• ${floorPacks} pack${floorPacks !== 1 ? 's' : ''} = ${lowerKg}kg for ₹${(floorPacks * Number(product.price)).toFixed(0)}\n• ${ceilPacks} pack${ceilPacks !== 1 ? 's' : ''} = ${upperKg}kg for ₹${(ceilPacks * Number(product.price)).toFixed(0)}\n\nWhich would you prefer? (Reply with the quantity)`,
       alternatives: [`${floorPacks} pack`, `${ceilPacks} packs`],
     };
   }
@@ -1603,25 +1615,32 @@ function resolveCartQty(
 
 // ── Multi-lingual & Fuzzy Produce Matcher ──────────────────────────────────
 const COMMON_TELUGU_PRODUCE_SYNONYMS: Record<string, string[]> = {
-  tomatoes: ['tomato', 'tomatos', 'tomatoes', 'tamata', 'tamatar', 'టమోటా', 'టమాట', 'టమోటాలు'],
-  potatoes: ['potato', 'potatos', 'potatoes', 'aloo', 'alu', 'bangaladumpa', 'బంగాళాదుంప'],
+  tomatoes: ['tomato', 'tomatos', 'tomatoes', 'tamata', 'tamatar', 'farm tomatoes', 'టమోటా', 'టమాట', 'టమోటాలు'],
+  potatoes: ['potato', 'potatos', 'potatoes', 'aloo', 'alu', 'bangaladumpa', 'bangaladumpalu', 'బంగాళాదుంప'],
   onions: ['onion', 'onions', 'ullipayalu', 'pyaz', 'kanda', 'ఉల్లిపాయలు'],
-  spinach: ['spinach', 'palak', 'palakura', 'పాలకూర'],
+  spinach: ['spinach', 'green spinach', 'palak', 'palakura', 'palakoora', 'పాలకూర'],
   coriander: ['coriander', 'cilantro', 'dhaniya', 'kothimeera', 'కొత్తిమీర'],
   mint: ['mint', 'pudina', 'పుదీనా'],
   chillies: ['chilli', 'chillies', 'chili', 'mirchi', 'mirapakayalu', 'మిరపకాయలు'],
   ginger: ['ginger', 'adrak', 'allam', 'అల్లం'],
   garlic: ['garlic', 'lahsun', 'vellulli', 'వెల్లుల్లి'],
   pomegranate: ['pomegranate', 'danimma', 'anar', 'దానిమ్మ'],
-  bananas: ['banana', 'bananas', 'arati', 'kela', 'అరటి'],
-  mango: ['mango', 'mangoes', 'mamidi', 'aam', 'మామిడి'],
+  bananas: ['banana', 'bananas', 'sweet bananas', 'arati', 'kela', 'అరటి'],
+  mango: ['mango', 'mangoes', 'alphonso mango', 'mamidi', 'aam', 'మామిడి'],
   apples: ['apple', 'apples', 'seb', 'యాపిల్'],
-  grapes: ['grape', 'grapes', 'draksha', 'ద్రాక్ష'],
+  grapes: ['grape', 'grapes', 'seedless grapes', 'draksha', 'ద్రాక్ష'],
   papaya: ['papaya', 'boppayi', 'బొప్పాయి'],
   guava: ['guava', 'jama', 'జామ'],
   cucumber: ['cucumber', 'dosakaya', 'keera', 'కీర'],
-  brinjal: ['brinjal', 'eggplant', 'vankaya', 'baingan', 'వంకాయ'],
-  okra: ['okra', 'ladyfinger', 'bhendi', 'bendakaya', 'బెండకాయ'],
+  brinjal: ['brinjal', 'eggplant', 'purple brinjal', 'green brinjal', 'vankaya', 'baingan', 'వంకాయ'],
+  okra: ['okra', 'lady finger', 'ladyfinger', 'bhendi', 'bendakaya', 'బెండకాయ'],
+  bittergourd: ['bitter gourd', 'bittergourd', 'karela', 'kakarakaya', 'కాకరకాయ'],
+  ridgegourd: ['ridge gourd', 'ridgegourd', 'beerakaya', 'బీరకాయ'],
+  tindora: ['tindora', 'dondakaya', 'kundru', 'ivy gourd', 'దొండకాయ'],
+  bottlegourd: ['bottle gourd', 'bottlegourd', 'sorakaya', 'anapakaya', 'సొరకాయ'],
+  beetroot: ['beetroot', 'beet', 'బీట్‌రూట్'],
+  capsicum: ['capsicum', 'bell pepper', 'shimla mirch', 'బెంగుళూరు మిర్చి'],
+  carrots: ['carrot', 'carrots', 'fresh carrots', 'క్యారెట్'],
   ragi: ['ragi', 'finger millet', 'taidalu', 'రాగులు'],
   jowar: ['jowar', 'sorghum', 'jonnalu', 'జొన్నలు'],
   honey: ['honey', 'thene', 'తేనె'],
