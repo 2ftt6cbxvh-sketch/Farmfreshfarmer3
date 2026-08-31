@@ -9,6 +9,8 @@ import { chatbotMessageRateLimit, chatbotEscalationRateLimit } from '../middlewa
 import { resolveTeluguProductName } from '@shared/telugu-produce-namer';
 import { resolveProductBenefit } from '@shared/produce-benefits';
 import { rankPersonalizedProducts } from '@shared/recommendation-engine';
+import { getLakshmiApiKey, getNetraVisionApiKey } from '../services/gemini-keys';
+import { routeAndAnalyzeVision } from '../services/netra-vision';
 
 // High-performance persistent HTTPS Keep-Alive agent for Google AI API
 const googleApiHttpsAgent = new https.Agent({
@@ -1720,6 +1722,36 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       // Read ALL settings from DB first
       const allSettings = await storage.settings.all();
 
+      // === NETRA MULTIMODAL VISION AI PIPELINE ===
+      if (req.body.image && typeof req.body.image === 'string' && req.body.image.length > 50) {
+        try {
+          const visionResult = await routeAndAnalyzeVision(
+            req.body.image,
+            message,
+            lang,
+            req.body.mode
+          );
+
+          if (userId && visionResult.title) {
+            saveHealthTopicToProfile(userId, visionResult.title).catch(() => {});
+          }
+
+          return res.json({
+            reply: visionResult.markdownContent,
+            visionResult,
+            sessionToken: token,
+            products: [],
+          });
+        } catch (visionErr: any) {
+          console.error('[chatbot] Netra Vision analysis error:', visionErr?.message);
+          return res.status(500).json({
+            reply: `⚠️ Netra Vision AI encountered an issue analyzing this image (${visionErr?.message || 'API error'}). Please ensure the photo is clear and try again!`,
+            needsHuman: false,
+          });
+        }
+      }
+      // === END NETRA MULTIMODAL VISION ===
+
       // === CART ADD INTENT DETECTION ===
 
       // ── Coupon Application from Chat ──────────────────────────────────────
@@ -2385,9 +2417,9 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       }
       // === END ETA INTENT ===
 
-      // Read dynamic Gemini settings from DB settings or process.env
-      const geminiApiKey = (allSettings as any)?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-3.5-flash';
+      // Read dynamic Gemini settings from multi-agent key cluster or process.env
+      const geminiApiKey = await getLakshmiApiKey();
+      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.5-flash';
       const geminiTemp = Number((allSettings as any)?.gemini_temperature ?? 0.5);
       const geminiMaxTokens = Math.max(Number((allSettings as any)?.gemini_max_tokens ?? 800), 750);
       const customSystemPrompt = (allSettings as any)?.lakshmi_custom_system_prompt || '';
@@ -2673,6 +2705,37 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
 
   app.post('/api/chatbot/message', chatbotMessageRateLimit, handleChatbotRequest);
   app.post('/api/chatbot', chatbotMessageRateLimit, handleChatbotRequest);
+
+  // POST /api/chatbot/vision — Netra Multimodal Vision AI Endpoint (Skin, Plant Doctor, Nutrition, Return Inspection)
+  app.post('/api/chatbot/vision', chatbotMessageRateLimit, async (req: Request, res: Response) => {
+    try {
+      const { image, message = '', language = 'en', mode, sessionToken } = req.body || {};
+      if (!image || typeof image !== 'string' || image.length < 50) {
+        return res.status(400).json({ error: 'Valid base64 image data is required.' });
+      }
+
+      const lang = ['en', 'hi', 'te'].includes(language) ? language : 'en';
+      const userId = await resolveCustomerUserId(req);
+
+      const result = await routeAndAnalyzeVision(image, message, lang, mode);
+
+      if (userId && result.title) {
+        saveHealthTopicToProfile(userId, result.title).catch(() => {});
+      }
+
+      return res.json({
+        reply: result.markdownContent,
+        visionResult: result,
+        sessionToken,
+      });
+    } catch (err: any) {
+      console.error('[chatbot] /api/chatbot/vision error:', err?.message);
+      return res.status(500).json({
+        error: err?.message || 'Vision analysis failed.',
+        reply: '⚠️ Netra Vision AI could not process this image right now. Please try again with a clearer photo!',
+      });
+    }
+  });
 
   // POST /api/chatbot/end-session — Customer ends the current live chat session
   app.post('/api/chatbot/end-session', async (req: Request, res: Response) => {

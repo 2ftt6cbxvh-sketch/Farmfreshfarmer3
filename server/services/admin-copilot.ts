@@ -34,24 +34,11 @@ export interface CopilotResponse {
   suggestedFollowups: string[];
 }
 
-/** Retrieve Gemini API key from settings or environment */
+import { getNarayanaApiKey } from "./gemini-keys";
+
+/** Retrieve Narayana dedicated Gemini API key */
 async function getGeminiApiKey(): Promise<string> {
-  try {
-    const { storage } = await import("../storage");
-    const all = await storage.settings.all();
-    const k = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-    if (k.length > 5) return k;
-  } catch {}
-
-  try {
-    const allSettings = await db.select().from(settings);
-    const keySetting = allSettings.find((s) => s.key === "gemini_api_key");
-    if (keySetting && keySetting.value && keySetting.value.trim().length > 5) {
-      return keySetting.value.trim();
-    }
-  } catch {}
-
-  return (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+  return getNarayanaApiKey();
 }
 
 /**

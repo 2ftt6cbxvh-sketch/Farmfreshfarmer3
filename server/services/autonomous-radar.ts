@@ -20,16 +20,10 @@ import { desc, eq, and, sql, gte } from "drizzle-orm";
 import { sendTelegramExecutiveAlert } from "./telegram";
 
 let _geminiKey = "";
+import { getNarayanaApiKey } from "./gemini-keys";
+
 async function getKey(): Promise<string> {
-  if (_geminiKey) return _geminiKey;
-  try {
-    const { storage } = await import("../storage");
-    const all = await storage.settings.all();
-    _geminiKey = (all.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-  } catch {
-    _geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-  }
-  return _geminiKey;
+  return getNarayanaApiKey();
 }
 
 async function callGeminiText(prompt: string): Promise<string> {

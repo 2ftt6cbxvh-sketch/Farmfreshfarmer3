@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2 } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, X, Send, Users, ChevronDown, Leaf, ShoppingCart, ExternalLink, MapPin, LogIn, Lock, Sparkles, Ticket, Crown, Star, CheckCircle2, ShieldAlert, XCircle, Trash2, Camera, ImagePlus, Eye, Activity, HeartPulse } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useCart, useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
@@ -33,6 +33,8 @@ interface ChatMessage {
   showSignInBox?: boolean;
   messageType?: string;
   metadata?: any;
+  imageUrl?: string;
+  visionResult?: any;
   products?: Array<{
     id: number;
     name: string;
@@ -195,6 +197,35 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   /* Ticket Creation State */
   const [ticketStep, setTicketStep] = useState<"name" | "phone" | "email" | "concern" | null>(null);
   const [ticketData, setTicketData] = useState({ name: "", phone: "", email: "", concern: "" });
+
+  /* Vision Image Upload State */
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageMode, setImageMode] = useState<"auto" | "skin_doctor" | "plant_doctor" | "nutrition" | "return_spoilage">("auto");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Please select an image smaller than 10MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result as string;
+      setSelectedImage(res);
+      setImagePreviewUrl(res);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleClearSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreviewUrl(null);
+  };
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -467,6 +498,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
         needsHuman: data.needsHuman,
         requiresLocation: data.requiresLocation,
         products: data.products,
+        visionResult: data.visionResult,
       };
       setMessages((prev) => [...prev, reply]);
       
@@ -834,10 +866,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   /* Send message */
   const handleSend = useCallback(async () => {
     const msg = input.trim();
-    if (!msg || sendMutation.isPending) return;
-    setInput("");
+    const currentImg = selectedImage;
+    const currentImgPreview = imagePreviewUrl;
 
-    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: "user", content: msg, timestamp: new Date() };
+    if ((!msg && !currentImg) || sendMutation.isPending) return;
+    setInput("");
+    setSelectedImage(null);
+    setImagePreviewUrl(null);
+
+    const userMsg: ChatMessage = {
+      id: `u_${Date.now()}`,
+      role: "user",
+      content: msg || (currentImg ? "📷 Photo uploaded for Netra Vision AI analysis" : ""),
+      timestamp: new Date(),
+      imageUrl: currentImgPreview || undefined,
+    };
     setMessages((prev) => [...prev, userMsg]);
 
     // Handle ticket flow steps
@@ -921,8 +964,13 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     }
 
     const history = messages.filter((m) => m.id !== "welcome").slice(-8).map((m) => ({ role: m.role, content: m.content }));
-    sendMutation.mutate({ message: msg, history });
-  }, [input, messages, sendMutation, ticketStep, ticketData, user]);
+    sendMutation.mutate({
+      message: msg || "Analyze this photo accurately for skin condition, plant health, nutrition macros, or damage",
+      image: currentImg || undefined,
+      mode: imageMode,
+      history,
+    } as any);
+  }, [input, selectedImage, imagePreviewUrl, imageMode, messages, sendMutation, ticketStep, ticketData, user]);
 
   /* Connect to human — requires phone-verified account */
   const handleConnectHuman = useCallback(async () => {
@@ -1234,6 +1282,11 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                       <span className="text-emerald-300 font-extrabold">{user.name}</span>
                     </div>
                   )}
+                  {msg.imageUrl && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-emerald-500/30 max-w-[240px] shadow-sm">
+                      <img src={msg.imageUrl} alt="Uploaded image" className="w-full h-auto object-cover max-h-48 rounded-xl" />
+                    </div>
+                  )}
                   <div className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words leading-relaxed ${
                     msg.role === "user"
                       ? "text-white rounded-tr-sm"
@@ -1243,6 +1296,38 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                   >
                     {msg.content}
                   </div>
+
+                  {/* Netra Multimodal Vision AI Result Card */}
+                  {msg.visionResult && (
+                    <div className="mt-2.5 p-3 rounded-2xl bg-card border border-emerald-500/30 shadow-md space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                          <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                          <span>{msg.visionResult.title || "Netra AI Visual Analysis"}</span>
+                        </div>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          Pure Gemini 2.5 Vision
+                        </span>
+                      </div>
+
+                      {msg.visionResult.dataPills && msg.visionResult.dataPills.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {msg.visionResult.dataPills.map((pill: any, idx: number) => (
+                            <span key={idx} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-foreground border border-card-border">
+                              {pill.label}: <span className="text-emerald-600 dark:text-emerald-400 font-black">{pill.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {msg.visionResult.refundRecommendation && msg.visionResult.refundRecommendation.isDamaged && (
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
+                          <span>Automated Damage Verified ({msg.visionResult.refundRecommendation.confidence}% confidence). Instant Refund Approved!</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* Enhanced Interactive Product Suggestion Cards */}
                   {msg.products && msg.products.length > 0 && (
                     <div className="mt-3 space-y-2.5">
@@ -1542,29 +1627,75 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 border border-transparent focus-within:border-emerald-400 transition">
-                <input ref={inputRef} id="chatbot-input" type="text" value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder={strings.placeholder}
-                  className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
-                />
-                {/* Mic button */}
-                <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
-                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"}`}
-                  aria-label={isListening ? "Stop recording" : "Start voice input"}>
-                  {isListening ? <MicOff size={14} /> : <Mic size={14} />}
-                </button>
-                {/* Send button */}
-                <button id="chatbot-send-btn" onClick={handleSend} disabled={!input.trim() || sendMutation.isPending}
-                  className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, #065f46, #ca8a04)' }}
-                  aria-label="Send message">
-                  <Send size={13} />
-                </button>
+              <div className="space-y-1.5">
+                {/* Floating Image Preview Thumbnail */}
+                {imagePreviewUrl && (
+                  <div className="p-2 bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img src={imagePreviewUrl} alt="Preview" className="w-9 h-9 rounded-lg object-cover border border-emerald-500/40 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 truncate">📷 Photo ready for Netra AI</p>
+                        <p className="text-[9px] text-muted-foreground truncate">Diagnoses skin, plant health, macros, or damage</p>
+                      </div>
+                    </div>
+                    <button onClick={handleClearSelectedImage} className="p-1 rounded-full text-muted-foreground hover:text-red-500 transition flex-shrink-0" aria-label="Remove image">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden File Inputs */}
+                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageFilePicked} />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFilePicked} />
+
+                <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-zinc-800 rounded-2xl px-2.5 py-1.5 border border-transparent focus-within:border-emerald-400 transition">
+                  {/* Camera Snap Button */}
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition"
+                    title="Take a photo (Skin Doctor / Plant Doctor / Nutrition / Return Damage)"
+                    aria-label="Take Photo"
+                  >
+                    <Camera size={15} />
+                  </button>
+
+                  {/* Gallery Upload Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition"
+                    title="Upload image from gallery"
+                    aria-label="Upload Image"
+                  >
+                    <ImagePlus size={15} />
+                  </button>
+
+                  <input ref={inputRef} id="chatbot-input" type="text" value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                    placeholder={selectedImage ? "Add query or tap send to analyze..." : strings.placeholder}
+                    className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
+                  />
+
+                  {/* Mic button */}
+                  <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
+                    className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"}`}
+                    aria-label={isListening ? "Stop recording" : "Start voice input"}>
+                    {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                  </button>
+
+                  {/* Send button */}
+                  <button id="chatbot-send-btn" onClick={handleSend} disabled={(!input.trim() && !selectedImage) || sendMutation.isPending}
+                    className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
+                    style={{ background: 'linear-gradient(135deg, #065f46, #ca8a04)' }}
+                    aria-label="Send message">
+                    <Send size={13} />
+                  </button>
+                </div>
               </div>
             )}
-            <p className="text-center text-[9px] text-gray-400 mt-1">{strings.poweredBy}</p>
+            <p className="text-center text-[9px] text-gray-400 mt-1">Powered by Lakshmi AI & Netra Vision 2.5 · FarmFreshFarmer</p>
           </div>
         </div>
       )}
