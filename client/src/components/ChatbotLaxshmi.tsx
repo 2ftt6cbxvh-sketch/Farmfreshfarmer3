@@ -298,7 +298,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               (m) =>
                 m.role === "user" &&
                 m.content.trim() === lm.message.trim() &&
-                (String(m.id).startsWith("u_") || String(m.id).startsWith("opt_"))
+                (String(m.id).startsWith("u_") || String(m.id).startsWith("opt_") || String(m.id).startsWith("m_"))
             );
             if (optIdx !== -1) {
               // Upgrade the optimistic ID to the DB ID
@@ -311,6 +311,36 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
               continue;
             }
           }
+
+          // Check if this live message matches an optimistic/local AI bot message
+          if (lm.sender === "bot" || lm.sender === "ai") {
+            const botIdx = updated.findIndex(
+              (m) =>
+                m.role === "model" &&
+                (m.content.trim() === lm.message.trim() ||
+                 m.content.replace(/\s+/g, " ").trim() === lm.message.replace(/\s+/g, " ").trim())
+            );
+            if (botIdx !== -1) {
+              // Upgrade the bot message ID and metadata without creating a duplicate!
+              updated[botIdx] = {
+                ...updated[botIdx],
+                id: stringId,
+                timestamp: new Date(lm.createdAt),
+                senderName: lm.senderName || updated[botIdx].senderName,
+                senderMeta: lm.senderMeta || updated[botIdx].senderMeta,
+              };
+              hasChanged = true;
+              continue;
+            }
+          }
+
+          // Check if identical content already exists for this role to prevent duplicate bubble
+          const isDuplicateContent = updated.some(
+            (m) =>
+              m.role === (lm.sender === "customer" ? "user" : "model") &&
+              m.content.trim() === lm.message.trim()
+          );
+          if (isDuplicateContent) continue;
 
           // Otherwise append new message (support rep reply or system announcement)
           updated.push({

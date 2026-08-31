@@ -403,7 +403,7 @@ function resolveSmartProductSuggestions(
     const pDescLower = (p.description || '').toLowerCase();
     const pWords = (pNameLower + ' ' + pCatLower).split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
 
-    // 1. Direct word / stem match in user message (+90)
+    // 1. Direct word / stem match in user message & Telugu script name (+90)
     for (const uw of rawWords) {
       if (pWords.some(pw => matchesWord(uw, pw))) {
         score += 80;
@@ -411,6 +411,11 @@ function resolveSmartProductSuggestions(
       if (pNameLower.includes(uw) || uw.includes(pNameLower)) {
         score += 95;
       }
+    }
+
+    // Direct Telugu match
+    if (p.nameTe && lowerMsg.includes(p.nameTe)) {
+      score += 100;
     }
 
     // 2. Multilingual synonym match (+75)
@@ -423,39 +428,39 @@ function resolveSmartProductSuggestions(
     }
 
     // 3. Health & Nutrition intent alignment (+65)
-    if (activeHealthIntents.includes('diabetes')) {
-      if (/millet|ragi|foxtail|korralu|spinach|palak|tomato|dal|pulse|karela|bitter/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('diabetes') || /sugar|glucose|diabetes|diabetic|insulin/i.test(lowerMsg)) {
+      if (/millet|ragi|foxtail|korralu|spinach|palak|tomato|dal|pulse|karela|bitter/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('heart_bp')) {
-      if (/pomegranate|danimma|spinach|palak|garlic|vellulli|millet|oil|sesame|groundnut/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('heart_bp') || /bp|blood pressure|hypertension|heart|cholesterol/i.test(lowerMsg)) {
+      if (/pomegranate|danimma|spinach|palak|garlic|vellulli|millet|oil|sesame|groundnut/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('weight_loss')) {
-      if (/millet|ragi|spinach|salad|vegetable|pulse|dal|cucumber|tomato/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('weight_loss') || /weight|fat|slim|obesity|calorie/i.test(lowerMsg)) {
+      if (/millet|ragi|spinach|salad|vegetable|pulse|dal|cucumber|tomato/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('digestion')) {
-      if (/ginger|allam|papaya|curd|perugu|buttermilk|majjiga|millet|vegetable/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('digestion') || /gut|digestion|stomach|gastric|constipation/i.test(lowerMsg)) {
+      if (/ginger|allam|papaya|curd|perugu|buttermilk|majjiga|millet|vegetable/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('immunity')) {
-      if (/turmeric|pasupu|amla|pomegranate|danimma|honey|ginger|allam|pepper|spice/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('immunity') || /immune|immunity|cold|cough|infection/i.test(lowerMsg)) {
+      if (/turmeric|pasupu|amla|pomegranate|danimma|honey|ginger|allam|pepper|spice/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('bone_calcium')) {
-      if (/ragi|millet|spinach|ghee|milk|jaggery|bellam|dal|pulse/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('bone_calcium') || /bone|calcium|joint|arthritis/i.test(lowerMsg)) {
+      if (/ragi|millet|spinach|ghee|milk|jaggery|bellam|dal|pulse/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
-    if (activeHealthIntents.includes('protein_gym')) {
-      if (/dal|pulse|toor|moong|chana|paneer|milk|ghee|chicken|pickle/.test(pNameLower + ' ' + pCatLower)) {
-        score += 65;
+    if (activeHealthIntents.includes('protein_gym') || /protein|gym|muscle|workout/i.test(lowerMsg)) {
+      if (/dal|pulse|toor|moong|chana|paneer|milk|ghee|chicken|pickle/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 75;
       }
     }
     if (activeHealthIntents.includes('deals') || /deal|offer|discount|sale|special/i.test(lowerMsg)) {
@@ -464,14 +469,21 @@ function resolveSmartProductSuggestions(
       }
     }
 
+    // General produce / fresh inquiries bonus
+    if (/fresh|harvest|today|sell|produce|vegetable|fruit|millet|sweet|pickle|food|buy|organic/i.test(lowerMsg)) {
+      if (p.featured || p.stock > 0) score += 25;
+    }
+
     // 4. Mentioned in Lakshmi AI reply text (+65)
     if (lowerReply) {
       if (lowerReply.includes(pNameLower)) {
-        score += 65;
+        score += 85;
+      } else if (p.nameTe && lowerReply.includes(p.nameTe)) {
+        score += 85;
       } else {
         const significantPWords = pNameLower.split(/\s+/).filter(w => w.length >= 4 && !STOP_WORDS.has(w));
         if (significantPWords.some(w => lowerReply.includes(w))) {
-          score += 45;
+          score += 55;
         }
       }
     }
@@ -480,7 +492,7 @@ function resolveSmartProductSuggestions(
     if (p.stock > 0) score += 10;
     if (Number(p.discountPercent) > 0) score += 5;
 
-    if (score >= 35) {
+    if (score >= 20) {
       scoredProducts.push({ product: p, score });
     }
   }
