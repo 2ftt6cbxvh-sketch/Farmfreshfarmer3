@@ -44,10 +44,10 @@ export function registerAdminLakshmiRoutes(app: Express) {
       }
 
       return res.json({
-        hasKey: Boolean(rawKey && rawKey.trim().length > 5),
+        hasKey: Boolean(rawKey && rawKey.trim().length > 5 && rawKey.startsWith("AIzaSy")),
         maskedKey,
-        rawKey: rawKey ? rawKey : "",
-        model: allSettings.gemini_model || "gemini-2.0-flash",
+        rawKey: rawKey.startsWith("AIzaSy") ? rawKey : "",
+        model: allSettings.gemini_model || "gemini-2.5-flash",
         temperature: Number(allSettings.gemini_temperature ?? 0.5),
         maxTokens: Number(allSettings.gemini_max_tokens ?? 450),
         customSystemPrompt: allSettings.lakshmi_custom_system_prompt || "",
@@ -104,78 +104,113 @@ export function registerAdminLakshmiRoutes(app: Express) {
     try {
       const allSettings = await storage.settings.all();
       const apiKey = req.body?.apiKey || allSettings.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-      const modelName = req.body?.model || allSettings.gemini_model || "gemini-2.0-flash";
+      const requestedModel = req.body?.model || allSettings.gemini_model || "gemini-2.5-flash";
 
       if (!apiKey || !apiKey.trim()) {
         return res.status(400).json({
           success: false,
-          error: "No Gemini API Key provided. Please enter your Google AI Studio API key.",
+          error: "No Gemini API Key provided. Please enter your Google AI Studio API key (starts with AIzaSy).",
         });
       }
 
-      const cleanKey = apiKey.trim();
+      const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
 
-      // 1. Try Native REST API call with fast timeout
+      // Sequence of models to try
+      const candidateModels = Array.from(new Set([
+        requestedModel,
+        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro",
+        "gemini-2.5-pro",
+      ]));
+
+      let workingModel = "";
       let replyText = "";
-      let usedMethod = "REST";
+      let lastErrorMsg = "";
 
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+      for (const mName of candidateModels) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${cleanKey}`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const testRes = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: {
-              parts: [{ text: "You are Lakshmi AI, the intelligent farm-fresh delivery assistant for FarmFreshFarmer. Respond warmly and concisely in 1-2 sentences." }],
-            },
-            contents: [{ role: "user", parts: [{ text: "Namaste Lakshmi! Confirm you are active and tell me what you specialize in." }] }],
-            generationConfig: { maxOutputTokens: 150, temperature: 0.5 },
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+          const testRes = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: {
+                parts: [{ text: "You are Lakshmi AI, the intelligent farm-fresh delivery assistant for FarmFreshFarmer. Respond warmly and concisely in 1-2 sentences." }],
+              },
+              contents: [{ role: "user", parts: [{ text: "Namaste Lakshmi! Confirm you are active and tell me what you specialize in." }] }],
+              generationConfig: { maxOutputTokens: 150, temperature: 0.5 },
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
 
-        if (testRes.ok) {
-          const data = await testRes.json();
-          const parts = data?.candidates?.[0]?.content?.parts || [];
-          replyText = parts.map((p: any) => p.text || "").join(" ").trim();
-        } else {
-          const errorData = await testRes.json().catch(() => ({}));
-          const errMsg = errorData?.error?.message || `HTTP ${testRes.status} ${testRes.statusText}`;
-          throw new Error(errMsg);
+          if (testRes.ok) {
+            const data = await testRes.json();
+            const parts = data?.candidates?.[0]?.content?.parts || [];
+            const text = parts.map((p: any) => p.text || "").join(" ").trim();
+            if (text) {
+              replyText = text;
+              workingModel = mName;
+              break;
+            }
+          } else {
+            const errorData = await testRes.json().catch(() => ({}));
+            lastErrorMsg = errorData?.error?.message || `HTTP ${testRes.status} ${testRes.statusText}`;
+          }
+        } catch (fetchErr: any) {
+          lastErrorMsg = fetchErr?.message || String(fetchErr);
         }
-      } catch (restErr: any) {
-        // Fallback to SDK test
-        usedMethod = "SDK";
-        const genAI = new GoogleGenerativeAI(cleanKey);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { maxOutputTokens: 150, temperature: 0.5 },
-        });
-        const result = await model.generateContent("Namaste Lakshmi! Confirm you are active and tell me what you specialize in.");
-        const response = await result.response;
-        replyText = response.text();
+
+        // Also try SDK fallback for this model
+        if (!replyText) {
+          try {
+            const genAI = new GoogleGenerativeAI(cleanKey);
+            const model = genAI.getGenerativeModel({
+              model: mName,
+              generationConfig: { maxOutputTokens: 150, temperature: 0.5 },
+            });
+            const result = await model.generateContent("Namaste Lakshmi! Confirm you are active and tell me what you specialize in.");
+            const response = await result.response;
+            const text = response.text();
+            if (text && text.trim()) {
+              replyText = text.trim();
+              workingModel = mName;
+              break;
+            }
+          } catch (sdkErr: any) {
+            lastErrorMsg = sdkErr?.message || String(sdkErr);
+          }
+        }
       }
 
       const latencyMs = Date.now() - startTime;
 
+      if (!replyText) {
+        return res.status(400).json({
+          success: false,
+          latencyMs,
+          error: lastErrorMsg || "Failed to communicate with Google Gemini API. Please make sure you are using a valid Google AI Studio key starting with AIzaSy.",
+        });
+      }
+
       return res.json({
         success: true,
-        model: modelName,
+        model: workingModel,
         latencyMs,
-        method: usedMethod,
         reply: replyText.replace(/\*\*([^*]+)\*\*/g, "$1").trim(),
-        message: `⚡ Google Gemini API connection verified in ${latencyMs}ms!`,
+        message: `⚡ Google Gemini API (${workingModel}) connection verified in ${latencyMs}ms!`,
       });
     } catch (err: any) {
       const latencyMs = Date.now() - startTime;
       return res.status(400).json({
         success: false,
         latencyMs,
-        error: err?.message || "Failed to communicate with Google Gemini API. Please check your API key and quota.",
+        error: err?.message || "Failed to communicate with Google Gemini API.",
       });
     }
   });

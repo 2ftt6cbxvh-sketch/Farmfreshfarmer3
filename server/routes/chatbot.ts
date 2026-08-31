@@ -743,8 +743,15 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       return actualPart?.text?.trim() || '';
     }
 
-    // Models sequence starting with the chosen model
-    const candidateModels = Array.from(new Set([selectedModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']));
+    // Models sequence starting with the chosen model, falling back to supported models
+    const candidateModels = Array.from(new Set([
+      selectedModel,
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+      'gemini-2.5-pro',
+    ]));
 
     // 1. Try Native REST API with AbortController timeout (fastest network latency)
     for (const mName of candidateModels) {
