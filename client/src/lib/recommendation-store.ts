@@ -245,6 +245,22 @@ export function recordSearchQuery(query: string) {
   emitUpdate();
 }
 
+/** Record a 0-result / unmet product search with live geo-location & session metadata */
+export function recordUnmetDemandSearch(query: string, resultCount = 0) {
+  const clean = (query || "").trim();
+  if (clean.length < 2) return;
+
+  const sessionId = getOrCreateGuestSessionId();
+  const city = globalState.location.city || "Visakhapatnam";
+
+  apiRequest("POST", "/api/user/behavior/unmet-search", {
+    query: clean,
+    sessionId,
+    city,
+    resultCount,
+  }).catch(() => {});
+}
+
 /** Record Lakshmi AI health / produce inquiry */
 export function recordHealthInquiry(topicKey: string, queryText?: string) {
   if (!topicKey && !queryText) return;

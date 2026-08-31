@@ -76,6 +76,25 @@ export default function AdminProcurementAI() {
     retry: 1,
   });
 
+  // Fetch live zero-result search stream (auto-refreshed every 10 seconds)
+  const { data: liveStreamData } = useQuery<{
+    totalRecent: number;
+    events: {
+      id: number;
+      query: string;
+      sessionId: string;
+      city: string;
+      pincode?: string;
+      resultCount: number;
+      createdAt: string;
+    }[];
+  }>({
+    queryKey: ["/api/admin/demand/live-unmet-stream"],
+    queryFn: () => apiGet("/api/admin/demand/live-unmet-stream"),
+    refetchInterval: 10000,
+    staleTime: 5000,
+  });
+
   // Mutation to force re-analyze
   const reanalyzeMutation = useMutation({
     mutationFn: async () => {
@@ -453,6 +472,40 @@ export default function AdminProcurementAI() {
                   Queries typed by visitors with 0 product matches in the catalog — indicates immediate lost revenue opportunities.
                 </p>
               </div>
+
+              {/* ── Live Real-Time Zero-Result Stream Ticker ── */}
+              {liveStreamData?.events && liveStreamData.events.length > 0 && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-black text-amber-500">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                      <span>Live Zero-Inventory Stream (Dispatched to Vishnu AI)</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      Auto-updating live ({liveStreamData.totalRecent} events)
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {liveStreamData.events.slice(0, 10).map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-card-border text-xs shadow-xs"
+                      >
+                        <span className="font-bold text-foreground capitalize">"{ev.query}"</span>
+                        <Badge variant="outline" className="text-[9px] bg-secondary/50 font-bold">
+                          📍 {ev.city}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {ev.sessionId.slice(0, 8)}...
+                        </span>
+                        <span className="text-[10px] text-amber-400 font-semibold">
+                          {new Date(ev.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-card-border bg-card overflow-x-auto shadow-md">
                 <table className="w-full text-xs">

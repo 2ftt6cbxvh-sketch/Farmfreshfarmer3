@@ -106,6 +106,22 @@ export const guestBehaviorSessions = pgTable("guest_behavior_sessions", {
 }));
 export type GuestBehaviorSession = typeof guestBehaviorSessions.$inferSelect;
 
+/* =================== UNMET DEMAND EVENTS (LIVE SEARCHES) ================== */
+export const unmetDemandEvents = pgTable("unmet_demand_events", {
+  id: serial("id").primaryKey(),
+  query: varchar("query", { length: 255 }).notNull(),
+  sessionId: varchar("session_id", { length: 128 }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  city: varchar("city", { length: 128 }).default("Visakhapatnam"),
+  pincode: varchar("pincode", { length: 32 }),
+  resultCount: integer("result_count").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  queryIdx: index("unmet_demand_query_idx").on(t.query),
+  createdIdx: index("unmet_demand_created_idx").on(t.createdAt),
+}));
+export type UnmetDemandEvent = typeof unmetDemandEvents.$inferSelect;
+
 /* ============================== ADDRESSES =========================== */
 export const addresses = pgTable("addresses", {
   id: serial("id").primaryKey(),

@@ -15,7 +15,7 @@ import { db } from "../db";
 import {
   orders, products, coupons, users, securityAuditLogs,
   deliveryPartners, settings, inventoryAdjustments,
-  customerProfiles, guestBehaviorSessions
+  customerProfiles, guestBehaviorSessions, unmetDemandEvents
 } from "@shared/schema";
 import { eq, desc, sql, gte, and, inArray } from "drizzle-orm";
 
@@ -200,6 +200,32 @@ async function getLiveSearchAndDemandData() {
   };
 }
 
+async function getLiveUnmetSearchStream() {
+  let unmetRows: any[] = [];
+  try {
+    unmetRows = await db
+      .select()
+      .from(unmetDemandEvents)
+      .orderBy(desc(unmetDemandEvents.id))
+      .limit(30);
+  } catch (e: any) {
+    console.warn("[copilot] unmetDemandEvents query fallback:", e?.message);
+  }
+
+  const liveStream = unmetRows.map((r) => {
+    const d = new Date(r.createdAt);
+    const timeStr = d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });
+    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - d.getTime()) / (60 * 1000)));
+    const elapsedText = elapsedMinutes < 1 ? "Just now" : `${elapsedMinutes} min${elapsedMinutes > 1 ? "s" : ""} ago`;
+    return `• Item: "${r.query}" | Location: ${r.city || "Visakhapatnam"} ${r.pincode ? `(${r.pincode})` : ""} | Session ID: ${r.sessionId} | Time: ${timeStr} (${elapsedText})`;
+  });
+
+  return {
+    totalUnmetCaptured: unmetRows.length,
+    recentZeroResultSearches: liveStream,
+  };
+}
+
 /**
  * ⚡ Live Action Executions (Function Calling)
  */
@@ -295,12 +321,13 @@ export async function executeCopilotTurn(
   const lastUserMsg = messages[messages.length - 1]?.content || "";
 
   // 1. Fetch live DB contexts
-  const [financials, inventory, delivery, security, searchDemand] = await Promise.all([
+  const [financials, inventory, delivery, security, searchDemand, liveUnmetSearches] = await Promise.all([
     getLiveFinancialData(isSuperAdmin),
     getLiveInventoryData(),
     getLiveDeliveryData(),
     getLiveSecurityData(isSuperAdmin),
     getLiveSearchAndDemandData(),
+    getLiveUnmetSearchStream(),
   ]);
 
   const systemInstruction = `
@@ -308,6 +335,7 @@ You are Vishnu AI, the high-privilege AI Operations & Executive Assistant for Fa
 You are assisting: ${adminUser.name || "Admin"} (Role: ${adminUser.role}, Super Admin: ${isSuperAdmin ? "YES" : "NO"}).
 
 LIVE SYSTEM CONTEXT (REAL-TIME DATABASE METRICS ACROSS BOTH REGISTERED CUSTOMERS AND ANONYMOUS GUEST VISITORS):
+- Live Unmet & Zero-Result Product Searches (Captured Real-Time with Session ID, City Location & Timestamp): ${JSON.stringify(liveUnmetSearches)}
 - Customer & Guest Searches / Demand Trends: ${JSON.stringify(searchDemand)}
 - Financials & Revenue: ${JSON.stringify(financials)}
 - Crop Inventory & Stock: ${JSON.stringify(inventory)}
@@ -324,6 +352,7 @@ You can execute approved administrative actions by including an ACTION JSON bloc
 
 GUIDELINES:
 - Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables where appropriate.
+- If asked about live searches, unmet searches, or what customers are trying to find that is not in inventory, quote the exact product name, city/location, session ID, and timestamp from the Live Unmet Product Searches context!
 - If asked about customer searches (e.g. "what are todays searches", "what are people looking for"), give exact search terms, counts, and categories from the searchDemand context!
 - If answering financial questions, use the exact figures from the live financials context.
 - If asked to execute an action (e.g. create coupon, adjust stock), output the <<<ACTION:...>>> block followed by confirmation text.

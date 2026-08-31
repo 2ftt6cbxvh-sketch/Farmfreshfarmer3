@@ -10,7 +10,7 @@
 
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { customerProfiles, guestBehaviorSessions, users } from "@shared/schema";
+import { customerProfiles, guestBehaviorSessions, unmetDemandEvents, users } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { getJwtSecret } from "../services/encryption";
 import { createHash, randomBytes } from "crypto";
@@ -324,6 +324,91 @@ export function registerUserBehaviorRoutes(app: Express) {
     } catch (err: any) {
       console.error("[user-behavior] Analytics error:", err?.message);
       return res.status(500).json({ message: "Failed to generate behavior analytics" });
+    }
+  });
+
+  /**
+   * POST /api/user/behavior/unmet-search — Fast live tracking for zero-result product searches
+   */
+  app.post("/api/user/behavior/unmet-search", async (req: Request, res: Response) => {
+    try {
+      const userId = await resolveAuthUser(req);
+      const { query, sessionId, city, pincode, resultCount } = req.body || {};
+
+      if (!query || typeof query !== "string" || query.trim().length < 2) {
+        return res.status(400).json({ message: "Invalid query" });
+      }
+
+      const cleanQuery = query.trim().replace(/<[^>]*>?/gm, "").slice(0, 255);
+      const safeSid = String(sessionId || `gst_${randomBytes(8).toString("hex")}`).slice(0, 128);
+      const safeCity = String(city || "Visakhapatnam").slice(0, 128);
+      const safePincode = pincode ? String(pincode).slice(0, 32) : null;
+      const countVal = Number(resultCount) || 0;
+
+      // 1. Record directly into unmet_demand_events for sub-millisecond Vishnu AI streaming
+      try {
+        await db.insert(unmetDemandEvents).values({
+          query: cleanQuery,
+          sessionId: safeSid,
+          userId: userId || null,
+          city: safeCity,
+          pincode: safePincode,
+          resultCount: countVal,
+        });
+      } catch (insertErr: any) {
+        console.warn("[unmet-search] Insert event fallback:", insertErr?.message);
+      }
+
+      return res.json({ ok: true, query: cleanQuery, recordedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.error("[unmet-search] Error recording unmet search:", err?.message);
+      return res.status(500).json({ message: "Failed to record search" });
+    }
+  });
+
+  /**
+   * GET /api/admin/demand/live-unmet-stream — Real-time live feed of zero-inventory searches for Vishnu AI & Admin Radar
+   */
+  app.get("/api/admin/demand/live-unmet-stream", async (req: Request, res: Response) => {
+    try {
+      const userId = await resolveAuthUser(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const [adminUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!adminUser || (adminUser.role !== "admin" && !adminUser.isPrimaryAdmin)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      let events: any[] = [];
+      try {
+        events = await db
+          .select()
+          .from(unmetDemandEvents)
+          .orderBy(desc(unmetDemandEvents.id))
+          .limit(50);
+      } catch (e: any) {
+        console.warn("[live-unmet-stream] Query fallback:", e?.message);
+      }
+
+      return res.json({
+        totalRecent: events.length,
+        events: events.map((e) => ({
+          id: e.id,
+          query: e.query,
+          sessionId: e.sessionId,
+          userId: e.userId,
+          city: e.city || "Visakhapatnam",
+          pincode: e.pincode,
+          resultCount: e.resultCount || 0,
+          createdAt: e.createdAt,
+        })),
+        fetchedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("[live-unmet-stream] Fetch error:", err?.message);
+      return res.status(500).json({ message: "Failed to fetch live unmet stream" });
     }
   });
 }

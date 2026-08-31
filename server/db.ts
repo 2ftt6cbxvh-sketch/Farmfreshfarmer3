@@ -309,6 +309,18 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.guest_behavior_sessions"],
       ["CREATE INDEX IF NOT EXISTS guest_behavior_session_idx ON guest_behavior_sessions (session_id)", "idx.guest_behavior_session_idx"],
       ["CREATE INDEX IF NOT EXISTS guest_behavior_updated_idx ON guest_behavior_sessions (updated_at)", "idx.guest_behavior_updated_idx"],
+      [`CREATE TABLE IF NOT EXISTS unmet_demand_events (
+          id SERIAL PRIMARY KEY,
+          query VARCHAR(255) NOT NULL,
+          session_id VARCHAR(128) NOT NULL,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          city VARCHAR(128) DEFAULT 'Visakhapatnam',
+          pincode VARCHAR(32),
+          result_count INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        )`, "create.unmet_demand_events"],
+      ["CREATE INDEX IF NOT EXISTS unmet_demand_query_idx ON unmet_demand_events (query)", "idx.unmet_demand_query_idx"],
+      ["CREATE INDEX IF NOT EXISTS unmet_demand_created_idx ON unmet_demand_events (created_at)", "idx.unmet_demand_created_idx"],
     ];
 
     for (const [sql, label] of stmts) {
