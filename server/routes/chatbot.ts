@@ -1542,48 +1542,60 @@ function detectCartUpdateIntent(message: string): { rawProduct: string; rawQty: 
   return { rawProduct, rawQty, rawUnit };
 }
 
-/** Detect customer profile/address/phone/dietary updates */
-function detectProfileUpdateIntent(message: string): { type: 'address' | 'phone' | 'name' | 'pincode' | 'dietary'; value: string; extra?: any } | null {
-  const lower = message.toLowerCase().trim();
+/** Strictly sanitize user inputs against XSS, HTML tags, and control characters */
+function sanitizeCustomerInput(str: string, maxLen = 250): string {
+  if (!str || typeof str !== "string") return "";
+  return str
+    .replace(/<[^>]*>?/gm, "") // Strip HTML tags
+    .replace(/[\x00-\x1F\x7F]/g, "") // Strip control characters
+    .replace(/[`${}\\]/g, "") // Strip template literal and escape characters
+    .trim()
+    .slice(0, maxLen);
+}
 
-  // 1. Phone number update
-  const phoneMatch = message.match(/\b(?:change|update|set|modify)\s+(?:my\s+)?(?:phone|mobile|contact|cell)\s*(?:number)?\s+(?:to|as|is)?\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
-    message.match(/\b(?:my\s+new\s+(?:phone|mobile|number)\s+is|contact\s+me\s+at)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i);
-  if (phoneMatch) {
+/** Detect customer profile/address/phone/dietary updates with anti-injection validation */
+function detectProfileUpdateIntent(message: string): { type: 'address' | 'phone' | 'name' | 'pincode' | 'dietary'; value: string; extra?: any } | null {
+  const cleanMsg = sanitizeCustomerInput(message, 500);
+  if (!cleanMsg) return null;
+
+  // 1. Phone number update - strictly 10 digits starting with 6-9
+  const phoneMatch = cleanMsg.match(/\b(?:change|update|set|modify)\s+(?:my\s+)?(?:phone|mobile|contact|cell)\s*(?:number)?\s+(?:to|as|is)?\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
+    cleanMsg.match(/\b(?:my\s+new\s+(?:phone|mobile|number)\s+is|contact\s+me\s+at)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i);
+  if (phoneMatch && phoneMatch[2] && /^[6-9]\d{9}$/.test(phoneMatch[2])) {
     return { type: 'phone', value: phoneMatch[2] };
   }
 
-  // 2. Address update
-  const addrMatch = message.match(/\b(?:change|update|set|save|modify)\s+(?:my\s+)?(?:delivery\s+|shipping\s+|home\s+)?address\s+(?:to|as|is)?\s*[:\-]?\s*(.+)/i) ||
-    message.match(/\b(?:deliver to|new delivery address\s*[:\-]?)\s*[:\-]?\s*(.+)/i);
+  // 2. Address update - sanitized, length 6-250
+  const addrMatch = cleanMsg.match(/\b(?:change|update|set|save|modify)\s+(?:my\s+)?(?:delivery\s+|shipping\s+|home\s+)?address\s+(?:to|as|is)?\s*[:\-]?\s*(.+)/i) ||
+    cleanMsg.match(/\b(?:deliver to|new delivery address\s*[:\-]?)\s*[:\-]?\s*(.+)/i);
   if (addrMatch) {
-    const rawAddr = addrMatch[1].trim().replace(/^['"]|['"]$/g, '');
-    if (rawAddr.length >= 6) {
+    const rawAddr = sanitizeCustomerInput(addrMatch[1].trim().replace(/^['"]|['"]$/g, ''), 250);
+    if (rawAddr.length >= 6 && !/^(undefined|null|none|n\/a)$/i.test(rawAddr)) {
       const pinMatch = rawAddr.match(/\b([1-9][0-9]{5})\b/);
       return { type: 'address', value: rawAddr, extra: { pincode: pinMatch ? pinMatch[1] : null } };
     }
   }
 
-  // 3. Pincode update only
-  const pincodeUpdateMatch = message.match(/\b(?:change|update|set)\s+(?:my\s+)?(?:pincode|pin code|postal code|zip)\s+(?:to|as|is)?\s*[:\-]?\s*([1-9][0-9]{5})\b/i);
-  if (pincodeUpdateMatch) {
+  // 3. Pincode update only - strictly 6-digit Indian PIN
+  const pincodeUpdateMatch = cleanMsg.match(/\b(?:change|update|set)\s+(?:my\s+)?(?:pincode|pin code|postal code|zip)\s+(?:to|as|is)?\s*[:\-]?\s*([1-9][0-9]{5})\b/i);
+  if (pincodeUpdateMatch && /^[1-9][0-9]{5}$/.test(pincodeUpdateMatch[1])) {
     return { type: 'pincode', value: pincodeUpdateMatch[1] };
   }
 
-  // 4. Name update
-  const nameMatch = message.match(/\b(?:change|update|set)\s+(?:my\s+)?name\s+(?:to|as|is)?\s*[:\-]?\s*([a-zA-Z\s]{2,40})$/i) ||
-    message.match(/\b(?:call me|my name is)\s+([a-zA-Z\s]{2,40})$/i);
+  // 4. Name update - letters, spaces, dots, hyphens only
+  const nameMatch = cleanMsg.match(/\b(?:change|update|set)\s+(?:my\s+)?name\s+(?:to|as|is)?\s*[:\-]?\s*([a-zA-Z\s.'-]{2,40})$/i) ||
+    cleanMsg.match(/\b(?:call me|my name is)\s+([a-zA-Z\s.'-]{2,40})$/i);
   if (nameMatch) {
-    const rawName = nameMatch[1].trim();
-    if (rawName && !/^(address|phone|number|order|cart|cancel)$/i.test(rawName)) {
+    const rawName = sanitizeCustomerInput(nameMatch[1], 40);
+    if (rawName.length >= 2 && /^[a-zA-Z\s.'-]+$/.test(rawName) && !/^(address|phone|number|order|cart|cancel|admin|system)$/i.test(rawName)) {
       return { type: 'name', value: rawName };
     }
   }
 
-  // 5. Health & Dietary preferences
-  const dietMatch = message.match(/\b(?:i am|i have|my health goal is|i prefer|my diet is)\s+(diabetic|diabetes|low sugar|weight loss|keto|high fiber|organic only|vegan|cholesterol|hypertension|blood pressure|heart health)\b/i);
+  // 5. Health & Dietary preferences - whitelisted categories
+  const dietMatch = cleanMsg.match(/\b(?:i am|i have|my health goal is|i prefer|my diet is)\s+(diabetic|diabetes|low sugar|weight loss|keto|high fiber|organic only|vegan|cholesterol|hypertension|blood pressure|heart health)\b/i);
   if (dietMatch) {
-    return { type: 'dietary', value: dietMatch[1].toLowerCase() };
+    return { type: 'dietary', value: sanitizeCustomerInput(dietMatch[1].toLowerCase(), 50) };
   }
 
   return null;
@@ -2165,6 +2177,15 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
         }
 
         try {
+          // Strict customer account verification - ensure account is active and not blocked
+          const [targetUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+          if (!targetUser || targetUser.status === 'blocked' || targetUser.status === 'locked' || targetUser.isPermanentlyLocked) {
+            return res.status(403).json({
+              reply: '⚠️ Your account is currently suspended or locked. Please contact our support team.',
+              needsHuman: true,
+            });
+          }
+
           if (profileUpdate.type === 'phone') {
             await db.update(users).set({ phone: profileUpdate.value, updatedAt: new Date() }).where(eq(users.id, userId));
             return res.json({
