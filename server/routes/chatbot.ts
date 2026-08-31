@@ -612,13 +612,13 @@ async function fetchActiveAdsContext(): Promise<string> {
     .orderBy(desc(announcements.priority))
     .limit(5);
 
-    if (!activeAds.length) return '• Live Promotion: Free 30-90 min Vijayawada delivery on orders above ₹499.';
+    if (!activeAds.length) return '';
 
     const lines = activeAds.map(a => `• [${String(a.category).toUpperCase()}] ${a.title}: "${a.message}"`);
     return lines.join('\n');
   } catch (err) {
     console.warn('[chatbot] Failed to fetch active ads:', err);
-    return '• Live Promotion: Free 30-90 min Vijayawada delivery on orders above ₹499.';
+    return '';
   }
 }
 
@@ -666,7 +666,7 @@ ${customerCartContext || 'Cart is currently empty or user is not logged in.'}
 ${customerOrdersContext || 'No past orders found or user is not logged in.'}
 
 LIVE STORE ADS & PROMOTIONS:
-${activeOffersContext || 'Standard Offer: 100% Organic Farm Produce with Free 30-90 min Delivery above ₹499 across Vijayawada.'}
+${activeOffersContext || 'No active store promotions or special ads running currently.'}
 
 LIVE PRODUCT CATALOG:
 ${fullProductsContext || 'Natural organic fruits, vegetables, sweets, millets, cold-pressed oils, and avakaya pickles.'}
@@ -861,7 +861,85 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       }
     }
 
-    // 3. User Order Tracking & Order History
+    // 3. Clinical & Public Health Nutrition Queries (Accurate, Scientific & Prioritized)
+    if (
+      /\b(bp|blood\s*pressure|hypertension|heart|cardiac|cholesterol|artery|lipid|diabet(es|ic)?|sugar|glucose|glycemic|insulin|hba1c|digestion|digestive|acidity|gas|bloating|gut|constipation|gerd|stomach|immunity|immune|cold|cough|infection|fever|antioxidant|bone|bones|calcium|joint|arthritis|pregnancy|lactation|anemia|iron|hemoglobin|weight\s*loss|diet|fat\s*loss|slim|slimming|calorie|protein|gym|workout|muscle)\b/i.test(lower) ||
+      lower.includes('diabet') || lower.includes('sugar') || lower.includes('blood pressure') ||
+      lower.includes('bp') || lower.includes('cholesterol') || lower.includes('heart') ||
+      lower.includes('health') || lower.includes('benefit') || lower.includes('nutrition') ||
+      lower.includes('good for') || lower.includes('ideal for') || lower.includes('digestion') ||
+      lower.includes('acidity') || lower.includes('immunity') || lower.includes('bone') ||
+      lower.includes('calcium') || lower.includes('weight loss')
+    ) {
+      // 3a. High BP / Hypertension / Cardiovascular Health
+      if (/\b(bp|blood\s*pressure|hypertension|heart|cardiac|cholesterol|artery|lipid)\b/i.test(lower) || lower.includes('bp') || lower.includes('blood pressure') || lower.includes('heart') || lower.includes('cholesterol')) {
+        if (lang === 'te') {
+          return {
+            reply: `❤️ అధిక రక్తపోటు (High BP) మరియు గుండె ఆరోగ్యానికి సిఫార్సు చేయబడిన సేంద్రీయ ఉత్పత్తులు:\n• తాజా దానిమ్మ పండ్లు (Danimma): రక్తనాళాల వ్యాకోచాన్ని ప్రేరేపించే ప్యునికాలాగిన్స్ సమృద్ధిగా ఉండి రక్తపోటును సమతుల్యం చేస్తాయి.\n• నాటు వెల్లుల్లి (Vellulli): అల్లిసిన్ రక్తనాళాల స్థితిస్థాపకతను పెంచుతుంది.\n• తాజా పాలకూర (Palak): సహజ నైట్రేట్స్ మరియు పొటాషియం అధికంగా ఉండి సోడియం ప్రభావాన్ని తగ్గిస్తుంది.\n• గానుగ నువ్వుల & వేరుశనగ నూనె: గుండెకు మేలు చేసే MUFA/PUFA పుష్కలంగా ఉంటాయి.\n• కొర్రలు (సిరిధాన్యాలు): మెగ్నీషియం మరియు ఫైబర్ సమృద్ధిగా ఉంటాయి.\n\n💡 సహజ సిద్ధమైన సేంద్రీయ ఆహారాలు సంపూర్ణ పోషణను అందిస్తాయి. వైద్యపరమైన చికిత్సల కోసం మీ వైద్యుడిని సంప్రదించండి.`,
+            needsHuman: false,
+          };
+        } else if (lang === 'hi') {
+          return {
+            reply: `❤️ हाई ब्लड प्रेशर (BP) और हृदय स्वास्थ्य के लिए अनुशंसित प्राकृतिक जैविक उत्पाद:\n• ताजा अनार (Pomegranate): रक्त वाहिकाओं के फैलाव और स्वस्थ ब्लड सर्कुलेशन को बढ़ावा देता है।\n• ताजा लहसुन: इसमें मौजूद एलिसिन धमनियों के लचीलेपन और ब्लड प्रेशर नियंत्रण में सहायक है।\n• ताजा पालक: प्राकृतिक पोटेशियम और नाइट्रेट्स से भरपूर, जो सोडियम संतुलन बनाए रखता है।\n• कच्ची घानी का तेल: ट्रांस-फैट मुक्त, हृदय के लिए लाभकारी अनसैचुरेटेड फैट्स।\n• देसी मिलेट्स (कंगनी/कोदो): फाइबर और मैग्नीशियम से भरपूर।\n\n💡 जैविक उत्पाद संपूर्ण पोषण प्रदान करते हैं। चिकित्सीय मार्गदर्शन के लिए अपने डॉक्टर से सलाह लें।`,
+            needsHuman: false,
+          };
+        } else {
+          return {
+            reply: `❤️ For high blood pressure (hypertension) and cardiovascular wellness, we recommend:\n• Fresh Pomegranate (Danimma): Rich in punicalagins that stimulate endothelial nitric oxide (eNOS) for natural vasodilation and arterial flexibility.\n• Fresh Farm Garlic (Vellulli): Active allicin helps reduce systolic pressure and arterial stiffness.\n• Fresh Green Spinach (Palak): High in dietary potassium and nitrates that counterbalance sodium levels.\n• Cold-Pressed Wood-Pressed Sesame & Groundnut Oils: Rich in heart-healthy MUFA/PUFA without trans-fats.\n• Foxtail Millet (Korralu): High in magnesium and slow-digesting dietary fiber.\n\n💡 Wholesome organic produce provides excellent daily nutritional support. For clinical conditions, please consult your physician.`,
+            needsHuman: false,
+          };
+        }
+      }
+
+      // 3b. Diabetes & Blood Sugar Control
+      if (/\b(diabet(es|ic)?|sugar|glucose|glycemic|insulin|hba1c)\b/i.test(lower) || lower.includes('diabet') || lower.includes('sugar') || lower.includes('glucose')) {
+        if (lang === 'te') {
+          return {
+            reply: `🩺 మధుమేహం (షుగర్ / Diabetes) నియంత్రణకు Low Glycemic Index (GI < 55) ఆహారాలు:\n• కొర్రలు & రాగులు (సిరిధాన్యాలు): నెమ్మదిగా జీర్ణమై గ్లూకోజ్ స్పైక్స్‌ను నిరోధించే కరిగే ఫైబర్ పుష్కలంగా ఉంటుంది.\n• తాజా పాలకూర: ఇన్సులిన్ రిసెప్టర్లకు తోడ్పడే మెగ్నీషియం సమృద్ధిగా ఉంటుంది.\n• నాటు టమోటాలు: తక్కువ క్యాలరీలు మరియు శక్తివంతమైన లైకోపీన్ యాంటీఆక్సిడెంట్.\n• చేదు కాకరకాయ & పొట్టు పెసరపప్పు: సహజ గ్లూకోజ్ నియంత్రణకు మేలు చేస్తాయి.\n\n💡 సహజ ఆహారాలు రోజువారీ ఆహారంలో తోడ్పడతాయి. వైద్య సలహా కోసం మీ డాక్టర్‌ను సంప్రదించండి.`,
+            needsHuman: false,
+          };
+        } else {
+          return {
+            reply: `🩺 For diabetes and blood sugar control, we recommend Low Glycemic Index (GI < 55) organic produce:\n• Foxtail Millet (Korralu, GI ~50) & Finger Millet (Ragi): Rich in soluble beta-glucan fiber that slows carbohydrate absorption and prevents insulin spikes.\n• Fresh Spinach (Palak): High in magnesium, an essential cofactor for insulin receptor phosphorylation.\n• Fresh Farm Tomatoes: Low calorie, low GI, and rich in cellular-protective lycopene.\n• Bitter Gourd (Karela) & Whole Moong Dal: Bioactive peptides supporting peripheral glucose uptake.\n\n💡 Naturally grown organic produce offers wholesome dietary support. Consult your physician for medical advice.`,
+            needsHuman: false,
+          };
+        }
+      }
+
+      // 3c. Digestion, Acidity, Gut Health
+      if (/\b(digestion|digestive|acidity|gas|bloating|gut|constipation|gerd|stomach)\b/i.test(lower)) {
+        return {
+          reply: `🌿 For digestive wellness, acidity relief, and gut health:\n• Fresh Ginger (Allam): Gingerols accelerate gastric motility and soothe indigestion and bloating.\n• Fresh Papaya: Contains the natural proteolytic enzyme papain for smooth digestion.\n• Fresh Curd & Buttermilk: Live probiotic cultures that replenish healthy gut microbiota.\n• Unpolished Millets & Fresh Greens: Insoluble dietary fiber that prevents constipation and maintains regular motility.`,
+          needsHuman: false,
+        };
+      }
+
+      // 3d. Immunity, Cold, Cough
+      if (/\b(immunity|immune|cold|cough|infection|fever|antioxidant)\b/i.test(lower)) {
+        return {
+          reply: `🛡️ For natural immunity and respiratory resilience:\n• Pure Farm Turmeric (Pasupu): Potent curcumin for cellular defense (pair with black pepper for 2000% higher absorption).\n• Fresh Amla (Indian Gooseberry) & Pomegranate: Dense natural Vitamin C and bioflavonoids.\n• Pure Raw Honey & Fresh Ginger: Soothes throat passages with gentle antimicrobial enzymes.`,
+          needsHuman: false,
+        };
+      }
+
+      // 3e. Bone Density, Calcium, Pregnancy & Anemia
+      if (/\b(bone|bones|calcium|joint|arthritis|pregnancy|lactation|anemia|iron|hemoglobin)\b/i.test(lower)) {
+        return {
+          reply: `🦴 For bone mineralization, maternal health, and iron nutrition:\n• Finger Millet (Ragi): Highest cereal calcium content (344mg/100g) for bone density and nursing mothers.\n• Fresh Spinach & Organic Jaggery (Bellam): Non-heme iron and folate for healthy red blood cell production.\n• Pure Desi Ghee & Fresh Milk: Natural fat-soluble vitamins (A, D, E, K2) essential for calcium assimilation.`,
+          needsHuman: false,
+        };
+      }
+
+      // 3f. Weight Loss & Metabolism
+      if (/\b(weight\s*loss|fat\s*loss|slim|slimming|calorie)\b/i.test(lower)) {
+        return {
+          reply: `🏃 For healthy weight loss and sustained metabolism:\n• Siridhanyalu Millets (Ragi, Foxtail, Bajra) replacing polished refined white rice.\n• Fresh Greens & Salad Produce (Cucumber, Tomatoes, Bottle Gourd) for high satiety with very low caloric density.\n• Protein-Rich Pulses (Moong Dal, Toor Dal): Stimulates natural satiety hormones (PYY and GLP-1) to curb hunger pangs.`,
+          needsHuman: false,
+        };
+      }
+    }
+
+    // 4. User Order Tracking & Order History
     if (/where.*my.*order|order.*status|track.*order|my.*order|what.*i.*order|show.*order|past.*order/i.test(lower)) {
       if (customerOrdersContext && !customerOrdersContext.includes('not logged in') && !customerOrdersContext.includes('No past orders')) {
         return {
@@ -881,7 +959,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       }
     }
 
-    // 4. User Live Cart Summary
+    // 5. User Live Cart Summary
     if (/what.*in.*my.*cart|show.*my.*cart|cart.*total|cart.*item|cart.*detail|cart.*summary/i.test(lower)) {
       if (customerCartContext && !customerCartContext.includes('not logged in')) {
         return {
@@ -896,69 +974,27 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       }
     }
 
-    // 5. Store Announcements, Deals & Offers
-    if (/deal|offer|discount|sale|special|announcement|promo/i.test(lower)) {
-      const adsText = activeOffersContext || '• Free 30-90 min Vijayawada delivery on orders above ₹499!';
-      return {
-        reply: `🔥 Here are today's active store offers and promotions:\n\n${adsText}\n\nAll items are harvested fresh every morning!`,
-        needsHuman: false,
-      };
+    // 6. Store Announcements, Deals & Offers (Strict Word Boundary - Never falsely triggers on "ideal")
+    if (/\b(deals?|offers?|discounts?|sales?|promo|promos|promotions?|announcements?|coupons?)\b/i.test(lower)) {
+      if (activeOffersContext && activeOffersContext.trim().length > 0) {
+        return {
+          reply: `🔥 Here are today's active store announcements and promotions:\n\n${activeOffersContext}\n\nAll items are harvested fresh every morning!`,
+          needsHuman: false,
+        };
+      } else {
+        return {
+          reply: `✨ There are no special promotional ads running right now. All our 100% organic farm produce, pickles, ghee sweets, and millets are available at our standard fresh farm-direct prices with free delivery on orders above ₹499 across Vijayawada!`,
+          needsHuman: false,
+        };
+      }
     }
 
-    // 6. Creator & Architect (Buddaraju Ganesh Sai Varma)
+    // 7. Creator & Architect (Buddaraju Ganesh Sai Varma)
     if (/who.*(made|created|built|developed|invented).*you|who.*is.*(ganesh|varma|buddaraju)|creator|inventor|developer/i.test(lower)) {
       return {
         reply: `✨ I was architected and created by Buddaraju Ganesh Sai Varma (Ganesh Varma)!\n\n🎓 Education: PG in Advanced Data Science & AI from University of Liverpool, UK (2025–2026); B.Tech in Computer Science from KL University (GPA 8.87 / 10).\n🌐 Portfolio: https://www.ganeshvarma.in/\n📧 Email: gp61080@gmail.com | Phone: +91 8555021322\n\nHe engineered FarmFreshFarmer as a production farm-to-door organic delivery platform with live PostgreSQL, PhonePe integration, and AI support.`,
         needsHuman: false,
       };
-    }
-
-    // 7. Clinical & Public Health Nutrition Queries (Accurate & Scientific)
-    if (
-      lower.includes('diabet') || lower.includes('sugar') || lower.includes('blood pressure') ||
-      lower.includes('bp') || lower.includes('cholesterol') || lower.includes('heart') ||
-      lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') ||
-      lower.includes('nutrition') || lower.includes('good for') || lower.includes('digestion') ||
-      lower.includes('acidity') || lower.includes('gas') || lower.includes('immunity') ||
-      lower.includes('cold') || lower.includes('cough') || lower.includes('bone') ||
-      lower.includes('calcium') || lower.includes('protein') || lower.includes('weight loss')
-    ) {
-      if (lower.includes('diabet') || lower.includes('sugar') || lower.includes('glucose')) {
-        return {
-          reply: `🩺 For diabetes and blood sugar control, we recommend Low Glycemic Index (GI < 55) produce:\n• Foxtail Millet (Korralu, GI ~50) & Finger Millet (Ragi): Rich in soluble beta-glucan fiber that slows carbohydrate digestion and prevents glucose spikes.\n• Fresh Spinach (Palak): High in magnesium, a cofactor for insulin receptors.\n• Fresh Farm Tomatoes: Low calorie, low GI, and rich in lycopene.\n• Bitter Gourd (Karela) & Whole Moong Dal: Natural compounds supporting glucose uptake.\n\n💡 Naturally grown organic foods provide wholesome dietary support. Consult your physician for medical guidance.`,
-          needsHuman: false,
-        };
-      }
-      if (lower.includes('heart') || lower.includes('bp') || lower.includes('blood pressure') || lower.includes('cholesterol')) {
-        return {
-          reply: `❤️ For cardiovascular health and blood pressure management:\n• Pomegranate (Danimma): Rich in punicalagins that stimulate endothelial nitric oxide (eNOS) for arterial vasodilation.\n• Fresh Garlic (Vellulli): Contains allicin, which reduces arterial stiffness.\n• Fresh Spinach: High in dietary nitrates and potassium to regulate sodium balance.\n• Cold-Pressed Wood-Pressed Sesame & Groundnut Oils: Rich in MUFA/PUFA without trans-fats to support healthy lipid profiles.\n\n💡 Organic produce provides excellent nutritional support. Consult your doctor for medical advice.`,
-          needsHuman: false,
-        };
-      }
-      if (lower.includes('digestion') || lower.includes('acidity') || lower.includes('gas') || lower.includes('bloating') || lower.includes('gut')) {
-        return {
-          reply: `🌿 For digestive wellness and gut health:\n• Fresh Ginger (Allam): Gingerols accelerate gastric emptying and relieve bloating and indigestion.\n• Fresh Papaya: Contains the proteolytic enzyme papain for protein digestion.\n• Fresh Curd & Buttermilk: Probiotic Lactobacillus cultures for gut microbiome balance.\n• Unpolished Millets & Fresh Greens: Dietary fiber that ensures regular digestive motility.`,
-          needsHuman: false,
-        };
-      }
-      if (lower.includes('immunity') || lower.includes('cold') || lower.includes('cough') || lower.includes('infection')) {
-        return {
-          reply: `🛡️ For immunity and respiratory health:\n• Pure Farm Turmeric (Pasupu): Potent curcumin for cellular defense (pair with black pepper for maximum absorption).\n• Amla (Indian Gooseberry) & Pomegranate: High concentrations of bioavailable Vitamin C.\n• Pure Raw Honey & Fresh Ginger: Soothes respiratory pathways with natural antimicrobial bioflavonoids.`,
-          needsHuman: false,
-        };
-      }
-      if (lower.includes('bone') || lower.includes('calcium') || lower.includes('pregnancy') || lower.includes('anemia') || lower.includes('iron')) {
-        return {
-          reply: `🦴 For bone density, pregnancy, and iron nutrition:\n• Finger Millet (Ragi): Highest cereal calcium (344mg/100g) for bone strength and lactating mothers.\n• Fresh Spinach & Organic Jaggery (Bellam): Bioavailable non-heme iron and folate for hemoglobin synthesis.\n• Pure Desi Ghee & Fresh Milk: Fat-soluble vitamins (A, D, E, K2) for calcium absorption.`,
-          needsHuman: false,
-        };
-      }
-      if (lower.includes('weight loss') || lower.includes('diet') || lower.includes('fat loss') || lower.includes('slim')) {
-        return {
-          reply: `🏃 For healthy weight management and fat loss:\n• Whole Millets (Ragi, Foxtail, Bajra) replacing polished white rice.\n• Fresh Farm Greens & Salad Produce (Cucumber, Tomatoes, Bottle Gourd) for high satiety with low caloric density.\n• High-Protein Pulses & Dals: Stimulates satiety hormones (PYY and GLP-1) to reduce cravings.`,
-          needsHuman: false,
-        };
-      }
     }
 
     // 8. Product / Price lookup with fuzzy stemming
