@@ -248,10 +248,7 @@ export default function Home() {
           </div>
 
           {/* Right Column: 🌟 Luxury Glassmorphic Interactive Showcase Card 🌟 */}
-          <div
-            className="lg:col-span-5 flex justify-center parallax-layer"
-            style={{ transform: `translate3d(0, ${heroCardOffset}px, 0)` }}
-          >
+          <div className="lg:col-span-5 flex justify-center">
             <div className="relative w-full max-w-md aspect-square rounded-[36px] bg-gradient-to-br from-card/95 via-card/85 to-card/95 border-2 border-emerald-500/30 p-4 sm:p-6 shadow-[0_20px_50px_-15px_rgba(16,185,129,0.25)] hover:shadow-[0_25px_60px_-10px_rgba(16,185,129,0.35)] backdrop-blur-xl transition-all duration-500 ease-out hover:-translate-y-1.5 group cursor-pointer">
               {/* Ambient Glow Aura */}
               <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500/20 to-amber-500/20 rounded-[42px] blur-xl opacity-60 group-hover:opacity-90 transition-opacity duration-500 -z-10 pointer-events-none" />
