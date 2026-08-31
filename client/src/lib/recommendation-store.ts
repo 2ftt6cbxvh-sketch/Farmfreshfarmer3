@@ -45,8 +45,8 @@ let globalState: InternalState = {
   activeSearchQuery: undefined,
   activeHealthTopic: undefined,
   location: {
-    city: "Vijayawada",
-    region: "Andhra Pradesh",
+    city: "",
+    region: "",
     country: "India",
     isGps: false,
   },
@@ -81,18 +81,46 @@ if (typeof window !== "undefined") {
     if (profileSaved) {
       globalState.userProfile = JSON.parse(profileSaved);
     }
+
+    // 1. Check user-confirmed delivery resolution from localStorage
+    const savedDelivery = localStorage.getItem("deliveryResolution");
+    if (savedDelivery) {
+      const del = JSON.parse(savedDelivery);
+      const delCity = del.city || del.district || del.state || "";
+      if (delCity) {
+        globalState.location.city = delCity;
+        globalState.location.isGps = true;
+      }
+    }
   } catch {}
 
-  // Lightweight Edge Geo-Location Resolution (0ms overhead)
-  fetch("/api/settings/public")
-    .then((r) => r.json())
-    .then((settings) => {
-      if (settings?.store_city) {
-        globalState.location.city = settings.store_city;
+  // 2. Listen for live delivery resolution updates
+  window.addEventListener("deliveryResolutionUpdated", (e: any) => {
+    const del = e?.detail;
+    if (del) {
+      const delCity = del.city || del.district || del.state || "";
+      if (delCity) {
+        globalState.location.city = delCity;
+        globalState.location.isGps = true;
         emitUpdate();
       }
-    })
-    .catch(() => {});
+    }
+  });
+
+  // 3. Silent browser geolocation if already granted by user
+  if (navigator?.permissions) {
+    navigator.permissions.query({ name: "geolocation" as PermissionName }).then((result) => {
+      if (result.state === "granted" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            globalState.location.isGps = true;
+            emitUpdate();
+          },
+          () => {}
+        );
+      }
+    }).catch(() => {});
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

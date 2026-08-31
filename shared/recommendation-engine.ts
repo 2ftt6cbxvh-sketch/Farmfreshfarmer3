@@ -338,7 +338,9 @@ export function rankPersonalizedProducts(
   const finalProducts = sorted.slice(0, maxCount);
 
   // Compute user-facing dynamic badge rationale
-  let badgeText = `Seasonal Health Defense for ${locationCity}`;
+  let badgeText = locationCity && locationCity.trim().length > 0 && ctx.location?.isGps
+    ? `Seasonal Health Defense for ${locationCity}`
+    : `Peak Season Health Defense & Immunity Boost`;
   let subText = seasonalProfile.highlightMechanism;
   let icon = "🛡️";
   let intentType: "geo_seasonal" | "category" | "search" | "health_intent" | "user_profile" = "geo_seasonal";
