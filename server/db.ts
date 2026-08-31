@@ -330,6 +330,3 @@ export async function runAutoMigrations(): Promise<void> {
   return migrationsPromise;
 }
 
-// Trigger auto-migrations immediately on module load (critical for Vercel serverless cold starts)
-runAutoMigrations().catch((e) => console.error('[db] auto-migration immediate startup error:', e?.message || e));
-
