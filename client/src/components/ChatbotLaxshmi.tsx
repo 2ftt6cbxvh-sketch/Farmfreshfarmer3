@@ -131,8 +131,12 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const { add, items, subtotal } = useCart();
   const { user, setUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const sessionToken = useMemo(() => getSessionToken(user?.id), [user?.id]);
+  const [sessionToken, setSessionToken] = useState<string>(() => getSessionToken(user?.id));
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setSessionToken(getSessionToken(user?.id));
+  }, [user?.id]);
 
   useEffect(() => {
     setMounted(true);
@@ -565,27 +569,38 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
     }
   }, [messages, user?.id]);
 
-  /* Initialize welcome message on first open if no history exists */
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setHasOpened(true);
-      const nameGreeting = user?.name ? `🙏 Namaste ${user.name}! ` : "🙏 Namaste! ";
-      const personalizedWelcome: Record<Language, string> = {
-        en: `${nameGreeting}I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart`,
-        hi: `${user?.name ? `🙏 नमस्ते ${user.name}! ` : "🙏 नमस्ते! "}मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?\n\nमैं इन चीज़ों में मदद कर सकती हूँ:\n• उत्पाद की कीमतें और उपलब्धता\n• डिलीवरी समय\n• ऑर्डर ट्रैकिंग\n• रिटर्न और रिफंड नीति`,
-        te: `${user?.name ? `🙏 నమస్తే ${user.name}! ` : "🙏 నమస్తే! "}నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?\n\nనేను ఇవి చేయగలను:\n• ఉత్పత్తి ధరలు & అందుబాటు\n• డెలివరీ సమయాలు\n• ఆర్డర్ ట్రాకింగ్\n• రిటర్న్ & రీఫండ్ పాలసీ`,
-      };
-      setMessages([{ id: "welcome", role: "model", content: personalizedWelcome[language], timestamp: new Date() }]);
-    }
-  }, [isOpen, messages.length, language, user]);
+    if (!messagesContainerRef.current || messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
 
-  useEffect(() => {
-    if (messagesContainerRef.current) {
+    // If user sent a message (or ticket step / loading message), scroll to bottom smoothly
+    if (lastMsg.role === "user") {
       messagesContainerRef.current.scrollTo({
         top: messagesContainerRef.current.scrollHeight,
-        behavior: 'smooth',
+        behavior: "smooth",
       });
+      return;
     }
+
+    // If assistant / model responded, scroll smoothly to the TOP of the response so user starts reading from the top
+    const timer = setTimeout(() => {
+      if (lastAssistantMessageRef.current && messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        const msgEl = lastAssistantMessageRef.current;
+        const targetTop = msgEl.offsetTop - 14;
+        container.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: "smooth",
+        });
+      } else if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 80);
+
+    return () => clearTimeout(timer);
   }, [messages]);
 
   useEffect(() => {
@@ -599,34 +614,21 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   const speakText = useCallback((text: string, id: string, lang: Language) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    if (speakingId === id) { setSpeakingId(null); return; }
+    setSpeakingId(id);
 
-    // Strip emojis and markdown formatting before speaking
     const cleanText = text
-      .replace(/([\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{200D}]|[\u{FE0F}])/gu, "")
-      .replace(/[*_`#•-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .substring(0, 500);
-
-    if (!cleanText) return;
+      .replace(/•/g, "")
+      .replace(/[*_#`~]/g, "")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/\n+/g, " ")
+      .trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    const langCode = lang === "te" ? "te-IN" : lang === "hi" ? "hi-IN" : "en-IN";
-    utterance.lang = langCode;
+    utterance.lang = lang === "te" ? "te-IN" : lang === "hi" ? "hi-IN" : "en-IN";
     utterance.rate = 0.82; // Slower, comfortable, clear speech rate
-    utterance.pitch = 1.0; // Natural pitch
+    utterance.pitch = 1.05; // Slightly higher pitch for natural female tone
 
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find((v) =>
-      (v.name.includes("Female") || v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Veena") || v.name.includes("Zira") || v.name.includes("Siri") || v.name.includes("Kavya") || v.name.includes("Swara") || v.name.includes("Heera") || v.name.includes("हिन्दी") || v.name.includes("తెలుగు") || v.name.includes("India")) &&
-      !v.name.toLowerCase().includes("male")
-    ) || voices.find((v) => v.lang.includes("IN") || v.lang.includes(langCode.split("-")[0]));
-
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    }
-
     setSpeakingId(id);
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);
@@ -655,32 +657,42 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
 
   /* Clear Chat History */
   const handleClearChat = useCallback(() => {
-    // 1. Reset messages in UI to new session
-    setMessages([]);
-    
+    // 1. Generate a brand-new unique session token so backend treats subsequent chats as 100% fresh
+    const newToken = `sess_${user?.id ? `u${user.id}` : "g"}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setSessionToken(newToken);
+
     // 2. Clear browser storage
     const historyKey = getStorageHistoryKey(user?.id);
     try {
       localStorage.removeItem(historyKey);
       sessionStorage.removeItem(historyKey);
-      
-      // Also generate a new session token so subsequent chats start as a new conversation session
+
       if (user?.id) {
         const key = `lakshmi_user_session_${user.id}`;
-        localStorage.removeItem(key);
+        localStorage.setItem(key, newToken);
       } else {
         const guestKey = "lakshmi_guest_session";
-        sessionStorage.removeItem(guestKey);
-        localStorage.removeItem(guestKey);
+        sessionStorage.setItem(guestKey, newToken);
+        localStorage.setItem(guestKey, newToken);
       }
     } catch {}
 
-    // 3. Refresh user's previous chats in profile tab query if mounted
+    // 3. Reset messages state in UI strictly to fresh welcome greeting
+    const nameGreeting = user?.name ? `🙏 Namaste ${user.name}! ` : "🙏 Namaste! ";
+    const personalizedWelcome: Record<Language, string> = {
+      en: `${nameGreeting}I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?\n\nI can help with:\n• Product prices & availability\n• Delivery timings & ETA\n• Order tracking\n• Return & refund policy\n• Adding items to your cart`,
+      hi: `${user?.name ? `🙏 नमस्ते ${user.name}! ` : "🙏 नमस्ते! "}मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी कैसे सहायता कर सकती हूँ?\n\nमैं इन चीज़ों में मदद कर सकती हूँ:\n• उत्पाद की कीमतें और उपलब्धता\n• डिलीवरी समय\n• ऑर्डर ट्रैकिंग\n• रिटर्न और रिफंड नीति`,
+      te: `${user?.name ? `🙏 నమస్తే ${user.name}! ` : "🙏 నమస్తే! "}నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయం చేయగలను?\n\nనేను ఇవి చేయగలను:\n• ఉత్పత్తి ధరలు & అందుబాటు\n• డెలివరీ సమయాలు\n• ఆర్డర్ ట్రాకింగ్\n• రిటర్న్ & రీఫండ్ పాలసీ`,
+    };
+    setMessages([{ id: "welcome", role: "model", content: personalizedWelcome[language] || WELCOME_MESSAGES.en, timestamp: new Date() }]);
+
+    // 4. Invalidate old session queries
+    queryClient.removeQueries({ queryKey: ["/api/chatbot/live-session"] });
     queryClient.invalidateQueries({ queryKey: ["/api/chatbot/my-sessions"] });
 
-    // 4. Close any active speech
+    // 5. Close any active speech
     stopSpeaking();
-  }, [user?.id, stopSpeaking, queryClient]);
+  }, [user?.id, user?.name, language, stopSpeaking, queryClient]);
 
   /* Start Ticket Flow */
   const startTicketFlow = useCallback(() => {
