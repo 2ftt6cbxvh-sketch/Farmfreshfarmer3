@@ -798,8 +798,15 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
   }
 
   // Dynamic & Smart Fallback Reply Generator
-  async function getSmartReply(message: string, lang: string): Promise<{ reply: string; needsHuman: boolean }> {
-    const lower = message.toLowerCase();
+  async function getSmartReply(
+    message: string,
+    lang: string,
+    customerName?: string | null,
+    customerOrdersContext?: string,
+    customerCartContext?: string,
+    activeOffersContext?: string
+  ): Promise<{ reply: string; needsHuman: boolean }> {
+    const lower = message.toLowerCase().trim();
 
     // 1. PIN code / Delivery ETA check (e.g., "531116", "520008", "eta for 520001", "is delivery available to 531116")
     const pincodeMatch = lower.match(/\b([1-9][0-9]{5})\b/);
@@ -831,45 +838,128 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       }
     }
 
-    // 2. Health, Diabetes & Medical Nutrition inquiries in fallback
-    if (
-      lower.includes('diabet') || lower.includes('sugar') || lower.includes('blood pressure') ||
-      lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') ||
-      lower.includes('nutrition') || lower.includes('good for') || lower.includes('eat') ||
-      lower.includes('can someone') || lower.includes('is it safe') || lower.includes('avoid')
-    ) {
-      if (lower.includes('tomato')) {
+    // 2. Greetings (Namaste, Hello, Hi, Hey)
+    if (/^(hi|hello|namaste|hey|greetings|good\s*(morning|afternoon|evening)|halo|namaskaram)\b/i.test(lower) || lower === 'hi' || lower === 'hello' || lower === 'namaste') {
+      const namePart = customerName ? ` ${customerName}` : '';
+      if (lang === 'te') {
         return {
-          reply: `🍅 Yes! Fresh organic tomatoes have a low glycemic index (GI of 15) and low glycemic load, making them safe and highly beneficial for people with diabetes. They are rich in lycopene (a powerful antioxidant for heart health), Vitamin C, and potassium.`,
+          reply: `🙏 నమస్తే${namePart}! నేను లక్ష్మిని, FarmFreshFarmer AI సహాయకురాలిని. మా తాజా సేంద్రీయ పండ్లు, కూరగాయలు, ఆవకాయ పచ్చళ్ళు, ఆరోగ్య సిరిధాన్యాలు లేదా మీ ఆర్డర్ వివరాల గురించి నేను మీకు ఎలా సహాయపడగలను?`,
+          needsHuman: false,
+        };
+      } else if (lang === 'hi') {
+        return {
+          reply: `🙏 नमस्ते${namePart}! मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer AI सहायक। आज मैं ताजे जैविक फल, सब्जियां, देसी घी की मिठाइयां या आपके ऑर्डर की जानकारी में आपकी क्या सहायता कर सकती हूँ?`,
+          needsHuman: false,
+        };
+      } else {
+        return {
+          reply: `🙏 Namaste${namePart}! I'm Lakshmi, your FarmFreshFarmer AI Assistant. How can I help you today with our 100% organic farm produce, recent orders, live cart, or health nutrition?`,
           needsHuman: false,
         };
       }
-      try {
-        const activeProducts = await storage.products.list();
-        const rawWords = message.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
-        
-        const matched = activeProducts.filter((p: any) => {
-          const pName = p.name.toLowerCase();
-          const pWords = pName.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
-          return rawWords.some(rw => pWords.some(pw => matchesWord(rw, pw)));
-        });
+    }
 
-        if (matched.length > 0) {
-          const item = matched[0];
-          return {
-            reply: `🥗 Yes! ${item.name} is 100% naturally grown and rich in essential vitamins, minerals, and dietary fiber. Sourced direct from local Andhra organic farms with zero chemical preservatives.`,
-            needsHuman: false,
-          };
-        }
-      } catch {}
+    // 3. User Order Tracking & Order History
+    if (/where.*my.*order|order.*status|track.*order|my.*order|what.*i.*order|show.*order|past.*order/i.test(lower)) {
+      if (customerOrdersContext && !customerOrdersContext.includes('not logged in') && !customerOrdersContext.includes('No past orders')) {
+        return {
+          reply: `📦 Here is your recent order history and status:\n\n${customerOrdersContext}\n\nYou can also view full invoice and live delivery status anytime in your /account dashboard!`,
+          needsHuman: false,
+        };
+      } else if (customerOrdersContext && customerOrdersContext.includes('No past orders')) {
+        return {
+          reply: `📦 You don't have any past orders yet. Browse our farm-fresh catalog and place your first harvest order today!`,
+          needsHuman: false,
+        };
+      } else {
+        return {
+          reply: `📦 To view and track your private orders, please sign in using Google One-Tap or Email OTP at the top right corner. Once signed in, just ask me anytime and I'll display your live order updates!`,
+          needsHuman: false,
+        };
+      }
+    }
 
+    // 4. User Live Cart Summary
+    if (/what.*in.*my.*cart|show.*my.*cart|cart.*total|cart.*item|cart.*detail|cart.*summary/i.test(lower)) {
+      if (customerCartContext && !customerCartContext.includes('not logged in')) {
+        return {
+          reply: `🛒 Here are your current live cart details:\n\n${customerCartContext}\n\nYou can proceed to checkout anytime from the cart icon at the top right corner!`,
+          needsHuman: false,
+        };
+      } else {
+        return {
+          reply: `🛒 To view your live cart, please sign in using Google One-Tap or Email OTP at the top right corner.`,
+          needsHuman: false,
+        };
+      }
+    }
+
+    // 5. Store Announcements, Deals & Offers
+    if (/deal|offer|discount|sale|special|announcement|promo/i.test(lower)) {
+      const adsText = activeOffersContext || '• Free 30-90 min Vijayawada delivery on orders above ₹499!';
       return {
-        reply: `🥗 All our produce at FarmFreshFarmer is 100% naturally grown, vine-ripened, and chemical-free! Fresh fruits, vegetables, and millets have a natural low glycemic index and provide essential vitamins, minerals, and antioxidants.`,
+        reply: `🔥 Here are today's active store offers and promotions:\n\n${adsText}\n\nAll items are harvested fresh every morning!`,
         needsHuman: false,
       };
     }
 
-    // 3. Product / Price lookup with fuzzy stemming (e.g. "tomatos", "potatos", "spinach rate", "mango price")
+    // 6. Creator & Architect (Buddaraju Ganesh Sai Varma)
+    if (/who.*(made|created|built|developed|invented).*you|who.*is.*(ganesh|varma|buddaraju)|creator|inventor|developer/i.test(lower)) {
+      return {
+        reply: `✨ I was architected and created by Buddaraju Ganesh Sai Varma (Ganesh Varma)!\n\n🎓 Education: PG in Advanced Data Science & AI from University of Liverpool, UK (2025–2026); B.Tech in Computer Science from KL University (GPA 8.87 / 10).\n🌐 Portfolio: https://www.ganeshvarma.in/\n📧 Email: gp61080@gmail.com | Phone: +91 8555021322\n\nHe engineered FarmFreshFarmer as a production farm-to-door organic delivery platform with live PostgreSQL, PhonePe integration, and AI support.`,
+        needsHuman: false,
+      };
+    }
+
+    // 7. Clinical & Public Health Nutrition Queries (Accurate & Scientific)
+    if (
+      lower.includes('diabet') || lower.includes('sugar') || lower.includes('blood pressure') ||
+      lower.includes('bp') || lower.includes('cholesterol') || lower.includes('heart') ||
+      lower.includes('healthy') || lower.includes('health') || lower.includes('benefit') ||
+      lower.includes('nutrition') || lower.includes('good for') || lower.includes('digestion') ||
+      lower.includes('acidity') || lower.includes('gas') || lower.includes('immunity') ||
+      lower.includes('cold') || lower.includes('cough') || lower.includes('bone') ||
+      lower.includes('calcium') || lower.includes('protein') || lower.includes('weight loss')
+    ) {
+      if (lower.includes('diabet') || lower.includes('sugar') || lower.includes('glucose')) {
+        return {
+          reply: `🩺 For diabetes and blood sugar control, we recommend Low Glycemic Index (GI < 55) produce:\n• Foxtail Millet (Korralu, GI ~50) & Finger Millet (Ragi): Rich in soluble beta-glucan fiber that slows carbohydrate digestion and prevents glucose spikes.\n• Fresh Spinach (Palak): High in magnesium, a cofactor for insulin receptors.\n• Fresh Farm Tomatoes: Low calorie, low GI, and rich in lycopene.\n• Bitter Gourd (Karela) & Whole Moong Dal: Natural compounds supporting glucose uptake.\n\n💡 Naturally grown organic foods provide wholesome dietary support. Consult your physician for medical guidance.`,
+          needsHuman: false,
+        };
+      }
+      if (lower.includes('heart') || lower.includes('bp') || lower.includes('blood pressure') || lower.includes('cholesterol')) {
+        return {
+          reply: `❤️ For cardiovascular health and blood pressure management:\n• Pomegranate (Danimma): Rich in punicalagins that stimulate endothelial nitric oxide (eNOS) for arterial vasodilation.\n• Fresh Garlic (Vellulli): Contains allicin, which reduces arterial stiffness.\n• Fresh Spinach: High in dietary nitrates and potassium to regulate sodium balance.\n• Cold-Pressed Wood-Pressed Sesame & Groundnut Oils: Rich in MUFA/PUFA without trans-fats to support healthy lipid profiles.\n\n💡 Organic produce provides excellent nutritional support. Consult your doctor for medical advice.`,
+          needsHuman: false,
+        };
+      }
+      if (lower.includes('digestion') || lower.includes('acidity') || lower.includes('gas') || lower.includes('bloating') || lower.includes('gut')) {
+        return {
+          reply: `🌿 For digestive wellness and gut health:\n• Fresh Ginger (Allam): Gingerols accelerate gastric emptying and relieve bloating and indigestion.\n• Fresh Papaya: Contains the proteolytic enzyme papain for protein digestion.\n• Fresh Curd & Buttermilk: Probiotic Lactobacillus cultures for gut microbiome balance.\n• Unpolished Millets & Fresh Greens: Dietary fiber that ensures regular digestive motility.`,
+          needsHuman: false,
+        };
+      }
+      if (lower.includes('immunity') || lower.includes('cold') || lower.includes('cough') || lower.includes('infection')) {
+        return {
+          reply: `🛡️ For immunity and respiratory health:\n• Pure Farm Turmeric (Pasupu): Potent curcumin for cellular defense (pair with black pepper for maximum absorption).\n• Amla (Indian Gooseberry) & Pomegranate: High concentrations of bioavailable Vitamin C.\n• Pure Raw Honey & Fresh Ginger: Soothes respiratory pathways with natural antimicrobial bioflavonoids.`,
+          needsHuman: false,
+        };
+      }
+      if (lower.includes('bone') || lower.includes('calcium') || lower.includes('pregnancy') || lower.includes('anemia') || lower.includes('iron')) {
+        return {
+          reply: `🦴 For bone density, pregnancy, and iron nutrition:\n• Finger Millet (Ragi): Highest cereal calcium (344mg/100g) for bone strength and lactating mothers.\n• Fresh Spinach & Organic Jaggery (Bellam): Bioavailable non-heme iron and folate for hemoglobin synthesis.\n• Pure Desi Ghee & Fresh Milk: Fat-soluble vitamins (A, D, E, K2) for calcium absorption.`,
+          needsHuman: false,
+        };
+      }
+      if (lower.includes('weight loss') || lower.includes('diet') || lower.includes('fat loss') || lower.includes('slim')) {
+        return {
+          reply: `🏃 For healthy weight management and fat loss:\n• Whole Millets (Ragi, Foxtail, Bajra) replacing polished white rice.\n• Fresh Farm Greens & Salad Produce (Cucumber, Tomatoes, Bottle Gourd) for high satiety with low caloric density.\n• High-Protein Pulses & Dals: Stimulates satiety hormones (PYY and GLP-1) to reduce cravings.`,
+          needsHuman: false,
+        };
+      }
+    }
+
+    // 8. Product / Price lookup with fuzzy stemming
     try {
       const activeProducts = await storage.products.list();
       if (activeProducts && activeProducts.length > 0) {
@@ -881,7 +971,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         });
 
         if (matching.length > 0) {
-          const productList = matching.slice(0, 5).map((p: any) => {
+          const productList = matching.slice(0, 4).map((p: any) => {
             const basePrice = Number(p.price) || 0;
             const discPercent = Number(p.discountPercent) || 0;
             const effPrice = discPercent > 0 ? Math.round(basePrice * (1 - discPercent / 100) * 100) / 100 : basePrice;
@@ -899,7 +989,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       console.warn('[chatbot] Product lookup error in fallback:', prodErr);
     }
 
-    // 3. Keyword-based conversational fallbacks
+    // 9. Standard FAQs
     const FALLBACK_REPLIES: Record<string, Record<string, string>> = {
       en: {
         site: "FarmFreshFarmer is Vijayawada's premier instant farm-to-doorstep delivery service! We deliver 100% naturally grown fruits, vegetables, homemade Andhra pickles, ghee sweets, and spices direct from local farmers.",
@@ -912,16 +1002,13 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         sweet: "We offer traditional homemade sweets prepared with pure desi cow ghee, including Boondhi Laddu, Sunnundalu, Mysore Pak, and Kaju Katli.",
         fruit: "We stock fresh seasonal organic fruits vine-ripened and harvested fresh daily.",
         vegetable: "Our vegetables are 100% chemical-free and certified organic, delivered fresh every day.",
-        order: "To place an order, select your items, tap 'Add to Cart', and proceed to checkout. We support PhonePe, UPI, cards, and Cash on Delivery (COD)!",
-        payment: "We accept online payments via PhonePe, UPI, Netbanking, Credit/Debit cards, as well as Cash on Delivery (COD).",
+        payment: "We accept online payments via PhonePe, Google Pay, UPI, Netbanking, Credit/Debit cards, as well as Cash on Delivery (COD).",
         subscribe: "Subscribe to daily fresh milk, vegetables, or seasonal fruit boxes and save up to 15% with automated recurring deliveries!",
         refund: "Fresh perishables can be returned or replaced within 4 hours of delivery with photo proof. Refunds are credited within 2 business days.",
         return: "We accept returns for damaged or wrong items within 4 hours of delivery. Please reach out to customer support at admin@farmfreshfarmer.com.",
-        contact: "You can reach customer support at +91 79897 93669 or email admin@farmfreshfarmer.com. Operating hours: 6:00 AM - 10:00 PM IST.",
+        contact: "You can reach customer support at +91 79897 93669 or email admin@farmfreshfarmer.com. Operating hours: 6:00 AM - 10:00 PM IST daily.",
         grievance: "For formal escalations, contact our Grievance Redressal Officer at admin@farmfreshfarmer.com or visit /grievance on our website.",
-        hello: "🙏 Namaste! I'm Lakshmi, your FarmFreshFarmer assistant. How can I help you today?",
-        hi: "🙏 Namaste! Welcome to FarmFreshFarmer. What fresh farm produce can I help you find today?",
-        default: "I'm happy to assist you! You can ask me about product prices, delivery ETAs, pickles, sweets, or order tracking. You can also tap 'Connect to Human Support' below to speak directly with our team.",
+        default: "I'm happy to assist you! You can ask me about product prices, delivery ETAs, pickles, sweets, health benefits, your cart, or order tracking. You can also tap 'Connect to Human Support' below to speak directly with our team.",
       },
       hi: {
         site: "FarmFreshFarmer विजयवाड़ा का प्रमुख फार्म-टू-होम डिलीवरी ऐप है! हम ताजे फल, सब्जियां, देसी घी की मिठाइयां और आंध्र अचार 30-90 मिनट में डिलीवर करते हैं।",
@@ -930,10 +1017,8 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         price: "हमारी कीमतें बहुत सस्ती हैं! ताजी सब्जियां ₹20 से शुरू होती हैं।",
         pickle: "हमारे पास पारंपरिक आंध्र अचार जैसे आम का अवाकाया, गोंगुरा और टमाटर का अचार उपलब्ध है।",
         sweet: "हमारी देसी घी मिठाइयां जैसे बूंदी लड्डू, सुन्नुंडालू और मैसूर पाक घर पर शुद्धता से बनाई जाती हैं।",
-        order: "ऑर्डर करने के लिए कार्ट में आइटम जोड़ें और चेकआउट करें। हम PhonePe और कैश ऑन डिलीवरी (COD) स्वीकार करते हैं।",
         payment: "हम PhonePe, UPI और कैश ऑन डिलीवरी (COD) दोनों स्वीकार करते हैं।",
-        hello: "🙏 नमस्ते! मैं लक्ष्मी हूँ, आपकी FarmFreshFarmer सहायक। आज मैं आपकी क्या मदद कर सकती हूँ?",
-        default: "मैं आपकी मदद के लिए यहाँ हूँ! आप उत्पाद की कीमतों या डिलीवरी समय के बारे में पूछ सकते हैं।",
+        default: "मैं आपकी मदद के लिए यहाँ हूँ! आप उत्पाद की कीमतों, स्वास्थ्य पोषण या डिलीवरी समय के बारे में पूछ सकते हैं।",
       },
       te: {
         site: "FarmFreshFarmer విజయవాడలో తాజా సేంద్రీయ కూరగాయలు, పండ్లు, ఆంధ్ర ఆవకాయ పచ్చళ్ళు మరియు నెయ్యి మిఠాయిలను 30-90 నిమిషాల్లో ఇంటికి అందించే యాప్!",
@@ -942,11 +1027,8 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         price: "రైతుల నుండి నేరుగా తక్కువ ధరలకు లభిస్తాయి! తాజా కూరగాయలు ₹20 నుండి ప్రారంభం.",
         pickle: "మా వద్ద సాంప్రదాయ ఆంధ్ర ఆవకాయ, గోంగూర, టమోటా పచ్చళ్ళు స్వచ్ఛమైన నూనెతో తయారు చేయబడతాయి.",
         sweet: "ఆవు నెయ్యితో చేసిన బూందీ లడ్డూ, సున్నుండలు, మైసూర్ పాక్ లభిస్తాయి.",
-        order: "ఆర్డర్ చేయడానికి కార్ట్‌కి జోడించి చెక్‌అవుట్ చేయండి. PhonePe మరియు క్యాష్ ఆన్ డెలివరీ (COD) అందుబాటులో ఉన్నాయి.",
         payment: "PhonePe, UPI మరియు క్యాష్ ఆన్ డెలివరీ (COD) ద్వారా చెల్లించవచ్చు.",
-        hello: "🙏 నమస్తే! నేను లక్ష్మి, మీ FarmFreshFarmer సహాయకురాలిని. నేను మీకు ఎలా సహాయపడగలను?",
-        hi: "🙏 నమస్తే! FarmFreshFarmerకి స్వాగతం.",
-        default: "మీకు సహాయం చేయడానికి నేను ఇక్కడ ఉన్నాను! ఉత్పత్తుల ధరలు మరియు డెలివరీ సమయం గురించి అడగవచ్చు.",
+        default: "మీకు సహాయం చేయడానికి నేను ఇక్కడ ఉన్నాను! ఉత్పత్తుల ధరలు, ఆరోగ్య ప్రయోజనాలు మరియు డెలివరీ సమయం గురించి అడగవచ్చు.",
       },
     };
 
@@ -1097,11 +1179,15 @@ function resolveCartQty(
       // Securely resolve authenticated customer userId (never trusts unverified body/query claims)
       const userId: number | null = await resolveCustomerUserId(req);
 
-      // Find or create session (only persist for authenticated users; guest bot chats remain ephemeral)
+      // Find or create session (persisted for both guests and logged-in users so chat history / escalation works)
       let [session] = await db.select().from(chatbotSessions).where(eq(chatbotSessions.sessionToken, token)).limit(1);
-      if (!session && userId) {
-        const [created] = await db.insert(chatbotSessions).values({ sessionToken: token, userId, language: lang, status: 'bot' }).returning();
-        session = created;
+      if (!session) {
+        try {
+          const [created] = await db.insert(chatbotSessions).values({ sessionToken: token, userId: userId || null, language: lang, status: 'bot' }).returning();
+          session = created;
+        } catch (e) {
+          console.warn('[chatbot] Could not create session:', e);
+        }
       }
 
       let customerName: string | null = null;
@@ -1119,7 +1205,7 @@ function resolveCartQty(
         await db.update(chatbotSessions).set({
           lastActivityAt: new Date(),
           ...(userId && !session.userId ? { userId } : {}),
-        }).where(eq(chatbotSessions.id, session.id));
+        }).where(eq(chatbotSessions.id, session.id)).catch(() => {});
       }
 
       // IF Session is CLOSED: Do not accept new messages into a closed session
@@ -1589,7 +1675,7 @@ function resolveCartQty(
       let reply: string | null = null;
       let needsHuman = false;
 
-      if (geminiApiKey) {
+      if (geminiApiKey && geminiApiKey !== DEFAULT_GEMINI_KEY && geminiApiKey.startsWith('AIzaSy')) {
         reply = await callGeminiAPI(
           geminiApiKey,
           message,
@@ -1610,20 +1696,28 @@ function resolveCartQty(
       }
 
       if (!reply) {
-        reply = '🙏 I am currently experiencing a brief connection delay reaching Gemini AI. Please try sending your message again or tap "Connect to Human Support".';
-        needsHuman = false;
+        const smartRes = await getSmartReply(
+          message,
+          lang,
+          customerName,
+          customerOrdersContext,
+          customerCartContext,
+          activeOffersContext
+        );
+        reply = smartRes.reply;
+        needsHuman = smartRes.needsHuman;
       }
 
       // If reply indicates needs human escalation:
-      if (needsHuman) {
-        await db.update(chatbotSessions).set({ status: 'waiting_for_agent', lastActivityAt: new Date() }).where(eq(chatbotSessions.id, session.id));
-        await triggerHumanEscalationAlert(token, message, lang);
+      if (needsHuman && session) {
+        await db.update(chatbotSessions).set({ status: 'waiting_for_agent', lastActivityAt: new Date() }).where(eq(chatbotSessions.id, session.id)).catch(() => {});
+        await triggerHumanEscalationAlert(token, message, lang).catch(() => {});
         await db.insert(liveChatMessages).values({
           sessionToken: token,
           sender: 'customer',
-          senderName: 'Customer',
+          senderName: customerName || 'Customer',
           message: message,
-        });
+        }).catch(() => {});
       }
 
       // Strip markdown bold/italic asterisks from Gemini response (e.g. **bold** -> bold, *italic* -> italic)
