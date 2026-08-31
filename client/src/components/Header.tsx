@@ -43,12 +43,28 @@ export function Header() {
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const mobileSearchBoxRef = useRef<HTMLDivElement>(null);
 
-  // Recompute dropdown position whenever it's focused or window resizes/scrolls
+  // Recompute dropdown position whenever it's focused or window resizes/scrolls (Desktop Only)
   useLayoutEffect(() => {
-    if (!searchFocused || !searchBoxRef.current) { setDropdownRect(null); return; }
+    if (!searchFocused || !searchBoxRef.current) {
+      setDropdownRect(null);
+      return;
+    }
     const update = () => {
-      const rect = searchBoxRef.current?.getBoundingClientRect();
-      if (rect) setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+      if (typeof window === "undefined" || window.innerWidth < 768) {
+        setDropdownRect(null);
+        return;
+      }
+      const el = searchBoxRef.current;
+      if (!el) {
+        setDropdownRect(null);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      if (rect && rect.width > 100) {
+        setDropdownRect({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+      } else {
+        setDropdownRect(null);
+      }
     };
     update();
     window.addEventListener("resize", update, { passive: true });
@@ -297,7 +313,7 @@ export function Header() {
           </div>
 
           {/* Desktop Search Dropdown — rendered via portal at fixed position to escape header stacking context */}
-          {searchFocused && dropdownRect && createPortal(
+          {searchFocused && dropdownRect && dropdownRect.width > 100 && createPortal(
             <div
               className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-emerald-500/20"
               style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width }}
