@@ -405,8 +405,9 @@ export default function Cart() {
   }, 0);
 
   const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
-  const produceDiscountSavings = Math.max(0, grossMrpTotal - displaySubtotal);
-  const couponDiscountSavings = quote ? Number(quote.discount || 0) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0;
+  const couponDiscountSavings = (coupon || (quote && Number((quote as any).couponDiscount) > 0))
+    ? (quote && (quote as any).couponDiscount !== undefined ? Number((quote as any).couponDiscount) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0)
+    : 0;
   const firstOrderSavings = quote ? Number(quote.firstOrderDiscount || 0) : 0;
   const referralDiscountSavings = quote ? Number(quote.referralDiscount || 0) : 0;
   const referralRewardSavings = quote ? Number(quote.referralRewardApplied || 0) : 0;
@@ -1116,9 +1117,9 @@ export default function Cart() {
                 )}
 
                 {/* Coupon Code Discount */}
-                {couponDiscountSavings > 0 && (
+                {couponDiscountSavings > 0 && Boolean(coupon?.code || (quote && (quote as any).couponCode)) && (
                   <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>🏷️ Coupon Savings ({coupon?.code || "APPLIED"})</span>
+                    <span>🏷️ Coupon Savings ({coupon?.code || (quote as any)?.couponCode})</span>
                     <span className="font-mono">- {formatINR(couponDiscountSavings)}</span>
                   </div>
                 )}

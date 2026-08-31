@@ -540,6 +540,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
     subtotal, discount, deliveryFee, deliveryCity, total,
     taxableSubtotal, totalGst, cgst, sgst, cgstEnabled, sgstEnabled, itemBreakdown,
     couponCode,
+    couponDiscount,
     firstOrderDiscount, referralDiscount, referralRewardApplied,
     referralCodeUsed: referralValid ? referralCodeResolved : null,
     breakdown,
