@@ -37,13 +37,14 @@ export default function Home() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    staleTime: 60000,
+    queryFn: () => apiGet<Category[]>("/api/categories"),
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: allProducts = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     queryFn: () => apiGet<Product[]>("/api/products"),
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const personalizedResult = usePersonalizedRecommendations(allProducts, { minCount: 4, maxCount: 8 });

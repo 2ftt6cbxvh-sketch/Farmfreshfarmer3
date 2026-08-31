@@ -102,8 +102,8 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
-      staleTime: 60 * 1000, // 1 minute in-memory caching for instant tab/page navigation
-      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time
+      staleTime: 5 * 60 * 1000, // 5 minutes in-memory caching for ultra-fast instant page navigation
+      gcTime: 30 * 60 * 1000, // 30 minutes garbage collection time
       retry: 1,
     },
     mutations: {

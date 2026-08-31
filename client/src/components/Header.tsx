@@ -119,12 +119,14 @@ export function Header() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    staleTime: 60000,
+    queryFn: () => apiGet<Category[]>("/api/categories"),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allProducts = [] } = useQuery<any[]>({
+  const { data: allProducts = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
-    staleTime: 60000,
+    queryFn: () => apiGet<Product[]>("/api/products"),
+    staleTime: 5 * 60 * 1000,
   });
 
   const isStarThemeEnabled = publicSettings?.enable_star_tier_colors !== false;

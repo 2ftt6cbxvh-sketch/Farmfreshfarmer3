@@ -37,9 +37,10 @@ export const pool = new Pool({
   connectionString,
   ssl: wantSsl ? { rejectUnauthorized: false } : undefined,
   // High-performance connection pool with robust concurrency
-  max: Number(process.env.PG_POOL_MAX || (/neon\.tech/i.test(connectionString) ? 15 : 20)),
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  max: Number(process.env.PG_POOL_MAX || (/neon\.tech/i.test(connectionString) ? 10 : 20)),
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 5000,
+  keepAlive: true,
 });
 
 export const db = drizzle(pool, { schema });

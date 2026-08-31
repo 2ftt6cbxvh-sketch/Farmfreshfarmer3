@@ -836,8 +836,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   /* =========================== CATEGORIES ========================== */
   app.get("/api/categories", h(async (_req, res) => {
-    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
-    const data = await apiCache.getOrSet("categories:list", () => storage.categories.list(), 60, ["categories"]);
+    res.setHeader("Cache-Control", "public, max-age=120, s-maxage=600, stale-while-revalidate=1200");
+    const data = await apiCache.getOrSet("categories:list", () => storage.categories.list(), 300, ["categories"]);
     res.json(data);
   }));
 
@@ -890,10 +890,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const data = await apiCache.getOrSet(
       cacheKey,
       () => storage.products.list({ category, q, featured, includeInactive }),
-      30,
+      300,
       ["products"]
     );
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "public, max-age=120, s-maxage=600, stale-while-revalidate=1200");
     res.json(data);
   }));
 
@@ -903,11 +903,11 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     const p = await apiCache.getOrSet(
       `products:id:${id}`,
       () => storage.products.get(id),
-      30,
+      300,
       ["products"]
     );
     if (!p) return res.status(404).json({ message: "Not found" });
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "public, max-age=120, s-maxage=600, stale-while-revalidate=1200");
     res.json(p);
   }));
 
