@@ -29,21 +29,42 @@ const CAT_IMAGES: Record<string, string> = {
   spices: "/images/cat-spices.jpg",
 };
 
+import {
+  getInitialCategories,
+  saveCachedCategories,
+  getInitialProducts,
+  saveCachedProducts,
+} from "@/lib/catalog-seed";
+
 export default function Home() {
   // Reset subcategory filter when landing on homepage to show farm-wide seasonal wellness picks
   useEffect(() => {
     clearActiveRecommendationFilters();
   }, []);
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = getInitialCategories() } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    queryFn: () => apiGet<Category[]>("/api/categories"),
+    queryFn: async () => {
+      const data = await apiGet<Category[]>("/api/categories");
+      if (Array.isArray(data) && data.length > 0) {
+        saveCachedCategories(data);
+      }
+      return data;
+    },
+    initialData: getInitialCategories,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allProducts = [], isLoading } = useQuery<Product[]>({
+  const { data: allProducts = getInitialProducts() } = useQuery<Product[]>({
     queryKey: ["/api/products"],
-    queryFn: () => apiGet<Product[]>("/api/products"),
+    queryFn: async () => {
+      const data = await apiGet<Product[]>("/api/products");
+      if (Array.isArray(data) && data.length > 0) {
+        saveCachedProducts(data);
+      }
+      return data;
+    },
+    initialData: getInitialProducts,
     staleTime: 5 * 60 * 1000,
   });
 

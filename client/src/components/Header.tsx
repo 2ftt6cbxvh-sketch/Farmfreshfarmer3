@@ -10,10 +10,16 @@ import {
 import { useCart, useAuth } from "@/lib/store";
 import { useTheme } from "@/lib/theme-provider";
 import { useQuery } from "@tanstack/react-query";
-import type { Category } from "@/lib/types";
+import type { Category, Product } from "@/lib/types";
 import { DietDot } from "./DietDot";
-import { imgUrl } from "@/lib/queryClient";
+import { imgUrl, apiGet } from "@/lib/queryClient";
 import { getStarTheme } from "@/lib/starTheme";
+import {
+  getInitialCategories,
+  saveCachedCategories,
+  getInitialProducts,
+  saveCachedProducts,
+} from "@/lib/catalog-seed";
 import { NotificationBell } from "./NotificationBell";
 import { VerifiedBadge } from "./VerifiedBadge";
 import {
@@ -117,15 +123,29 @@ export function Header() {
     staleTime: 60000,
   });
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = getInitialCategories() } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
-    queryFn: () => apiGet<Category[]>("/api/categories"),
+    queryFn: async () => {
+      const data = await apiGet<Category[]>("/api/categories");
+      if (Array.isArray(data) && data.length > 0) {
+        saveCachedCategories(data);
+      }
+      return data;
+    },
+    initialData: getInitialCategories,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allProducts = [] } = useQuery<Product[]>({
+  const { data: allProducts = getInitialProducts() } = useQuery<Product[]>({
     queryKey: ["/api/products"],
-    queryFn: () => apiGet<Product[]>("/api/products"),
+    queryFn: async () => {
+      const data = await apiGet<Product[]>("/api/products");
+      if (Array.isArray(data) && data.length > 0) {
+        saveCachedProducts(data);
+      }
+      return data;
+    },
+    initialData: getInitialProducts,
     staleTime: 5 * 60 * 1000,
   });
 

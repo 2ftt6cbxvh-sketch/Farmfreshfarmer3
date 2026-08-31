@@ -16,9 +16,15 @@ export default function Category() {
   const { data: categories = [] } = useQuery<Cat[]>({ queryKey: ["/api/categories"] });
   const category = categories.find((c) => c.slug === slug);
 
-  const { data: products = [], isLoading } = useQuery<Product[]>({
+  // Read already loaded full product catalog from cache for 0ms instant display
+  const { data: allCachedProducts = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+  const localCategoryProducts = allCachedProducts.filter((p) => p.categorySlug === slug);
+
+  const { data: products = localCategoryProducts, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products", slug],
     queryFn: () => apiGet<Product[]>(`/api/products?category=${encodeURIComponent(slug)}`),
+    initialData: localCategoryProducts.length > 0 ? localCategoryProducts : undefined,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Real-time category tracking for instant recommendation pivot
