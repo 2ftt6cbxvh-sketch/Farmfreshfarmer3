@@ -2742,13 +2742,38 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     const customerIds = customers.map((c) => c.id);
 
-    // High-speed parallel batch fetch (25ms total for entire database)
-    const [allProfiles, allRefCodes, allReferrals, allRewards] = await Promise.all([
-      db.select().from(customerProfiles).where(inArray(customerProfiles.userId, customerIds)),
-      db.select().from(referralCodes).where(inArray(referralCodes.userId, customerIds)),
-      db.select().from(referrals).where(inArray(referrals.referrerUserId, customerIds)),
-      db.select().from(referralRewards).where(inArray(referralRewards.referrerUserId, customerIds)),
-    ]);
+    // High-speed parallel batch fetch with self-healing schema resilience
+    let allProfiles: any[] = [];
+    try {
+      allProfiles = await db.select().from(customerProfiles).where(inArray(customerProfiles.userId, customerIds));
+    } catch (profErr: any) {
+      console.warn("[admin] customerProfiles batch fetch error, running schema self-heal:", profErr?.message);
+      try {
+        const { pool } = await import("./db");
+        await pool.query("ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS behavior_profile TEXT");
+        await pool.query("ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS has_completed_first_order BOOLEAN NOT NULL DEFAULT FALSE");
+        await pool.query("ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_orders INTEGER NOT NULL DEFAULT 0");
+        await pool.query("ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_spent NUMERIC(10, 2) NOT NULL DEFAULT '0.00'");
+        allProfiles = await db.select().from(customerProfiles).where(inArray(customerProfiles.userId, customerIds));
+      } catch (retryErr) {
+        console.error("[admin] customerProfiles retry error:", retryErr);
+      }
+    }
+
+    let allRefCodes: any[] = [];
+    try {
+      allRefCodes = await db.select().from(referralCodes).where(inArray(referralCodes.userId, customerIds));
+    } catch {}
+
+    let allReferrals: any[] = [];
+    try {
+      allReferrals = await db.select().from(referrals).where(inArray(referrals.referrerUserId, customerIds));
+    } catch {}
+
+    let allRewards: any[] = [];
+    try {
+      allRewards = await db.select().from(referralRewards).where(inArray(referralRewards.referrerUserId, customerIds));
+    } catch {}
 
     const profileMap = new Map(allProfiles.map((p) => [p.userId, p]));
     const refCodeMap = new Map(allRefCodes.map((r) => [r.userId, r.code]));

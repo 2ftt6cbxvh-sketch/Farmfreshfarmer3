@@ -104,6 +104,54 @@ async function migrateCi() {
   `);
   console.log("[migrate-ci] chatbot_product_suggestions table ready");
 
+  // Create or migrate customer_profiles table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS customer_profiles (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL UNIQUE,
+      has_completed_first_order BOOLEAN NOT NULL DEFAULT FALSE,
+      first_order_id INTEGER,
+      total_orders INTEGER NOT NULL DEFAULT 0,
+      total_spent NUMERIC(10, 2) NOT NULL DEFAULT '0.00',
+      notes TEXT,
+      behavior_profile TEXT,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.execute(sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS behavior_profile TEXT`);
+  await db.execute(sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS has_completed_first_order BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_orders INTEGER NOT NULL DEFAULT 0`);
+  await db.execute(sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS total_spent NUMERIC(10, 2) NOT NULL DEFAULT '0.00'`);
+  console.log("[migrate-ci] customer_profiles table ready");
+
+  // Create guest_behavior_sessions table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS guest_behavior_sessions (
+      id SERIAL PRIMARY KEY,
+      guest_id VARCHAR(64) NOT NULL UNIQUE,
+      search_queries TEXT,
+      viewed_categories TEXT,
+      ai_health_queries TEXT,
+      last_active TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+  console.log("[migrate-ci] guest_behavior_sessions table ready");
+
+  // Create unmet_demand_events table
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS unmet_demand_events (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      guest_id VARCHAR(64),
+      query_term TEXT NOT NULL,
+      source VARCHAR(32) NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+  console.log("[migrate-ci] unmet_demand_events table ready");
+
   console.log("[migrate-ci] All migrations completed successfully!");
   process.exit(0);
 }
