@@ -97,10 +97,18 @@ export async function generateProcurementIntelligence(forceRefresh = false): Pro
   const allCategories = await db.select().from(categories);
 
   // 2. Fetch live customer + guest behavioral signals
-  const [allProfiles, allGuestSessions] = await Promise.all([
-    db.select().from(customerProfiles),
-    db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
-  ]);
+  let allProfiles: any[] = [];
+  let allGuestSessions: any[] = [];
+  try {
+    allProfiles = await db.select().from(customerProfiles);
+  } catch (err: any) {
+    console.warn("[procurement-ai] customerProfiles fallback:", err?.message);
+  }
+  try {
+    allGuestSessions = await db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500);
+  } catch (err: any) {
+    console.warn("[procurement-ai] guestBehaviorSessions fallback:", err?.message);
+  }
   const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
 
   const searchCounts: Record<string, number> = {};

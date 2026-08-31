@@ -36,10 +36,18 @@ async function getGeminiApiKey(): Promise<string> {
  */
 export async function triggerHarvestBriefing(): Promise<{ ok: boolean; message: string; briefingText: string }> {
   const allProds = await db.select().from(products).where(eq(products.active, true));
-  const [allProfiles, allGuestSessions] = await Promise.all([
-    db.select().from(customerProfiles),
-    db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500),
-  ]);
+  let allProfiles: any[] = [];
+  let allGuestSessions: any[] = [];
+  try {
+    allProfiles = await db.select().from(customerProfiles);
+  } catch (err: any) {
+    console.warn("[radar] customerProfiles fallback:", err?.message);
+  }
+  try {
+    allGuestSessions = await db.select().from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(500);
+  } catch (err: any) {
+    console.warn("[radar] guestBehaviorSessions fallback:", err?.message);
+  }
   const allBehaviorRecords = [...allProfiles, ...allGuestSessions];
 
   const searchCounts: Record<string, number> = {};

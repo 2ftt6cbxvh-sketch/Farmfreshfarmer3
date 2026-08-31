@@ -128,10 +128,20 @@ async function getLiveSecurityData(isSuperAdmin: boolean) {
 }
 
 async function getLiveSearchAndDemandData() {
-  const [profiles, guestSessions] = await Promise.all([
-    db.select({ behaviorProfile: customerProfiles.behaviorProfile }).from(customerProfiles),
-    db.select({ behaviorProfile: guestBehaviorSessions.behaviorProfile }).from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(300),
-  ]);
+  let profiles: any[] = [];
+  let guestSessions: any[] = [];
+
+  try {
+    profiles = await db.select({ behaviorProfile: customerProfiles.behaviorProfile }).from(customerProfiles);
+  } catch (err: any) {
+    console.warn("[copilot] customerProfiles query fallback:", err?.message);
+  }
+
+  try {
+    guestSessions = await db.select({ behaviorProfile: guestBehaviorSessions.behaviorProfile }).from(guestBehaviorSessions).orderBy(desc(guestBehaviorSessions.id)).limit(300);
+  } catch (err: any) {
+    console.warn("[copilot] guestBehaviorSessions query fallback:", err?.message);
+  }
 
   const searchCounts: Record<string, number> = {};
   const categoryCounts: Record<string, number> = {};

@@ -299,6 +299,16 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.maintenance_state"],
       ["ALTER TABLE maintenance_state ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER DEFAULT 30", "maintenance_state.estimated_minutes"],
       ["ALTER TABLE maintenance_state ADD COLUMN IF NOT EXISTS allow_admin_bypass BOOLEAN NOT NULL DEFAULT TRUE", "maintenance_state.allow_admin_bypass"],
+      [`CREATE TABLE IF NOT EXISTS guest_behavior_sessions (
+          id SERIAL PRIMARY KEY,
+          session_id VARCHAR(128) NOT NULL UNIQUE,
+          behavior_profile TEXT,
+          ip_hash VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        )`, "create.guest_behavior_sessions"],
+      ["CREATE INDEX IF NOT EXISTS guest_behavior_session_idx ON guest_behavior_sessions (session_id)", "idx.guest_behavior_session_idx"],
+      ["CREATE INDEX IF NOT EXISTS guest_behavior_updated_idx ON guest_behavior_sessions (updated_at)", "idx.guest_behavior_updated_idx"],
     ];
 
     for (const [sql, label] of stmts) {
