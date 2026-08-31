@@ -1688,46 +1688,46 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageFilePicked} />
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFilePicked} />
 
-                <div className="flex items-center gap-1.5 bg-gray-100/90 dark:bg-zinc-850/90 rounded-2xl px-2.5 py-1.5 border border-card-border focus-within:border-emerald-500/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.15),0_1px_2px_rgba(0,0,0,0.05)] transition">
+                <div className="flex items-center gap-2 bg-zinc-900/95 dark:bg-black/80 rounded-2xl px-3 py-2 border border-emerald-500/35 focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/20 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] transition">
                   {/* Camera Snap Button */}
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
-                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition"
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition cursor-pointer"
                     title="Take a photo (Skin Doctor / Plant Doctor / Nutrition / Return Damage)"
                     aria-label="Take Photo"
                   >
-                    <Camera size={15} />
+                    <Camera size={16} />
                   </button>
 
                   {/* Gallery Upload Button */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition"
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition cursor-pointer"
                     title="Upload image from gallery"
                     aria-label="Upload Image"
                   >
-                    <ImagePlus size={15} />
+                    <ImagePlus size={16} />
                   </button>
 
                   <input ref={inputRef} id="chatbot-input" type="text" value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                     placeholder={selectedImage ? "Add query or tap send to analyze..." : strings.placeholder}
-                    className="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-200 placeholder-gray-400 min-w-0"
+                    className="flex-1 bg-transparent text-sm font-medium outline-none text-white placeholder:text-zinc-400 min-w-0"
                   />
 
                   {/* Mic button */}
                   <button id="chatbot-mic-btn" onClick={isListening ? stopListening : startListening}
-                    className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition ${isListening ? "bg-red-500 text-white animate-pulse" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"}`}
+                    className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition cursor-pointer ${isListening ? "bg-red-500 text-white animate-pulse" : "text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10"}`}
                     aria-label={isListening ? "Stop recording" : "Start voice input"}>
-                    {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                    {isListening ? <MicOff size={15} /> : <Mic size={15} />}
                   </button>
 
                   {/* Send button */}
                   <button id="chatbot-send-btn" onClick={handleSend} disabled={(!input.trim() && !selectedImage) || sendMutation.isPending}
-                    className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-40"
+                    className="flex-shrink-0 w-7 h-7 rounded-full text-white flex items-center justify-center hover:opacity-90 transition disabled:opacity-30 shadow-xs cursor-pointer"
                     style={{ background: 'linear-gradient(135deg, #065f46, #ca8a04)' }}
                     aria-label="Send message">
                     <Send size={13} />
@@ -1735,7 +1735,7 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                 </div>
               </div>
             )}
-            <p className="text-center text-[9px] text-gray-400 mt-1">Powered by Lakshmi AI & Netra Vision 2.5 · FarmFreshFarmer</p>
+            <p className="text-center text-[9px] text-gray-400 mt-1">Powered by Lakshmi AI &amp; Netra Vision 3.6 · FarmFreshFarmer</p>
           </div>
         </div>
       )}
