@@ -140,10 +140,26 @@ export interface HealthGoalMapping {
 }
 
 export const HEALTH_GOAL_MAP: Record<string, HealthGoalMapping> = {
+  sinus_respiratory: {
+    topicKey: "sinus_respiratory",
+    badgeLabel: "Sinus & Respiratory Relief Curations",
+    keywords: ["sinus", "sinuses", "sinusitis", "congestion", "nasal", "cold", "cough", "phlegm", "mucus", "asthma", "wheezing", "throat", "bronchial", "allergy", "allergic", "sneezing", "headache"],
+    produceMatches: ["ginger", "allam", "garlic", "vellulli", "turmeric", "pasupu", "pepper", "miriyalu", "clove", "tulsi", "lemon", "honey", "spices"],
+    categoryBoosts: ["spices", "vegetables"],
+    clinicalRationale: "Gingerols, piperine and warm allicin compounds provide natural bronchodilation, clearing mucus and airway congestion.",
+  },
+  immunity: {
+    topicKey: "immunity",
+    badgeLabel: "Natural Viral & Immunity Defense",
+    keywords: ["immunity", "fever", "infection", "virus", "viral", "dengue", "malaria", "typhoid", "platelets", "platelet", "immune", "flu"],
+    produceMatches: ["turmeric", "pasupu", "papaya", "garlic", "lemon", "amla", "pomegranate", "ginger", "pepper"],
+    categoryBoosts: ["spices", "fruits", "vegetables"],
+    clinicalRationale: "High bioavailable Curcumin, Vitamin C and allicin enhance white blood cell phagocytosis.",
+  },
   diabetes: {
     topicKey: "diabetes",
     badgeLabel: "Doctor-Curated for Blood Sugar Control",
-    keywords: ["diabetes", "sugar", "glucose", "insulin", "hba1c", "diabetic", "glycemic"],
+    keywords: ["diabetes", "sugar", "glucose", "insulin", "hba1c", "diabetic", "glycemic", "type 2"],
     produceMatches: ["foxtail", "korralu", "ragi", "bitter gourd", "karela", "kakarakaya", "spinach", "fenugreek", "guava", "millet"],
     categoryBoosts: ["millets", "vegetables"],
     clinicalRationale: "Low glycemic index fiber and charantin insulin mimetics stabilize postprandial glucose.",
@@ -151,7 +167,7 @@ export const HEALTH_GOAL_MAP: Record<string, HealthGoalMapping> = {
   hypertension: {
     topicKey: "hypertension",
     badgeLabel: "Cardiologist Picks for BP & Heart Health",
-    keywords: ["bp", "blood pressure", "hypertension", "heart", "cardio", "cholesterol", "artery", "cardiac"],
+    keywords: ["bp", "blood pressure", "hypertension", "heart", "cardio", "cholesterol", "artery", "cardiac", "chest"],
     produceMatches: ["garlic", "vellulli", "pomegranate", "danimma", "sesame", "spinach", "tomato", "citrus", "flax"],
     categoryBoosts: ["spices", "fruits", "vegetables"],
     clinicalRationale: "Endothelial nitric oxide (eNOS) stimulators and allicin promote arterial relaxation.",
@@ -159,23 +175,15 @@ export const HEALTH_GOAL_MAP: Record<string, HealthGoalMapping> = {
   digestion: {
     topicKey: "digestion",
     badgeLabel: "Gut Health & Anti-Acidity Curations",
-    keywords: ["digestion", "digest", "acidity", "gerd", "bloating", "constipation", "gut", "stomach", "gastric", "ibs"],
+    keywords: ["digestion", "digest", "acidity", "gerd", "bloating", "constipation", "gut", "stomach", "gastric", "ibs", "gas", "ulcer"],
     produceMatches: ["papaya", "ginger", "allam", "bottle gourd", "sorakaya", "banana", "arati", "curd", "cumin", "ajwain"],
     categoryBoosts: ["fruits", "vegetables", "spices"],
     clinicalRationale: "Enzymatic papain, gingerols and prebiotic pectin soothe mucous linings and support microbiome.",
   },
-  immunity: {
-    topicKey: "immunity",
-    badgeLabel: "Natural Viral & Immunity Defense",
-    keywords: ["immunity", "fever", "cold", "cough", "infection", "virus", "dengue", "platelets", "throat", "immune"],
-    produceMatches: ["turmeric", "pasupu", "papaya", "garlic", "lemon", "amla", "pomegranate", "ginger", "pepper"],
-    categoryBoosts: ["spices", "fruits"],
-    clinicalRationale: "High bioavailable Curcumin, Vitamin C and allicin enhance white blood cell phagocytosis.",
-  },
   skin_glow: {
     topicKey: "skin_glow",
     badgeLabel: "Dermatologist-Approved for Glowing Skin & Hair",
-    keywords: ["skin", "glow", "acne", "complexion", "hair", "collagen", "radiance", "anti-aging", "wrinkles"],
+    keywords: ["skin", "glow", "acne", "complexion", "hair", "collagen", "radiance", "anti-aging", "wrinkles", "pigmentation"],
     produceMatches: ["tomato", "tamata", "dragon fruit", "guava", "papaya", "carrot", "pomegranate", "sesame oil"],
     categoryBoosts: ["fruits", "vegetables"],
     clinicalRationale: "Lycopene, beta-carotene and Vitamin C support native dermal collagen cross-linking.",
@@ -183,7 +191,7 @@ export const HEALTH_GOAL_MAP: Record<string, HealthGoalMapping> = {
   weight_loss: {
     topicKey: "weight_loss",
     badgeLabel: "Nutritional Weight Management Picks",
-    keywords: ["weight", "fat", "slim", "diet", "obesity", "belly", "metabolism", "detox", "calorie"],
+    keywords: ["weight", "fat", "slim", "diet", "obesity", "belly", "metabolism", "detox", "calorie", "belly fat"],
     produceMatches: ["foxtail", "ragi", "bottle gourd", "cucumber", "spinach", "lemon", "millets"],
     categoryBoosts: ["millets", "vegetables"],
     clinicalRationale: "High satiety dietary fiber and zero empty calories support prolonged thermogenic burn.",
@@ -191,10 +199,18 @@ export const HEALTH_GOAL_MAP: Record<string, HealthGoalMapping> = {
   vitality_energy: {
     topicKey: "vitality_energy",
     badgeLabel: "Natural Iron & Stamina Boosters",
-    keywords: ["energy", "stamina", "fatigue", "tired", "weakness", "anemia", "iron", "hemoglobin"],
+    keywords: ["energy", "stamina", "fatigue", "tired", "weakness", "anemia", "iron", "hemoglobin", "dizziness"],
     produceMatches: ["jaggery", "bellam", "ragi", "dates", "pomegranate", "spinach", "laddu", "pulses"],
     categoryBoosts: ["homemade-sweets", "millets", "fruits"],
     clinicalRationale: "Non-heme organic iron and unrefined mineral complex directly support erythrocyte synthesis.",
+  },
+  joints_pain: {
+    topicKey: "joints_pain",
+    badgeLabel: "Anti-Inflammatory Joint & Bone Support",
+    keywords: ["joint", "joints", "knee", "arthritis", "bone", "calcium", "inflammation", "pain", "uric acid"],
+    produceMatches: ["ragi", "turmeric", "ginger", "garlic", "sesame", "spinach", "millet"],
+    categoryBoosts: ["millets", "spices", "vegetables"],
+    clinicalRationale: "Natural calcium-dense finger millets and curcumin reduce synovial inflammation and strengthen bone density.",
   },
 };
 

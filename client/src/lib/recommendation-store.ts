@@ -199,11 +199,15 @@ export function recordCategoryVisit(categorySlug: string) {
 export function recordSearchQuery(query: string) {
   const clean = (query || "").trim();
   globalState.activeSearchQuery = clean || undefined;
+  // Clear stale category so the live search takes immediate precedence
+  globalState.activeCategory = undefined;
 
-  // Check if search contains a known health intent (e.g. 'sugar', 'blood pressure')
+  // Check if search contains a known health intent (e.g. 'sinus', 'sugar', 'blood pressure')
   const detectedHealth = detectHealthTopic(clean);
   if (detectedHealth) {
     globalState.activeHealthTopic = detectedHealth.topicKey;
+  } else {
+    globalState.activeHealthTopic = undefined;
   }
 
   if (clean.length > 1) {
@@ -216,7 +220,7 @@ export function recordSearchQuery(query: string) {
       sessionStorage.setItem(
         SESSION_TRAIL_KEY,
         JSON.stringify({
-          activeCategory: globalState.activeCategory,
+          activeCategory: undefined,
           activeSearchQuery: globalState.activeSearchQuery,
           activeHealthTopic: globalState.activeHealthTopic,
         })
@@ -235,6 +239,10 @@ export function recordHealthInquiry(topicKey: string, queryText?: string) {
   const detected = topicKey ? topicKey : detectHealthTopic(queryText)?.topicKey;
   if (detected) {
     globalState.activeHealthTopic = detected;
+    // Clear stale category and search so the health query takes immediate top priority on the homepage!
+    globalState.activeCategory = undefined;
+    globalState.activeSearchQuery = queryText || undefined;
+
     const topics = globalState.userProfile.aiInquiryTopics || [];
     const updatedTopics = [detected, ...topics.filter((t) => t !== detected)].slice(0, 20);
     globalState.userProfile.aiInquiryTopics = updatedTopics;
@@ -244,7 +252,7 @@ export function recordHealthInquiry(topicKey: string, queryText?: string) {
       sessionStorage.setItem(
         SESSION_TRAIL_KEY,
         JSON.stringify({
-          activeCategory: globalState.activeCategory,
+          activeCategory: undefined,
           activeSearchQuery: globalState.activeSearchQuery,
           activeHealthTopic: globalState.activeHealthTopic,
         })
@@ -253,6 +261,11 @@ export function recordHealthInquiry(topicKey: string, queryText?: string) {
 
     emitUpdate();
     syncBehaviorToBackend({ aiInquiryTopics: updatedTopics });
+  } else if (queryText) {
+    // If it's a general produce inquiry in chat (e.g. "tomatoes", "sweets")
+    globalState.activeSearchQuery = queryText;
+    globalState.activeCategory = undefined;
+    emitUpdate();
   }
 }
 
