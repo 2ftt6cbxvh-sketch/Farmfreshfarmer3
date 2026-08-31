@@ -312,56 +312,83 @@ When answering health questions, always remind the customer: "Naturally grown or
 
 // Comprehensive Multilingual & Health Semantic Dictionary
 const PRODUCT_SEMANTIC_MAP: Record<string, string[]> = {
-  // Fruits
-  mango: ['mango', 'alphonso', 'mamidi', 'mamidikaya', 'aam', 'banganapalli', 'totapuri', 'rasalu', 'chinna rasalu', 'pedda rasalu'],
-  banana: ['banana', 'bananas', 'ariti', 'aratipandu', 'aratikaya', 'kela', 'yelakki', 'robusta', 'chakkarakeli', 'karpooravalli'],
-  pomegranate: ['pomegranate', 'anar', 'danimma', 'danimmakaya'],
-  grapes: ['grape', 'grapes', 'angur', 'draksha'],
-  apple: ['apple', 'apples', 'seb', 'sepu'],
-  papaya: ['papaya', 'papita', 'boppayi', 'boppayikaya'],
-  guava: ['guava', 'amrood', 'jama', 'jamakaya'],
-  orange: ['orange', 'citrus', 'santhra', 'kamala', 'battayi', 'mosambi'],
-  watermelon: ['watermelon', 'tarbooj', 'puchakaya'],
-
-  // Vegetables
-  tomato: ['tomato', 'tomatoes', 'tamatar', 'tamata', 'tamatalu', 'thakkali'],
-  spinach: ['spinach', 'palak', 'palakura', 'aakukura', 'greens', 'leafy', 'saag', 'keerai', 'thotakura', 'bachali'],
-  okra: ['okra', 'ladyfinger', 'lady finger', 'bhindi', 'bhendi', 'bendakaya', 'benda'],
-  carrot: ['carrot', 'carrots', 'gajar', 'carrotu'],
+  // Produce & Grocery categories
+  tomato: ['tomato', 'tomatoes', 'tomatos', 'tamatar', 'tamata', 'tamatalu', 'thakkali', 'fresh tomatoes', 'farm tomatoes'],
+  garlic: ['garlic', 'garlics', 'lehsun', 'vellulli', 'vellullipaya', 'naatu vellulli'],
+  ginger: ['ginger', 'adrak', 'allam', 'allamu', 'fresh ginger'],
+  bitter_gourd: ['bitter gourd', 'bittergourd', 'karela', 'kakarakaya', 'bitter'],
+  ridge_gourd: ['ridge gourd', 'ridgegourd', 'turai', 'beerakaya', 'beera'],
+  bottle_gourd: ['bottle gourd', 'bottlegaurd', 'lauki', 'sorakaya', 'anapakaya'],
+  tindora: ['tindora', 'dondakaya', 'kundru', 'donda', 'ivy gourd'],
+  brinjal: ['brinjal', 'brinjals', 'eggplant', 'aubergine', 'baingan', 'vankaya', 'gutta vankaya', 'purple brinjal', 'green brinjal'],
+  capsicum: ['capsicum', 'bell pepper', 'shimla mirch', 'bengaluru mirchi'],
+  beetroot: ['beetroot', 'beetroots', 'chukandar', 'beet'],
   potato: ['potato', 'potatoes', 'aloo', 'alu', 'bangaladumpa', 'batata'],
   onion: ['onion', 'onions', 'pyaz', 'kanda', 'ullipaya', 'ulli', 'eragadda'],
-  brinjal: ['brinjal', 'eggplant', 'aubergine', 'baingan', 'vankaya', 'gutta vankaya'],
-  chilli: ['chilli', 'chili', 'mirchi', 'mirapa', 'pachi mirchi', 'green chilli'],
-  ginger: ['ginger', 'adrak', 'allam'],
-  garlic: ['garlic', 'lehsun', 'vellulli'],
+  carrots: ['carrot', 'carrots', 'gajar', 'fresh carrots'],
+  green_chilli: ['green chilli', 'green chili', 'pachi mirchi', 'mirchi', 'chillies', 'chilli', 'chili'],
+  okra: ['lady finger', 'ladyfinger', 'okra', 'bhindi', 'bhendi', 'bendakaya', 'benda'],
+  spinach: ['spinach', 'palak', 'palakura', 'aakukura', 'greens', 'leafy', 'saag', 'keerai', 'thotakura', 'bachali'],
+  
+  // Fruits
+  pomegranate: ['pomegranate', 'pomegranates', 'anar', 'danimma', 'danimmakaya'],
+  apple: ['apple', 'apples', 'seb', 'sepu', 'royal gala', 'gala apple'],
+  guava: ['guava', 'guavas', 'amrood', 'jama', 'jamakaya', 'white guava'],
+  custard_apple: ['custard apple', 'sitaphal', 'seethaphal', 'sharifa'],
+  muskmelon: ['muskmelon', 'melon', 'kharbhuja', 'kharbuja', 'cantaloupe'],
+  dragon_fruit: ['dragon fruit', 'dragonfruit', 'pitaya', 'pink dragon fruit'],
+  banana: ['banana', 'bananas', 'ariti', 'aratipandu', 'aratikaya', 'kela', 'yelakki', 'robusta'],
+  orange: ['orange', 'oranges', 'citrus', 'santhra', 'kamala', 'battayi', 'mosambi'],
+  pineapple: ['pineapple', 'pineapples', 'ananas', 'anasa pandu'],
+  grapes: ['grape', 'grapes', 'draksha', 'angur', 'seedless grapes'],
+  papaya: ['papaya', 'papita', 'boppayi', 'boppayikaya'],
+  watermelon: ['watermelon', 'tarbooj', 'puchakaya'],
 
   // Pickles
-  pickle: ['pickle', 'pickles', 'achar', 'aachar', 'pachadi', 'ooragaya', 'avakaya', 'avakayi', 'pickle jar'],
-  avakaya: ['avakaya', 'avakayi', 'aam ka achar', 'mango pickle', 'mamidikaya pachadi', 'magaya'],
-  gongura: ['gongura', 'sorrel', 'gongura pachadi', 'gongura pickle', 'pulicha keerai'],
-  nonvegpickle: ['chicken pickle', 'mutton pickle', 'prawn pickle', 'fish pickle', 'kodi pachadi', 'royyala pachadi', 'meat pickle'],
+  pickle: ['pickle', 'pickles', 'achar', 'aachar', 'pachadi', 'ooragaya'],
+  mango_pickle: ['mango pickle', 'avakaya', 'avakayi', 'aam ka achar', 'mamidikaya', 'mamidikaya pachadi', 'magaya'],
+  gongura_pickle: ['gongura', 'gongura pickle', 'gongura pachadi', 'pulicha keerai'],
+  mutton_pickle: ['mutton pickle', 'mutton', 'meat pickle'],
+  prawn_pickle: ['prawn pickle', 'prawn', 'prawns', 'shrimp pickle', 'royyala pachadi'],
+  chicken_pickle: ['chicken pickle', 'chicken', 'natukodi pickle', 'kodi pachadi'],
+  lemon_pickle: ['lemon pickle', 'nimbu achar', 'nimmakaya pachadi', 'lemon'],
 
-  // Sweets & Snacks
-  sweets: ['sweet', 'sweets', 'mithai', 'laddu', 'ladoo', 'boondi', 'kaju', 'katli', 'mysore pak', 'pootharekulu', 'halwa', 'gulab jamun', 'dessert'],
-  snacks: ['snack', 'snacks', 'namkeen', 'mixture', 'murukku', 'janthikalu', 'chekodilu', 'chana', 'sev', 'crisps'],
+  // Millets
+  millets: ['millet', 'millets', 'siridhanya', 'siridhanyalu', 'unpolished grain'],
+  foxtail_millet: ['foxtail millet', 'foxtail', 'korralu', 'kangni'],
+  pearl_millet: ['pearl millet', 'bajra', 'sajjalu'],
+  finger_millet: ['finger millet', 'ragi', 'ragulu', 'taidalu', 'nachni'],
 
-  // Millets & Grains
-  millets: ['millet', 'millets', 'siridhanya', 'siridhanyalu', 'ragi', 'ragulu', 'finger millet', 'bajra', 'sajjalu', 'pearl millet', 'jowar', 'jonnalu', 'sorghum', 'foxtail', 'korralu', 'kodo', 'arikelu', 'little millet', 'samalu', 'barnyard', 'udhalu', 'unpolished grain'],
-
-  // Pulses & Dal
-  pulses: ['pulse', 'pulses', 'dal', 'dhal', 'pappu', 'toor dal', 'kandi pappu', 'moong dal', 'pesara pappu', 'chana dal', 'senaga pappu', 'urad dal', 'minapa pappu', 'lentil', 'lentils'],
+  // Pulses
+  pulses: ['pulse', 'pulses', 'dal', 'dhal', 'pappu', 'lentil', 'lentils'],
+  moong_dal: ['moong dal', 'moong', 'pesara pappu', 'mung dal', 'pesalu'],
+  chana_dal: ['chana dal', 'chana', 'senaga pappu', 'gram dal', 'senagalu'],
+  toor_dal: ['toor dal', 'toor', 'kandi pappu', 'arhar dal'],
 
   // Spices & Condiments
-  spices: ['spice', 'spices', 'masala', 'powder', 'podi', 'red chilli powder', 'mirchi powder', 'turmeric', 'haldi', 'pasupu', 'dhaniya', 'coriander', 'cumin', 'jeera', 'jeelakarra', 'mustard', 'avalu'],
+  spices: ['spice', 'spices', 'masala', 'powder', 'podi'],
+  turmeric: ['turmeric', 'turmeric powder', 'haldi', 'pasupu', 'pasupu podi'],
+  red_chilli: ['red chilli powder', 'chilli powder', 'mirchi powder', 'karam', 'guntur karam'],
+  coriander: ['coriander powder', 'dhaniya powder', 'dhaniyalu'],
 
-  // Dairy & Ghee
-  dairy: ['milk', 'dairy', 'doodh', 'paalu', 'ghee', 'neyyi', 'desi ghee', 'butter', 'venna', 'paneer', 'curd', 'dahi', 'perugu'],
+  // Sweets & Snacks
+  sweets: ['sweet', 'sweets', 'mithai', 'dessert', 'pootharekulu', 'halwa', 'gulab jamun'],
+  laddu: ['boondi laddu', 'laddu', 'ladoo', 'motichoor'],
+  kaju_katli: ['kaju katli', 'kaju', 'cashew sweet'],
+  mysore_pak: ['mysore pak', 'ghee mysore pak'],
+  snacks: ['snack', 'snacks', 'namkeen', 'crisps', 'chekodilu'],
+  mixture: ['special mixture', 'mixture', 'hot mixture', 'chivda'],
+  murukku: ['murukku', 'janthikalu', 'murukulu'],
+
+  // Combos & Boxes
+  fresh_box: ['weekly fresh box', 'fresh box', 'vegetable box', 'combo', 'curated box', 'weekly box', 'vegetables combo'],
+  oils: ['oil', 'oils', 'groundnut oil', 'sesame oil', 'gingelly oil', 'wood-pressed', 'cold-pressed', 'ganuga nune', 'nune'],
 };
 
 // Health & Diet Semantic Categorization for Highly Accurate Product Scoring
 const HEALTH_INTENT_MAP: Record<string, string[]> = {
   diabetes: ['diabetes', 'diabetic', 'sugar', 'blood sugar', 'low gi', 'glycemic', 'type 2', 'insulin', 'glucose', 'hba1c'],
-  heart_bp: ['bp', 'blood pressure', 'hypertension', 'heart', 'cardiac', 'cholesterol', 'artery', 'high bp', 'triglycerides', 'lipid'],
+  heart_bp: ['bp', 'blood pressure', 'hypertension', 'heart', 'cardiac', 'cholesterol', 'artery', 'high bp', 'triglycerides', 'lipid', 'oil', 'oils'],
   weight_loss: ['weight loss', 'fat loss', 'diet', 'slim', 'slimming', 'low calorie', 'fibre', 'fiber', 'fit', 'fitness', 'belly fat', 'obesity', 'reduce weight'],
   immunity: ['immunity', 'immune', 'cold', 'cough', 'antioxidant', 'vitamin c', 'vitality', 'wellness', 'fever', 'throat', 'respiratory', 'infection', 'flu'],
   digestion: ['digestion', 'digestive', 'acidity', 'gas', 'bloating', 'constipation', 'stomach', 'gut', 'gerd', 'indigestion', 'probiotic', 'heartburn', 'gastric'],
@@ -429,23 +456,15 @@ function resolveSmartProductSuggestions(
 ): any[] {
   if (!activeProducts || activeProducts.length === 0) return [];
 
-  // 1. Admin-controlled Mode: If set to admin and pinned products exist, strictly prioritize pinned products
-  if (suggestionMode === 'admin' && pinnedProductIds && pinnedProductIds.length > 0) {
-    const pinned = activeProducts.filter(p => pinnedProductIds.includes(Number(p.id)));
-    if (pinned.length > 0) {
-      return pinned.slice(0, 4).map(formatSingleProductSuggestion);
-    }
-  }
-
-  // 2. Dynamic Smart & Randomized Matching
   const lowerMsg = (userMessage || '').toLowerCase();
   const lowerReply = (aiReplyText || '').toLowerCase();
+  const combinedText = `${lowerMsg} ${lowerReply}`;
   const rawWords = lowerMsg.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
 
-  // Detect health / diet intents
+  // Detect health / diet intents in both message and reply
   const activeHealthIntents: string[] = [];
   for (const [intentKey, keywords] of Object.entries(HEALTH_INTENT_MAP)) {
-    if (keywords.some(kw => lowerMsg.includes(kw))) {
+    if (keywords.some(kw => combinedText.includes(kw))) {
       activeHealthIntents.push(intentKey);
     }
   }
@@ -459,83 +478,83 @@ function resolveSmartProductSuggestions(
     const pDescLower = (p.description || '').toLowerCase();
     const pWords = (pNameLower + ' ' + pCatLower).split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
 
-    // 1. Direct word / stem match in user message & Telugu script name (+90)
-    for (const uw of rawWords) {
-      if (pWords.some(pw => matchesWord(uw, pw))) {
-        score += 80;
-      }
-      if (pNameLower.includes(uw) || uw.includes(pNameLower)) {
-        score += 95;
-      }
-    }
-
-    // Direct Telugu match
-    if (p.nameTe && lowerMsg.includes(p.nameTe)) {
-      score += 100;
-    }
-
-    // 2. Multilingual synonym match (+75)
-    for (const [semanticKey, synonyms] of Object.entries(PRODUCT_SEMANTIC_MAP)) {
-      const productMatchesSemantic = synonyms.some(syn => pNameLower.includes(syn) || pCatLower.includes(syn) || pDescLower.includes(syn));
-      const userMatchesSemantic = synonyms.some(syn => lowerMsg.includes(syn));
-      if (productMatchesSemantic && userMatchesSemantic) {
-        score += 75;
-      }
-    }
-
-    // 3. Health & Nutrition intent alignment (+65)
-    if (activeHealthIntents.includes('diabetes') || /sugar|glucose|diabetes|diabetic|insulin/i.test(lowerMsg)) {
-      if (/millet|ragi|foxtail|korralu|spinach|palak|tomato|dal|pulse|karela|bitter/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('heart_bp') || /bp|blood pressure|hypertension|heart|cholesterol/i.test(lowerMsg)) {
-      if (/pomegranate|danimma|spinach|palak|garlic|vellulli|millet|oil|sesame|groundnut/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('weight_loss') || /weight|fat|slim|obesity|calorie/i.test(lowerMsg)) {
-      if (/millet|ragi|spinach|salad|vegetable|pulse|dal|cucumber|tomato/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('digestion') || /gut|digestion|stomach|gastric|constipation/i.test(lowerMsg)) {
-      if (/ginger|allam|papaya|curd|perugu|buttermilk|majjiga|millet|vegetable/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('immunity') || /immune|immunity|cold|cough|infection/i.test(lowerMsg)) {
-      if (/turmeric|pasupu|amla|pomegranate|danimma|honey|ginger|allam|pepper|spice/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('bone_calcium') || /bone|calcium|joint|arthritis/i.test(lowerMsg)) {
-      if (/ragi|millet|spinach|ghee|milk|jaggery|bellam|dal|pulse/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('protein_gym') || /protein|gym|muscle|workout/i.test(lowerMsg)) {
-      if (/dal|pulse|toor|moong|chana|paneer|milk|ghee|chicken|pickle/i.test(pNameLower + ' ' + pCatLower)) {
-        score += 75;
-      }
-    }
-    if (activeHealthIntents.includes('deals') || /deal|offer|discount|sale|special/i.test(lowerMsg)) {
-      if (Number(p.discountPercent) > 0) {
-        score += 70 + Number(p.discountPercent);
-      }
-    }
-
-    // 4. Mentioned in Lakshmi AI reply text (+85)
+    // 1. Direct match in Gemini AI reply text (+800 points)
+    // If Gemini explicitly recommended or discussed this produce in its reply, it MUST appear!
     if (lowerReply) {
       if (lowerReply.includes(pNameLower)) {
-        score += 85;
+        score += 900;
       } else if (p.nameTe && lowerReply.includes(p.nameTe)) {
-        score += 85;
+        score += 900;
       } else {
-        const significantPWords = pNameLower.split(/\s+/).filter(w => w.length >= 4 && !STOP_WORDS.has(w));
-        if (significantPWords.some(w => lowerReply.includes(w))) {
-          score += 55;
+        const significantPWords = pNameLower.split(/[\s,()\[\]\/-]+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+        for (const spw of significantPWords) {
+          if (lowerReply.includes(spw)) {
+            score += 450;
+          }
         }
+      }
+    }
+
+    // 2. Direct match in User Query (+900 points)
+    // If user asked for "fresh tomatos", "mango pickle", "ragi", "garlic", etc.
+    if (lowerMsg.includes(pNameLower)) {
+      score += 1000;
+    }
+    if (p.nameTe && lowerMsg.includes(p.nameTe)) {
+      score += 1000;
+    }
+    for (const uw of rawWords) {
+      if (pWords.some(pw => matchesWord(uw, pw))) {
+        score += 500;
+      }
+      if (pNameLower.includes(uw) || uw.includes(pNameLower)) {
+        score += 600;
+      }
+    }
+
+    // 3. Multilingual synonyms match (+350 points)
+    for (const [semanticKey, synonyms] of Object.entries(PRODUCT_SEMANTIC_MAP)) {
+      const productMatchesSemantic = synonyms.some(syn => pNameLower.includes(syn) || pCatLower.includes(syn) || pDescLower.includes(syn));
+      const userOrReplyMatchesSemantic = synonyms.some(syn => combinedText.includes(syn));
+      if (productMatchesSemantic && userOrReplyMatchesSemantic) {
+        score += 350;
+      }
+    }
+
+    // 4. Health & Nutrition intent alignment (+300 points)
+    if (activeHealthIntents.includes('diabetes')) {
+      if (/millet|ragi|foxtail|korralu|spinach|palak|tomato|dal|pulse|karela|bitter|dondakaya|tindora/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('heart_bp')) {
+      if (/pomegranate|danimma|spinach|palak|garlic|vellulli|millet|oil|sesame|groundnut|tomato|beetroot/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('weight_loss')) {
+      if (/millet|ragi|spinach|salad|vegetable|pulse|dal|cucumber|tomato|bottle|ridge|beetroot/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('digestion')) {
+      if (/ginger|allam|papaya|curd|perugu|buttermilk|majjiga|millet|lemon|fresh box/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('immunity')) {
+      if (/turmeric|pasupu|amla|pomegranate|danimma|honey|ginger|allam|pepper|spice|guava|orange/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('bone_calcium')) {
+      if (/ragi|millet|spinach|ghee|milk|jaggery|bellam|dal|pulse|laddu|mysore/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
+      }
+    }
+    if (activeHealthIntents.includes('protein_gym')) {
+      if (/dal|pulse|toor|moong|chana|paneer|milk|ghee|chicken|mutton|prawn|pickle/i.test(pNameLower + ' ' + pCatLower)) {
+        score += 300;
       }
     }
 
@@ -543,9 +562,8 @@ function resolveSmartProductSuggestions(
     if (p.stock > 0) score += 10;
     if (Number(p.discountPercent) > 0) score += 5;
 
-    // 6. Dynamic randomization jitter (+0 to +20) so multiple relevant products rotate nicely
-    if (score >= 20) {
-      score += Math.floor(Math.random() * 20);
+    // Direct threshold for targeted relevance
+    if (score >= 40) {
       scoredProducts.push({ product: p, score });
     }
   }
@@ -553,17 +571,25 @@ function resolveSmartProductSuggestions(
   // Sort by score descending
   scoredProducts.sort((a, b) => b.score - a.score);
 
-  // If we found targeted matches, return top 4
+  // If specific contextual matches were found (from query, reply, or health intent),
+  // return ONLY the exact matching products (NEVER override with admin/random)!
   if (scoredProducts.length > 0) {
     return scoredProducts.slice(0, 4).map(({ product: p }) => formatSingleProductSuggestion(p));
   }
 
-  // Otherwise (General conversation / creator query / greeting):
-  // Shuffle active products across diverse categories (vegetable, fruit, pickle/snack, millet/pulse)
+  // ONLY for generic queries with no specific topic / produce (e.g. "hi", "who made you?", "operating hours"):
+  // Option A: Admin pinned mode
+  if (suggestionMode === 'admin' && pinnedProductIds && pinnedProductIds.length > 0) {
+    const pinned = activeProducts.filter(p => pinnedProductIds.includes(Number(p.id)));
+    if (pinned.length > 0) {
+      return pinned.slice(0, 4).map(formatSingleProductSuggestion);
+    }
+  }
+
+  // Option B: Dynamic Random rotation across diverse fresh categories
   const inStock = activeProducts.filter(p => p.stock !== 0);
   const shuffled = [...inStock].sort(() => Math.random() - 0.5);
   
-  // Pick across different categories for exciting variety
   const picked: any[] = [];
   const usedCats = new Set<string>();
   for (const p of shuffled) {
@@ -573,7 +599,6 @@ function resolveSmartProductSuggestions(
       picked.push(p);
     }
   }
-  // Fill remaining slots if needed
   for (const p of shuffled) {
     if (picked.length >= 4) break;
     if (!picked.some(x => x.id === p.id)) {
