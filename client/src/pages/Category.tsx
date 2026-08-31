@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/queryClient";
 import { Layout } from "@/components/Layout";
@@ -8,6 +8,7 @@ import { DietDot } from "@/components/DietDot";
 import type { Category as Cat, Product } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { recordCategoryVisit } from "@/lib/recommendation-store";
+import { Home } from "lucide-react";
 
 export default function Category() {
   const [, params] = useRoute("/category/:slug");
@@ -37,6 +38,16 @@ export default function Category() {
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-4 py-8">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-4">
+          <Link href="/" className="hover:text-emerald-500 flex items-center gap-1.5 transition-colors cursor-pointer bg-emerald-500/10 px-2.5 py-1 rounded-full text-emerald-600 dark:text-emerald-400 font-bold">
+            <Home size={13} />
+            <span>Home</span>
+          </Link>
+          <span>/</span>
+          <span className="text-foreground font-bold capitalize">{category?.name || slug}</span>
+        </div>
+
         <div className="flex items-center gap-2 mb-1">
           <h1 className="font-serif text-2xl sm:text-3xl font-bold">{category?.name || "Category"}</h1>
           {category && <DietDot tag={category.dietTag} size={16} />}

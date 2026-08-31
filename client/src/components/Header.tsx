@@ -5,7 +5,7 @@ import {
   Search, ShoppingCart, Menu, X, Sun, Moon, Sparkles, TrendingUp,
   MapPin, ShieldCheck, Zap, ChevronRight, ChevronDown, CheckCircle2,
   Lock, Store, User as UserIcon, UserCircle2, PackageCheck, Gift,
-  Ticket, Shield, Truck, LogOut, ShoppingBag
+  Ticket, Shield, Truck, LogOut, ShoppingBag, Home
 } from "lucide-react";
 import { useCart, useAuth } from "@/lib/store";
 import { useTheme } from "@/lib/theme-provider";
@@ -762,8 +762,20 @@ export function Header() {
                 )}
             </div>
 
-            {/* ── Quick links (Profile / Orders / Subscriptions / Login) ── */}
+            {/* ── Quick links (Home / Profile / Orders / Subscriptions / Login) ── */}
             <div className="flex flex-wrap gap-2 px-4 pt-1 pb-3 border-t border-emerald-500/20">
+              <Link
+                href="/"
+                onClick={closeMobileMenu}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black rounded-full transition-all ${
+                  location === "/"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30"
+                }`}
+              >
+                <Home size={13} />
+                <span>Home 🏠</span>
+              </Link>
               {user ? (
                 <>
                   <Link
@@ -810,6 +822,20 @@ export function Header() {
       {/* ── 🌟 CENTERED CATEGORY RIBBON (Centered on Desktop/Tablet, Smooth Scroll on Mobile) 🌟 ── */}
       <div className="w-full bg-card/75 dark:bg-zinc-950/70 backdrop-blur-md border-b border-border/60 overflow-x-auto no-scrollbar py-2 relative z-10">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 flex items-center justify-start md:justify-center gap-2 min-w-max">
+          <Link
+            href="/"
+            className={`group relative flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black transition-all shrink-0 ${
+              location === "/"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm ring-2 ring-emerald-500/40"
+                : "bg-secondary/70 hover:bg-emerald-500/15 text-foreground hover:text-emerald-500 hover:scale-105 active:scale-95"
+            }`}
+          >
+            <Home size={12} className="shrink-0 text-emerald-400 group-hover:text-emerald-300" />
+            <span>All / Home</span>
+            {location === "/" && (
+              <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            )}
+          </Link>
           {categories.map((c) => {
             const isActive = location === `/category/${c.slug}`;
             return (

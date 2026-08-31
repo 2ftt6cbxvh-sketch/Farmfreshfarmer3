@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRoute, Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Minus, Plus, ShoppingCart, Star, Sparkles } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Star, Sparkles, Home } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { DietDot } from "@/components/DietDot";
 import { ProductCard } from "@/components/ProductCard";
@@ -149,7 +149,21 @@ export default function ProductDetail() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-5xl px-4 py-8 space-y-12">
+      <div className="mx-auto max-w-5xl px-4 py-8 space-y-8">
+        {/* Breadcrumb Navigation with Home button */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Link href="/" className="hover:text-emerald-500 flex items-center gap-1.5 transition-colors cursor-pointer bg-emerald-500/10 px-2.5 py-1 rounded-full text-emerald-600 dark:text-emerald-400 font-bold">
+            <Home size={13} />
+            <span>Home</span>
+          </Link>
+          <span>/</span>
+          <Link href={`/category/${product.categorySlug}`} className="hover:text-emerald-500 capitalize transition-colors cursor-pointer">
+            {product.categorySlug}
+          </Link>
+          <span>/</span>
+          <span className="text-foreground font-bold truncate max-w-[200px] sm:max-w-xs">{product.name}</span>
+        </div>
+
         {/* Main Product Specs */}
         <div className="grid md:grid-cols-2 gap-8 items-start">
           <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group w-full max-w-full">

@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Package, FolderTree, Boxes, ClipboardList, Repeat,
   Users, Star, Ticket, Percent, Gift, CreditCard, Settings, LogOut, Store,
   Shield, ShieldCheck, ShieldAlert, Warehouse, Truck, UserCheck, Key, CheckCircle, MessageSquare, RotateCcw,
-  ExternalLink, Crown, CheckCircle2, Megaphone, Mail, Bot, Sparkles
+  ExternalLink, Crown, CheckCircle2, Megaphone, Mail, Bot, Sparkles, Home
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { getStarTheme } from "@/lib/starTheme";
@@ -22,6 +22,7 @@ import { AdminExecutiveCopilotModal } from "@/components/admin/AdminExecutiveCop
 
 const NAV = [
   { section: "Core", items: [
+    { href: "/", label: "🏠 Home Storefront", icon: Home },
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/lakshmi-ai", label: "Lakshmi AI Assistant 🤖", icon: Bot },
     { href: "/admin/live-chat", label: "Live Support Chat 💬", icon: MessageSquare },
@@ -605,13 +606,21 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile top bar */}
         <header className="md:hidden flex items-center gap-2 overflow-x-auto bg-sidebar text-sidebar-foreground px-3 py-2 border-b border-sidebar-border">
+          <Link
+            href="/"
+            className="text-xs font-black bg-emerald-500/20 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 whitespace-nowrap px-3 py-1 rounded-lg flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer hover:bg-emerald-500/30 transition-all"
+            data-testid="link-mobile-home"
+          >
+            <Home size={13} className="text-emerald-500" />
+            <span>🏠 Home</span>
+          </Link>
           <a
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-extrabold bg-emerald-500/20 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 whitespace-nowrap px-3 py-1 rounded-lg flex items-center gap-1.5 shrink-0"
+            className="text-xs font-extrabold bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 whitespace-nowrap px-2.5 py-1 rounded-lg flex items-center gap-1.5 shrink-0"
           >
-            <Store size={13} /> Store 🛍️
+            <Store size={13} /> Live Store 🛍️
           </a>
           {flatDisplayed.map((n) => (
             <Link key={n.href} href={n.href} className={`text-sm whitespace-nowrap px-2 py-1 rounded flex items-center gap-1.5 ${location === n.href ? "bg-sidebar-accent text-sidebar-accent-foreground font-bold" : ""}`}>
@@ -635,18 +644,39 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
         <main key={location} className="flex-1 p-3 sm:p-6 overflow-x-hidden">
           {title ? (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-card-border">
-              <h1 className="font-serif text-xl font-bold">{title}</h1>
-              <a
-                href="/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 self-start sm:self-auto bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm transition-all"
-                data-testid="btn-view-live-store-header"
-              >
-                <Store size={14} className="text-emerald-500" />
-                <span>View Live Store 🛍️</span>
-                <ExternalLink size={12} className="opacity-70" />
-              </a>
+              <div className="flex items-center gap-2.5">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-black transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95 shrink-0"
+                  title="Return to Home Storefront"
+                  data-testid="btn-admin-home"
+                >
+                  <Home size={14} className="shrink-0 text-emerald-500" />
+                  <span>🏠 Home</span>
+                </Link>
+                <h1 className="font-serif text-xl font-bold">{title}</h1>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 bg-background hover:bg-muted border border-border text-foreground text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer hover:border-emerald-500/40"
+                  data-testid="btn-back-to-home"
+                >
+                  <Home size={14} className="text-emerald-500" />
+                  <span>Back to Home 🏠</span>
+                </Link>
+                <a
+                  href="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm transition-all"
+                  data-testid="btn-view-live-store-header"
+                >
+                  <Store size={14} className="text-emerald-500" />
+                  <span>View Live Store 🛍️</span>
+                  <ExternalLink size={12} className="opacity-70" />
+                </a>
+              </div>
             </div>
           ) : null}
           {children}
