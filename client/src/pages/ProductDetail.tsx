@@ -183,13 +183,19 @@ export default function ProductDetail() {
                 <span className="text-xs text-muted-foreground mt-1">Farm Fresh Harvest</span>
               </div>
             )}
+            {/* Watermark & Copyright Bar on Image */}
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 pt-6 flex items-center justify-between text-xs font-mono text-emerald-300 pointer-events-none select-none">
+              <span className="font-extrabold tracking-tight">© FarmFreshFarmer</span>
+              <span className="text-[11px] text-amber-300 font-sans font-bold">🌱 Direct from Andhra Farms</span>
+            </div>
+
             {hasDiscount && (
               <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-xs font-extrabold px-3.5 py-1 rounded-full shadow-lg border border-amber-300/40">
                 {Math.round(Number(product.discountPercent))}% OFF
               </span>
             )}
             {(product as any).allowInternationalShipping === false && (
-              <span className="absolute bottom-4 left-4 max-w-[90%] truncate bg-amber-950/90 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
+              <span className="absolute bottom-12 left-4 max-w-[90%] truncate bg-amber-950/90 text-amber-300 border border-amber-500/50 text-xs font-black px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
                 📍 Local Delivery Only ({activeRadiusKm}km Radius)
               </span>
             )}
@@ -206,6 +212,16 @@ export default function ProductDetail() {
                 {product.nameTe}
               </p>
             )}
+
+            {/* Disclaimer Warning Notice */}
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 dark:text-amber-300 text-xs leading-snug">
+              <p className="font-semibold">
+                ⚠️ <span className="font-bold">*Real products may look different from this image whatsoever relevant.</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Fresh natural produce size, shape, and color may vary naturally according to organic farm harvest seasons.
+              </p>
+            </div>
 
             {reviews.length > 0 && (
               <div className="flex items-center gap-2">
