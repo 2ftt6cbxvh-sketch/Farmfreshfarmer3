@@ -11,7 +11,7 @@
 import { db } from "../db";
 import { products, securityAuditLogs, generateProduceQuantityTiersMatrix, detectProduceUnitType } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { getFarmFreshMasterApiKey, getLakshmiApiKey } from "./gemini-keys";
+import { getFarmFreshMasterApiKey, getLakshmiApiKey, getImagenApiKeyPool } from "./gemini-keys";
 import { resolveTeluguProductName } from "@shared/telugu-produce-namer";
 
 export interface QuantityTier {
@@ -227,12 +227,7 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
   const promptText = `Award-winning commercial culinary studio food photography of ${specializedSubject}, isolated on a clean rustic dark slate tabletop with soft natural warm lighting, morning water dew drops, ultra-crisp macro details, photorealistic 8k resolution, centered composition. No animals, no artificial elements, no text overlays.`;
 
   // Multi-Key Pool for Imagen 3 with automatic failover
-  const imagenKeys = [
-    process.env.GEMINI_API_KEY_IMAGEN_1,
-    process.env.GEMINI_API_KEY_IMAGEN_2,
-    process.env.GEMINI_API_KEY_VISION,
-    process.env.GEMINI_API_KEY_FARMFRESH,
-  ].filter(Boolean) as string[];
+  const imagenKeys = await getImagenApiKeyPool();
 
   for (let i = 0; i < imagenKeys.length; i++) {
     const key = imagenKeys[i];

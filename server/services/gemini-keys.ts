@@ -79,3 +79,19 @@ export async function getNetraVisionApiKey(): Promise<string> {
   if (key && key.trim().length > 10) return key.trim();
   return getFarmFreshMasterApiKey();
 }
+
+/** 4. Imagen / AI Studio Dedicated Multi-Key Pool (Auto-Failover) */
+export async function getImagenApiKeyPool(): Promise<string[]> {
+  const s = await getCachedSettings();
+  return [
+    process.env.GEMINI_API_KEY_IMAGEN_1,
+    process.env.GEMINI_API_KEY_IMAGEN_2,
+    process.env.GEMINI_API_KEY_IMAGEN_3,
+    s.gemini_api_key_imagen_1,
+    s.gemini_api_key_imagen_2,
+    s.gemini_api_key_imagen_3,
+    process.env.GEMINI_API_KEY_VISION,
+    process.env.GEMINI_API_KEY_FARMFRESH,
+    process.env.GEMINI_API_KEY,
+  ].filter((k): k is string => Boolean(k && k.trim().length > 10));
+}
