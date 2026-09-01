@@ -915,10 +915,10 @@ export function AdminApprovals() {
         {/* Sub-Admin Reconsideration Edit & Resubmit Modal */}
         {reconsiderEditModal && (
           <Dialog open={reconsiderEditModal !== null} onOpenChange={(open) => !open && setReconsiderEditModal(null)}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-amber-500">
-                  <Edit3 size={18} />
+            <DialogContent className="sm:max-w-4xl md:max-w-5xl w-[92vw] max-h-[90vh] overflow-y-auto p-6 md:p-8 bg-card/95 backdrop-blur-2xl rounded-3xl border-2 border-amber-500/20 shadow-2xl">
+              <DialogHeader className="pb-3 border-b border-card-border/60">
+                <DialogTitle className="flex items-center gap-2 text-lg font-black text-amber-500">
+                  <Edit3 size={20} />
                   Re-Consider & Modify: "{reconsiderEditModal.name}"
                 </DialogTitle>
                 <DialogDescription className="text-xs">
@@ -1076,10 +1076,10 @@ export function AdminApprovals() {
         {/* Master Admin Interactive Approval & Inline Edit Dialog */}
         {productEditModal && (
           <Dialog open={productEditModal !== null} onOpenChange={(open) => !open && setProductEditModal(null)}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-extrabold">
-                  <Edit3 className="text-emerald-500" size={20} />
+            <DialogContent className="sm:max-w-4xl md:max-w-5xl w-[92vw] max-h-[90vh] overflow-y-auto p-6 md:p-8 bg-card/95 backdrop-blur-2xl rounded-3xl border-2 border-emerald-500/20 shadow-2xl">
+              <DialogHeader className="pb-3 border-b border-card-border/60">
+                <DialogTitle className="flex items-center gap-2 text-lg font-black text-emerald-500">
+                  <Edit3 size={20} />
                   Master Admin Review: "{productEditModal.item.name}"
                 </DialogTitle>
                 <DialogDescription className="text-xs">

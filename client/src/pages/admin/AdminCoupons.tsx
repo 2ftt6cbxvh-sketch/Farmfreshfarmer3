@@ -277,10 +277,10 @@ export default function AdminCoupons() {
 
         {/* Create Coupon Modal */}
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-md rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-base font-extrabold flex items-center gap-2">
-                <Tag size={18} className="text-emerald-500" /> Create New Coupon
+          <DialogContent className="sm:max-w-xl w-[92vw] max-h-[90vh] overflow-y-auto rounded-3xl p-6 md:p-8 bg-card/95 backdrop-blur-2xl border-2 border-emerald-500/20 shadow-2xl">
+            <DialogHeader className="pb-3 border-b border-card-border/60">
+              <DialogTitle className="text-lg font-black flex items-center gap-2">
+                <Tag size={20} className="text-emerald-500" /> Create New Coupon
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Configure discount rates, minimum basket threshold, and usage limits.

@@ -200,8 +200,12 @@ export default function AdminCategories() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{form.id ? "Edit category" : "Add category"}</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] overflow-y-auto p-6 md:p-8 bg-card/95 backdrop-blur-2xl border-2 border-emerald-500/20 shadow-2xl rounded-3xl">
+          <DialogHeader className="pb-3 border-b border-card-border/60">
+            <DialogTitle className="text-lg font-black text-foreground">
+              {form.id ? "✏️ Edit Category" : "🌱 Add New Category"}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Name</Label>
