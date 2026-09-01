@@ -205,16 +205,11 @@ export function resolveStudioHeroImage(productName: string, categorySlug = "gene
 }
 
 /**
- * 🎨 AI Image Generator using Google Imagen 3 (imagen-3.0-generate-002)
+ * 🎨 AI Image Generator using Ultra-High-Def Flux AI Studio Engine
  * Generates bespoke commercial macro studio food photography for fresh farm produce.
  */
 export async function generateAiProducePhoto(productName: string, categorySlug = "general"): Promise<string> {
-  const apiKey = (await getFarmFreshMasterApiKey()) || (await getLakshmiApiKey());
   const fallback = resolveStudioHeroImage(productName, categorySlug);
-
-  if (!apiKey) {
-    return fallback;
-  }
 
   let specializedSubject = `fresh organic ${productName}`;
   if (categorySlug.includes("pickle")) {
@@ -231,33 +226,20 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
 
   const promptText = `Award-winning commercial culinary studio food photography of ${specializedSubject}, isolated on a clean rustic dark slate tabletop with soft natural warm lighting, morning water dew drops, ultra-crisp macro details, photorealistic 8k resolution, centered composition. No animals, no artificial elements, no text overlays.`;
 
+  // 1. Generate with Flux AI Studio Engine
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt: promptText }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: "1:1",
-          outputMimeType: "image/jpeg",
-          personGeneration: "dont_allow",
-          safetySetting: "block_medium_and_above",
-        },
-      }),
-      signal: AbortSignal.timeout(8000),
+    const fluxUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText)}?width=1024&height=1024&model=flux&nologo=true&seed=108`;
+    const res = await fetch(fluxUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
+      signal: AbortSignal.timeout(20000),
     });
-
     if (res.ok) {
-      const data = await res.json();
-      const base64Bytes = data?.predictions?.[0]?.bytesBase64Encoded;
-      if (base64Bytes) {
-        return `data:image/jpeg;base64,${base64Bytes}`;
-      }
+      const buffer = await res.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      return `data:image/jpeg;base64,${base64}`;
     }
   } catch (err: any) {
-    console.warn("[product-ai-studio] Imagen 3 fallback used:", err?.message);
+    console.warn("[product-ai-studio] Flux AI generation fallback:", err?.message);
   }
 
   return fallback;
