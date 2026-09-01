@@ -142,12 +142,6 @@ export function ProductCard({ product }: { product: Product }) {
             </div>
           )}
 
-          {/* Watermark & Copyright Bar on Image */}
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-1.5 pt-4 flex items-center justify-between text-[8.5px] font-mono text-emerald-300 pointer-events-none select-none">
-            <span className="font-bold tracking-tight opacity-90">© FarmFreshFarmer</span>
-            <span className="text-[7.5px] text-amber-300/90 font-sans font-bold">🌱 Andhra Harvest</span>
-          </div>
-
           {/* Floating Discount Tag */}
           {hasDiscount && (
             <span className="absolute top-2 left-2 z-10 bg-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-md border border-amber-300/40">
@@ -195,9 +189,9 @@ export function ProductCard({ product }: { product: Product }) {
             )}
           </Link>
 
-          {/* Real Product Disclaimer Warning */}
-          <p className="text-[9.5px] text-muted-foreground/80 italic leading-tight mt-1">
-            *Real products may look different from this image whatsoever relevant.
+          {/* Clean Subtle Disclaimer */}
+          <p className="text-[9px] text-muted-foreground/70 italic leading-tight mt-1">
+            *Images for representation. Natural produce may vary by season.
           </p>
 
           {/* Mobile-Friendly Segmented Pack Selector */}
