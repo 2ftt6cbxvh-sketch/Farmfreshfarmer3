@@ -652,7 +652,7 @@ export default function Cart() {
               <div className="flex items-center justify-between border-b border-card-border pb-3">
                 <h2 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2">
                   <span>Basket Items</span>
-                  <span className="text-xs font-mono font-bold bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">
+                  <span className="text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-2.5 py-0.5 rounded-full">
                     {items.length} {items.length === 1 ? "item" : "items"}
                   </span>
                 </h2>
@@ -668,53 +668,106 @@ export default function Cart() {
 
               <div className="divide-y divide-card-border">
                 {items.map((i) => (
-                  <div key={i.productId} className="py-3.5 first:pt-0 last:pb-0 flex gap-3.5 sm:gap-4 items-center" data-testid={`cart-item-${i.productId}`}>
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl overflow-hidden bg-secondary border border-card-border">
+                  <div key={`${i.productId}-${i.unit}`} className="py-3.5 first:pt-0 last:pb-0 flex gap-3.5 sm:gap-4 items-start" data-testid={`cart-item-${i.productId}`}>
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl overflow-hidden bg-secondary border border-card-border mt-0.5">
                       {i.image ? <img src={imgUrl(i.image)} alt={i.name} className="h-full w-full object-cover" /> : null}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-xs sm:text-sm text-foreground truncate">{i.name}</h3>
-                      <p className="text-[11px] text-muted-foreground">{i.unit}</p>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <h3 className="font-bold text-xs sm:text-sm text-foreground truncate">{i.name}</h3>
+                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.2 rounded-md">
+                          {i.unit}
+                        </span>
+                      </div>
+                      
                       {(() => {
                         const prod = (allProducts || []).find((p: any) => p.id === i.productId);
-                        const baseP = prod ? Number(prod.price) : Number(i.price);
+                        let baseP = prod ? Number(prod.price) : Number(i.price);
+                        if (i.unit && prod?.quantityTiers) {
+                          try {
+                            const parsed = typeof prod.quantityTiers === "string" ? JSON.parse(prod.quantityTiers) : prod.quantityTiers;
+                            if (Array.isArray(parsed)) {
+                              const t = parsed.find((tier: any) => tier.quantity?.trim()?.toLowerCase() === i.unit?.trim()?.toLowerCase());
+                              if (t && Number(t.price) > 0) baseP = Number(t.price);
+                            }
+                          } catch {}
+                        }
                         const disc = prod ? Number(prod.discountPercent || 0) : 0;
-                        const effPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                        const effUnitPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+                        const itemLineTotal = Math.round(effUnitPrice * i.qty);
+
+                        const gstPct = prod?.gstPercent != null ? Number(prod.gstPercent) : 5;
+                        const hasGst = gstPct > 0;
+                        const taxableItemBase = hasGst ? Math.round((itemLineTotal / (1 + gstPct / 100)) * 100) / 100 : itemLineTotal;
+                        const totalItemGst = Math.round((itemLineTotal - taxableItemBase) * 100) / 100;
+                        const itemCgst = Math.round((totalItemGst / 2) * 100) / 100;
+                        const itemSgst = Math.round((totalItemGst / 2) * 100) / 100;
+
                         return (
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-xs sm:text-sm font-extrabold text-emerald-500">{formatINR(effPrice)}</span>
-                            {disc > 0 && (
-                              <span className="text-[11px] text-muted-foreground line-through font-semibold">
-                                {formatINR(baseP)}
+                          <div className="mt-1 space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs sm:text-sm font-black text-emerald-500 font-mono">
+                                {formatINR(itemLineTotal)}
                               </span>
-                            )}
-                            {disc > 0 && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                {Math.round(disc)}% OFF
-                              </span>
-                            )}
+                              {i.qty > 1 && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({formatINR(effUnitPrice)} × {i.qty})
+                                </span>
+                              )}
+                              {disc > 0 && (
+                                <span className="text-[10px] text-muted-foreground line-through font-medium">
+                                  {formatINR(baseP * i.qty)}
+                                </span>
+                              )}
+                              {disc > 0 && (
+                                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  {Math.round(disc)}% OFF
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 🏷️ Item-Level Price & GST Breakdown Details */}
+                            <div className="text-[10.5px] text-muted-foreground bg-emerald-500/[0.06] rounded-lg px-2.5 py-1 border border-emerald-500/20 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span>Taxable Base: <strong className="text-foreground font-mono">{formatINR(taxableItemBase)}</strong></span>
+                              {hasGst ? (
+                                <span className="text-emerald-400">
+                                  • GST ({gstPct}%): <strong className="font-mono">{formatINR(totalItemGst)}</strong> (CGST {formatINR(itemCgst)} + SGST {formatINR(itemSgst)})
+                                </span>
+                              ) : (
+                                <span className="text-emerald-400 font-bold">• 0% GST (Exempt Produce)</span>
+                              )}
+                            </div>
                           </div>
                         );
                       })()}
                     </div>
-                    <div className="flex flex-col items-end justify-between gap-2 shrink-0">
+                    <div className="flex flex-col items-end justify-between gap-2 shrink-0 self-center">
                       <button
-                        onClick={() => remove(i.productId)}
-                        className="text-muted-foreground hover:text-destructive p-1 transition-colors cursor-pointer"
-                        aria-label="Remove"
+                        onClick={() => remove(i.productId, i.unit)}
+                        className="text-muted-foreground hover:text-red-400 p-1 transition-colors cursor-pointer"
+                        aria-label="Remove item"
+                        title="Remove from Cart"
                         data-testid={`button-remove-${i.productId}`}
                       >
                         <Trash2 size={15} />
                       </button>
-                      <div className="flex items-center rounded-lg border border-input bg-secondary/40">
+                      <div className="flex items-center rounded-lg border border-emerald-500/30 bg-secondary/50 p-0.5">
                         <button
-                          onClick={() => setQty(i.productId, i.qty - 1)}
-                          className="px-2 py-1 hover:bg-secondary rounded-l-lg transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
-                          aria-label="Decrease"
+                          onClick={() => {
+                            if (i.qty <= 1) {
+                              remove(i.productId, i.unit);
+                              toast({ title: "🗑️ Removed from Cart", description: `${i.name} (${i.unit})` });
+                            } else {
+                              setQty(i.productId, i.qty - 1, i.unit);
+                            }
+                          }}
+                          className="px-1.5 py-1 hover:bg-emerald-500/20 rounded-l-md transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                          aria-label="Decrease quantity"
+                          title={i.qty === 1 ? "Remove from cart" : "Decrease quantity"}
                         >
-                          <Minus size={13} />
+                          {i.qty === 1 ? <Trash2 size={12} className="text-red-400" /> : <Minus size={12} />}
                         </button>
-                        <span className="w-7 text-center text-xs font-mono font-bold" data-testid={`qty-${i.productId}`}>
+                        <span className="w-6 text-center text-xs font-mono font-black" data-testid={`qty-${i.productId}`}>
                           {i.qty}
                         </span>
                         <button
@@ -726,14 +779,14 @@ export default function Cart() {
                                 description: `Only ${prodStock} unit(s) available in stock for ${i.name}.`,
                                 variant: "destructive",
                               });
-                              return;
+                               return;
                             }
-                            setQty(i.productId, i.qty + 1);
+                            setQty(i.productId, i.qty + 1, i.unit);
                           }}
-                          className="px-2 py-1 hover:bg-secondary rounded-r-lg transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
-                          aria-label="Increase"
+                          className="px-1.5 py-1 hover:bg-emerald-500/20 rounded-r-md transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+                          aria-label="Increase quantity"
                         >
-                          <Plus size={13} />
+                          <Plus size={12} />
                         </button>
                       </div>
                     </div>
@@ -750,7 +803,7 @@ export default function Cart() {
                 </h2>
                 {isFullyVerified && (
                   <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-                    Unlocked ✓
+                    Verified Customer ✓
                   </Badge>
                 )}
               </div>
@@ -776,10 +829,10 @@ export default function Cart() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <span>✈️ International / Out-of-Station Shipping</span>
+                      <span>✈️ Out-of-Station / All-India Shipping</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground font-medium leading-tight">
-                      Turn on to ship to any city, state, or international country (bypasses local warehouse radius limit).
+                      Ship to any city across India (bypasses local 2-hour warehouse limit).
                     </p>
                   </div>
                 </div>
@@ -856,97 +909,61 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Dedicated PIN Code Input Field */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground">
-                    PIN Code / Postal Code
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDetectLocation}
-                    disabled={resolveGpsMutation.isPending}
-                    className="h-6 px-2.5 text-[11px] font-extrabold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center gap-1 cursor-pointer"
-                  >
-                    <Navigation size={12} className={resolveGpsMutation.isPending ? "animate-spin" : "animate-pulse"} />
-                    <span>{resolveGpsMutation.isPending ? "Detecting…" : "Detect Location"}</span>
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    id="ck-pincode"
-                    type="text"
-                    placeholder="e.g. 522502"
-                    maxLength={6}
-                    value={inputPincode}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                      setInputPincode(val);
-                      if (val.length === 6) handleCheckPincode(val);
-                    }}
-                    className="font-mono text-sm font-extrabold rounded-xl border-emerald-500/40 bg-background text-foreground tracking-widest"
-                    data-testid="input-checkout-pincode"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => handleCheckPincode(inputPincode)}
-                    disabled={resolvePincodeMutation.isPending || inputPincode.length < 6}
-                    className="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer shrink-0"
-                  >
-                    {resolvePincodeMutation.isPending ? "Checking…" : "Update PIN"}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Customer Contact & Address Fields */}
+              {/* Address Form Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="ck-name" className="text-xs font-bold text-foreground">Recipient Name</Label>
+                  <Label htmlFor="ck-name" className="text-xs font-bold text-foreground">Recipient Name *</Label>
                   <Input
                     id="ck-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Ganesh Varma"
+                    placeholder="Full Name"
                     className="mt-1 font-medium rounded-xl text-xs"
+                    data-testid="input-customer-name"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>Mobile Phone</span>
-                    {user?.phone && (
-                      <span className="text-[10px] text-emerald-400 font-bold">Verified ✓</span>
-                    )}
-                  </Label>
+                  <Label htmlFor="ck-phone" className="text-xs font-bold text-foreground">Mobile Phone Number *</Label>
                   <Input
                     id="ck-phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="10-digit mobile number"
-                    className="mt-1 font-medium rounded-xl text-xs font-mono"
+                    className="mt-1 font-medium rounded-xl text-xs"
+                    data-testid="input-customer-phone"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="ck-pincode" className="text-xs font-bold text-foreground">Delivery PIN Code *</Label>
+                  <Input
+                    id="ck-pincode"
+                    value={inputPincode}
+                    onChange={(e) => {
+                      setInputPincode(e.target.value);
+                      handleCheckPincode(e.target.value);
+                    }}
+                    placeholder="6-digit PIN code (e.g. 522502)"
+                    maxLength={6}
+                    className="mt-1 font-mono font-bold text-xs rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground">City / Area *</Label>
+                  <Input
+                    id="ck-city-area"
+                    value={cityArea}
+                    onChange={(e) => setCityArea(e.target.value)}
+                    placeholder="Area, Locality, City"
+                    className="mt-1 font-medium rounded-xl text-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="ck-city-area" className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>City / Area / District</span>
-                  <span className="text-[10px] text-emerald-400 font-bold">Auto-detected location</span>
-                </Label>
-                <Input
-                  id="ck-city-area"
-                  value={cityArea}
-                  onChange={(e) => setCityArea(e.target.value)}
-                  placeholder="e.g. Narsipatnam, Visakhapatnam"
-                  className="mt-1 font-extrabold bg-secondary/40 text-foreground rounded-xl text-xs"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="ck-street-address" className="text-xs font-bold text-foreground">
-                  Complete Address (Door No, Street Name, Landmark)
-                </Label>
+                <Label htmlFor="ck-street-address" className="text-xs font-bold text-foreground">Complete Door / Street Address *</Label>
                 <Textarea
                   id="ck-street-address"
                   value={streetAddress}
@@ -988,9 +1005,9 @@ export default function Cart() {
                   {placeOrder.isPending || initiatePayment.isPending ? (
                     "Placing Order…"
                   ) : !isFullyVerified ? (
-                    "🔒 Email & Phone Verification Required to Order"
+                    "🔒 Sign In / Verify to Place Order"
                   ) : (isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart ? (
-                    "⚠️ Remove Subscription to Proceed with Out-of-Station Shipping"
+                    "⚠️ Remove Subscription for Out-of-Station Shipping"
                   ) : !isServiceable ? (
                     "🔒 Delivery Unavailable for this PIN Code"
                   ) : (
@@ -1006,7 +1023,7 @@ export default function Cart() {
             {/* Order Summary Card */}
             <div className="rounded-2xl border border-card-border bg-card p-4 sm:p-5 shadow-sm space-y-4">
               <h2 className="font-bold text-sm sm:text-base text-foreground border-b border-card-border pb-3">
-                Order Summary
+                Order Summary &amp; Bill Breakdown
               </h2>
 
               {/* Coupon Code Input */}
@@ -1069,8 +1086,8 @@ export default function Cart() {
                 </div>
               )}
 
-              {/* Price Calculation Breakdown */}
-              <div className="space-y-2 pt-3 border-t border-card-border text-xs">
+              {/* 🧾 Mathematically Clear Tax Invoice & Order Breakdown */}
+              <div className="space-y-2.5 pt-3 border-t border-card-border text-xs">
                 {/* Total MRP / Gross Value */}
                 {grossMrpTotal > displaySubtotal && (
                   <div className="flex justify-between items-center text-muted-foreground">
@@ -1082,30 +1099,38 @@ export default function Cart() {
                 {/* Farm-Direct Produce & Pack Volume Savings */}
                 {produceDiscountSavings > 0 && (
                   <div className="flex justify-between items-center text-emerald-500 dark:text-emerald-400 font-semibold">
-                    <span>Harvest & Pack Volume Savings</span>
+                    <span>Harvest &amp; Pack Savings</span>
                     <span className="font-mono">- {formatINR(produceDiscountSavings)}</span>
                   </div>
                 )}
 
-                {/* Items Subtotal */}
-                <div className="flex justify-between items-center text-foreground font-bold">
+                {/* Items Subtotal (Inclusive of GST) */}
+                <div className="flex justify-between items-center text-foreground font-black text-sm pt-1 border-t border-dashed border-border/60">
                   <span>Items Subtotal</span>
-                  <span className="font-mono">{formatINR(displaySubtotal)}</span>
+                  <span className="font-mono text-emerald-400 font-black">{formatINR(displaySubtotal)}</span>
                 </div>
 
-                {/* Taxable Subtotal & GST Breakdown */}
-                <div className="pt-2 pb-1 border-t border-dashed border-border/70 space-y-1.5 text-[11px] text-muted-foreground">
-                  <div className="flex justify-between items-center">
-                    <span>Taxable Base Value</span>
-                    <span className="font-mono font-medium">{formatINR(taxableBase)}</span>
+                {/* 🏛️ Transparent Formal GST & Taxable Value Breakdown Box */}
+                <div className="p-3 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 text-[11px] space-y-1 my-1">
+                  <div className="flex justify-between items-center text-emerald-300 font-bold">
+                    <span>• Net Taxable Value (Excl. Tax):</span>
+                    <span className="font-mono">{formatINR(taxableBase)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>GST (CGST {formatINR(cgst)} + SGST {formatINR(sgst)})</span>
-                    <span className="font-mono font-medium">{formatINR(totalGst)}</span>
+                  <div className="flex justify-between items-center text-muted-foreground pl-2">
+                    <span>Central GST (CGST):</span>
+                    <span className="font-mono">{formatINR(cgst)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-muted-foreground pl-2">
+                    <span>State GST (SGST):</span>
+                    <span className="font-mono">{formatINR(sgst)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-emerald-400 font-black pt-1 border-t border-emerald-500/15">
+                    <span>Total GST Included in Subtotal:</span>
+                    <span className="font-mono">{formatINR(totalGst)}</span>
                   </div>
                 </div>
 
-                {/* Applied Discounts & Coupons (Rendered directly after Taxable Base & GST) */}
+                {/* Applied Discounts & Coupons */}
                 {(firstOrderSavings > 0 || couponDiscountSavings > 0 || starLoyaltySavings > 0 || referralDiscountSavings > 0 || referralRewardSavings > 0 || totalBundleSavings > 0) && (
                   <div className="pt-2 pb-1 border-t border-dashed border-border/70 space-y-1.5">
                     {/* Subscription Bundle Savings */}
@@ -1160,7 +1185,7 @@ export default function Cart() {
 
                 {/* Delivery & Logistics */}
                 <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/50">
-                  <span>Delivery & Handling</span>
+                  <span>Delivery &amp; Handling</span>
                   <span className="font-mono font-bold text-foreground">
                     {effectiveDeliveryFee > 0 ? (
                       <span>
@@ -1177,99 +1202,90 @@ export default function Cart() {
 
                 {/* Total Savings Highlight Pill */}
                 {totalAllSavings > 0 && (
-                  <div className="my-2 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] flex items-center justify-between">
+                  <div className="my-2 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-black text-[11px] flex items-center justify-between shadow-xs">
                     <span>🎉 Total Savings on this Order</span>
-                    <span className="font-mono font-black">{formatINR(totalAllSavings)}</span>
+                    <span className="font-mono font-black text-xs">{formatINR(totalAllSavings)}</span>
                   </div>
                 )}
 
                 {/* Grand Total */}
-                <div className="flex justify-between items-center border-t-2 border-emerald-500/30 pt-3 mt-2 font-black text-base text-foreground">
-                  <span>Grand Total</span>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xl font-black">{formatINR(displayTotal)}</span>
+                <div className="flex justify-between items-center border-t-2 border-emerald-500/40 pt-3 mt-2 font-black text-base text-foreground">
+                  <span>Grand Total Payable</span>
+                  <span className="font-mono text-emerald-400 text-2xl font-black">{formatINR(displayTotal)}</span>
                 </div>
               </div>
             </div>
 
-            {/* MANDATORY VERIFICATION GATEKEEPER CARDS */}
+            {/* Verification / Account Helper Cards */}
             {!user ? (
               /* Case 1: Not Logged In */
-              <div className="rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-950/40 via-card to-background p-5 space-y-3.5 shadow-xl text-center">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-md">
-                  <LogIn size={24} />
+              <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-card to-background p-5 space-y-3 shadow-xl text-center">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-md">
+                  <LogIn size={20} />
                 </div>
                 <div className="space-y-1">
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                    Account Required
-                  </span>
-                  <h3 className="font-serif text-lg font-bold text-foreground">Sign In to Complete Order</h3>
+                  <h3 className="font-serif text-base font-bold text-foreground">Sign In to Complete Order</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Your fresh items are safely preserved in your cart! Please sign in or create an account to proceed with checkout.
+                    Your items are saved! Sign in to use saved addresses and unlock express delivery.
                   </p>
                 </div>
                 <Button
                   onClick={() => navigate("/login?redirect=/cart")}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <LogIn size={15} />
-                  <span>Sign In / Register to Checkout ➔</span>
+                  <LogIn size={14} />
+                  <span>Sign In / Register ➔</span>
                 </Button>
               </div>
             ) : needsEmailVerification ? (
-              /* Case 2: Email Not Verified (Mandatory Red Security Theme) */
-              <div className="rounded-2xl border-2 border-red-500/50 bg-gradient-to-br from-red-950/40 via-card to-background p-5 space-y-3.5 shadow-xl text-center">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-500 border border-red-500/30 flex items-center justify-center mx-auto shadow-md">
-                  <Mail size={24} />
+              /* Case 2: Email Not Verified */
+              <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 via-card to-background p-4 space-y-2.5 shadow-md text-center">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+                  <Mail size={18} />
                 </div>
-                <div className="space-y-1">
-                  <span className="bg-red-500/20 text-red-400 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-red-500/30">
-                    🚨 Mandatory Step 1 of 2: Email Verification
-                  </span>
-                  <h3 className="font-serif text-lg font-bold text-foreground">Verify Email with Red Security Code</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    To secure customer orders and receive live delivery tracking, please verify your email address (<b>{user.email}</b>) with a 6-digit red security code.
+                <div className="space-y-0.5">
+                  <h3 className="font-serif text-sm font-bold text-foreground">Verify Email Address</h3>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Verify <b>{user.email}</b> with a quick 6-digit code to receive order tracking.
                   </p>
                 </div>
                 <Button
                   onClick={() => setShowEmailVerifyModal(true)}
-                  className="w-full h-auto py-3 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-2 whitespace-normal break-words leading-tight"
+                  className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Mail size={15} className="shrink-0" />
-                  <span className="truncate max-w-full">⚡ Verify Email ({user.email}) via Security Code ➔</span>
+                  <Mail size={14} />
+                  <span>Verify Email ➔</span>
                 </Button>
               </div>
             ) : needsPhoneVerification ? (
-              /* Case 3: Phone Not Verified (Mandatory Red Security Theme) */
-              <div className="rounded-2xl border-2 border-red-500/50 bg-gradient-to-br from-red-950/40 via-card to-background p-5 space-y-3.5 shadow-xl text-center">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-500 border border-red-500/30 flex items-center justify-center mx-auto shadow-md">
-                  <Smartphone size={24} />
+              /* Case 3: Phone Not Verified */
+              <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 via-card to-background p-4 space-y-2.5 shadow-md text-center">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+                  <Smartphone size={18} />
                 </div>
-                <div className="space-y-1">
-                  <span className="bg-red-500/20 text-red-400 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-red-500/30">
-                    🚨 Mandatory Step 2 of 2: Phone Verification
-                  </span>
-                  <h3 className="font-serif text-lg font-bold text-foreground">Verify Mobile with Red Security Code</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    To confirm doorstep delivery and activate live SMS driver notifications, please verify your 10-digit mobile number with a 6-digit red security code.
+                <div className="space-y-0.5">
+                  <h3 className="font-serif text-sm font-bold text-foreground">Verify Phone Number</h3>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Verify your phone number for live doorstep driver notifications.
                   </p>
                 </div>
                 <Button
                   onClick={() => setShowCartVerifyModal(true)}
-                  className="w-full h-auto py-3 px-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-2 whitespace-normal break-words leading-tight"
+                  className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Smartphone size={15} className="shrink-0" />
-                  <span className="truncate max-w-full">📱 Verify Mobile Phone ({user.phone || phone || "Add Number"}) via SMS ➔</span>
+                  <Smartphone size={14} />
+                  <span>Verify Mobile ➔</span>
                 </Button>
               </div>
             ) : (
               /* Case 4: Fully Verified! */
-              <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-2 shadow-sm text-center">
-                <div className="flex items-center justify-center gap-2 text-emerald-400 font-extrabold text-xs">
-                  <ShieldCheck size={18} />
-                  <span>Account, Email &amp; Mobile Phone Verified</span>
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3.5 space-y-1 shadow-xs text-center">
+                <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-extrabold text-xs">
+                  <ShieldCheck size={16} />
+                  <span>Verified Customer · Express Delivery Ready</span>
                 </div>
-                <p className="text-[11px] text-emerald-300/90">
-                  Your identity is verified ({user.email} · +91 {user.phone}). 2-Hour Doorstep Return Guarantee &amp; Live Tracking are active.
+                <p className="text-[10.5px] text-emerald-300/80">
+                  {user.email} · +91 {user.phone}
                 </p>
               </div>
             )}
@@ -1293,6 +1309,33 @@ export default function Cart() {
         mode="verify_account"
         defaultPhone={phone || user?.phone || ""}
       />
+
+      {/* 📱 Mobile-First Sticky Checkout Bottom Bar */}
+      {items.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-emerald-500/30 p-3 px-4 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+            <div>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Total Amount</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-serif font-black text-emerald-400">{formatINR(displayTotal)}</span>
+                {totalAllSavings > 0 && (
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                    Saved {formatINR(totalAllSavings)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleCheckout}
+              disabled={!isFullyVerified || !isServiceable || ((isInternationalDelivery || isLocationUnserviceable) && hasSubscriptionInCart) || placeOrder.isPending || initiatePayment.isPending}
+              className="h-11 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs shadow-lg active:scale-95 cursor-pointer flex items-center gap-2"
+            >
+              <span>{placeOrder.isPending || initiatePayment.isPending ? "Placing..." : "Place Order ➔"}</span>
+            </Button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
