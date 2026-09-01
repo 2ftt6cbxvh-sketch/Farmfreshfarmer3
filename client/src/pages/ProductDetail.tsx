@@ -477,7 +477,7 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               {displaySimilar.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
@@ -485,6 +485,69 @@ export default function ProductDetail() {
           </div>
         )}
       </div>
+
+      {/* 📱 Mobile-First Sticky Bottom Floating Action Bar */}
+      {product.stock > 0 && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-emerald-500/30 p-3 px-4 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-1.5 truncate">
+                <span className="text-xl font-serif font-black text-primary">{formatINR(price)}</span>
+                <span className="text-[11px] text-muted-foreground font-medium truncate">/ {activeUnit}</span>
+              </div>
+              {hasDiscount && (
+                <span className="text-[10px] text-muted-foreground line-through block">
+                  MRP {formatINR(activeUnitPrice)}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center rounded-xl border border-emerald-500/30 bg-card p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all rounded-lg cursor-pointer"
+                  aria-label="Decrease quantity"
+                >
+                  <Minus size={13} />
+                </button>
+                <span className="w-6 text-center font-mono font-black text-xs text-foreground">
+                  {qty}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (qty < product.stock) setQty((q) => q + 1);
+                  }}
+                  className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition-all rounded-lg cursor-pointer"
+                  aria-label="Increase quantity"
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
+
+              <Button
+                onClick={() => {
+                  const inCart = items.find((i) => i.productId === product.id && (i.unit || "") === (activeUnit || ""))?.qty || 0;
+                  const available = Math.max(0, product.stock - inCart);
+                  if (available <= 0) {
+                    toast({ title: "Stock Limit Reached", description: `You already have ${product.stock} units in your cart.`, variant: "destructive" });
+                    return;
+                  }
+                  const finalQty = Math.min(available, qty);
+                  add(product, finalQty, selectedTier || undefined);
+                  toast({ title: "✨ Added to Cart", description: `${finalQty} × ${product.name} (${activeUnit})` });
+                }}
+                className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <ShoppingCart size={14} />
+                <span>Add</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

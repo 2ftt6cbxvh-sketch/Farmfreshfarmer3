@@ -432,15 +432,15 @@ export default function Home() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-88 rounded-3xl" />
+              <Skeleton key={i} className="h-88 rounded-2xl sm:rounded-3xl" />
             ))}
           </div>
         ) : personalizedResult.products.length === 0 ? (
           <p className="text-muted-foreground text-sm">No products found matching your current preferences.</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {personalizedResult.products.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

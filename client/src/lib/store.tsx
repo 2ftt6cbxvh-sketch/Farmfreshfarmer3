@@ -38,6 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Instant live user updater with cross-component event broadcast
   const setUserWithBroadcast = (newUser: AuthUser | null) => {
+    const rawOld = localStorage.getItem("user");
+    const rawNew = newUser ? JSON.stringify(newUser) : null;
+    if (rawOld === rawNew) return;
+
     if (newUser) {
       localStorage.setItem("user", JSON.stringify(newUser));
       if (newUser.role !== "customer") {
@@ -112,13 +116,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onUserUpdate = (e: any) => {
       if (e?.detail) {
-        setUser(e.detail);
+        setUser((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(e.detail)) return prev;
+          return e.detail;
+        });
       }
     };
     const onStorage = (e: StorageEvent) => {
       if (e.key === "user" && e.newValue) {
         try {
-          setUser(JSON.parse(e.newValue));
+          const parsed = JSON.parse(e.newValue);
+          setUser((prev) => {
+            if (JSON.stringify(prev) === JSON.stringify(parsed)) return prev;
+            return parsed;
+          });
         } catch {}
       }
     };

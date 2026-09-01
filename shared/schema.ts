@@ -1129,70 +1129,104 @@ export interface ProduceTypeInfo {
  * Bunches (spinach/leafy greens), Single Pieces (coconuts/watermelons), or Count (lemons).
  */
 export function detectProduceUnitType(productName: string, categorySlug: string = "", unit: string = ""): ProduceTypeInfo {
-  const norm = (productName + " " + unit + " " + categorySlug).toLowerCase();
+  const pLower = (productName || "").toLowerCase();
+  const cLower = (categorySlug || "").toLowerCase();
+  const uLower = (unit || "").toLowerCase();
+  const norm = `${pLower} ${uLower} ${cLower}`;
+
+  // 0. Pickles, Sweets, Namkeen, Spices, Millets, Pulses, Powders are STRICTLY weight-based (Jars/Boxes/Packs)
+  if (
+    cLower.includes("pickle") ||
+    pLower.includes("pickle") ||
+    pLower.includes("pachadi") ||
+    pLower.includes("pacchadi") ||
+    pLower.includes("avakaya") ||
+    pLower.includes("thokku") ||
+    cLower.includes("sweet") ||
+    pLower.includes("laddu") ||
+    pLower.includes("katli") ||
+    pLower.includes("halwa") ||
+    pLower.includes("mysore pak") ||
+    cLower.includes("namkeen") ||
+    cLower.includes("snack") ||
+    pLower.includes("mixture") ||
+    pLower.includes("murukku") ||
+    pLower.includes("chana") ||
+    cLower.includes("millet") ||
+    cLower.includes("pulse") ||
+    cLower.includes("spice") ||
+    pLower.includes("powder") ||
+    pLower.includes("dal") ||
+    pLower.includes("pappu") ||
+    pLower.includes("flour") ||
+    pLower.includes("atta") ||
+    pLower.includes("rice")
+  ) {
+    return { unitType: "weight", defaultUnit: "1 Kg", unitLabel: "Kg" };
+  }
 
   // 1. Dozen / Banana-specific
-  if (norm.includes("banana") || norm.includes("arati") || norm.includes("kela") || norm.includes("dozen")) {
+  if (pLower.includes("banana") || pLower.includes("arati") || pLower.includes("kela") || uLower.includes("dozen")) {
     return { unitType: "dozen", defaultUnit: "1 Dozen", unitLabel: "Dozen" };
   }
 
-  // 2. Leafy greens / Bunch-specific
+  // 2. Leafy greens / Bunch-specific (only fresh raw vegetables)
   if (
-    norm.includes("spinach") ||
-    norm.includes("palak") ||
-    norm.includes("palakura") ||
-    norm.includes("palakoora") ||
-    norm.includes("coriander") ||
-    norm.includes("kothimeera") ||
-    norm.includes("cilantro") ||
-    norm.includes("mint") ||
-    norm.includes("pudina") ||
-    norm.includes("methi") ||
-    norm.includes("menthikura") ||
-    norm.includes("gongura") ||
-    norm.includes("curry leaves") ||
-    norm.includes("karivepaku") ||
-    norm.includes("bunch") ||
-    norm.includes("bundle")
+    pLower.includes("spinach") ||
+    pLower.includes("palak") ||
+    pLower.includes("palakura") ||
+    pLower.includes("palakoora") ||
+    pLower.includes("coriander") ||
+    pLower.includes("kothimeera") ||
+    pLower.includes("cilantro") ||
+    pLower.includes("mint") ||
+    pLower.includes("pudina") ||
+    pLower.includes("methi") ||
+    pLower.includes("menthikura") ||
+    (pLower.includes("gongura") && !pLower.includes("pickle") && !pLower.includes("pachadi")) ||
+    pLower.includes("curry leaves") ||
+    pLower.includes("karivepaku") ||
+    uLower.includes("bunch") ||
+    uLower.includes("bundle")
   ) {
     return { unitType: "bunch", defaultUnit: "1 Bunch", unitLabel: "Bunch" };
   }
 
   // 3. Single Large Fruit / Piece-specific
   if (
-    norm.includes("coconut") ||
-    norm.includes("kobbari") ||
-    norm.includes("watermelon") ||
-    norm.includes("tarbooja") ||
-    norm.includes("papaya") ||
-    norm.includes("boppayi") ||
-    norm.includes("pineapple") ||
-    norm.includes("anasa") ||
-    norm.includes("jackfruit") ||
-    norm.includes("panasa") ||
-    norm.includes("cabbage") ||
-    norm.includes("cauliflower") ||
-    norm.includes("piece")
+    pLower.includes("coconut") ||
+    pLower.includes("kobbari") ||
+    pLower.includes("watermelon") ||
+    pLower.includes("tarbooja") ||
+    pLower.includes("papaya") ||
+    pLower.includes("boppayi") ||
+    pLower.includes("pineapple") ||
+    pLower.includes("anasa") ||
+    pLower.includes("jackfruit") ||
+    pLower.includes("panasa") ||
+    pLower.includes("cabbage") ||
+    pLower.includes("cauliflower") ||
+    uLower.includes("piece")
   ) {
     return { unitType: "piece", defaultUnit: "1 Piece", unitLabel: "Piece" };
   }
 
-  // 4. Small count / pack items
+  // 4. Small count / pack items (Fresh raw lemons, sweet corn cobs)
   if (
-    norm.includes("lemon") ||
-    norm.includes("nimma") ||
-    norm.includes("sweet corn") ||
-    norm.includes("corn") ||
-    norm.includes("mokkajonna") ||
-    norm.includes("custard apple") ||
-    norm.includes("seethaphal") ||
-    norm.includes("sapota") ||
-    norm.includes("egg")
+    (pLower.includes("lemon") && !pLower.includes("pickle") && !pLower.includes("pachadi")) ||
+    (pLower.includes("nimma") && !pLower.includes("pickle") && !pLower.includes("pachadi")) ||
+    pLower.includes("sweet corn") ||
+    pLower.includes("corn") ||
+    pLower.includes("mokkajonna") ||
+    pLower.includes("custard apple") ||
+    pLower.includes("seethaphal") ||
+    pLower.includes("sapota") ||
+    pLower.includes("egg")
   ) {
     return { unitType: "count", defaultUnit: "4 Pieces", unitLabel: "Pieces" };
   }
 
-  // 5. Default: Weight-based (Tomatoes, Potatoes, Onions, Dal, Millets, Sweets, Namkeen, Pickles)
+  // 5. Default: Weight-based (Tomatoes, Potatoes, Onions, Garlic, Ginger, Carrots, etc.)
   return { unitType: "weight", defaultUnit: "1 Kg", unitLabel: "Kg" };
 }
 
