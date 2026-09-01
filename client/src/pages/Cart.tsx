@@ -404,8 +404,26 @@ export default function Cart() {
     return sum + Math.round(basePrice * item.qty);
   }, 0);
 
-  // Exact arithmetic subtotal across all basket items
-  const exactCartSubtotal = items.reduce((sum, it) => {
+  // Gross Taxable Product Value (Unit Price × Quantity across all items)
+  const totalTaxableProductValue = items.reduce((sum, it) => {
+    const prod = (allProducts || []).find((p: any) => p.id === it.productId);
+    let baseP = prod ? Number(prod.price) : Number(it.price);
+    if (it.unit && prod?.quantityTiers) {
+      try {
+        const parsed = typeof prod.quantityTiers === "string" ? JSON.parse(prod.quantityTiers) : prod.quantityTiers;
+        if (Array.isArray(parsed)) {
+          const t = parsed.find((tier: any) => tier.quantity?.trim()?.toLowerCase() === it.unit?.trim()?.toLowerCase());
+          if (t && Number(t.price) > 0) baseP = Number(t.price);
+        }
+      } catch {}
+    }
+    const disc = prod ? Number(prod.discountPercent || 0) : 0;
+    const effUnitPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
+    return sum + Math.round(effUnitPrice * it.qty * 100) / 100;
+  }, 0);
+
+  // Total GST across all cart items (0% for fresh fruits/vegetables, 5% for packaged/spices/sweets/pickles)
+  const cartTotalGst = items.reduce((sum, it) => {
     const prod = (allProducts || []).find((p: any) => p.id === it.productId);
     let baseP = prod ? Number(prod.price) : Number(it.price);
     if (it.unit && prod?.quantityTiers) {
@@ -421,15 +439,20 @@ export default function Cart() {
     const effUnitPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
     const isZeroGst = prod?.categorySlug === "vegetables" || prod?.categorySlug === "fruits" || prod?.categorySlug === "fresh-vegetables" || prod?.categorySlug === "fresh-fruits";
     const gstPct = isZeroGst ? 0 : (prod?.gstPercent != null && Number(prod.gstPercent) > 0 ? Number(prod.gstPercent) : 5);
-    const taxableItemBase = Math.round(effUnitPrice * it.qty * 100) / 100;
-    const totalItemGst = gstPct > 0 ? Math.round((taxableItemBase * (gstPct / 100)) * 100) / 100 : 0;
-    return sum + Math.round((taxableItemBase + totalItemGst) * 100) / 100;
+    const itemBase = Math.round(effUnitPrice * it.qty * 100) / 100;
+    return sum + (gstPct > 0 ? Math.round(itemBase * (gstPct / 100) * 100) / 100 : 0);
   }, 0);
 
-  const displaySubtotal = quote && Number(quote.subtotal) > 0 ? Number(quote.subtotal) : exactCartSubtotal;
-  const produceDiscountSavings = Math.max(0, grossMrpTotal - displaySubtotal);
+  const taxableBase = quote && Number(quote.taxableSubtotal) > 0 ? Number(quote.taxableSubtotal) : Math.round(totalTaxableProductValue * 100) / 100;
+  const totalGst = quote && Number(quote.totalGst) >= 0 ? Number(quote.totalGst) : Math.round(cartTotalGst * 100) / 100;
+  const cgst = quote && Number(quote.cgst) >= 0 ? Number(quote.cgst) : Math.round((totalGst / 2) * 100) / 100;
+  const sgst = quote && Number(quote.sgst) >= 0 ? Number(quote.sgst) : Math.round((totalGst - cgst) * 100) / 100;
+
+  // Item Subtotal is Taxable Base + Total GST
+  const displaySubtotal = quote && Number(quote.subtotal) > 0 ? Number(quote.subtotal) : Math.round((taxableBase + totalGst) * 100) / 100;
+  const produceDiscountSavings = Math.max(0, grossMrpTotal - taxableBase);
   const couponDiscountSavings = (coupon || (quote && Number((quote as any).couponDiscount) > 0))
-    ? (quote && (quote as any).couponDiscount !== undefined ? Number((quote as any).couponDiscount) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0)
+    ? (quote && (quote as any).couponDiscount !== undefined ? Number((quote as any).couponDiscount) : coupon ? Math.round(taxableBase * (coupon.discountPercent / 100)) : 0)
     : 0;
   const firstOrderSavings = quote ? Number(quote.firstOrderDiscount || 0) : 0;
   const referralDiscountSavings = quote ? Number(quote.referralDiscount || 0) : 0;
@@ -438,13 +461,8 @@ export default function Cart() {
 
   const totalAllSavings = produceDiscountSavings + couponDiscountSavings + firstOrderSavings + referralDiscountSavings + referralRewardSavings + starLoyaltySavings + totalBundleSavings;
 
-  const taxableBase = quote && Number(quote.taxableSubtotal) >= 0 ? Number(quote.taxableSubtotal) : Math.round((displaySubtotal / 1.05) * 100) / 100;
-  const totalGst = quote && Number(quote.totalGst) >= 0 ? Number(quote.totalGst) : Math.round((displaySubtotal - taxableBase) * 100) / 100;
-  const cgst = quote && Number(quote.cgst) >= 0 ? Number(quote.cgst) : Math.round((totalGst / 2) * 100) / 100;
-  const sgst = quote && Number(quote.sgst) >= 0 ? Number(quote.sgst) : Math.round((totalGst - cgst) * 100) / 100;
-
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
-  const isFreeDelivery = displaySubtotal >= freeDeliveryThreshold;
+  const isFreeDelivery = taxableBase >= freeDeliveryThreshold;
 
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
     ? 0
@@ -729,7 +747,7 @@ export default function Cart() {
                           <div className="mt-1 space-y-1.5">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-xs sm:text-sm font-black text-emerald-500 font-mono">
-                                {formatINR(itemLineTotal)}
+                                {formatINR(taxableItemBase)}
                               </span>
                               {i.qty > 1 && (
                                 <span className="text-[10px] text-muted-foreground">
@@ -750,7 +768,7 @@ export default function Cart() {
 
                             {/* 🏷️ Item-Level Price & GST Breakdown Details */}
                             <div className="text-[10.5px] text-muted-foreground bg-emerald-500/[0.05] rounded-lg px-2.5 py-1 border border-emerald-500/20 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                              <span>Taxable Base: <strong className="text-foreground font-mono">{formatINR(taxableItemBase)}</strong></span>
+                              <span>Taxable Value: <strong className="text-foreground font-mono">{formatINR(taxableItemBase)}</strong></span>
                               {hasGst ? (
                                 <span className="text-emerald-400 font-medium">
                                   • GST ({gstPct}%): <strong className="font-mono">{formatINR(totalItemGst)}</strong> (CGST {formatINR(itemCgst)} + SGST {formatINR(itemSgst)})
@@ -1126,10 +1144,16 @@ export default function Cart() {
                   </div>
                 )}
 
-                {/* Items Subtotal (Inclusive of GST) */}
+                {/* 1. Total Product Value (Taxable) */}
                 <div className="flex justify-between items-center text-foreground font-black text-sm pt-1 border-t border-dashed border-border/60">
-                  <span>Items Subtotal</span>
-                  <span className="font-mono text-emerald-400 font-black">{formatINR(displaySubtotal)}</span>
+                  <span>Total Product Value (Taxable)</span>
+                  <span className="font-mono text-foreground font-black">{formatINR(taxableBase)}</span>
+                </div>
+
+                {/* 2. Total GST */}
+                <div className="flex justify-between items-center text-emerald-400 font-semibold text-sm">
+                  <span>Total GST {totalGst > 0 ? `(CGST ${formatINR(cgst)} + SGST ${formatINR(sgst)})` : "(0% Exempt Produce)"}</span>
+                  <span className="font-mono font-bold text-emerald-400">{formatINR(totalGst)}</span>
                 </div>
 
                 {/* 📋 Line-by-Line Item Price & GST Breakdown Details */}
@@ -1157,7 +1181,6 @@ export default function Cart() {
                       const gstRate = isZeroGst ? 0 : (prod?.gstPercent != null && Number(prod.gstPercent) > 0 ? Number(prod.gstPercent) : 5);
                       const lineBase = Math.round(effUnitPrice * it.qty * 100) / 100;
                       const lineGst = gstRate > 0 ? Math.round((lineBase * (gstRate / 100)) * 100) / 100 : 0;
-                      const lineTot = Math.round((lineBase + lineGst) * 100) / 100;
 
                       return (
                         <div key={`${it.productId}-${it.unit}-${idx}`} className="pt-1.5 first:pt-0">
@@ -1165,35 +1188,15 @@ export default function Cart() {
                             <span className="font-semibold text-foreground truncate max-w-[170px]">
                               {it.name} {it.unit ? <span className="text-muted-foreground font-normal">({it.unit})</span> : ""}
                             </span>
-                            <span className="font-mono font-bold text-foreground shrink-0">{formatINR(lineTot)}</span>
+                            <span className="font-mono font-bold text-foreground shrink-0">{formatINR(lineBase)}</span>
                           </div>
                           <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono mt-0.5">
                             <span>{formatINR(effUnitPrice)} × {it.qty}</span>
-                            <span>Base: {formatINR(lineBase)} + {gstRate > 0 ? `GST (${gstRate}%): ${formatINR(lineGst)}` : "0% GST"}</span>
+                            <span>{gstRate > 0 ? `+ GST (${gstRate}%): ${formatINR(lineGst)}` : "0% GST"}</span>
                           </div>
                         </div>
                       );
                     })}
-                  </div>
-                </div>
-
-                {/* 🏛️ Transparent Formal GST & Taxable Value Breakdown Box */}
-                <div className="p-3 rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 text-[11px] space-y-1 my-1">
-                  <div className="flex justify-between items-center text-emerald-300 font-bold">
-                    <span>• Net Taxable Value (Excl. Tax):</span>
-                    <span className="font-mono">{formatINR(taxableBase)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-muted-foreground pl-2">
-                    <span>Central GST (CGST):</span>
-                    <span className="font-mono">{formatINR(cgst)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-muted-foreground pl-2">
-                    <span>State GST (SGST):</span>
-                    <span className="font-mono">{formatINR(sgst)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-emerald-400 font-black pt-1 border-t border-emerald-500/15">
-                    <span>Total GST Included in Subtotal:</span>
-                    <span className="font-mono">{formatINR(totalGst)}</span>
                   </div>
                 </div>
 
