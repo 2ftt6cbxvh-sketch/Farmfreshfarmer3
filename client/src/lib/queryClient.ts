@@ -118,35 +118,38 @@ const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
 
 // Resolve an image path so it works both locally and after deployment.
 export function imgUrl(src?: string | null, productName?: string): string {
+  let targetSrc = src || "";
+
   if (productName) {
     const norm = productName.toLowerCase().trim();
     // Sort keys by length descending so "custard apple" matches before "apple"
     const sortedKeys = Object.keys(PRODUCT_ACCURATE_IMAGE_MAP).sort((a, b) => b.length - a.length);
     for (const key of sortedKeys) {
       if (norm.includes(key)) {
-        return PRODUCT_ACCURATE_IMAGE_MAP[key];
+        targetSrc = PRODUCT_ACCURATE_IMAGE_MAP[key];
+        break;
       }
     }
   }
 
-  if (!src) return "/images/produce/weekly-fresh-box.jpg";
+  if (!targetSrc) targetSrc = "/images/produce/weekly-fresh-box.jpg";
 
   // If pointing to a generic category fallback, check if we can map by product name or replace
-  if (src.includes("cat-spices.jpg")) return "/images/produce/turmeric-powder.jpg";
-  if (src.includes("cat-pulses.jpg")) return "/images/produce/toor-dal.jpg";
-  if (src.includes("cat-millets.jpg")) return "/images/produce/foxtail-millet.jpg";
-  if (src.includes("cat-pickle-nonveg.jpg")) return "/images/produce/chicken-pickle.jpg";
-  if (src.includes("cat-pickle-veg.jpg")) return "/images/produce/mango-pickle.jpg";
-  if (src.includes("cat-sweets.jpg")) return "/images/produce/mysore-pak.jpg";
-  if (src.includes("cat-namkeen.jpg")) return "/images/produce/murukku.jpg";
-  if (src.includes("cat-fruits.jpg")) return "/images/produce/pomegranate.jpg";
-  if (src.includes("cat-vegetables.jpg")) return "/images/produce/weekly-fresh-box.jpg";
+  if (targetSrc.includes("cat-spices.jpg")) targetSrc = "/images/produce/turmeric-powder.jpg";
+  if (targetSrc.includes("cat-pulses.jpg")) targetSrc = "/images/produce/toor-dal.jpg";
+  if (targetSrc.includes("cat-millets.jpg")) targetSrc = "/images/produce/foxtail-millet.jpg";
+  if (targetSrc.includes("cat-pickle-nonveg.jpg")) targetSrc = "/images/produce/chicken-pickle.jpg";
+  if (targetSrc.includes("cat-pickle-veg.jpg")) targetSrc = "/images/produce/mango-pickle.jpg";
+  if (targetSrc.includes("cat-sweets.jpg")) targetSrc = "/images/produce/mysore-pak.jpg";
+  if (targetSrc.includes("cat-namkeen.jpg")) targetSrc = "/images/produce/murukku.jpg";
+  if (targetSrc.includes("cat-fruits.jpg")) targetSrc = "/images/produce/pomegranate.jpg";
+  if (targetSrc.includes("cat-vegetables.jpg")) targetSrc = "/images/produce/weekly-fresh-box.jpg";
 
-  if (src.startsWith("data:") || src.startsWith("http://") || src.startsWith("https://")) {
-    return src;
+  if (targetSrc.startsWith("data:") || targetSrc.startsWith("http://") || targetSrc.startsWith("https://")) {
+    return targetSrc;
   }
-  const path = src.startsWith("/") ? src : `/${src}`;
-  return `${API_BASE}${path}`;
+  const path = targetSrc.startsWith("/") ? targetSrc : `/${targetSrc}`;
+  return `${API_BASE}${path}?v=flux3_10`;
 }
 
 async function throwIfResNotOk(res: Response) {

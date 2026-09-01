@@ -156,9 +156,18 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 40, name: "Coriander Powder", categorySlug: "spices", price: "90.00", unit: "250 Grams", image: "/images/produce/coriander-powder.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Freshly ground coriander.", active: true, approvalStatus: "approved" },
 ];
 
+const CATALOG_VERSION_KEY = "fff_catalog_version_v10_flux";
+
 export function getInitialCategories(): Category[] {
   if (typeof window === "undefined") return SEED_CATEGORIES;
   try {
+    const curVer = localStorage.getItem("fff_catalog_version");
+    if (curVer !== CATALOG_VERSION_KEY) {
+      localStorage.removeItem("fff_cached_categories");
+      localStorage.removeItem("fff_cached_products");
+      localStorage.setItem("fff_catalog_version", CATALOG_VERSION_KEY);
+      return SEED_CATEGORIES;
+    }
     const raw = localStorage.getItem("fff_cached_categories");
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -178,6 +187,13 @@ export function saveCachedCategories(cats: Category[]): void {
 export function getInitialProducts(): Product[] {
   if (typeof window === "undefined") return SEED_PRODUCTS;
   try {
+    const curVer = localStorage.getItem("fff_catalog_version");
+    if (curVer !== CATALOG_VERSION_KEY) {
+      localStorage.removeItem("fff_cached_products");
+      localStorage.removeItem("fff_cached_categories");
+      localStorage.setItem("fff_catalog_version", CATALOG_VERSION_KEY);
+      return SEED_PRODUCTS;
+    }
     const raw = localStorage.getItem("fff_cached_products");
     if (raw) {
       const parsed = JSON.parse(raw);
