@@ -234,15 +234,16 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: promptText,
-        negative_prompt: negativePrompt,
+        prompt: `(masterpiece, raw photo, commercial macro food photography:1.2), ${specializedSubject}, morning water dew drops, ultra-crisp macro details, 85mm f/2.8 lens, photorealistic 8k, centered composition on dark slate tabletop`,
+        negative_prompt: "(worst quality, low quality:1.4), (smooth plastic:1.3), (cartoon:1.3), 3d render, painting, illustration, drawing, blurry, distorted, thali, cooked rice, plate, fork, human hands, watermark, logo, text overlays",
         width: 1024,
         height: 1024,
-        steps: 22,
-        cfg_scale: 6.5,
-        sampler_name: "DPM++ 2M Karras",
+        steps: 25,
+        cfg_scale: 5.0,
+        sampler_name: "DPM++ 3M SDE",
+        scheduler: "Karras",
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (localRes.ok) {
