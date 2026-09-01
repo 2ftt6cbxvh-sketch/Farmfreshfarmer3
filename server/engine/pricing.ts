@@ -196,14 +196,17 @@ export async function resolveLines(
       rawPrice = Number(i.price);
     }
 
-    unitPrice = Number(i.price) && Number(i.price) > 0 && Math.abs(Number(i.price) - rawPrice) < 0.01 ? Number(i.price) : rawPrice;
+    // Apply product discount percent to tier rawPrice
+    const discPercent = Number(p.discountPercent) || 0;
+    const discountedPrice = discPercent > 0 ? Math.round(rawPrice * (1 - discPercent / 100)) : rawPrice;
+    unitPrice = discountedPrice;
     
     // 1. Taxable Base is just Unit Price × Quantity
     const baseAmount = Math.round(unitPrice * qty * 100) / 100;
 
-    // 2. Total GST is percentage of taxable total
-    const isZeroGst = p.categorySlug?.includes("fruit") || p.categorySlug?.includes("veg");
-    const gstPercent = isZeroGst ? 0 : (p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent);
+    // 2. Total GST is percentage of taxable total (0% ONLY for fresh raw vegetables & fruits)
+    const isZeroGst = p.categorySlug === "vegetables" || p.categorySlug === "fruits" || p.categorySlug === "fresh-vegetables" || p.categorySlug === "fresh-fruits";
+    const gstPercent = isZeroGst ? 0 : (p.gstPercent != null && Number(p.gstPercent) > 0 ? Number(p.gstPercent) : defaultGstPercent);
     const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
     const sgstPercent = sgstEnabled ? round2(gstPercent / 2) : 0;
     const effectiveGstPercent = round2(cgstPercent + sgstPercent);
