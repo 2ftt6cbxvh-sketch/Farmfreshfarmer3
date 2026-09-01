@@ -104,7 +104,7 @@ export const SEED_CATEGORIES: Category[] = [
 
 export const SEED_PRODUCTS: Product[] = [
   // Fruits
-  { id: 1, name: "Alphonso Mango", categorySlug: "fruits", price: "350.00", unit: "1 Kg", image: "/images/p-mango.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "10.00", description: "Naturally ripened sweet Alphonso mangoes directly from Andhra orchards.", active: true, approvalStatus: "approved" },
+  { id: 1, name: "Alphonso Mango", categorySlug: "fruits", price: "350.00", unit: "1 Kg", image: "/images/produce/mango.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "10.00", description: "Naturally ripened sweet Alphonso mangoes directly from Andhra orchards.", active: true, approvalStatus: "approved" },
   { id: 2, name: "Fresh Pomegranate", categorySlug: "fruits", price: "180.00", unit: "1 Kg", image: "/images/produce/pomegranate.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Ruby-red antioxidant-rich pomegranates fresh from orchards.", active: true, approvalStatus: "approved" },
   { id: 3, name: "Papaya", categorySlug: "fruits", price: "60.00", unit: "1 Kg", image: "/images/produce/papaya.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Naturally ripened sweet organic papaya.", active: true, approvalStatus: "approved" },
   { id: 4, name: "Pineapple", categorySlug: "fruits", price: "80.00", unit: "1 Piece", image: "/images/produce/pineapple.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Juicy tropical golden pineapple.", active: true, approvalStatus: "approved" },
@@ -114,8 +114,8 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 8, name: "Custard Apple", categorySlug: "fruits", price: "120.00", unit: "1 Kg", image: "/images/produce/custard-apple.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Creamy sweet sitaphal custard apple.", active: true, approvalStatus: "approved" },
 
   // Vegetables
-  { id: 9, name: "Farm Tomatoes", categorySlug: "vegetables", price: "40.00", unit: "1 Kg", image: "/images/p-tomato.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Vine-ripened farm-fresh juicy red tomatoes.", active: true, approvalStatus: "approved" },
-  { id: 10, name: "Fresh Carrots", categorySlug: "vegetables", price: "45.00", unit: "500 Grams", image: "/images/produce/carrots.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Sweet and crunchy organic farm-fresh red carrots.", active: true, approvalStatus: "approved" },
+  { id: 9, name: "Farm Tomatoes", categorySlug: "vegetables", price: "40.00", unit: "1 Kg", image: "/images/produce/tomato.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Vine-ripened farm-fresh juicy red tomatoes.", active: true, approvalStatus: "approved" },
+  { id: 10, name: "Fresh Carrots", categorySlug: "vegetables", price: "45.00", unit: "500 Grams", image: "/images/produce/carrot.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Sweet and crunchy organic farm-fresh red carrots.", active: true, approvalStatus: "approved" },
   { id: 11, name: "Bottle Gourd", categorySlug: "vegetables", price: "35.00", unit: "1 Piece", image: "/images/produce/bottlegourd.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Tender organic sorakaya bottle gourd.", active: true, approvalStatus: "approved" },
   { id: 12, name: "Bitter Gourd", categorySlug: "vegetables", price: "40.00", unit: "500 Grams", image: "/images/produce/bitter-gourd.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Fresh crisp kakarakaya bitter gourd.", active: true, approvalStatus: "approved" },
   { id: 13, name: "Ridge Gourd", categorySlug: "vegetables", price: "45.00", unit: "500 Grams", image: "/images/produce/ridge-gourd.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Fresh tender beerakaya ridge gourd.", active: true, approvalStatus: "approved" },
@@ -128,10 +128,10 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 20, name: "Weekly Fresh Box", categorySlug: "vegetables", price: "399.00", unit: "1 Box", image: "/images/produce/weekly-fresh-box.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Curated harvest box of weekly essential vegetables.", active: true, approvalStatus: "approved" },
 
   // Sweets & Namkeen
-  { id: 21, name: "Boondi Laddu", categorySlug: "homemade-sweets", price: "320.00", unit: "500 Grams", image: "/images/p-laddu.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "5.00", description: "Traditional pure ghee boondi laddus made fresh in small batches.", active: true, approvalStatus: "approved" },
+  { id: 21, name: "Boondi Laddu", categorySlug: "homemade-sweets", price: "320.00", unit: "500 Grams", image: "/images/produce/p-laddu.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "5.00", description: "Traditional pure ghee boondi laddus made fresh in small batches.", active: true, approvalStatus: "approved" },
   { id: 22, name: "Kaju Katli", categorySlug: "homemade-sweets", price: "650.00", unit: "500 Grams", image: "/images/produce/kaju-katli.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Premium cashew fudge with a delicate silver finish.", active: true, approvalStatus: "approved" },
   { id: 23, name: "Mysore Pak", categorySlug: "homemade-sweets", price: "380.00", unit: "500 Grams", image: "/images/produce/mysore-pak.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Rich, melt-in-mouth ghee Mysore pak.", active: true, approvalStatus: "approved" },
-  { id: 24, name: "Special Mixture", categorySlug: "namkeen", price: "160.00", unit: "500 Grams", image: "/images/p-mixture.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Crunchy South-Indian style spicy mixture.", active: true, approvalStatus: "approved" },
+  { id: 24, name: "Special Mixture", categorySlug: "namkeen", price: "160.00", unit: "500 Grams", image: "/images/produce/p-mixture.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "0.00", description: "Crunchy South-Indian style spicy mixture.", active: true, approvalStatus: "approved" },
   { id: 25, name: "Murukku", categorySlug: "namkeen", price: "140.00", unit: "500 Grams", image: "/images/produce/murukku.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Crispy, traditional rice-flour murukku.", active: true, approvalStatus: "approved" },
 
   // Pickles
@@ -156,7 +156,7 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 40, name: "Coriander Powder", categorySlug: "spices", price: "90.00", unit: "250 Grams", image: "/images/produce/coriander-powder.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Freshly ground coriander.", active: true, approvalStatus: "approved" },
 ];
 
-const CATALOG_VERSION_KEY = "fff_catalog_version_v12_macro";
+const CATALOG_VERSION_KEY = "fff_catalog_version_v14_macro";
 
 export function getInitialCategories(): Category[] {
   if (typeof window === "undefined") return SEED_CATEGORIES;
