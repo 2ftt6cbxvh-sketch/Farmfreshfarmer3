@@ -339,9 +339,9 @@ export default function AdminProducts() {
     if (norm.includes("grapes") || norm.includes("draksha")) return "https://images.unsplash.com/photo-1596363505729-4190a9506133?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("laddu")) return "/images/p-laddu.jpg";
     if (norm.includes("katli") || norm.includes("kaju")) return "/images/produce/kaju-katli.jpg";
-    if (norm.includes("pak")) return "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("pak") || norm.includes("mysore")) return "/images/produce/mysore-pak.jpg";
     if (norm.includes("mixture")) return "/images/p-mixture.jpg";
-    if (norm.includes("murukku") || norm.includes("janthikalu")) return "https://images.unsplash.com/photo-1567337710282-00832b415979?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("murukku") || norm.includes("janthikalu") || norm.includes("chakli")) return "/images/produce/murukku.jpg";
     if (norm.includes("lemon pickle")) return "/images/produce/lemon-pickle.jpg";
     if (norm.includes("gongura pickle") || norm.includes("gongura pachadi")) return "/images/produce/gongura-pickle.jpg";
     if (norm.includes("chicken pickle")) return "/images/produce/chicken-pickle.jpg";

@@ -129,15 +129,15 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
   "boondi laddu": "/images/p-laddu.jpg",
   "laddu": "/images/p-laddu.jpg",
   "kaju katli": "/images/produce/kaju-katli.jpg",
-  "mysore pak": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1200&q=95&auto=format&fit=crop",
+  "mysore pak": "/images/produce/mysore-pak.jpg",
   "gulab jamun": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1200&q=95&auto=format&fit=crop",
   "halwa": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=1200&q=95&auto=format&fit=crop",
 
   // Namkeen & Snacks
   "special mixture": "/images/p-mixture.jpg",
   "mixture": "/images/p-mixture.jpg",
-  "murukku": "https://images.unsplash.com/photo-1567337710282-00832b415979?w=1200&q=95&auto=format&fit=crop",
-  "janthikalu": "https://images.unsplash.com/photo-1567337710282-00832b415979?w=1200&q=95&auto=format&fit=crop",
+  "murukku": "/images/produce/murukku.jpg",
+  "janthikalu": "/images/produce/murukku.jpg",
   "roasted chana": "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1200&q=95&auto=format&fit=crop",
   "putnalu": "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1200&q=95&auto=format&fit=crop",
   "cashew": "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1200&q=95&auto=format&fit=crop",
@@ -213,7 +213,20 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
     return fallback;
   }
 
-  const promptText = `Commercial studio food photography of fresh organic ${productName}, isolated on a clean rustic dark slate tabletop with soft natural morning light, morning water dew drops, ultra-crisp macro details, photorealistic, 8k resolution, award-winning culinary photography, centered composition.`;
+  let specializedSubject = `fresh organic ${productName}`;
+  if (categorySlug.includes("pickle")) {
+    specializedSubject = `traditional homemade Andhra ${productName} spicy oil-cured pickle in an authentic glass jar and ceramic bowl with red chili oil and spices`;
+  } else if (categorySlug.includes("sweet")) {
+    specializedSubject = `traditional authentic Indian ghee ${productName} dessert sweets arranged elegantly on a festive brass plate`;
+  } else if (categorySlug.includes("namkeen") || categorySlug.includes("snack")) {
+    specializedSubject = `crispy authentic South Indian ${productName} savory tea-time snack in a ceramic serving bowl`;
+  } else if (categorySlug.includes("millet") || categorySlug.includes("pulse") || categorySlug.includes("dal")) {
+    specializedSubject = `organic premium ${productName} raw dry grains and lentils displayed in a rustic wooden bowl with burlap texture`;
+  } else if (categorySlug.includes("spice") || categorySlug.includes("powder")) {
+    specializedSubject = `pure high-curcumin unadulterated ${productName} spice powder piled in an earthen bowl with whole spices nearby`;
+  }
+
+  const promptText = `Award-winning commercial culinary studio food photography of ${specializedSubject}, isolated on a clean rustic dark slate tabletop with soft natural warm lighting, morning water dew drops, ultra-crisp macro details, photorealistic 8k resolution, centered composition. No animals, no artificial elements, no text overlays.`;
 
   try {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(apiKey)}`;
