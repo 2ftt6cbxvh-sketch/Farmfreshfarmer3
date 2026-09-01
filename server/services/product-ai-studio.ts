@@ -205,7 +205,7 @@ export function resolveStudioHeroImage(productName: string, categorySlug = "gene
 }
 
 /**
- * 🎨 AI Image Generator using Ultra-High-Def Flux AI Studio Engine
+ * 🎨 AI Image Generator using Google Imagen Multi-Key Cluster & Studio Engine
  * Generates bespoke commercial macro studio food photography for fresh farm produce.
  */
 export async function generateAiProducePhoto(productName: string, categorySlug = "general"): Promise<string> {
@@ -226,22 +226,44 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
 
   const promptText = `Award-winning commercial culinary studio food photography of ${specializedSubject}, isolated on a clean rustic dark slate tabletop with soft natural warm lighting, morning water dew drops, ultra-crisp macro details, photorealistic 8k resolution, centered composition. No animals, no artificial elements, no text overlays.`;
 
-  // 1. Generate with Flux AI Studio Engine
-  try {
-    const fluxUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText)}?width=1024&height=1024&model=flux&nologo=true&seed=108`;
-    const res = await fetch(fluxUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
-      signal: AbortSignal.timeout(20000),
-    });
-    if (res.ok) {
-      const buffer = await res.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString("base64");
-      return `data:image/jpeg;base64,${base64}`;
+  // Multi-Key Pool for Imagen 3 with automatic failover
+  const imagenKeys = [
+    process.env.GEMINI_API_KEY_IMAGEN_1,
+    process.env.GEMINI_API_KEY_IMAGEN_2,
+    process.env.GEMINI_API_KEY_VISION,
+    process.env.GEMINI_API_KEY_FARMFRESH,
+  ].filter(Boolean) as string[];
+
+  for (let i = 0; i < imagenKeys.length; i++) {
+    const key = imagenKeys[i];
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${encodeURIComponent(key)}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+        }),
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const candidate = data?.candidates?.[0];
+        const parts = candidate?.content?.parts || [];
+        for (const p of parts) {
+          if (p.inlineData?.data) {
+            const mime = p.inlineData.mimeType || "image/jpeg";
+            return `data:${mime};base64,${p.inlineData.data}`;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[product-ai-studio] Imagen key ${i + 1} failed, trying next key:`, err?.message);
     }
-  } catch (err: any) {
-    console.warn("[product-ai-studio] Flux AI generation fallback:", err?.message);
   }
 
+  // Fallback to high-definition verified studio asset
   return fallback;
 }
 
