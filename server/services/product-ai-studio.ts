@@ -183,24 +183,25 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
 export function resolveStudioHeroImage(productName: string, categorySlug = "general"): string {
   const norm = productName.toLowerCase().trim();
 
-  // Exact or Substring match
-  for (const [key, url] of Object.entries(STUDIO_HERO_ASSETS)) {
+  // Exact or Substring match (longest key first so "custard apple" matches before "apple")
+  const sortedKeys = Object.keys(STUDIO_HERO_ASSETS).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
     if (norm.includes(key) || key.includes(norm)) {
-      return url;
+      return STUDIO_HERO_ASSETS[key];
     }
   }
 
-  // Fallback by category to high-resolution studio photo
-  if (categorySlug.includes("fruit")) return "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("veg")) return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("sweet")) return "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("namkeen") || categorySlug.includes("snack")) return "https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("pickle")) return "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("millet") || categorySlug.includes("grain")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("pulse") || categorySlug.includes("dal")) return "https://images.unsplash.com/photo-1585994192701-f1a505c8574a?w=1200&q=95&auto=format&fit=crop";
-  if (categorySlug.includes("spice")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
+  // Fallback by category to high-resolution local produce photo
+  if (categorySlug.includes("fruit")) return "/images/produce/pomegranate.jpg";
+  if (categorySlug.includes("veg")) return "/images/produce/weekly-fresh-box.jpg";
+  if (categorySlug.includes("sweet")) return "/images/produce/mysore-pak.jpg";
+  if (categorySlug.includes("namkeen") || categorySlug.includes("snack")) return "/images/produce/murukku.jpg";
+  if (categorySlug.includes("pickle")) return "/images/produce/mango-pickle.jpg";
+  if (categorySlug.includes("millet") || categorySlug.includes("grain")) return "/images/produce/foxtail-millet.jpg";
+  if (categorySlug.includes("pulse") || categorySlug.includes("dal")) return "/images/produce/toor-dal.jpg";
+  if (categorySlug.includes("spice")) return "/images/produce/turmeric-powder.jpg";
 
-  return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";
+  return "/images/produce/weekly-fresh-box.jpg";
 }
 
 /**

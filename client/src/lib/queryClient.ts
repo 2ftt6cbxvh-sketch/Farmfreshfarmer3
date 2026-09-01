@@ -3,10 +3,69 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 export const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
 const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
+  // Fruits (Specific multi-word names first)
+  "custard apple": "/images/produce/custard-apple.jpg",
+  "sitaphal": "/images/produce/custard-apple.jpg",
+  "seethaphal": "/images/produce/custard-apple.jpg",
+  "pomegranate": "/images/produce/pomegranate.jpg",
+  "danimma": "/images/produce/pomegranate.jpg",
+  "dragon fruit": "/images/produce/dragon-fruit.jpg",
+  "alphonso mango": "/images/p-mango.jpg",
+  "mango": "/images/p-mango.jpg",
+  "mamidi": "/images/p-mango.jpg",
+  "papaya": "/images/produce/papaya.jpg",
+  "boppayi": "/images/produce/papaya.jpg",
+  "pineapple": "/images/produce/pineapple.jpg",
+  "anasa": "/images/produce/pineapple.jpg",
+  "muskmelon": "/images/produce/muskmelon.jpg",
+  "kharbuja": "/images/produce/muskmelon.jpg",
+  "guava": "/images/produce/guava.jpg",
+  "jamakaya": "/images/produce/guava.jpg",
+  "orange": "/images/produce/orange.jpg",
+  "narinja": "/images/produce/orange.jpg",
+  "santra": "/images/produce/orange.jpg",
+  "seedless grapes": "/images/produce/grapes.jpg",
+  "grapes": "/images/produce/grapes.jpg",
+  "draksha": "/images/produce/grapes.jpg",
+  "sweet bananas": "/images/produce/bananas.jpg",
+  "bananas": "/images/produce/bananas.jpg",
+  "banana": "/images/produce/bananas.jpg",
+  "arati": "/images/produce/bananas.jpg",
+
+  // Vegetables
+  "farm tomatoes": "/images/produce/tomatoes.jpg",
+  "tomatoes": "/images/produce/tomatoes.jpg",
+  "tomato": "/images/produce/tomatoes.jpg",
+  "tamota": "/images/produce/tomatoes.jpg",
+  "carrots": "/images/produce/carrots.jpg",
+  "carrot": "/images/produce/carrots.jpg",
+  "kyarettu": "/images/produce/carrots.jpg",
+  "bottle gourd": "/images/produce/bottlegourd.jpg",
+  "bottlegourd": "/images/produce/bottlegourd.jpg",
+  "sorakaya": "/images/produce/bottlegourd.jpg",
+  "bitter gourd": "/images/produce/bitter-gourd.jpg",
+  "kakarakaya": "/images/produce/bitter-gourd.jpg",
+  "ridge gourd": "/images/produce/ridge-gourd.jpg",
+  "beerakaya": "/images/produce/ridge-gourd.jpg",
+  "tindora": "/images/produce/tindora.jpg",
+  "dondakaya": "/images/produce/tindora.jpg",
+  "purple brinjal": "/images/produce/purple-brinjal.jpg",
+  "green brinjal": "/images/produce/green-brinjal.jpg",
+  "brinjal": "/images/produce/purple-brinjal.jpg",
+  "vankaya": "/images/produce/purple-brinjal.jpg",
+  "green chilli": "/images/produce/green-chilli.jpg",
+  "mirchi": "/images/produce/green-chilli.jpg",
+  "garlic": "/images/produce/garlic.jpg",
+  "vellulli": "/images/produce/garlic.jpg",
+  "ginger": "/images/produce/ginger.jpg",
+  "allam": "/images/produce/ginger.jpg",
+  "weekly fresh box": "/images/produce/weekly-fresh-box.jpg",
+
   // Spices & Powders
+  "turmeric powder": "/images/produce/turmeric-powder.jpg",
   "turmeric": "/images/produce/turmeric-powder.jpg",
   "pasupu": "/images/produce/turmeric-powder.jpg",
-  "red chilli": "/images/produce/red-chilli-powder.jpg",
+  "red chilli powder": "/images/produce/red-chilli-powder.jpg",
   "chilli powder": "/images/produce/red-chilli-powder.jpg",
   "karam": "/images/produce/red-chilli-powder.jpg",
   "coriander powder": "/images/produce/coriander-powder.jpg",
@@ -55,57 +114,22 @@ const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
   "mixture": "/images/p-mixture.jpg",
   "murukku": "/images/produce/murukku.jpg",
   "janthikalu": "/images/produce/murukku.jpg",
-
-  // Fresh Farm Produce (Vegetables & Fruits)
-  "tomato": "/images/p-tomato.jpg",
-  "tamota": "/images/p-tomato.jpg",
-  "carrot": "/images/produce/carrots.jpg",
-  "carrots": "/images/produce/carrots.jpg",
-  "bottle gourd": "/images/produce/bottlegourd.jpg",
-  "bottlegourd": "/images/produce/bottlegourd.jpg",
-  "sorakaya": "/images/produce/bottlegourd.jpg",
-  "bitter gourd": "/images/produce/bitter-gourd.jpg",
-  "kakarakaya": "/images/produce/bitter-gourd.jpg",
-  "ridge gourd": "/images/produce/ridge-gourd.jpg",
-  "beerakaya": "/images/produce/ridge-gourd.jpg",
-  "tindora": "/images/produce/tindora.jpg",
-  "dondakaya": "/images/produce/tindora.jpg",
-  "purple brinjal": "/images/produce/purple-brinjal.jpg",
-  "green brinjal": "/images/produce/green-brinjal.jpg",
-  "green chilli": "/images/produce/green-chilli.jpg",
-  "garlic": "/images/produce/garlic.jpg",
-  "vellulli": "/images/produce/garlic.jpg",
-  "ginger": "/images/produce/ginger.jpg",
-  "allam": "/images/produce/ginger.jpg",
-  "weekly fresh box": "/images/produce/weekly-fresh-box.jpg",
-  "alphonso mango": "/images/p-mango.jpg",
-  "pomegranate": "/images/produce/pomegranate.jpg",
-  "danimma": "/images/produce/pomegranate.jpg",
-  "papaya": "/images/produce/papaya.jpg",
-  "boppayi": "/images/produce/papaya.jpg",
-  "pineapple": "/images/produce/pineapple.jpg",
-  "anasa": "/images/produce/pineapple.jpg",
-  "muskmelon": "/images/produce/muskmelon.jpg",
-  "kharbuja": "/images/produce/muskmelon.jpg",
-  "guava": "/images/produce/guava.jpg",
-  "jamakaya": "/images/produce/guava.jpg",
-  "dragon fruit": "/images/produce/dragon-fruit.jpg",
-  "custard apple": "/images/produce/custard-apple.jpg",
-  "sitaphal": "/images/produce/custard-apple.jpg",
 };
 
 // Resolve an image path so it works both locally and after deployment.
 export function imgUrl(src?: string | null, productName?: string): string {
   if (productName) {
     const norm = productName.toLowerCase().trim();
-    for (const [key, path] of Object.entries(PRODUCT_ACCURATE_IMAGE_MAP)) {
-      if (norm.includes(key) || key.includes(norm)) {
-        return path;
+    // Sort keys by length descending so "custard apple" matches before "apple"
+    const sortedKeys = Object.keys(PRODUCT_ACCURATE_IMAGE_MAP).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      if (norm.includes(key)) {
+        return PRODUCT_ACCURATE_IMAGE_MAP[key];
       }
     }
   }
 
-  if (!src) return "/images/cat-vegetables.jpg";
+  if (!src) return "/images/produce/weekly-fresh-box.jpg";
 
   // If pointing to a generic category fallback, check if we can map by product name or replace
   if (src.includes("cat-spices.jpg")) return "/images/produce/turmeric-powder.jpg";
@@ -115,6 +139,8 @@ export function imgUrl(src?: string | null, productName?: string): string {
   if (src.includes("cat-pickle-veg.jpg")) return "/images/produce/mango-pickle.jpg";
   if (src.includes("cat-sweets.jpg")) return "/images/produce/mysore-pak.jpg";
   if (src.includes("cat-namkeen.jpg")) return "/images/produce/murukku.jpg";
+  if (src.includes("cat-fruits.jpg")) return "/images/produce/pomegranate.jpg";
+  if (src.includes("cat-vegetables.jpg")) return "/images/produce/weekly-fresh-box.jpg";
 
   if (src.startsWith("data:") || src.startsWith("http://") || src.startsWith("https://")) {
     return src;
