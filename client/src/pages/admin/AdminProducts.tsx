@@ -698,452 +698,521 @@ export default function AdminProducts() {
 
       {/* Add/Edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{form.id ? "Edit product" : "Add product"}</DialogTitle>
+        <DialogContent className="sm:max-w-5xl md:max-w-6xl w-[95vw] max-h-[92vh] overflow-y-auto p-6 md:p-8 bg-card/95 backdrop-blur-2xl border-2 border-emerald-500/20 shadow-2xl rounded-3xl">
+          <DialogHeader className="pb-3 border-b border-card-border/60">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <DialogTitle className="text-xl font-black tracking-tight text-foreground flex items-center gap-2">
+                  <span>{form.id ? "✏️ Edit Product Studio" : "🌱 Create New Catalog Product"}</span>
+                  {form.name && (
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      {form.name}
+                    </span>
+                  )}
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Configure botanical produce details, 100% pure AI mandi pricing, and multi-quantity pack tier matrix.
+                </p>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-3">
-            {/* ── 1-CLICK LIVE PRICING ENGINE TOGGLE: 100% PURE AI vs CUSTOM MANUAL ── */}
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/10 border-2 border-emerald-500/30 flex items-center justify-between flex-wrap gap-2 shadow-xs">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-amber-500 animate-pulse shrink-0" />
-                <div>
-                  <span className="text-xs font-black text-foreground block">
-                    Live Pricing Source Engine
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {pricingMode === "ai"
-                      ? "🤖 Sourced 100% Purely from AI Mandi Intelligence (AP regional farm rates)"
-                      : "✍️ Custom Manual Price — admin sets custom price, AI calculates pack discount tiers"}
-                  </span>
+
+          {/* ── 1-CLICK LIVE PRICING ENGINE TOGGLE ── */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/10 border-2 border-emerald-500/30 flex items-center justify-between flex-wrap gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <Sparkles size={18} className="text-amber-500 animate-pulse shrink-0" />
+              <div>
+                <span className="text-xs font-black text-foreground block">
+                  Live Mandi Pricing Source Engine
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {pricingMode === "ai"
+                    ? "🤖 100% Pure AI Mandi Intelligence (AP regional live farm rates dynamically computed)"
+                    : "✍️ Custom Manual Price (Admin sets custom price, AI calculates tier matrix discounts)"}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 bg-background/90 p-1 rounded-xl border border-card-border shadow-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setPricingMode("ai");
+                  const unitInfo = detectProduceUnitType(form.name, form.categorySlug, form.unit);
+                  const activeUnit = form.unit || unitInfo.defaultUnit;
+                  const aiPrice = getAiPureProducePrice(form.name, form.categorySlug, activeUnit);
+                  setForm((prev) => ({ ...prev, price: String(aiPrice), unit: activeUnit }));
+                  const newTiers = generateProduceQuantityTiersMatrix(form.name, aiPrice, activeUnit, form.categorySlug);
+                  setPriceVsQuantityTiers(newTiers);
+                  toast({
+                    title: "🤖 100% Pure AI Price Applied",
+                    description: `Base price dynamically sourced from Mandi AI at ₹${aiPrice} (${activeUnit}).`,
+                  });
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  pricingMode === "ai"
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm ring-2 ring-emerald-500/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Sparkles size={13} className={pricingMode === "ai" ? "animate-spin text-amber-300" : ""} />
+                <span>100% Pure AI Price</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPricingMode("manual");
+                  toast({
+                    title: "✍️ Custom Manual Price Mode",
+                    description: "You can now edit the base price manually. AI will dynamically compute quantity pack discount tiers.",
+                  });
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  pricingMode === "manual"
+                    ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <span>✍️ Custom Price</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── EXPANSIVE 2-COLUMN CONTROL GRID ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+            {/* ── LEFT COLUMN: Core Details, Pricing & Form (7 Cols) ── */}
+            <div className="lg:col-span-7 space-y-4">
+              <div>
+                <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Product Name (English)</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    const unitInfo = detectProduceUnitType(newName, form.categorySlug, form.unit);
+                    const isDefaultUnit = !form.unit || form.unit === EMPTY.unit || form.unit === "250 Grams" || form.unit === "1 Kg";
+                    const newUnit = isDefaultUnit ? unitInfo.defaultUnit : form.unit;
+                    const autoTe = resolveTeluguProductName(newName, form.categorySlug);
+
+                    const computedPrice = pricingMode === "ai"
+                      ? getAiPureProducePrice(newName, form.categorySlug, newUnit)
+                      : (parseFloat(form.price) || 60);
+
+                    setForm({
+                      ...form,
+                      name: newName,
+                      unit: newUnit,
+                      price: String(computedPrice),
+                      nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
+                    });
+
+                    const dynamicTiers = generateProduceQuantityTiersMatrix(newName, computedPrice, newUnit, form.categorySlug);
+                    setPriceVsQuantityTiers(dynamicTiers);
+                  }}
+                  placeholder="e.g. Banginapalli Mangoes, Bananas, Farm Tomatoes"
+                  className="mt-1 font-bold text-base h-11 bg-background/80"
+                  data-testid="input-product-name"
+                />
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateAiStudio}
+                    disabled={isAiGeneratingStudio || !form.name.trim()}
+                    className="w-full bg-gradient-to-r from-emerald-600/15 via-teal-600/15 to-amber-600/15 border-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-xs gap-2 h-10 shadow-xs hover:bg-emerald-500/25 cursor-pointer"
+                  >
+                    {isAiGeneratingStudio ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin text-emerald-500" />
+                        <span>Chitra Kara AI Generating (Studio Photo + Live Pricing + Telugu)...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={15} className="text-amber-500 animate-pulse" />
+                        <span>🎨 Auto-Fill with Chitra Kara AI (Studio Photo + Tier Matrix + Story)</span>
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl border border-card-border">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPricingMode("ai");
-                    const unitInfo = detectProduceUnitType(form.name, form.categorySlug, form.unit);
-                    const activeUnit = form.unit || unitInfo.defaultUnit;
-                    const aiPrice = getAiPureProducePrice(form.name, form.categorySlug, activeUnit);
-                    setForm((prev) => ({ ...prev, price: String(aiPrice), unit: activeUnit }));
-                    const newTiers = generateProduceQuantityTiersMatrix(form.name, aiPrice, activeUnit, form.categorySlug);
-                    setPriceVsQuantityTiers(newTiers);
-                    toast({
-                      title: "🤖 100% Pure AI Price Applied",
-                      description: `Base price dynamically sourced 100% purely from AI at ₹${aiPrice} (${activeUnit}).`,
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                    pricingMode === "ai"
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm ring-2 ring-emerald-500/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Sparkles size={13} className={pricingMode === "ai" ? "animate-spin text-amber-300" : ""} />
-                  <span>100% Pure AI Price</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPricingMode("manual");
-                    toast({
-                      title: "✍️ Custom Manual Price Mode",
-                      description: "You can now edit the base price manually. AI will dynamically compute quantity pack discount tiers.",
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                    pricingMode === "manual"
-                      ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span>✍️ Custom Price</span>
-                </button>
-              </div>
-            </div>
 
-            <div>
-              <Label>Product Name (English)</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => {
-                  const newName = e.target.value;
-                  const unitInfo = detectProduceUnitType(newName, form.categorySlug, form.unit);
-                  const isDefaultUnit = !form.unit || form.unit === EMPTY.unit || form.unit === "250 Grams" || form.unit === "1 Kg";
-                  const newUnit = isDefaultUnit ? unitInfo.defaultUnit : form.unit;
-                  const autoTe = resolveTeluguProductName(newName, form.categorySlug);
-
-                  const computedPrice = pricingMode === "ai"
-                    ? getAiPureProducePrice(newName, form.categorySlug, newUnit)
-                    : (parseFloat(form.price) || 60);
-
-                  setForm({
-                    ...form,
-                    name: newName,
-                    unit: newUnit,
-                    price: String(computedPrice),
-                    nameTe: !form.nameTe || form.nameTe === resolveTeluguProductName(form.name, form.categorySlug) ? autoTe : form.nameTe,
-                  });
-
-                  const dynamicTiers = generateProduceQuantityTiersMatrix(newName, computedPrice, newUnit, form.categorySlug);
-                  setPriceVsQuantityTiers(dynamicTiers);
-                }}
-                placeholder="e.g. Banginapalli Mangoes, Bananas, Farm Tomatoes"
-                data-testid="input-product-name"
-              />
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateAiStudio}
-                  disabled={isAiGeneratingStudio || !form.name.trim()}
-                  className="w-full bg-gradient-to-r from-emerald-600/15 via-teal-600/15 to-amber-600/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-xs gap-1.5 h-9 shadow-xs hover:bg-emerald-500/20 cursor-pointer"
-                >
-                  {isAiGeneratingStudio ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin text-emerald-500" />
-                      <span>Chitra Kara AI Generating (Crisp Photo + Live Pricing + Telugu)...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                      <span>🎨 Auto-Generate with Chitra Kara AI (Studio Photo + Price vs Qty + Story)</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {/* AI Dynamic Multi-Quantity Pack Selection Matrix */}
-            {priceVsQuantityTiers.length > 0 && (
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-background to-teal-500/10 border-2 border-emerald-500/40 space-y-2.5 shadow-sm">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
-                    <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                    <span>Multi-Quantity Pack Sizes (Click Card or Checkbox to Select)</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Telugu Name (తెలుగు పేరు)</Label>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, nameTe: resolveTeluguProductName(form.name, form.categorySlug) })}
+                      className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      ⚡ Auto-generate
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <Input
+                    value={form.nameTe}
+                    onChange={(e) => setForm({ ...form, nameTe: e.target.value })}
+                    placeholder="e.g. నాటు టమోటాలు"
+                    className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 bg-background/80"
+                    data-testid="input-product-name-te"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Category</Label>
+                  <Select
+                    value={form.categorySlug}
+                    onValueChange={(v) => {
+                      const newSlug = v;
+                      const unitInfo = detectProduceUnitType(form.name, newSlug, form.unit);
+                      const newUnit = form.unit || unitInfo.defaultUnit;
+                      const newPrice = pricingMode === "ai"
+                        ? getAiPureProducePrice(form.name, newSlug, newUnit)
+                        : (parseFloat(form.price) || 60);
+
+                      setForm({ ...form, categorySlug: newSlug, unit: newUnit, price: String(newPrice) });
+                      const newTiers = generateProduceQuantityTiersMatrix(form.name, newPrice, newUnit, newSlug);
+                      setPriceVsQuantityTiers(newTiers);
+                    }}
+                  >
+                    <SelectTrigger className="mt-1 bg-background/80" data-testid="select-category">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* 4-Item Pricing & Stock Metrics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-card border border-card-border/80 shadow-xs">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Base Price (₹)</Label>
+                    <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
+                      pricingMode === "ai"
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 animate-pulse"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {pricingMode === "ai" ? "🤖 AI" : "✍️ Custom"}
+                    </span>
+                  </div>
+                  <Input
+                    type="number"
+                    value={form.price}
+                    onChange={(e) => {
+                      const nextPrice = e.target.value;
+                      setPricingMode("manual");
+                      setForm({ ...form, price: nextPrice });
+                      if (nextPrice && parseFloat(nextPrice) > 0) {
+                        const newTiers = generateProduceQuantityTiersMatrix(
+                          form.name,
+                          parseFloat(nextPrice),
+                          form.unit,
+                          form.categorySlug
+                        );
+                        setPriceVsQuantityTiers((prevTiers) => {
+                          return newTiers.map((nt) => {
+                            const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
+                            return existing ? { ...nt, active: existing.active } : nt;
+                          });
+                        });
+                      }
+                    }}
+                    className="font-black text-base text-emerald-600 dark:text-emerald-400 bg-background"
+                    placeholder="e.g. 100"
+                    data-testid="input-price"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Discount %</Label>
+                  <Input
+                    type="number"
+                    value={form.discountPercent}
+                    onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
+                    className="font-bold bg-background"
+                    placeholder="0"
+                    data-testid="input-discount"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">GST Rate (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    placeholder="0"
+                    value={form.gstPercent}
+                    onChange={(e) => setForm({ ...form, gstPercent: e.target.value })}
+                    className="font-bold bg-background"
+                    data-testid="input-gst"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1 block">Stock Available</Label>
+                  <Input
+                    type="number"
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                    className="font-bold bg-background"
+                    data-testid="input-stock"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Base Unit / Pack Size</Label>
+                    <span className="text-[10px] text-muted-foreground">Auto-detected by type</span>
+                  </div>
+                  <Input
+                    value={form.unit}
+                    onChange={(e) => {
+                      const nextUnit = e.target.value;
+                      setForm({ ...form, unit: nextUnit });
+                      if (form.price && parseFloat(form.price) > 0) {
+                        const newTiers = generateProduceQuantityTiersMatrix(
+                          form.name,
+                          parseFloat(form.price),
+                          nextUnit,
+                          form.categorySlug
+                        );
+                        setPriceVsQuantityTiers((prevTiers) => {
+                          return newTiers.map((nt) => {
+                            const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
+                            return existing ? { ...nt, active: existing.active } : nt;
+                          });
+                        });
+                      }
+                    }}
+                    placeholder="e.g. 1 Kg, 1 Dozen, 500 Grams"
+                    className="mt-1 font-semibold bg-background/80"
+                    data-testid="input-unit"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Dietary Classification</Label>
+                  <Select value={form.dietTag} onValueChange={(v) => setForm({ ...form, dietTag: v })}>
+                    <SelectTrigger className="mt-1 bg-background/80" data-testid="select-diet">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="veg">🟢 Veg (Green Dot)</SelectItem>
+                      <SelectItem value="nonveg">🔴 Non-Veg (Red Dot)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Bioactive Nutrition & Farm Story</Label>
+                <Textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Tell the organic farm story, nutritional benefits, and cooking tips..."
+                  className="mt-1 text-xs leading-relaxed bg-background/80"
+                  data-testid="input-product-description"
+                />
+              </div>
+
+              {/* Switches Container */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                  <Switch checked={form.featuredInHero} onCheckedChange={(v) => setForm({ ...form, featuredInHero: v })} data-testid="switch-featured-hero" />
+                  <div>
+                    <Label className="text-xs font-black text-emerald-500 block">⭐ Hero Showcase</Label>
+                    <p className="text-[10px] text-muted-foreground">Rotates in homepage hero card.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                  <Switch checked={form.allowInternationalShipping} onCheckedChange={(v) => setForm({ ...form, allowInternationalShipping: v })} data-testid="switch-allow-international" />
+                  <div>
+                    <Label className="text-xs font-black text-amber-500 block">🌐 National Courier</Label>
+                    <p className="text-[10px] text-muted-foreground">Allows long-distance shipping.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── RIGHT COLUMN: Visual Studio & Multi-Pack Matrix (5 Cols) ── */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Product Visual Card */}
+              <div className="p-4 rounded-3xl bg-card border-2 border-emerald-500/20 shadow-md space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    🎨 Visual Studio Asset
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiStudio}
+                    disabled={isAiGeneratingStudio || !form.name.trim()}
+                    className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    🔄 Regenerate AI
+                  </button>
+                </div>
+
+                <div className="relative aspect-4/3 w-full rounded-2xl bg-secondary overflow-hidden border border-card-border shadow-inner">
+                  {form.image ? (
+                    <img src={imgUrl(form.image)} alt={form.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex flex-col items-center justify-center text-xs text-muted-foreground gap-1">
+                      <Sparkles size={24} className="text-muted-foreground/40" />
+                      <span>No Photo Attached</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[9px] font-bold text-white/90 border border-white/10">
+                    © FarmFreshFarmer
+                  </div>
+                </div>
+
+                <Input
+                  placeholder="Enter image URL or auto-generate with Studio"
+                  value={form.image}
+                  onChange={(e) => setForm({ ...form, image: e.target.value })}
+                  className="text-xs h-9 bg-background"
+                  data-testid="input-image-url"
+                />
+              </div>
+
+              {/* AI Dynamic Multi-Quantity Pack Selection Matrix */}
+              {priceVsQuantityTiers.length > 0 && (
+                <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-background to-teal-500/10 border-2 border-emerald-500/40 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                      <Sparkles size={14} className="text-amber-500 animate-pulse" />
+                      <span>Multi-Pack Tier Matrix ({priceVsQuantityTiers.filter(t => t.active !== false).length} Active)</span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         const allActive = priceVsQuantityTiers.every((t) => t.active !== false);
                         setPriceVsQuantityTiers(priceVsQuantityTiers.map((t) => ({ ...t, active: !allActive })));
                       }}
-                      className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 cursor-pointer"
+                      className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 cursor-pointer"
                     >
-                      {priceVsQuantityTiers.every((t) => t.active !== false) ? "Deselect All" : "✅ Select All"}
+                      {priceVsQuantityTiers.every((t) => t.active !== false) ? "Hide All" : "✅ Show All"}
                     </button>
-                    {aiCostPrice && (
-                      <span className="text-[10px] font-bold text-muted-foreground">
-                        Cost: ₹{aiCostPrice} | Margin: {aiMargin}%
-                      </span>
-                    )}
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-                  {priceVsQuantityTiers.map((tier, idx) => {
-                    const isTierActive = tier.active !== false;
-                    const isBasePack = form.unit === tier.quantity;
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {priceVsQuantityTiers.map((tier, idx) => {
+                      const isTierActive = tier.active !== false;
+                      const isBasePack = form.unit === tier.quantity;
 
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          const next = [...priceVsQuantityTiers];
-                          next[idx] = { ...next[idx], active: !isTierActive };
-                          setPriceVsQuantityTiers(next);
-                        }}
-                        className={`relative p-3 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer select-none ${
-                          isTierActive
-                            ? isBasePack
-                              ? "bg-emerald-500/20 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
-                              : "bg-emerald-500/10 border-emerald-500/60 shadow-xs hover:border-emerald-500"
-                            : "bg-muted/40 border-muted opacity-50 hover:opacity-80"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-1.5">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isTierActive}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                const next = [...priceVsQuantityTiers];
-                                next[idx] = { ...next[idx], active: e.target.checked };
-                                setPriceVsQuantityTiers(next);
-                              }}
-                              className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
-                            />
-                            <span className="text-xs font-black text-foreground">{tier.quantity}</span>
-                          </div>
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            const next = [...priceVsQuantityTiers];
+                            next[idx] = { ...next[idx], active: !isTierActive };
+                            setPriceVsQuantityTiers(next);
+                          }}
+                          className={`relative p-3 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer select-none ${
+                            isTierActive
+                              ? isBasePack
+                                ? "bg-emerald-500/20 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
+                                : "bg-emerald-500/10 border-emerald-500/60 shadow-xs hover:border-emerald-500"
+                              : "bg-muted/40 border-muted opacity-40 hover:opacity-70"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={isTierActive}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  const next = [...priceVsQuantityTiers];
+                                  next[idx] = { ...next[idx], active: e.target.checked };
+                                  setPriceVsQuantityTiers(next);
+                                }}
+                                className="rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                              />
+                              <span className="text-xs font-black text-foreground">{tier.quantity}</span>
+                            </div>
 
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                            isTierActive ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
-                          }`}>
-                            {isTierActive ? "✅ Active" : "❌ Hidden"}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 flex items-baseline justify-between">
-                          <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                            ₹{tier.price}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">{tier.perUnit || ""}</span>
-                        </div>
-
-                        {tier.savings && (
-                          <div className="mt-1">
-                            <span className="text-amber-500 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px]">
-                              {tier.savings}
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                              isTierActive ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {isTierActive ? "Active" : "Hidden"}
                             </span>
                           </div>
-                        )}
 
-                        {isTierActive && (
-                          <div className="mt-2.5 pt-2 border-t border-card-border/60 flex items-center justify-between">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setForm({
-                                  ...form,
-                                  unit: tier.quantity,
-                                  price: String(tier.price),
-                                });
-                                toast({
-                                  title: `Base Pack: ${tier.quantity}`,
-                                  description: `Default storefront display price set to ₹${tier.price} (${tier.quantity}).`,
-                                });
-                              }}
-                              className={`text-[10px] font-black px-2 py-0.5 rounded transition cursor-pointer ${
-                                isBasePack
-                                  ? "bg-emerald-600 text-white shadow-xs"
-                                  : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
-                              }`}
-                            >
-                              {isBasePack ? "★ Default Base Pack" : "Make Default"}
-                            </button>
+                          <div className="mt-2 flex items-baseline justify-between">
+                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                              ₹{tier.price}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{tier.perUnit || ""}</span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
 
-                <p className="text-[10px] text-muted-foreground text-center pt-1">
-                  💡 <strong>Multi-pack enabled:</strong> Click on any tier card to enable or disable it on the live storefront!
-                </p>
-              </div>
-            )}
+                          {tier.savings && (
+                            <div className="mt-1">
+                              <span className="text-amber-500 font-bold bg-amber-500/15 px-1.5 py-0.5 rounded text-[9px]">
+                                {tier.savings}
+                              </span>
+                            </div>
+                          )}
 
-            <div>
-              <div className="flex items-center justify-between">
-                <Label>Telugu Sub-Name (తెలుగు పేరు)</Label>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, nameTe: resolveTeluguProductName(form.name, form.categorySlug) })}
-                  className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  ⚡ Auto-generate
-                </button>
-              </div>
-              <Input
-                value={form.nameTe}
-                onChange={(e) => setForm({ ...form, nameTe: e.target.value })}
-                placeholder="e.g. నాటు టమోటాలు"
-                className="font-medium text-emerald-700 dark:text-emerald-300"
-                data-testid="input-product-name-te"
-              />
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Authentic Telugu produce phrasing in Telugu letters. Auto-populates as you type!
-              </p>
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="input-product-description" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={form.categorySlug}
-                  onValueChange={(v) => {
-                    const newSlug = v;
-                    const unitInfo = detectProduceUnitType(form.name, newSlug, form.unit);
-                    const newUnit = form.unit || unitInfo.defaultUnit;
-                    const newPrice = pricingMode === "ai"
-                      ? getAiPureProducePrice(form.name, newSlug, newUnit)
-                      : (parseFloat(form.price) || 60);
-
-                    setForm({ ...form, categorySlug: newSlug, unit: newUnit, price: String(newPrice) });
-                    const newTiers = generateProduceQuantityTiersMatrix(form.name, newPrice, newUnit, newSlug);
-                    setPriceVsQuantityTiers(newTiers);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-category"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Diet tag</Label>
-                <Select value={form.dietTag} onValueChange={(v) => setForm({ ...form, dietTag: v })}>
-                  <SelectTrigger data-testid="select-diet"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="veg">Veg (green)</SelectItem>
-                    <SelectItem value="nonveg">Non-veg (red)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label>Base Price (₹)</Label>
-                  <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
-                    pricingMode === "ai"
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 animate-pulse"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {pricingMode === "ai" ? "🤖 100% AI" : "✍️ Manual"}
-                  </span>
-                </div>
-                <Input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => {
-                    const nextPrice = e.target.value;
-                    setPricingMode("manual");
-                    setForm({ ...form, price: nextPrice });
-                    if (nextPrice && parseFloat(nextPrice) > 0) {
-                      const newTiers = generateProduceQuantityTiersMatrix(
-                        form.name,
-                        parseFloat(nextPrice),
-                        form.unit,
-                        form.categorySlug
+                          {isTierActive && (
+                            <div className="mt-2 pt-2 border-t border-card-border/60">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setForm({
+                                    ...form,
+                                    unit: tier.quantity,
+                                    price: String(tier.price),
+                                  });
+                                  toast({
+                                    title: `Default Base Pack Set: ${tier.quantity}`,
+                                    description: `Storefront default display price set to ₹${tier.price} (${tier.quantity}).`,
+                                  });
+                                }}
+                                className={`w-full text-center text-[10px] font-black py-1 rounded-lg transition cursor-pointer ${
+                                  isBasePack
+                                    ? "bg-emerald-600 text-white shadow-xs"
+                                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
+                                }`}
+                              >
+                                {isBasePack ? "★ Default Base Pack" : "Make Default"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       );
-                      setPriceVsQuantityTiers((prevTiers) => {
-                        return newTiers.map((nt) => {
-                          const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
-                          return existing ? { ...nt, active: existing.active } : nt;
-                        });
-                      });
-                    }
-                  }}
-                  placeholder="e.g. 100"
-                  data-testid="input-price"
-                />
-              </div>
-              <div>
-                <Label>Discount %</Label>
-                <Input type="number" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: e.target.value })} data-testid="input-discount" />
-              </div>
-              <div>
-                <Label>GST Rate (%)</Label>
-                <Input type="number" step="0.1" min="0" max="100" placeholder="Default" value={form.gstPercent} onChange={(e) => setForm({ ...form, gstPercent: e.target.value })} data-testid="input-gst" />
-              </div>
-              <div>
-                <Label>Stock</Label>
-                <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} data-testid="input-stock" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <Label>Base Unit / Pack Size</Label>
-                <span className="text-[10px] text-muted-foreground">Auto-detected by produce type (e.g. Bananas = Dozen, Spinach = Bunch)</span>
-              </div>
-              <Input
-                value={form.unit}
-                onChange={(e) => {
-                  const nextUnit = e.target.value;
-                  setForm({ ...form, unit: nextUnit });
-                  if (form.price && parseFloat(form.price) > 0) {
-                    const newTiers = generateProduceQuantityTiersMatrix(
-                      form.name,
-                      parseFloat(form.price),
-                      nextUnit,
-                      form.categorySlug
-                    );
-                    setPriceVsQuantityTiers((prevTiers) => {
-                      return newTiers.map((nt) => {
-                        const existing = prevTiers.find((pt) => pt.quantity === nt.quantity);
-                        return existing ? { ...nt, active: existing.active } : nt;
-                      });
-                    });
-                  }
-                }}
-                placeholder="e.g. 1 Kg, 1 Dozen, 1 Bunch, 1 Piece"
-                data-testid="input-unit"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <Label>Product Visual Asset (🎨 Chitra Kara AI Studio Photography)</Label>
-                <button
-                  type="button"
-                  onClick={handleGenerateAiStudio}
-                  disabled={isAiGeneratingStudio || !form.name.trim()}
-                  className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  🔄 Regenerate with Chitra Kara AI
-                </button>
-              </div>
-              <div className="flex items-center gap-3 mt-1.5 p-2 rounded-xl bg-card border border-card-border">
-                <div className="h-20 w-20 rounded-xl bg-secondary overflow-hidden shrink-0 border border-emerald-500/30 shadow-xs">
-                  {form.image ? (
-                    <img src={imgUrl(form.image)} alt={form.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No Photo</div>
-                  )}
+                    })}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <Input
-                    placeholder="Enter image CDN URL or auto-generate with AI Studio"
-                    value={form.image}
-                    onChange={(e) => setForm({ ...form, image: e.target.value })}
-                    className="text-xs"
-                    data-testid="input-image-url"
-                  />
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    ✨ <strong>Studio Hero Asset:</strong> Product is isolated with crisp macro focus so customers understand the product instantly with zero background distraction.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} data-testid="switch-featured" />
-              <Label>Show on home page (featured)</Label>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <Switch checked={form.featuredInHero} onCheckedChange={(v) => setForm({ ...form, featuredInHero: v })} data-testid="switch-featured-hero" />
-              <div>
-                <Label className="font-bold text-emerald-400">⭐ Show in Homepage Hero Showcase</Label>
-                <p className="text-[11px] text-muted-foreground">Photo will automatically rotate in the homepage hero showcase card.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <Switch checked={form.allowInternationalShipping} onCheckedChange={(v) => setForm({ ...form, allowInternationalShipping: v })} data-testid="switch-allow-international" />
-              <div>
-                <Label className="font-bold text-amber-400">🌐 Allow International / Out-of-Station Courier Delivery</Label>
-                <p className="text-[11px] text-muted-foreground">If turned OFF, this item is restricted to <strong>Local Active Warehouse 30km Area Only</strong>.</p>
-              </div>
+              )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+
+          <DialogFooter className="pt-4 border-t border-card-border/60 flex items-center justify-end gap-3">
+            <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl font-bold px-5">
+              Cancel
+            </Button>
             <Button
               onClick={() => save.mutate()}
               disabled={save.isPending || !form.name || !form.categorySlug || !form.price}
-              className={isPrimaryAdmin ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold" : "bg-amber-600 hover:bg-amber-700 text-white font-bold"}
+              className={`rounded-xl font-black px-6 shadow-md transition-all ${
+                isPrimaryAdmin
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-amber-600 hover:bg-amber-700 text-white"
+              }`}
               data-testid="button-save-product"
             >
               {save.isPending
-                ? (isPrimaryAdmin ? "Publishing…" : "Submitting…")
+                ? (isPrimaryAdmin ? "Publishing Live…" : "Submitting…")
                 : (isPrimaryAdmin ? "Save & Publish Live 🚀" : "Submit for Approval 📤")}
             </Button>
           </DialogFooter>
