@@ -944,6 +944,16 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     return res.json({ success: true, package: studioPackage });
   }));
 
+  app.post("/api/admin/products/generate-image-now", requireAdmin, h(async (req, res) => {
+    const { name, categorySlug } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Product name is required." });
+    }
+    const { generateAiProducePhoto } = await import("./services/product-ai-studio");
+    const imageUrl = await generateAiProducePhoto(name.trim(), categorySlug || "general");
+    return res.json({ success: true, image: imageUrl });
+  }));
+
   app.post("/api/admin/products/ai-studio-batch-upgrade", requireAdmin, h(async (_req, res) => {
     const { batchUpgradeAllProductsInDb } = await import("./services/product-ai-studio");
     const result = await batchUpgradeAllProductsInDb();
