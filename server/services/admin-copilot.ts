@@ -351,8 +351,35 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
 
     let strVal = String(value);
     if (typeof value === "boolean") strVal = value ? "true" : "false";
+    const boolVal = strVal === "true" || value === true || value === 1;
 
     await storage.settings.set(String(key).trim(), strVal);
+
+    // If toggling maintenance mode, invoke the live maintenance service
+    if (key === "maintenance_mode" || key === "maintenance") {
+      try {
+        const { setMaintenance } = await import("./maintenance");
+        await setMaintenance(boolVal, {
+          headline: "Scheduled Maintenance Underway",
+          adminUserId: adminUser.id,
+        });
+      } catch (err: any) {
+        console.warn("[copilot] setMaintenance error:", err?.message);
+      }
+    }
+
+    // If toggling emergency lockdown, invoke the live lockdown service
+    if (key === "lockdown" || key === "emergency_lockdown") {
+      try {
+        const { setLockdownStatus } = await import("./lockdown");
+        await setLockdownStatus(boolVal, {
+          reason: note || "Executive lockdown command via Narayana AI",
+          adminUserId: adminUser.id,
+        });
+      } catch (err: any) {
+        console.warn("[copilot] setLockdownStatus error:", err?.message);
+      }
+    }
 
     try {
       const { apiCache } = await import("../lib/api-cache");
@@ -895,6 +922,84 @@ GUIDELINES:
 
   // ── Instant Real-Time Intent Interceptors (Zero Latency Execution) ──
   const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content?.toLowerCase().trim() || "";
+
+  // 0. Maintenance Mode / Lockdown Direct Intent Interceptor (<10ms execution)
+  if (
+    lastUserMsg.includes("maintain") ||
+    lastUserMsg.includes("maintenance") ||
+    lastUserMsg.includes("lockdown")
+  ) {
+    const isTurnOn =
+      lastUserMsg.includes("on") ||
+      lastUserMsg.includes("enable") ||
+      lastUserMsg.includes("start") ||
+      lastUserMsg.includes("activate") ||
+      lastUserMsg.includes("true");
+    const isTurnOff =
+      lastUserMsg.includes("off") ||
+      lastUserMsg.includes("disable") ||
+      lastUserMsg.includes("stop") ||
+      lastUserMsg.includes("deactivate") ||
+      lastUserMsg.includes("false");
+
+    if (isTurnOn || isTurnOff) {
+      const active = isTurnOn && !isTurnOff;
+
+      if (lastUserMsg.includes("lockdown")) {
+        const { setLockdownStatus } = await import("./lockdown");
+        await setLockdownStatus(active, {
+          reason: "Super Admin command via Narayana AI",
+          adminUserId: adminUser.id,
+        });
+        const statusText = active ? "ACTIVATED" : "DEACTIVATED";
+        return {
+          reply: `### 🚨 EMERGENCY LOCKDOWN ${statusText}\n\nPlatform security lockdown has been successfully **${active ? "switched ON" : "switched OFF"}** as per your command.`,
+          actionExecuted: {
+            type: "lockdown_toggled",
+            description: `Emergency Lockdown switched ${active ? "ON" : "OFF"}.`,
+            details: { active },
+          },
+          suggestedFollowups: [
+            "Check current security logs",
+            "Show live customer traffic",
+            "Turn off emergency lockdown",
+          ],
+        };
+      }
+
+      const { setMaintenance } = await import("./maintenance");
+      await setMaintenance(active, {
+        headline: "Scheduled Maintenance Underway",
+        message: "We are currently optimizing our farm-fresh catalog and ultrafast delivery infrastructure. We will be back shortly!",
+        estimatedMinutes: 30,
+        allowAdminBypass: true,
+        adminUserId: adminUser.id,
+      });
+
+      // Also persist to settings
+      await storage.settings.set("maintenance_mode", active ? "true" : "false");
+      try {
+        const { apiCache } = await import("../lib/api-cache");
+        apiCache.delete("settings:all");
+        apiCache.delete("settings:maintenance_mode");
+      } catch {}
+
+      const statusText = active ? "ACTIVATED" : "DEACTIVATED";
+      return {
+        reply: `### 🛠️ MAINTENANCE MODE ${statusText}\n\nThe storefront is now **${active ? "in maintenance mode" : "live and accessible to all customers"}** as per your command.\n\n- **Status**: ${active ? "🔴 Maintenance Active (Storefront Locked to Public)" : "🟢 Live (Public Shopping Active)"}\n- **Admin Access**: Staff and Super Admins retain full bypass access.\n- **Estimated Duration**: 30 minutes.`,
+        actionExecuted: {
+          type: "maintenance_toggled",
+          description: `Successfully switched maintenance mode to "${active ? "true" : "false"}".`,
+          details: { active },
+        },
+        suggestedFollowups: [
+          active ? "Turn off maintenance mode" : "Turn on maintenance mode",
+          "Show me today's revenue and GMV summary",
+          "Which crops are running low in stock?",
+        ],
+      };
+    }
+  }
 
   // 1. Customer Accounts & User Listing Intent
   if (
