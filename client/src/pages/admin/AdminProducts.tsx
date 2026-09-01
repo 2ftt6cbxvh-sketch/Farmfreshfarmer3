@@ -525,8 +525,8 @@ export default function AdminProducts() {
               </>
             ) : (
               <>
-                <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                <span>AI Studio Batch Upgrade (Hero Photos ✨)</span>
+                <Sparkles size={14} className="text-amber-500" />
+                <span>Chitra Kara AI Studio Batch Upgrade (Hero Photos ✨)</span>
               </>
             )}
           </Button>
@@ -804,12 +804,12 @@ export default function AdminProducts() {
                   {isAiGeneratingStudio ? (
                     <>
                       <Loader2 size={14} className="animate-spin text-emerald-500" />
-                      <span>AI Studio Generating (Crisp Photo + Live Pricing + Telugu)...</span>
+                      <span>Chitra Kara AI Generating (Crisp Photo + Live Pricing + Telugu)...</span>
                     </>
                   ) : (
                     <>
                       <Sparkles size={14} className="text-amber-500 animate-pulse" />
-                      <span>✨ Auto-Generate with AI Studio (Studio Photo + Price vs Qty + Story)</span>
+                      <span>🎨 Auto-Generate with Chitra Kara AI (Studio Photo + Price vs Qty + Story)</span>
                     </>
                   )}
                 </Button>
@@ -1083,14 +1083,14 @@ export default function AdminProducts() {
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <Label>Product Visual Asset (100% Crisp Studio Photography)</Label>
+                <Label>Product Visual Asset (🎨 Chitra Kara AI Studio Photography)</Label>
                 <button
                   type="button"
                   onClick={handleGenerateAiStudio}
                   disabled={isAiGeneratingStudio || !form.name.trim()}
                   className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  🔄 Regenerate Studio Asset
+                  🔄 Regenerate with Chitra Kara AI
                 </button>
               </div>
               <div className="flex items-center gap-3 mt-1.5 p-2 rounded-xl bg-card border border-card-border">
