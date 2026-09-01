@@ -29,50 +29,62 @@ export interface SeedProduct {
 export const PRODUCT_SEED: SeedProduct[] = [
   // Fruits
   { name: "Alphonso Mango", categorySlug: "fruits", price: 350, unit: "1 Kg", description: "Sweet, juicy Alphonso mangoes hand-picked at peak ripeness.", image: "/images/p-mango.jpg", dietTag: "veg", discountPercent: 10, featured: true },
-  { name: "Sweet Bananas", categorySlug: "fruits", price: 60, unit: "1 Dozen", description: "Naturally ripened farm bananas, perfect for a healthy snack.", image: "/images/cat-fruits.jpg", dietTag: "veg" },
-  { name: "Fresh Pomegranate", categorySlug: "fruits", price: 180, unit: "1 Kg", description: "Ruby-red, antioxidant-rich pomegranates.", image: "/images/cat-fruits.jpg", dietTag: "veg" },
-  { name: "Seedless Grapes", categorySlug: "fruits", price: 90, unit: "500 Grams", description: "Crisp, sweet seedless grapes.", image: "/images/cat-fruits.jpg", dietTag: "veg" },
+  { name: "Sweet Bananas", categorySlug: "fruits", price: 60, unit: "1 Dozen", description: "Naturally ripened farm bananas, perfect for a healthy snack.", image: "/images/produce/pomegranate.jpg", dietTag: "veg" },
+  { name: "Fresh Pomegranate", categorySlug: "fruits", price: 180, unit: "1 Kg", description: "Ruby-red, antioxidant-rich pomegranates.", image: "/images/produce/pomegranate.jpg", dietTag: "veg" },
+  { name: "Papaya", categorySlug: "fruits", price: 60, unit: "1 Kg", description: "Naturally ripened sweet organic papaya.", image: "/images/produce/papaya.jpg", dietTag: "veg" },
+  { name: "Pineapple", categorySlug: "fruits", price: 80, unit: "1 Piece", description: "Juicy tropical golden pineapple.", image: "/images/produce/pineapple.jpg", dietTag: "veg" },
+  { name: "Muskmelon", categorySlug: "fruits", price: 70, unit: "1 Kg", description: "Sweet aromatic ripe cantaloupe muskmelon.", image: "/images/produce/muskmelon.jpg", dietTag: "veg" },
+  { name: "Guava", categorySlug: "fruits", price: 80, unit: "1 Kg", description: "Crisp organic white guava.", image: "/images/produce/guava.jpg", dietTag: "veg" },
+  { name: "Dragon Fruit", categorySlug: "fruits", price: 140, unit: "500 Grams", description: "Fresh pink pitaya dragon fruit.", image: "/images/produce/dragon-fruit.jpg", dietTag: "veg" },
+  { name: "Custard Apple", categorySlug: "fruits", price: 120, unit: "1 Kg", description: "Creamy sweet sitaphal custard apple.", image: "/images/produce/custard-apple.jpg", dietTag: "veg" },
 
   // Vegetables
   { name: "Farm Tomatoes", categorySlug: "vegetables", price: 40, unit: "1 Kg", description: "Plump, vine-ripened tomatoes straight from the farm.", image: "/images/p-tomato.jpg", dietTag: "veg", featured: true },
-  { name: "Green Spinach", categorySlug: "vegetables", price: 25, unit: "1 Bunch", description: "Fresh, leafy spinach packed with iron.", image: "/images/cat-vegetables.jpg", dietTag: "veg" },
-  { name: "Lady Finger (Okra)", categorySlug: "vegetables", price: 50, unit: "500 Grams", description: "Tender okra, hand-selected for quality.", image: "/images/cat-vegetables.jpg", dietTag: "veg" },
-  { name: "Fresh Carrots", categorySlug: "vegetables", price: 45, unit: "500 Grams", description: "Crunchy, sweet carrots.", image: "/images/cat-vegetables.jpg", dietTag: "veg" },
+  { name: "Fresh Carrots", categorySlug: "vegetables", price: 45, unit: "500 Grams", description: "Crunchy, sweet carrots.", image: "/images/produce/carrots.jpg", dietTag: "veg" },
+  { name: "Bottle Gourd", categorySlug: "vegetables", price: 35, unit: "1 Piece", description: "Tender organic sorakaya bottle gourd.", image: "/images/produce/bottlegourd.jpg", dietTag: "veg" },
+  { name: "Bitter Gourd", categorySlug: "vegetables", price: 40, unit: "500 Grams", description: "Fresh crisp kakarakaya bitter gourd.", image: "/images/produce/bitter-gourd.jpg", dietTag: "veg" },
+  { name: "Ridge Gourd", categorySlug: "vegetables", price: 45, unit: "500 Grams", description: "Fresh tender beerakaya ridge gourd.", image: "/images/produce/ridge-gourd.jpg", dietTag: "veg" },
+  { name: "Tindora (Dondakaya)", categorySlug: "vegetables", price: 40, unit: "500 Grams", description: "Crisp fresh ivy gourd tindora.", image: "/images/produce/tindora.jpg", dietTag: "veg" },
+  { name: "Purple Brinjal", categorySlug: "vegetables", price: 35, unit: "500 Grams", description: "Fresh tender purple vankaya eggplant.", image: "/images/produce/purple-brinjal.jpg", dietTag: "veg" },
+  { name: "Green Brinjal", categorySlug: "vegetables", price: 35, unit: "500 Grams", description: "Farm fresh green striped brinjal.", image: "/images/produce/green-brinjal.jpg", dietTag: "veg" },
+  { name: "Green Chilli", categorySlug: "vegetables", price: 30, unit: "250 Grams", description: "Spicy pungent fresh green chillies.", image: "/images/produce/green-chilli.jpg", dietTag: "veg" },
+  { name: "Fresh Garlic", categorySlug: "vegetables", price: 80, unit: "500 Grams", description: "Aromatic pungent garlic bulbs.", image: "/images/produce/garlic.jpg", dietTag: "veg" },
+  { name: "Fresh Ginger", categorySlug: "vegetables", price: 50, unit: "250 Grams", description: "Fresh spicy allam ginger root.", image: "/images/produce/ginger.jpg", dietTag: "veg" },
+  { name: "Weekly Fresh Box", categorySlug: "vegetables", price: 399, unit: "1 Box", description: "Curated harvest box of weekly essential vegetables.", image: "/images/produce/weekly-fresh-box.jpg", dietTag: "veg" },
 
   // Homemade Sweets
   { name: "Boondi Laddu", categorySlug: "homemade-sweets", price: 320, unit: "500 Grams", description: "Traditional ghee boondi laddus made fresh in small batches.", image: "/images/p-laddu.jpg", dietTag: "veg", discountPercent: 5, featured: true },
-  { name: "Kaju Katli", categorySlug: "homemade-sweets", price: 650, unit: "500 Grams", description: "Premium cashew fudge with a delicate silver finish.", image: "/images/cat-sweets.jpg", dietTag: "veg" },
-  { name: "Mysore Pak", categorySlug: "homemade-sweets", price: 380, unit: "500 Grams", description: "Rich, melt-in-mouth ghee Mysore pak.", image: "/images/cat-sweets.jpg", dietTag: "veg" },
+  { name: "Kaju Katli", categorySlug: "homemade-sweets", price: 650, unit: "500 Grams", description: "Premium cashew fudge with a delicate silver finish.", image: "/images/produce/kaju-katli.jpg", dietTag: "veg" },
+  { name: "Mysore Pak", categorySlug: "homemade-sweets", price: 380, unit: "500 Grams", description: "Rich, melt-in-mouth ghee Mysore pak.", image: "/images/produce/mysore-pak.jpg", dietTag: "veg" },
 
   // Namkeen
   { name: "Special Mixture", categorySlug: "namkeen", price: 160, unit: "500 Grams", description: "Crunchy South-Indian style spicy mixture.", image: "/images/p-mixture.jpg", dietTag: "veg", featured: true },
-  { name: "Murukku", categorySlug: "namkeen", price: 140, unit: "500 Grams", description: "Crispy, traditional rice-flour murukku.", image: "/images/cat-namkeen.jpg", dietTag: "veg" },
-  { name: "Roasted Chana", categorySlug: "namkeen", price: 120, unit: "500 Grams", description: "Lightly spiced roasted chickpeas.", image: "/images/cat-namkeen.jpg", dietTag: "veg" },
+  { name: "Murukku", categorySlug: "namkeen", price: 140, unit: "500 Grams", description: "Crispy, traditional rice-flour murukku.", image: "/images/produce/murukku.jpg", dietTag: "veg" },
 
   // Pickles Veg
-  { name: "Mango Pickle (Avakaya)", categorySlug: "pickles-veg", price: 220, unit: "500 Grams", description: "Andhra-style spicy mango pickle in cold-pressed oil.", image: "/images/cat-pickle-veg.jpg", dietTag: "veg", featured: true },
-  { name: "Lemon Pickle", categorySlug: "pickles-veg", price: 180, unit: "500 Grams", description: "Tangy, sun-cured lemon pickle.", image: "/images/cat-pickle-veg.jpg", dietTag: "veg" },
-  { name: "Gongura Pickle", categorySlug: "pickles-veg", price: 200, unit: "500 Grams", description: "Classic Andhra gongura (sorrel leaf) pickle.", image: "/images/cat-pickle-veg.jpg", dietTag: "veg" },
+  { name: "Mango Pickle (Avakaya)", categorySlug: "pickles-veg", price: 220, unit: "500 Grams", description: "Andhra-style spicy mango pickle in cold-pressed oil.", image: "/images/produce/mango-pickle.jpg", dietTag: "veg", featured: true },
+  { name: "Lemon Pickle", categorySlug: "pickles-veg", price: 180, unit: "500 Grams", description: "Tangy, sun-cured lemon pickle.", image: "/images/produce/lemon-pickle.jpg", dietTag: "veg" },
+  { name: "Gongura Pickle", categorySlug: "pickles-veg", price: 200, unit: "500 Grams", description: "Classic Andhra gongura (sorrel leaf) pickle.", image: "/images/produce/gongura-pickle.jpg", dietTag: "veg" },
 
   // Pickles Non-Veg
-  { name: "Chicken Pickle", categorySlug: "pickles-non-veg", price: 420, unit: "500 Grams", description: "Boneless chicken pickle in aromatic spices.", image: "/images/cat-pickle-nonveg.jpg", dietTag: "nonveg", featured: true },
-  { name: "Mutton Pickle", categorySlug: "pickles-non-veg", price: 520, unit: "500 Grams", description: "Tender mutton pickle, slow-cooked with spices.", image: "/images/cat-pickle-nonveg.jpg", dietTag: "nonveg" },
-  { name: "Prawn Pickle", categorySlug: "pickles-non-veg", price: 480, unit: "500 Grams", description: "Coastal-style prawn pickle.", image: "/images/cat-pickle-nonveg.jpg", dietTag: "nonveg" },
+  { name: "Chicken Pickle", categorySlug: "pickles-non-veg", price: 420, unit: "500 Grams", description: "Boneless chicken pickle in aromatic spices.", image: "/images/produce/chicken-pickle.jpg", dietTag: "nonveg", featured: true },
+  { name: "Mutton Pickle", categorySlug: "pickles-non-veg", price: 520, unit: "500 Grams", description: "Tender mutton pickle, slow-cooked with spices.", image: "/images/produce/mutton-pickle.jpg", dietTag: "nonveg" },
+  { name: "Prawn Pickle", categorySlug: "pickles-non-veg", price: 480, unit: "500 Grams", description: "Coastal-style prawn pickle.", image: "/images/produce/prawn-pickle.jpg", dietTag: "nonveg" },
 
   // Millets
-  { name: "Foxtail Millet", categorySlug: "millets", price: 110, unit: "1 Kg", description: "Wholesome, high-fibre foxtail millet.", image: "/images/cat-millets.jpg", dietTag: "veg" },
-  { name: "Pearl Millet (Bajra)", categorySlug: "millets", price: 90, unit: "1 Kg", description: "Nutritious bajra, perfect for rotis.", image: "/images/cat-millets.jpg", dietTag: "veg" },
-  { name: "Finger Millet (Ragi)", categorySlug: "millets", price: 100, unit: "1 Kg", description: "Calcium-rich ragi flour grade grain.", image: "/images/cat-millets.jpg", dietTag: "veg" },
+  { name: "Foxtail Millet", categorySlug: "millets", price: 110, unit: "1 Kg", description: "Wholesome, high-fibre foxtail millet.", image: "/images/produce/foxtail-millet.jpg", dietTag: "veg" },
+  { name: "Pearl Millet (Bajra)", categorySlug: "millets", price: 90, unit: "1 Kg", description: "Nutritious bajra, perfect for rotis.", image: "/images/produce/pearl-millet.jpg", dietTag: "veg" },
+  { name: "Finger Millet (Ragi)", categorySlug: "millets", price: 100, unit: "1 Kg", description: "Calcium-rich ragi flour grade grain.", image: "/images/produce/finger-millet.jpg", dietTag: "veg" },
 
   // Pulses
-  { name: "Toor Dal", categorySlug: "pulses", price: 150, unit: "1 Kg", description: "Premium unpolished toor dal.", image: "/images/cat-pulses.jpg", dietTag: "veg" },
-  { name: "Moong Dal", categorySlug: "pulses", price: 140, unit: "1 Kg", description: "Split green gram, easy to cook.", image: "/images/cat-pulses.jpg", dietTag: "veg" },
-  { name: "Chana Dal", categorySlug: "pulses", price: 130, unit: "1 Kg", description: "Protein-rich split chickpea lentils.", image: "/images/cat-pulses.jpg", dietTag: "veg" },
+  { name: "Toor Dal", categorySlug: "pulses", price: 150, unit: "1 Kg", description: "Premium unpolished toor dal.", image: "/images/produce/toor-dal.jpg", dietTag: "veg" },
+  { name: "Moong Dal", categorySlug: "pulses", price: 140, unit: "1 Kg", description: "Split green gram, easy to cook.", image: "/images/produce/moong-dal.jpg", dietTag: "veg" },
+  { name: "Chana Dal", categorySlug: "pulses", price: 130, unit: "1 Kg", description: "Protein-rich split chickpea lentils.", image: "/images/produce/chana-dal.jpg", dietTag: "veg" },
 
   // Spices
-  { name: "Red Chilli Powder", categorySlug: "spices", price: 200, unit: "500 Grams", description: "Pure Guntur red chilli powder.", image: "/images/cat-spices.jpg", dietTag: "veg", featured: true },
-  { name: "Turmeric Powder", categorySlug: "spices", price: 120, unit: "250 Grams", description: "Farm-fresh, high-curcumin turmeric.", image: "/images/cat-spices.jpg", dietTag: "veg" },
-  { name: "Coriander Powder", categorySlug: "spices", price: 90, unit: "250 Grams", description: "Freshly ground coriander.", image: "/images/cat-spices.jpg", dietTag: "veg" },
+  { name: "Red Chilli Powder", categorySlug: "spices", price: 200, unit: "500 Grams", description: "Pure Guntur red chilli powder.", image: "/images/produce/red-chilli-powder.jpg", dietTag: "veg", featured: true },
+  { name: "Turmeric Powder", categorySlug: "spices", price: 120, unit: "250 Grams", description: "Farm-fresh, high-curcumin turmeric.", image: "/images/produce/turmeric-powder.jpg", dietTag: "veg" },
+  { name: "Coriander Powder", categorySlug: "spices", price: 90, unit: "250 Grams", description: "Freshly ground coriander.", image: "/images/produce/coriander-powder.jpg", dietTag: "veg" },
 ];
 
 /** Default business-rule discount rules seeded into discount_rules. */

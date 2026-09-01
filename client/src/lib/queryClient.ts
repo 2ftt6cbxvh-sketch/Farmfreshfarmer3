@@ -2,12 +2,120 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 export const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
+const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
+  // Spices & Powders
+  "turmeric": "/images/produce/turmeric-powder.jpg",
+  "pasupu": "/images/produce/turmeric-powder.jpg",
+  "red chilli": "/images/produce/red-chilli-powder.jpg",
+  "chilli powder": "/images/produce/red-chilli-powder.jpg",
+  "karam": "/images/produce/red-chilli-powder.jpg",
+  "coriander powder": "/images/produce/coriander-powder.jpg",
+  "dhaniyala": "/images/produce/coriander-powder.jpg",
+
+  // Pulses & Dals
+  "toor dal": "/images/produce/toor-dal.jpg",
+  "kandi pappu": "/images/produce/toor-dal.jpg",
+  "kandi": "/images/produce/toor-dal.jpg",
+  "moong dal": "/images/produce/moong-dal.jpg",
+  "pesara pappu": "/images/produce/moong-dal.jpg",
+  "pesara": "/images/produce/moong-dal.jpg",
+  "chana dal": "/images/produce/chana-dal.jpg",
+  "senagapappu": "/images/produce/chana-dal.jpg",
+  "senaga": "/images/produce/chana-dal.jpg",
+
+  // Millets
+  "foxtail millet": "/images/produce/foxtail-millet.jpg",
+  "korralu": "/images/produce/foxtail-millet.jpg",
+  "korra": "/images/produce/foxtail-millet.jpg",
+  "pearl millet": "/images/produce/pearl-millet.jpg",
+  "sajjalu": "/images/produce/pearl-millet.jpg",
+  "bajra": "/images/produce/pearl-millet.jpg",
+  "finger millet": "/images/produce/finger-millet.jpg",
+  "ragi": "/images/produce/finger-millet.jpg",
+  "ragulu": "/images/produce/finger-millet.jpg",
+
+  // Pickles (Veg & Non-Veg)
+  "mango pickle": "/images/produce/mango-pickle.jpg",
+  "avakaya": "/images/produce/mango-pickle.jpg",
+  "lemon pickle": "/images/produce/lemon-pickle.jpg",
+  "nimmakaya": "/images/produce/lemon-pickle.jpg",
+  "gongura pickle": "/images/produce/gongura-pickle.jpg",
+  "gongura": "/images/produce/gongura-pickle.jpg",
+  "chicken pickle": "/images/produce/chicken-pickle.jpg",
+  "mutton pickle": "/images/produce/mutton-pickle.jpg",
+  "prawn pickle": "/images/produce/prawn-pickle.jpg",
+  "royyala": "/images/produce/prawn-pickle.jpg",
+
+  // Sweets & Namkeen
+  "boondi laddu": "/images/p-laddu.jpg",
+  "laddu": "/images/p-laddu.jpg",
+  "kaju katli": "/images/produce/kaju-katli.jpg",
+  "mysore pak": "/images/produce/mysore-pak.jpg",
+  "special mixture": "/images/p-mixture.jpg",
+  "mixture": "/images/p-mixture.jpg",
+  "murukku": "/images/produce/murukku.jpg",
+  "janthikalu": "/images/produce/murukku.jpg",
+
+  // Fresh Farm Produce (Vegetables & Fruits)
+  "tomato": "/images/p-tomato.jpg",
+  "tamota": "/images/p-tomato.jpg",
+  "carrot": "/images/produce/carrots.jpg",
+  "carrots": "/images/produce/carrots.jpg",
+  "bottle gourd": "/images/produce/bottlegourd.jpg",
+  "bottlegourd": "/images/produce/bottlegourd.jpg",
+  "sorakaya": "/images/produce/bottlegourd.jpg",
+  "bitter gourd": "/images/produce/bitter-gourd.jpg",
+  "kakarakaya": "/images/produce/bitter-gourd.jpg",
+  "ridge gourd": "/images/produce/ridge-gourd.jpg",
+  "beerakaya": "/images/produce/ridge-gourd.jpg",
+  "tindora": "/images/produce/tindora.jpg",
+  "dondakaya": "/images/produce/tindora.jpg",
+  "purple brinjal": "/images/produce/purple-brinjal.jpg",
+  "green brinjal": "/images/produce/green-brinjal.jpg",
+  "green chilli": "/images/produce/green-chilli.jpg",
+  "garlic": "/images/produce/garlic.jpg",
+  "vellulli": "/images/produce/garlic.jpg",
+  "ginger": "/images/produce/ginger.jpg",
+  "allam": "/images/produce/ginger.jpg",
+  "weekly fresh box": "/images/produce/weekly-fresh-box.jpg",
+  "alphonso mango": "/images/p-mango.jpg",
+  "pomegranate": "/images/produce/pomegranate.jpg",
+  "danimma": "/images/produce/pomegranate.jpg",
+  "papaya": "/images/produce/papaya.jpg",
+  "boppayi": "/images/produce/papaya.jpg",
+  "pineapple": "/images/produce/pineapple.jpg",
+  "anasa": "/images/produce/pineapple.jpg",
+  "muskmelon": "/images/produce/muskmelon.jpg",
+  "kharbuja": "/images/produce/muskmelon.jpg",
+  "guava": "/images/produce/guava.jpg",
+  "jamakaya": "/images/produce/guava.jpg",
+  "dragon fruit": "/images/produce/dragon-fruit.jpg",
+  "custard apple": "/images/produce/custard-apple.jpg",
+  "sitaphal": "/images/produce/custard-apple.jpg",
+};
+
 // Resolve an image path so it works both locally and after deployment.
-// Local served images live at /images/... ; after deploy they are served
-// through the same backend proxy as the API (API_BASE). Data URLs (uploaded
-// images stored as base64) and absolute http(s) URLs are returned unchanged.
-export function imgUrl(src?: string | null): string {
-  if (!src) return "";
+export function imgUrl(src?: string | null, productName?: string): string {
+  if (productName) {
+    const norm = productName.toLowerCase().trim();
+    for (const [key, path] of Object.entries(PRODUCT_ACCURATE_IMAGE_MAP)) {
+      if (norm.includes(key) || key.includes(norm)) {
+        return path;
+      }
+    }
+  }
+
+  if (!src) return "/images/cat-vegetables.jpg";
+
+  // If pointing to a generic category fallback, check if we can map by product name or replace
+  if (src.includes("cat-spices.jpg")) return "/images/produce/turmeric-powder.jpg";
+  if (src.includes("cat-pulses.jpg")) return "/images/produce/toor-dal.jpg";
+  if (src.includes("cat-millets.jpg")) return "/images/produce/foxtail-millet.jpg";
+  if (src.includes("cat-pickle-nonveg.jpg")) return "/images/produce/chicken-pickle.jpg";
+  if (src.includes("cat-pickle-veg.jpg")) return "/images/produce/mango-pickle.jpg";
+  if (src.includes("cat-sweets.jpg")) return "/images/produce/mysore-pak.jpg";
+  if (src.includes("cat-namkeen.jpg")) return "/images/produce/murukku.jpg";
+
   if (src.startsWith("data:") || src.startsWith("http://") || src.startsWith("https://")) {
     return src;
   }

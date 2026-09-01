@@ -18,15 +18,15 @@ import type { AnnouncementItem } from "@/components/NotificationBell";
 import { usePersonalizedRecommendations, clearActiveRecommendationFilters } from "@/lib/recommendation-store";
 
 const CAT_IMAGES: Record<string, string> = {
-  fruits: "/images/cat-fruits.jpg",
-  vegetables: "/images/cat-vegetables.jpg",
-  "homemade-sweets": "/images/cat-sweets.jpg",
-  namkeen: "/images/cat-namkeen.jpg",
-  "pickles-veg": "/images/cat-pickle-veg.jpg",
-  "pickles-non-veg": "/images/cat-pickle-nonveg.jpg",
-  millets: "/images/cat-millets.jpg",
-  pulses: "/images/cat-pulses.jpg",
-  spices: "/images/cat-spices.jpg",
+  fruits: "/images/produce/pomegranate.jpg",
+  vegetables: "/images/produce/weekly-fresh-box.jpg",
+  "homemade-sweets": "/images/produce/mysore-pak.jpg",
+  namkeen: "/images/produce/murukku.jpg",
+  "pickles-veg": "/images/produce/mango-pickle.jpg",
+  "pickles-non-veg": "/images/produce/chicken-pickle.jpg",
+  millets: "/images/produce/foxtail-millet.jpg",
+  pulses: "/images/produce/toor-dal.jpg",
+  spices: "/images/produce/turmeric-powder.jpg",
 };
 
 import {

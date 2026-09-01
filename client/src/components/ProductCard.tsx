@@ -128,7 +128,7 @@ export function ProductCard({ product }: { product: Product }) {
         >
           {product.image && !imgFailed ? (
             <img
-              src={imgUrl(product.image)}
+              src={imgUrl(product.image, product.name)}
               alt={product.name}
               loading="lazy"
               decoding="async"

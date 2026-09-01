@@ -709,7 +709,7 @@ export default function Cart() {
                 {items.map((i) => (
                   <div key={`${i.productId}-${i.unit}`} className="py-3.5 first:pt-0 last:pb-0 flex gap-3.5 sm:gap-4 items-start" data-testid={`cart-item-${i.productId}`}>
                     <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl overflow-hidden bg-secondary border border-card-border mt-0.5">
-                      {i.image ? <img src={imgUrl(i.image)} alt={i.name} className="h-full w-full object-cover" /> : null}
+                      {i.image ? <img src={imgUrl(i.image, i.name)} alt={i.name} className="h-full w-full object-cover" /> : null}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">

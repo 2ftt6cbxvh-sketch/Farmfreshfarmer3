@@ -169,7 +169,7 @@ export default function ProductDetail() {
           <div className="rounded-3xl overflow-hidden border border-emerald-500/20 bg-card aspect-square shadow-xl relative group w-full max-w-full">
             {product.image && !imgFailed ? (
               <img
-                src={imgUrl(product.image)}
+                src={imgUrl(product.image, product.name)}
                 alt={product.name}
                 fetchPriority="high"
                 decoding="async"
