@@ -215,8 +215,14 @@ export const productStore = {
   },
   async create(p: InsertProduct) {
     const nameTe = (p.nameTe && p.nameTe.trim()) ? p.nameTe.trim() : resolveTeluguProductName(p.name, p.categorySlug);
+    let resolvedImage = p.image;
+    if (!resolvedImage || resolvedImage.includes("cat-") || resolvedImage.trim() === "") {
+      const { resolveStudioHeroImage } = await import("./services/product-ai-studio");
+      resolvedImage = resolveStudioHeroImage(p.name, p.categorySlug);
+    }
     const [r] = await db.insert(products).values({
       ...p,
+      image: resolvedImage,
       nameTe,
       price: String(p.price),
       discountPercent: p.discountPercent != null ? String(p.discountPercent) : "0",
@@ -229,6 +235,12 @@ export const productStore = {
     if (p.discountPercent != null) patch.discountPercent = String(p.discountPercent);
     if (p.name && (!p.nameTe || !p.nameTe.trim())) {
       patch.nameTe = resolveTeluguProductName(p.name, p.categorySlug);
+    }
+    if (!patch.image || patch.image.includes("cat-") || patch.image.trim() === "") {
+      if (p.name || p.categorySlug) {
+        const { resolveStudioHeroImage } = await import("./services/product-ai-studio");
+        patch.image = resolveStudioHeroImage(p.name || "", p.categorySlug || "general");
+      }
     }
     const [r] = await db.update(products).set(patch).where(eq(products.id, id)).returning();
     return r;
