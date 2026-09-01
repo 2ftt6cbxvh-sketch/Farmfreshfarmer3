@@ -156,7 +156,7 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 40, name: "Coriander Powder", categorySlug: "spices", price: "90.00", unit: "250 Grams", image: "/images/produce/coriander-powder.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Freshly ground coriander.", active: true, approvalStatus: "approved" },
 ];
 
-const CATALOG_VERSION_KEY = "fff_catalog_version_v10_flux";
+const CATALOG_VERSION_KEY = "fff_catalog_version_v12_macro";
 
 export function getInitialCategories(): Category[] {
   if (typeof window === "undefined") return SEED_CATEGORIES;

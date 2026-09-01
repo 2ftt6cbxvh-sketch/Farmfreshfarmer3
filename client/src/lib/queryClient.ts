@@ -31,8 +31,16 @@ const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
   "bananas": "/images/produce/bananas.jpg",
   "banana": "/images/produce/bananas.jpg",
   "arati": "/images/produce/bananas.jpg",
+  "royal gala apples": "/images/produce/apples.jpg",
+  "royal gala": "/images/produce/apples.jpg",
+  "apples": "/images/produce/apples.jpg",
+  "apple": "/images/produce/apples.jpg",
+  "yapil": "/images/produce/apples.jpg",
 
   // Vegetables
+  "capsicum": "/images/produce/capsicum.jpg",
+  "shimla mirchi": "/images/produce/capsicum.jpg",
+  "bell pepper": "/images/produce/capsicum.jpg",
   "farm tomatoes": "/images/produce/tomatoes.jpg",
   "tomatoes": "/images/produce/tomatoes.jpg",
   "tomato": "/images/produce/tomatoes.jpg",
@@ -149,7 +157,7 @@ export function imgUrl(src?: string | null, productName?: string): string {
     return targetSrc;
   }
   const path = targetSrc.startsWith("/") ? targetSrc : `/${targetSrc}`;
-  return `${API_BASE}${path}?v=flux3_10`;
+  return `${API_BASE}${path}?v=macro_2026_09_01_v12`;
 }
 
 async function throwIfResNotOk(res: Response) {
