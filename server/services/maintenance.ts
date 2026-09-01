@@ -20,7 +20,7 @@ export interface MaintenanceStatus {
 
 let cachedStatus: MaintenanceStatus | null = null;
 let cacheExpiry = 0;
-const CACHE_TTL_MS = 10_000;
+const CACHE_TTL_MS = 3_000;
 
 export async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
   const now = Date.now();

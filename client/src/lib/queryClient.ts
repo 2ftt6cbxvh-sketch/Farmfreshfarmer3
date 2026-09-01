@@ -27,6 +27,9 @@ async function throwIfResNotOk(res: Response) {
       try {
         const parsed = JSON.parse(text);
         if (parsed.maintenance) {
+          try {
+            localStorage.setItem("farmfresh_maintenance_state", JSON.stringify(parsed));
+          } catch {}
           window.dispatchEvent(new CustomEvent("farmfresh:maintenance_active", { detail: parsed }));
         }
       } catch {}

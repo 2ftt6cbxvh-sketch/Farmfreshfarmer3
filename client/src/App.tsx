@@ -478,13 +478,25 @@ function AppContent() {
     estimatedEnd?: string | null;
     estimatedMinutes?: number | null;
     allowAdminBypass?: boolean;
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const cached = localStorage.getItem("farmfresh_maintenance_state");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed?.active ? parsed : null;
+      }
+    } catch {}
+    return null;
+  });
 
   useEffect(() => {
     const checkPlatformStatus = async () => {
       try {
         // 1. Check Lockdown status
-        const res = await fetch("/api/delivery/status");
+        const res = await fetch("/api/delivery/status", {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
         if (res.status === 423) {
           const data = await res.json();
           setLockdownActive(true);
@@ -499,11 +511,24 @@ function AppContent() {
           }
         }
 
-        // 2. Check Maintenance status
-        const maintRes = await fetch("/api/maintenance/status");
+        // 2. Check Maintenance status with fresh cache-busting
+        const maintRes = await fetch("/api/maintenance/status?_t=" + Date.now(), {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
+        });
         if (maintRes.ok) {
           const mData = await maintRes.json();
-          setMaintenanceData(mData);
+          if (mData?.active) {
+            setMaintenanceData(mData);
+            try {
+              localStorage.setItem("farmfresh_maintenance_state", JSON.stringify(mData));
+            } catch {}
+          } else {
+            setMaintenanceData(null);
+            try {
+              localStorage.removeItem("farmfresh_maintenance_state");
+            } catch {}
+          }
         }
       } catch {
         // ignore network error
@@ -511,16 +536,37 @@ function AppContent() {
     };
 
     checkPlatformStatus();
-    // Balanced 30s background check (instant on tab visibility & event-driven)
-    const interval = setInterval(checkPlatformStatus, 30000);
+    // High-responsiveness 6s background check (instant on tab visibility & event-driven)
+    const interval = setInterval(checkPlatformStatus, 6000);
 
     // Instant event listeners for zero-latency overlay trigger
     const onMaintenanceActive = (e: any) => {
       if (e?.detail) {
-        setMaintenanceData(e.detail);
+        if (e.detail.active) {
+          setMaintenanceData(e.detail);
+          try {
+            localStorage.setItem("farmfresh_maintenance_state", JSON.stringify(e.detail));
+          } catch {}
+        } else {
+          setMaintenanceData(null);
+          try {
+            localStorage.removeItem("farmfresh_maintenance_state");
+          } catch {}
+        }
       }
     };
     window.addEventListener("farmfresh:maintenance_active", onMaintenanceActive);
+
+    // Cross-tab immediate synchronization
+    const onStorageChange = (e: StorageEvent) => {
+      if (e.key === "farmfresh_maintenance_state") {
+        try {
+          const parsed = e.newValue ? JSON.parse(e.newValue) : null;
+          setMaintenanceData(parsed?.active ? parsed : null);
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorageChange);
 
     const onVisibility = () => {
       if (document.visibilityState === "visible") checkPlatformStatus();
@@ -530,6 +576,7 @@ function AppContent() {
     return () => {
       clearInterval(interval);
       window.removeEventListener("farmfresh:maintenance_active", onMaintenanceActive);
+      window.removeEventListener("storage", onStorageChange);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);

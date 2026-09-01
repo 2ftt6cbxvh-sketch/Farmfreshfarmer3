@@ -2991,6 +2991,9 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   /* ===================== MAINTENANCE & OPERATIONS CONTROL ==================== */
   /** GET /api/maintenance/status — Public maintenance status */
   app.get("/api/maintenance/status", h(async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const status = await getMaintenanceStatus();
     res.json(status);
   }));
