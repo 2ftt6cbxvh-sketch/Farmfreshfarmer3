@@ -197,21 +197,23 @@ export async function resolveLines(
     }
 
     unitPrice = Number(i.price) && Number(i.price) > 0 && Math.abs(Number(i.price) - rawPrice) < 0.01 ? Number(i.price) : rawPrice;
-    const gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
+    
+    // 1. Taxable Base is just Unit Price × Quantity
+    const baseAmount = Math.round(unitPrice * qty * 100) / 100;
 
-    const itemLineTotal = Math.round(unitPrice * qty * 100) / 100;
+    // 2. Total GST is percentage of taxable total
+    const isZeroGst = p.categorySlug?.includes("fruit") || p.categorySlug?.includes("veg");
+    const gstPercent = isZeroGst ? 0 : (p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent);
     const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
     const sgstPercent = sgstEnabled ? round2(gstPercent / 2) : 0;
     const effectiveGstPercent = round2(cgstPercent + sgstPercent);
 
-    // Standard Retail GST Extraction (All Catalog Prices are Inclusive of Taxes)
-    const baseAmount = effectiveGstPercent > 0
-      ? Math.round((itemLineTotal / (1 + effectiveGstPercent / 100)) * 100) / 100
-      : itemLineTotal;
-    const gstAmount = Math.round((itemLineTotal - baseAmount) * 100) / 100;
-    const cgstAmount = Math.round((gstAmount / 2) * 100) / 100;
-    const sgstAmount = Math.round((gstAmount - cgstAmount) * 100) / 100;
-    const itemSubtotal = itemLineTotal;
+    const cgstAmount = Math.round(baseAmount * (cgstPercent / 100) * 100) / 100;
+    const sgstAmount = Math.round(baseAmount * (sgstPercent / 100) * 100) / 100;
+    const gstAmount = Math.round((cgstAmount + sgstAmount) * 100) / 100;
+
+    // 3. Item subtotal is Taxable Base + Total GST
+    const itemSubtotal = Math.round((baseAmount + gstAmount) * 100) / 100;
 
     taxableSubtotal = round2(taxableSubtotal + baseAmount);
     totalGst = round2(totalGst + gstAmount);

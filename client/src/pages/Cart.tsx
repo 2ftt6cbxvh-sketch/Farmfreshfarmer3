@@ -695,14 +695,15 @@ export default function Cart() {
                         }
                         const disc = prod ? Number(prod.discountPercent || 0) : 0;
                         const effUnitPrice = disc > 0 ? (baseP * (1 - disc / 100)) : baseP;
-                        const itemLineTotal = Math.round(effUnitPrice * i.qty);
 
-                        const gstPct = prod?.gstPercent != null ? Number(prod.gstPercent) : 5;
+                        const isZeroGst = prod?.categorySlug?.includes("fruit") || prod?.categorySlug?.includes("veg");
+                        const gstPct = isZeroGst ? 0 : (prod?.gstPercent != null ? Number(prod.gstPercent) : 5);
                         const hasGst = gstPct > 0;
-                        const taxableItemBase = hasGst ? Math.round((itemLineTotal / (1 + gstPct / 100)) * 100) / 100 : itemLineTotal;
-                        const totalItemGst = Math.round((itemLineTotal - taxableItemBase) * 100) / 100;
+                        const taxableItemBase = Math.round(effUnitPrice * i.qty * 100) / 100;
+                        const totalItemGst = hasGst ? Math.round((taxableItemBase * (gstPct / 100)) * 100) / 100 : 0;
+                        const itemLineTotal = Math.round((taxableItemBase + totalItemGst) * 100) / 100;
                         const itemCgst = Math.round((totalItemGst / 2) * 100) / 100;
-                        const itemSgst = Math.round((totalItemGst / 2) * 100) / 100;
+                        const itemSgst = Math.round((totalItemGst - itemCgst) * 100) / 100;
 
                         return (
                           <div className="mt-1 space-y-1.5">
@@ -728,14 +729,14 @@ export default function Cart() {
                             </div>
 
                             {/* 🏷️ Item-Level Price & GST Breakdown Details */}
-                            <div className="text-[10.5px] text-muted-foreground bg-emerald-500/[0.06] rounded-lg px-2.5 py-1 border border-emerald-500/20 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <div className="text-[10.5px] text-muted-foreground bg-emerald-500/[0.05] rounded-lg px-2.5 py-1 border border-emerald-500/20 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                               <span>Taxable Base: <strong className="text-foreground font-mono">{formatINR(taxableItemBase)}</strong></span>
                               {hasGst ? (
-                                <span className="text-emerald-400">
+                                <span className="text-emerald-400 font-medium">
                                   • GST ({gstPct}%): <strong className="font-mono">{formatINR(totalItemGst)}</strong> (CGST {formatINR(itemCgst)} + SGST {formatINR(itemSgst)})
                                 </span>
                               ) : (
-                                <span className="text-emerald-400 font-bold">• 0% GST (Exempt Produce)</span>
+                                <span className="text-emerald-400 font-bold">• 0% GST (Fresh Farm Produce)</span>
                               )}
                             </div>
                           </div>
@@ -1122,9 +1123,9 @@ export default function Cart() {
                       const prod = (allProducts || []).find((p: any) => p.id === it.productId);
                       const isZeroGst = prod?.categorySlug?.includes("fruit") || prod?.categorySlug?.includes("veg");
                       const gstRate = isZeroGst ? 0 : (prod?.gstPercent != null ? Number(prod.gstPercent) : 5);
-                      const lineTot = Math.round(Number(it.price) * it.qty * 100) / 100;
-                      const lineBase = gstRate > 0 ? Math.round((lineTot / (1 + gstRate / 100)) * 100) / 100 : lineTot;
-                      const lineGst = Math.round((lineTot - lineBase) * 100) / 100;
+                      const lineBase = Math.round(Number(it.price) * it.qty * 100) / 100;
+                      const lineGst = gstRate > 0 ? Math.round((lineBase * (gstRate / 100)) * 100) / 100 : 0;
+                      const lineTot = Math.round((lineBase + lineGst) * 100) / 100;
 
                       return (
                         <div key={`${it.productId}-${it.unit}-${idx}`} className="pt-1.5 first:pt-0">
