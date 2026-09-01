@@ -196,24 +196,27 @@ export async function resolveLines(
       rawPrice = Number(i.price);
     }
 
-    const discPercent = Number(p.discountPercent) || 0;
-    unitPrice = discPercent > 0 ? Math.round(rawPrice * (1 - discPercent / 100)) : Math.round(rawPrice);
+    unitPrice = Number(i.price) && Number(i.price) > 0 && Math.abs(Number(i.price) - rawPrice) < 0.01 ? Number(i.price) : rawPrice;
     const gstPercent = p.gstPercent != null ? Number(p.gstPercent) : defaultGstPercent;
 
-    const baseAmount = Math.round(unitPrice * qty);
+    const itemLineTotal = Math.round(unitPrice * qty * 100) / 100;
     const cgstPercent = cgstEnabled ? round2(gstPercent / 2) : 0;
     const sgstPercent = sgstEnabled ? round2(gstPercent / 2) : 0;
     const effectiveGstPercent = round2(cgstPercent + sgstPercent);
 
-    const cgstAmount = Math.round(baseAmount * (cgstPercent / 100) * 100) / 100;
-    const sgstAmount = Math.round(baseAmount * (sgstPercent / 100) * 100) / 100;
-    const gstAmount = Math.round((cgstAmount + sgstAmount) * 100) / 100;
-    const itemSubtotal = Math.round(baseAmount + gstAmount);
+    // Standard Retail GST Extraction (All Catalog Prices are Inclusive of Taxes)
+    const baseAmount = effectiveGstPercent > 0
+      ? Math.round((itemLineTotal / (1 + effectiveGstPercent / 100)) * 100) / 100
+      : itemLineTotal;
+    const gstAmount = Math.round((itemLineTotal - baseAmount) * 100) / 100;
+    const cgstAmount = Math.round((gstAmount / 2) * 100) / 100;
+    const sgstAmount = Math.round((gstAmount - cgstAmount) * 100) / 100;
+    const itemSubtotal = itemLineTotal;
 
-    taxableSubtotal = Math.round(taxableSubtotal + baseAmount);
-    totalGst = Math.round((totalGst + gstAmount) * 100) / 100;
-    totalCgst = Math.round((totalCgst + cgstAmount) * 100) / 100;
-    totalSgst = Math.round((totalSgst + sgstAmount) * 100) / 100;
+    taxableSubtotal = round2(taxableSubtotal + baseAmount);
+    totalGst = round2(totalGst + gstAmount);
+    totalCgst = round2(totalCgst + cgstAmount);
+    totalSgst = round2(totalSgst + sgstAmount);
 
     lines.push({
       productId: pId,

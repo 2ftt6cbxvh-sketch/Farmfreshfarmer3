@@ -404,7 +404,9 @@ export default function Cart() {
     return sum + Math.round(basePrice * item.qty);
   }, 0);
 
-  const displaySubtotal = quote ? Number(quote.subtotal) : subtotal;
+  // Exact arithmetic subtotal across all basket items
+  const exactCartSubtotal = items.reduce((sum, it) => sum + (Number(it.price) || 0) * it.qty, 0);
+  const displaySubtotal = quote && Number(quote.subtotal) > 0 ? Number(quote.subtotal) : exactCartSubtotal;
   const produceDiscountSavings = Math.max(0, grossMrpTotal - displaySubtotal);
   const couponDiscountSavings = (coupon || (quote && Number((quote as any).couponDiscount) > 0))
     ? (quote && (quote as any).couponDiscount !== undefined ? Number((quote as any).couponDiscount) : coupon ? Math.round(displaySubtotal * (coupon.discountPercent / 100)) : 0)
@@ -416,10 +418,10 @@ export default function Cart() {
 
   const totalAllSavings = produceDiscountSavings + couponDiscountSavings + firstOrderSavings + referralDiscountSavings + referralRewardSavings + starLoyaltySavings + totalBundleSavings;
 
-  const taxableBase = quote ? Number(quote.taxableSubtotal) : Math.round(displaySubtotal / 1.05);
-  const totalGst = quote ? Number(quote.totalGst) : Math.round(displaySubtotal - taxableBase);
-  const cgst = quote ? Number(quote.cgst) : Math.round(totalGst / 2);
-  const sgst = quote ? Number(quote.sgst) : Math.round(totalGst / 2);
+  const taxableBase = quote ? Number(quote.taxableSubtotal) : Math.round((displaySubtotal / 1.05) * 100) / 100;
+  const totalGst = quote ? Number(quote.totalGst) : Math.round((displaySubtotal - taxableBase) * 100) / 100;
+  const cgst = quote ? Number(quote.cgst) : Math.round((totalGst / 2) * 100) / 100;
+  const sgst = quote ? Number(quote.sgst) : Math.round((totalGst - cgst) * 100) / 100;
 
   const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
   const isFreeDelivery = displaySubtotal >= freeDeliveryThreshold;
@@ -434,9 +436,8 @@ export default function Cart() {
     ? 0
     : (quote ? Number(quote.deliveryFee) : fallbackDeliveryFee);
 
-  const displayTotal = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
-    ? (quote ? Math.round(Number(quote.total) - Number(quote.deliveryFee)) : Math.round(displaySubtotal - couponDiscountSavings))
-    : (quote ? Math.round(Number(quote.total)) : Math.round(displaySubtotal - couponDiscountSavings + fallbackDeliveryFee));
+  const totalDiscounts = couponDiscountSavings + firstOrderSavings + referralDiscountSavings + referralRewardSavings + starLoyaltySavings;
+  const displayTotal = Math.max(0, Math.round(displaySubtotal - totalDiscounts + effectiveDeliveryFee));
 
   const applyCoupon = useMutation({
     mutationFn: () => apiGet<CouponResult>(`/api/coupons/validate?code=${encodeURIComponent(couponInput.trim())}&subtotal=${subtotal}`),
@@ -1108,6 +1109,39 @@ export default function Cart() {
                 <div className="flex justify-between items-center text-foreground font-black text-sm pt-1 border-t border-dashed border-border/60">
                   <span>Items Subtotal</span>
                   <span className="font-mono text-emerald-400 font-black">{formatINR(displaySubtotal)}</span>
+                </div>
+
+                {/* 📋 Line-by-Line Item Price & GST Breakdown Details */}
+                <div className="rounded-xl border border-card-border bg-secondary/30 p-2.5 space-y-2 text-[11px]">
+                  <div className="font-bold text-foreground text-[11px] flex items-center justify-between border-b border-card-border pb-1.5">
+                    <span>Itemized Price Breakdown</span>
+                    <span className="text-[10px] text-muted-foreground">({items.length} items)</span>
+                  </div>
+                  <div className="space-y-1.5 divide-y divide-border/40">
+                    {items.map((it, idx) => {
+                      const prod = (allProducts || []).find((p: any) => p.id === it.productId);
+                      const isZeroGst = prod?.categorySlug?.includes("fruit") || prod?.categorySlug?.includes("veg");
+                      const gstRate = isZeroGst ? 0 : (prod?.gstPercent != null ? Number(prod.gstPercent) : 5);
+                      const lineTot = Math.round(Number(it.price) * it.qty * 100) / 100;
+                      const lineBase = gstRate > 0 ? Math.round((lineTot / (1 + gstRate / 100)) * 100) / 100 : lineTot;
+                      const lineGst = Math.round((lineTot - lineBase) * 100) / 100;
+
+                      return (
+                        <div key={`${it.productId}-${it.unit}-${idx}`} className="pt-1.5 first:pt-0">
+                          <div className="flex justify-between items-start gap-1">
+                            <span className="font-semibold text-foreground truncate max-w-[170px]">
+                              {it.name} {it.unit ? <span className="text-muted-foreground font-normal">({it.unit})</span> : ""}
+                            </span>
+                            <span className="font-mono font-bold text-foreground shrink-0">{formatINR(lineTot)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono mt-0.5">
+                            <span>{formatINR(Number(it.price))} × {it.qty}</span>
+                            <span>Base: {formatINR(lineBase)} + {gstRate > 0 ? `GST (${gstRate}%): ${formatINR(lineGst)}` : "0% GST"}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* 🏛️ Transparent Formal GST & Taxable Value Breakdown Box */}

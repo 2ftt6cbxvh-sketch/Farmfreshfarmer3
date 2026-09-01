@@ -161,14 +161,18 @@ async function migrateCi() {
     if (prods.rows && prods.rows.length > 0) {
       for (const row of prods.rows as any[]) {
         const uInfo = detectProduceUnitType(row.name, row.category_slug, row.unit);
-        const matrix = generateProduceQuantityTiersMatrix(row.name, row.price, row.unit || uInfo.defaultUnit, row.category_slug);
+        let activeUnit = row.unit || uInfo.defaultUnit;
+        if (row.category_slug?.includes("pickle") && (activeUnit.toLowerCase().includes("bunch") || activeUnit.toLowerCase().includes("piece"))) {
+          activeUnit = "500 Grams";
+        }
+        const matrix = generateProduceQuantityTiersMatrix(row.name, row.price, activeUnit, row.category_slug);
         const heroImg = resolveStudioHeroImage(row.name, row.category_slug);
         const teName = resolveTeluguProductName(row.name, row.category_slug);
 
         await db.execute(sql`
           UPDATE products
           SET quantity_tiers = ${JSON.stringify(matrix)},
-              unit = ${row.unit || uInfo.defaultUnit},
+              unit = ${activeUnit},
               image = ${heroImg},
               name_te = COALESCE(${teName}, name_te)
           WHERE id = ${row.id}
