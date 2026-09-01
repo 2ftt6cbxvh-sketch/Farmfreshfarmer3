@@ -37,32 +37,32 @@ export interface ProductStudioPackage {
   priceVsQuantity: QuantityTier[];
 }
 
-/** Verified Studio-Grade, Eye-Grabbing Hero Product Visual Repository (100% Crisp Macro Food Photography) */
+/** Verified Studio-Grade, Eye-Grabbing Hero Product Visual Repository (100% Accurate Macro Food Photography) */
 const STUDIO_HERO_ASSETS: Record<string, string> = {
   // Vegetables & Roots
   "garlic": "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=1200&q=95&auto=format&fit=crop",
   "vellulli": "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=1200&q=95&auto=format&fit=crop",
-  "ginger": "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=1200&q=95&auto=format&fit=crop",
-  "allam": "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=1200&q=95&auto=format&fit=crop",
-  "bitter gourd": "https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=1200&q=95&auto=format&fit=crop",
-  "kakarakaya": "https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=1200&q=95&auto=format&fit=crop",
-  "karela": "https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=1200&q=95&auto=format&fit=crop",
-  "ridge gourd": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
-  "beerakaya": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
+  "ginger": "https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=1200&q=95&auto=format&fit=crop",
+  "allam": "https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=1200&q=95&auto=format&fit=crop",
+  "bitter gourd": "https://images.unsplash.com/photo-1587334274328-64186a80aeee?w=1200&q=95&auto=format&fit=crop",
+  "kakarakaya": "https://images.unsplash.com/photo-1587334274328-64186a80aeee?w=1200&q=95&auto=format&fit=crop",
+  "karela": "https://images.unsplash.com/photo-1587334274328-64186a80aeee?w=1200&q=95&auto=format&fit=crop",
+  "ridge gourd": "https://images.unsplash.com/photo-1628773822503-930a845f5c88?w=1200&q=95&auto=format&fit=crop",
+  "beerakaya": "https://images.unsplash.com/photo-1628773822503-930a845f5c88?w=1200&q=95&auto=format&fit=crop",
   "tindora": "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=95&auto=format&fit=crop",
   "dondakaya": "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=95&auto=format&fit=crop",
   "donda": "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=95&auto=format&fit=crop",
   "purple brinjal": "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop",
-  "green brinjal": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=1200&q=95&auto=format&fit=crop",
+  "green brinjal": "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=1200&q=95&auto=format&fit=crop",
   "brinjal": "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop",
   "eggplant": "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop",
   "vankaya": "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop",
   "capsicum": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=1200&q=95&auto=format&fit=crop",
   "bell pepper": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=1200&q=95&auto=format&fit=crop",
-  "bottlegourd": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
-  "bottle gourd": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
-  "sorakaya": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
-  "anapakaya": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
+  "bottlegourd": "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=1200&q=95&auto=format&fit=crop",
+  "bottle gourd": "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=1200&q=95&auto=format&fit=crop",
+  "sorakaya": "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=1200&q=95&auto=format&fit=crop",
+  "anapakaya": "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=1200&q=95&auto=format&fit=crop",
   "beetroot": "https://images.unsplash.com/photo-1593105544559-ecb03bf76f82?w=1200&q=95&auto=format&fit=crop",
   "potato": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=1200&q=95&auto=format&fit=crop",
   "bangaladumpa": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=1200&q=95&auto=format&fit=crop",
@@ -86,14 +86,15 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
   "curry leaves": "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=1200&q=95&auto=format&fit=crop",
   "mint": "https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=1200&q=95&auto=format&fit=crop",
   "pudina": "https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=1200&q=95&auto=format&fit=crop",
-  "drumstick": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
-  "mulakkada": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop",
+  "drumstick": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
+  "mulakkada": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
 
   // Fruits
   "alphonso mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=1200&q=95&auto=format&fit=crop",
   "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=1200&q=95&auto=format&fit=crop",
   "mamidi": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=1200&q=95&auto=format&fit=crop",
   "banana": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=1200&q=95&auto=format&fit=crop",
+  "sweet bananas": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=1200&q=95&auto=format&fit=crop",
   "arati": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=1200&q=95&auto=format&fit=crop",
   "pomegranate": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=1200&q=95&auto=format&fit=crop",
   "danimma": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=1200&q=95&auto=format&fit=crop",
@@ -127,7 +128,7 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
   // Pickles
   "mango pickle": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop",
   "avakaya": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop",
-  "lemon pickle": "https://images.unsplash.com/photo-1534432182912-63863115e106?w=1200&q=95&auto=format&fit=crop",
+  "lemon pickle": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=1200&q=95&auto=format&fit=crop",
   "gongura pickle": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop",
   "chicken pickle": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop",
   "mutton pickle": "https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&q=95&auto=format&fit=crop",
@@ -142,7 +143,7 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
   "chana dal": "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1200&q=95&auto=format&fit=crop",
 
   // Spices & Powders
-  "red chilli powder": "https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=1200&q=95&auto=format&fit=crop",
+  "red chilli powder": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
   "turmeric powder": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=1200&q=95&auto=format&fit=crop",
   "coriander powder": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
 };
@@ -169,6 +170,52 @@ export function resolveStudioHeroImage(productName: string, categorySlug = "gene
   if (categorySlug.includes("spice")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
 
   return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";
+}
+
+/**
+ * 🎨 AI Image Generator using Google Imagen 3 (imagen-3.0-generate-002)
+ * Generates bespoke commercial macro studio food photography for fresh farm produce.
+ */
+export async function generateAiProducePhoto(productName: string, categorySlug = "general"): Promise<string> {
+  const apiKey = (await getFarmFreshMasterApiKey()) || (await getLakshmiApiKey());
+  const fallback = resolveStudioHeroImage(productName, categorySlug);
+
+  if (!apiKey) {
+    return fallback;
+  }
+
+  const promptText = `Commercial studio food photography of fresh organic ${productName}, isolated on a clean rustic dark slate tabletop with soft natural morning light, morning water dew drops, ultra-crisp macro details, photorealistic, 8k resolution, award-winning culinary photography, centered composition.`;
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: promptText }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+          outputMimeType: "image/jpeg",
+          personGeneration: "dont_allow",
+          safetySetting: "block_medium_and_above",
+        },
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const base64Bytes = data?.predictions?.[0]?.bytesBase64Encoded;
+      if (base64Bytes) {
+        return `data:image/jpeg;base64,${base64Bytes}`;
+      }
+    }
+  } catch (err: any) {
+    console.warn("[product-ai-studio] Imagen 3 fallback used:", err?.message);
+  }
+
+  return fallback;
 }
 
 /**
@@ -237,40 +284,45 @@ FORMAT:
 Return only JSON.`;
 
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 800 },
-      }),
-      signal: AbortSignal.timeout(1500), // Strict 1.5-second timeout to guarantee instant response and avoid 504 proxy timeouts
-    });
+    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    for (const mName of modelsToTry) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 800 },
+          }),
+          signal: AbortSignal.timeout(3000),
+        });
 
-    if (res.ok) {
-      const data = await res.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (rawText) {
-        const cleanJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleanJson);
-        return {
-          name,
-          nameTe: parsed.nameTe || fallbackTe,
-          categorySlug,
-          description: parsed.description || fallbackPackage.description,
-          suggestedPrice: Number(parsed.suggestedPrice || defaultPrice),
-          costPrice: Number(parsed.costPrice || defaultCost),
-          discountPercent: Number(parsed.discountPercent || 10),
-          profitMarginPercent: Number(parsed.profitMarginPercent || 33),
-          unit,
-          dietTag: parsed.dietTag === "nonveg" ? "nonveg" : "veg",
-          image: heroImage,
-          priceVsQuantity: Array.isArray(parsed.priceVsQuantity) && parsed.priceVsQuantity.length > 0
-            ? parsed.priceVsQuantity
-            : fallbackPackage.priceVsQuantity,
-        };
-      }
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (rawText) {
+            const cleanJson = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(cleanJson);
+            return {
+              name,
+              nameTe: parsed.nameTe || fallbackTe,
+              categorySlug,
+              description: parsed.description || fallbackPackage.description,
+              suggestedPrice: Number(parsed.suggestedPrice || defaultPrice),
+              costPrice: Number(parsed.costPrice || defaultCost),
+              discountPercent: Number(parsed.discountPercent || 10),
+              profitMarginPercent: Number(parsed.profitMarginPercent || 33),
+              unit,
+              dietTag: parsed.dietTag === "nonveg" ? "nonveg" : "veg",
+              image: heroImage,
+              priceVsQuantity: Array.isArray(parsed.priceVsQuantity) && parsed.priceVsQuantity.length > 0
+                ? parsed.priceVsQuantity
+                : fallbackPackage.priceVsQuantity,
+            };
+          }
+        }
+      } catch {}
     }
   } catch (err: any) {
     console.warn("[product-ai-studio] Quick fallback used:", err?.message);

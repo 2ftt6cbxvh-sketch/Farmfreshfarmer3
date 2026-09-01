@@ -306,15 +306,14 @@ export default function AdminProducts() {
   function getClientStudioImage(productName: string, categorySlug = "general"): string {
     const norm = productName.toLowerCase().trim();
     if (norm.includes("garlic") || norm.includes("vellulli")) return "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("ginger") || norm.includes("allam")) return "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("bitter") || norm.includes("kakara") || norm.includes("karela")) return "https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("ridge") || norm.includes("beera")) return "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("ginger") || norm.includes("allam")) return "https://images.unsplash.com/photo-1599940824399-b87987ceb72a?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("bitter") || norm.includes("kakara") || norm.includes("karela")) return "https://images.unsplash.com/photo-1587334274328-64186a80aeee?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("ridge") || norm.includes("beera")) return "https://images.unsplash.com/photo-1628773822503-930a845f5c88?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("tindora") || norm.includes("donda")) return "https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("purple") && (norm.includes("brinjal") || norm.includes("vankaya"))) return "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("green") && (norm.includes("brinjal") || norm.includes("vankaya"))) return "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("green") && (norm.includes("brinjal") || norm.includes("vankaya"))) return "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("brinjal") || norm.includes("eggplant") || norm.includes("vankaya")) return "https://images.unsplash.com/photo-1528825871115-3581a5387919?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("capsicum") || norm.includes("bell pepper") || norm.includes("shimla")) return "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("bottle") || norm.includes("sora") || norm.includes("anapa")) return "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("bottle") || norm.includes("sora") || norm.includes("anapa")) return "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("beetroot")) return "https://images.unsplash.com/photo-1593105544559-ecb03bf76f82?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("potato") || norm.includes("bangala")) return "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("onion") || norm.includes("ulli")) return "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=1200&q=95&auto=format&fit=crop";
@@ -326,7 +325,7 @@ export default function AdminProducts() {
     if (norm.includes("cabbage")) return "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("green chilli") || norm.includes("mirchi")) return "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("cucumber") || norm.includes("dosakaya")) return "https://images.unsplash.com/photo-1604977042946-1eecc30f769e?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("drumstick") || norm.includes("mulakkada")) return "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("drumstick") || norm.includes("mulakkada")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("mango") || norm.includes("mamidi")) return "https://images.unsplash.com/photo-1553279768-865429fa0078?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("banana") || norm.includes("arati")) return "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("pomegranate") || norm.includes("danimma")) return "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=1200&q=95&auto=format&fit=crop";
@@ -336,11 +335,11 @@ export default function AdminProducts() {
     if (norm.includes("pak")) return "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("mixture")) return "https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("murukku") || norm.includes("janthikalu")) return "https://images.unsplash.com/photo-1567337710282-00832b415979?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("lemon pickle")) return "https://images.unsplash.com/photo-1534432182912-63863115e106?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("lemon pickle")) return "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("pickle") || norm.includes("pacchadi") || norm.includes("avakaya")) return "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("millet") || norm.includes("korralu") || norm.includes("ragi") || norm.includes("bajra")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&q=95&auto=format&fit=crop";
     if (norm.includes("dal") || norm.includes("pappu")) return "https://images.unsplash.com/photo-1585994192701-f1a505c8574a?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("chilli") || norm.includes("turmeric") || norm.includes("coriander") || norm.includes("powder")) return "https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("chilli") || norm.includes("turmeric") || norm.includes("coriander") || norm.includes("powder")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
 
     if (categorySlug.includes("fruit")) return "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1200&q=95&auto=format&fit=crop";
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";

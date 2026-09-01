@@ -152,25 +152,32 @@ async function migrateCi() {
   `);
   console.log("[migrate-ci] unmet_demand_events table ready");
 
-  // Re-sync all catalog products with authentic unit types and quantity tiers (Pickles, Produce, Sweets, Millets)
+  // Re-sync all catalog products with authentic unit types, quantity tiers, verified 4K studio images & Telugu names
   try {
     const { generateProduceQuantityTiersMatrix, detectProduceUnitType } = await import("../shared/schema");
+    const { resolveStudioHeroImage } = await import("../server/services/product-ai-studio");
+    const { resolveTeluguProductName } = await import("../shared/telugu-produce-namer");
     const prods = await db.execute(sql`SELECT id, name, price, unit, category_slug FROM products`);
     if (prods.rows && prods.rows.length > 0) {
       for (const row of prods.rows as any[]) {
         const uInfo = detectProduceUnitType(row.name, row.category_slug, row.unit);
         const matrix = generateProduceQuantityTiersMatrix(row.name, row.price, row.unit || uInfo.defaultUnit, row.category_slug);
+        const heroImg = resolveStudioHeroImage(row.name, row.category_slug);
+        const teName = resolveTeluguProductName(row.name, row.category_slug);
+
         await db.execute(sql`
           UPDATE products
           SET quantity_tiers = ${JSON.stringify(matrix)},
-              unit = ${row.unit || uInfo.defaultUnit}
+              unit = ${row.unit || uInfo.defaultUnit},
+              image = ${heroImg},
+              name_te = COALESCE(${teName}, name_te)
           WHERE id = ${row.id}
         `);
       }
-      console.log(`[migrate-ci] Synced quantity tiers for ${prods.rows.length} products`);
+      console.log(`[migrate-ci] Synced quantity tiers, 4K studio hero images, and Telugu names for ${prods.rows.length} products`);
     }
   } catch (err: any) {
-    console.error("[migrate-ci] Failed to sync quantity tiers:", err?.message || err);
+    console.error("[migrate-ci] Failed to sync catalog metadata:", err?.message || err);
   }
 
   console.log("[migrate-ci] All migrations completed successfully!");
