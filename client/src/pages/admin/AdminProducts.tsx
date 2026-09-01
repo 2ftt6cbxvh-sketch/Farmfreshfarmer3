@@ -355,7 +355,8 @@ export default function AdminProducts() {
     if (norm.includes("sajjalu") || norm.includes("pearl millet") || norm.includes("bajra")) return "/images/produce/pearl-millet.jpg";
     if (norm.includes("ragi") || norm.includes("ragulu") || norm.includes("finger millet")) return "/images/produce/finger-millet.jpg";
     if (norm.includes("turmeric") || norm.includes("pasupu")) return "/images/produce/turmeric-powder.jpg";
-    if (norm.includes("chilli") || norm.includes("coriander") || norm.includes("powder")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
+    if (norm.includes("chilli") || norm.includes("karam")) return "/images/produce/red-chilli-powder.jpg";
+    if (norm.includes("coriander") || norm.includes("dhaniyala")) return "/images/produce/coriander-powder.jpg";
 
     if (categorySlug.includes("fruit")) return "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1200&q=95&auto=format&fit=crop";
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";

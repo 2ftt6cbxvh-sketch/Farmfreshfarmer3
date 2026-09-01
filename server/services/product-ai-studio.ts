@@ -169,12 +169,14 @@ const STUDIO_HERO_ASSETS: Record<string, string> = {
   "ragulu": "/images/produce/finger-millet.jpg",
 
   // Spices & Powders
-  "red chilli powder": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
+  "red chilli powder": "/images/produce/red-chilli-powder.jpg",
+  "chilli powder": "/images/produce/red-chilli-powder.jpg",
+  "karam": "/images/produce/red-chilli-powder.jpg",
   "turmeric powder": "/images/produce/turmeric-powder.jpg",
   "turmeric": "/images/produce/turmeric-powder.jpg",
   "pasupu": "/images/produce/turmeric-powder.jpg",
-  "coriander powder": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
-  "dhaniyala podi": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop",
+  "coriander powder": "/images/produce/coriander-powder.jpg",
+  "dhaniyala podi": "/images/produce/coriander-powder.jpg",
 };
 
 /** Resolve an ultra-crisp, eye-grabbing hero studio asset */
