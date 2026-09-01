@@ -225,8 +225,39 @@ export async function generateAiProducePhoto(productName: string, categorySlug =
   }
 
   const promptText = `Award-winning commercial culinary studio food photography of ${specializedSubject}, isolated on a clean rustic dark slate tabletop with soft natural warm lighting, morning water dew drops, ultra-crisp macro details, photorealistic 8k resolution, centered composition. No animals, no artificial elements, no text overlays.`;
+  const negativePrompt = "thali, meal, cooked rice, lunch plate, spoon, fork, human hands, cartoon, 3d render, illustration, drawing, blurry, fish, tap, distorted, low quality, watermark, logo, text overlays";
 
-  // Chitra Kara AI: 3-Tier Multi-Key Pool for Google Imagen with automatic failover
+  // 1. Check Local Mac mini M4 Dedicated AI Server (Fastest, zero cost, ultra-photorealistic)
+  const localSdUrl = process.env.LOCAL_SD_API_URL || "http://127.0.0.1:7860";
+  try {
+    const localRes = await fetch(`${localSdUrl}/sdapi/v1/txt2img`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: promptText,
+        negative_prompt: negativePrompt,
+        width: 1024,
+        height: 1024,
+        steps: 22,
+        cfg_scale: 6.5,
+        sampler_name: "DPM++ 2M Karras",
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (localRes.ok) {
+      const data = await localRes.json();
+      const b64 = data?.images?.[0];
+      if (b64) {
+        const cleanB64 = b64.replace(/^data:image\/[a-z]+;base64,/, "");
+        return `data:image/png;base64,${cleanB64}`;
+      }
+    }
+  } catch {
+    // Local server offline or not ready yet, continue to cloud/fallback
+  }
+
+  // 2. Chitra Kara AI: 3-Tier Multi-Key Pool for Google Imagen with automatic failover
   const imagenKeys = await getImagenApiKeyPool();
   const imageModels = [
     "gemini-3.1-flash-image-preview",
