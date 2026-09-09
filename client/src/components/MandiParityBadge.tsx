@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Scale, Droplets, Info, CheckCircle2, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/queryClient";
@@ -166,17 +167,17 @@ export function MandiParityBadge({
         </div>
       )}
 
-      {/* Transparency Modal Dialog */}
-      {showModal && (
+      {/* Transparency Modal Dialog — rendered via portal to escape card stacking context */}
+      {showModal && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in"
           onClick={(e) => {
             e.stopPropagation();
             setShowModal(false);
           }}
         >
           <div
-            className="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl max-w-sm w-full p-5 relative overflow-hidden"
+            className="bg-card text-card-foreground border border-border rounded-2xl shadow-2xl max-w-sm w-full p-5 relative overflow-hidden animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -287,7 +288,8 @@ export function MandiParityBadge({
               Got it, Close
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
