@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import {
   ShieldCheck, Smartphone, ArrowLeft, RefreshCw, ShieldAlert, KeyRound,
-  Crown, Clock, Eye, EyeOff, Copy, Check, Sparkles, HelpCircle, Lock
+  Crown, Clock, Eye, EyeOff, Sparkles, Lock
 } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
@@ -62,9 +62,7 @@ export default function AdminLogin() {
   const [isEmergency, setIsEmergency] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
 
-  // Authenticator Secret Helper Tooltip/Modal
-  const [showSecretGuide, setShowSecretGuide] = useState(false);
-  const [copiedSecret, setCopiedSecret] = useState(false);
+
   const totpInputRef = useRef<HTMLInputElement>(null);
 
   async function triggerPasskeyVerification(options: any, tempAuthToken: string) {
@@ -307,12 +305,7 @@ export default function AdminLogin() {
     }
   }
 
-  const copySecretToClipboard = () => {
-    navigator.clipboard.writeText("2ANFJJ553AGVMYWS7CZJLG3XJXU3CVSB");
-    setCopiedSecret(true);
-    setTimeout(() => setCopiedSecret(false), 2000);
-    toast({ title: "Secret Copied!", description: "Paste this key into Google Authenticator or Apple Passwords." });
-  };
+
 
   // If already authenticated
   if (
@@ -610,34 +603,10 @@ export default function AdminLogin() {
                     <Clock size={11} className="text-muted-foreground" />
                     <span>30s Rolling Token</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowSecretGuide(!showSecretGuide)}
-                    className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-                  >
-                    <HelpCircle size={11} />
-                    <span>{showSecretGuide ? "Hide Secret Key" : "Need Secret Key?"}</span>
-                  </button>
+                  <span className="text-emerald-400/80 font-medium text-[10px]">
+                    RFC 6238 Standard Authenticator
+                  </span>
                 </div>
-
-                {/* Secret Key Quick Guide */}
-                {showSecretGuide && (
-                  <div className="mt-3 p-3 rounded-xl bg-card border border-card-border text-xs space-y-2 animate-in fade-in">
-                    <p className="text-[11px] text-muted-foreground">
-                      To pair Google Authenticator or Apple Passwords: tap <b>Add Account</b>, choose <b>Manual Key</b>, and paste:
-                    </p>
-                    <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-secondary/80 font-mono text-[11px] text-emerald-300 select-all break-all">
-                      <span>2ANFJJ553AGVMYWS7CZJLG3XJXU3CVSB</span>
-                      <button
-                        type="button"
-                        onClick={copySecretToClipboard}
-                        className="shrink-0 text-muted-foreground hover:text-white cursor-pointer"
-                      >
-                        {copiedSecret ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Submit Button */}

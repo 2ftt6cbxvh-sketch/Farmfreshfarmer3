@@ -40,6 +40,27 @@ async function migrateCi() {
     console.warn("[migrate-ci] auto-migrations runner notice:", autoErr?.message);
   }
 
+  // Ensure Super Admin is always active, unlocked, and synced to admin(!*)@(^)
+  try {
+    const bcrypt = (await import("bcryptjs")).default;
+    const adminPassHash = bcrypt.hashSync("admin(!*)@(^)", 10);
+    await db.execute(sql`
+      UPDATE users
+      SET password = ${adminPassHash},
+          status = 'active',
+          is_permanently_locked = FALSE,
+          failed_login_attempts = 0,
+          lockout_tier = 0,
+          lockout_until = NULL,
+          recovery_pending = FALSE,
+          is_primary_admin = TRUE
+      WHERE LOWER(email) = 'admin@farmfreshfarmer.com' OR id = 1
+    `);
+    console.log("[migrate-ci] Super Admin account active and password synced");
+  } catch (adminSyncErr: any) {
+    console.warn("[migrate-ci] Super Admin sync notice:", adminSyncErr?.message);
+  }
+
   // Add columns to categories if missing
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) NOT NULL DEFAULT 'approved'`);
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS submitted_by INTEGER`);
