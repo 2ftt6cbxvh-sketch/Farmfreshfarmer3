@@ -29,7 +29,7 @@ export const VERIFIED_PRODUCE_GALLERY: VerifiedProduceItem[] = [
   { id: "apples", name: "Crisp Fresh Apples", telugu: "యాపిల్స్", category: "fruits", path: "/images/produce/apples.jpg" },
   { id: "banana", name: "Farm Ripe Bananas", telugu: "తాజా అరటిపండ్లు", category: "fruits", path: "/images/produce/banana.jpg" },
   { id: "mango", name: "Banganapalli Sweet Mangoes", telugu: "బంగినపల్లి మామిడిపండ్లు", category: "fruits", path: "/images/produce/mango.jpg" },
-  { id: "p-mango", name: "Organic Farm Mango", telugu: "సేంద్రీయ మామిడి", category: "fruits", path: "/images/produce/p-mango.jpg" },
+  { id: "p-mango", name: "Organic Farm Mango", telugu: "సేంద్రీయ మామిడి", category: "fruits", path: "/images/produce/mango.jpg" },
   { id: "guava", name: "Sweet Guava (Jamakaya)", telugu: "జామకాయలు", category: "fruits", path: "/images/produce/guava.jpg" },
   { id: "custard-apple", name: "Sitaphal / Custard Apple", telugu: "సీతాఫలం", category: "fruits", path: "/images/produce/custard-apple.jpg" },
   { id: "pomegranate", name: "Ruby Pomegranate (Danimma)", telugu: "దానిమ్మ పండ్లు", category: "fruits", path: "/images/produce/pomegranate.jpg" },

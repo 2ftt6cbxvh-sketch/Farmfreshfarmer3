@@ -300,7 +300,7 @@ export default function Home() {
                   />
                 ) : (
                   <img
-                    src={imgUrl("/images/p-mango.jpg")}
+                    src={imgUrl("/images/produce/mango.jpg", "Banganapalli Mangoes")}
                     alt="Organic Banganapalli Mangoes"
                     fetchPriority="high"
                     decoding="async"

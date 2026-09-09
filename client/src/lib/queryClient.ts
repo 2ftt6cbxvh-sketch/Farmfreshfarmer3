@@ -10,9 +10,10 @@ const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
   "pomegranate": "/images/produce/pomegranate.jpg",
   "danimma": "/images/produce/pomegranate.jpg",
   "dragon fruit": "/images/produce/dragon-fruit.jpg",
-  "alphonso mango": "/images/p-mango.jpg",
-  "mango": "/images/p-mango.jpg",
-  "mamidi": "/images/p-mango.jpg",
+  "alphonso mango": "/images/produce/mango.jpg",
+  "banganapalli mango": "/images/produce/mango.jpg",
+  "mango": "/images/produce/mango.jpg",
+  "mamidi": "/images/produce/mango.jpg",
   "papaya": "/images/produce/papaya.jpg",
   "boppayi": "/images/produce/papaya.jpg",
   "pineapple": "/images/produce/pineapple.jpg",
@@ -109,6 +110,9 @@ const PRODUCT_ACCURATE_IMAGE_MAP: Record<string, string> = {
   "gongura pickle": "/images/produce/gongura-pickle.jpg",
   "gongura": "/images/produce/gongura-pickle.jpg",
   "chicken pickle": "/images/produce/chicken-pickle.jpg",
+  "kodi pacchadi": "/images/produce/chicken-pickle.jpg",
+  "kodi pickle": "/images/produce/chicken-pickle.jpg",
+  "boneless chicken pickle": "/images/produce/chicken-pickle.jpg",
   "mutton pickle": "/images/produce/mutton-pickle.jpg",
   "prawn pickle": "/images/produce/prawn-pickle.jpg",
   "royyala": "/images/produce/prawn-pickle.jpg",
@@ -157,7 +161,7 @@ export function imgUrl(src?: string | null, productName?: string): string {
     return targetSrc;
   }
   const path = targetSrc.startsWith("/") ? targetSrc : `/${targetSrc}`;
-  return `${API_BASE}${path}?v=fff_fast_2026_09_09_v3`;
+  return `${API_BASE}${path}?v=fff_fast_2026_09_10_v4`;
 }
 
 async function throwIfResNotOk(res: Response) {
