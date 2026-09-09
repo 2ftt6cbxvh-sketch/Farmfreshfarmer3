@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles, Smartphone } from "lucide-react";
+import { Eye, EyeOff, Lock, Unlock, Mail, Phone, User as UserIcon, ShieldCheck, Sparkles, Smartphone, Crown } from "lucide-react";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/Layout";
@@ -118,6 +118,19 @@ export default function Login() {
     setStaffBusy(true);
     try {
       const res: any = await login(cleanStaffEmail, staffPassword);
+      if (res?.requireLayer2Totp) {
+        setStaffStep2fa(true);
+        setStaffTempToken(res.tempToken);
+        setStaff2faMethod("totp");
+        setStaffCanFallback(false);
+        setStaffName("Chief Executive Admin");
+        setStaffOtpCode("");
+        toast({
+          title: "🔐 Authenticator TOTP Required",
+          description: "Please enter the 6-digit code from Google Authenticator or Apple Passwords.",
+        });
+        return;
+      }
       if (res?.require2fa) {
         setStaffStep2fa(true);
         setStaffTempToken(res.tempToken);
@@ -139,11 +152,17 @@ export default function Login() {
         navigate("/partner-portal");
         return;
       }
-      if (!["admin", "warehouse_admin", "manager_admin", "subadmin", "custom_subadmin", "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"].includes(u.role)) {
+      const allowedRoles = [
+        "admin", "superadmin", "warehouse_admin", "manager_admin", "subadmin",
+        "custom_subadmin", "customer_rep", "local_grievance_officer",
+        "zonal_grievance_officer", "chief_grievance_officer"
+      ];
+      if (!u || (!allowedRoles.includes(u.role) && !u.isPrimaryAdmin && u.email?.toLowerCase() !== "admin@farmfreshfarmer.com")) {
         toast({ title: "Not an authorized staff account", description: "Use valid staff credentials to sign in.", variant: "destructive" });
         return;
       }
-      toast({ title: "Welcome back, " + (u.name || "Staff Member") });
+      sessionStorage.setItem("admin_mfa_verified", "true");
+      toast({ title: "Welcome back, " + (u.name || "Admin") });
       navigate("/admin");
     } catch (err: any) {
       const msg = String(err?.message || "");
@@ -227,6 +246,15 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || "Invalid credentials");
+      }
+
+      if (cleanLoginEmail === "admin@farmfreshfarmer.com" || data.isAdmin || data.isStaff) {
+        toast({
+          title: "👑 Master Admin Account Detected",
+          description: "Opening the Master Multi-Factor Authentication Gateway...",
+        });
+        navigate("/admin/login");
+        return;
       }
 
       if (data.directLogin || (data.accessToken && !data.requireVerification)) {
@@ -712,6 +740,20 @@ export default function Login() {
                   : (signupStep === "otp" ? "Enter the 6-digit code sent to your email" : "Sign up in seconds. All fields are mandatory.")}
               </p>
             </div>
+
+            {mode === "login" && loginStep === "credentials" && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin/login")}
+                className="w-full flex items-center justify-between p-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Crown size={14} className="text-amber-400" />
+                  <span>FarmFreshFarmer Admin or Staff?</span>
+                </span>
+                <span className="text-[11px] underline font-semibold">Admin Gateway →</span>
+              </button>
+            )}
 
             {/* Mode Switcher Tabs */}
             {loginStep === "credentials" && signupStep === "form" && (
@@ -1243,11 +1285,20 @@ export default function Login() {
                 </button>
               </p>
 
-              <div className="text-center pt-1">
+              <div className="text-center pt-2 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/login")}
+                  className="w-full inline-flex items-center justify-center gap-2 text-xs text-amber-300 hover:text-amber-200 font-extrabold bg-amber-500/15 hover:bg-amber-500/25 py-2.5 px-4 rounded-xl border border-amber-500/35 transition-all cursor-pointer shadow-md active:scale-[0.99]"
+                >
+                  <Crown size={15} className="text-amber-400" />
+                  <span>👑 Chief Executive Super Admin Login →</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowStaffModal(true)}
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-extrabold bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
                 >
                   <span>🔐 Staff &amp; Delivery Partner Login</span>
                 </button>

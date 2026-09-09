@@ -598,35 +598,6 @@ export function registerAuthJwtRoutes(app: Express) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail === "admin@farmfreshfarmer.com") {
-      // Constant-Time Timing Oracle Defense: perform identical CPU bcrypt work
-      const DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
-      await bcrypt.compare(String(password || "dummySecret123"), DUMMY_HASH).catch(() => {});
-
-      const refId = `SEC-TRAP-${Date.now().toString().slice(-4)}`;
-      const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
-      const userAgent = req.headers["user-agent"] || "unknown";
-
-      // Silently record incident in security audit logs
-      const { securityAuditLogs } = await import("@shared/schema");
-      await db.insert(securityAuditLogs).values({
-        eventType: "master_credential_intercepted",
-        actionTaken: `[${refId}] Master Admin Probed on Public Portal | Route: /api/auth/login/initiate | Target: ${cleanEmail}`,
-        ip: ip.slice(0, 64),
-        platform: "web",
-        userAgent: userAgent.slice(0, 500),
-      }).catch(() => {});
-
-      const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("../services/telegram");
-      if (await isTelegramSecurityConfigured()) {
-        await sendTelegramSecurityAlert(
-          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed master admin email on the customer login form.\n• Target: <code>${cleanEmail}</code>\n• Action: Silently deflected with generic 401 response.`,
-          req
-        ).catch(() => {});
-      }
-
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
 
     if (!password) {
       return res.status(400).json({ message: "Email and password are required" });
@@ -643,14 +614,26 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(403).json({ message: "Your account is currently suspended. Please contact support." });
     }
 
-    const isMasterAdmin = Boolean(user.isPrimaryAdmin || cleanEmail === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1));
+    const isMasterAdmin = Boolean(
+      user.isPrimaryAdmin ||
+      cleanEmail === "admin@farmfreshfarmer.com" ||
+      user.role === "superadmin" ||
+      (user.role === "admin" && user.id === 1)
+    );
+
     if (isMasterAdmin) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.json({
+        isAdmin: true,
+        redirect: "/admin/login",
+        message: "👑 Chief Executive Admin account detected. Redirecting to Master Admin Gateway...",
+      });
     }
 
     if (user.role && user.role !== "customer") {
-      return res.status(403).json({
-        message: "🚫 Staff and delivery partner accounts must sign in using the 'Staff & Delivery Partner Login' button.",
+      return res.json({
+        isStaff: true,
+        redirect: "/admin/login",
+        message: "Staff and delivery partner accounts must sign in using the Staff & Admin Portal.",
       });
     }
 

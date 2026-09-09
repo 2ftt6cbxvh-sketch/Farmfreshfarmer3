@@ -462,11 +462,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       user.role === "superadmin"
     );
 
-    // If probing Master Admin from an untrusted public host in production, deflect
-    if (isSuperAdmin && !isFromStealthGateway && process.env.NODE_ENV === "production" && !host.includes("farmfreshfarmer.com")) {
-      return res.status(401).json({ message: "Wrong email or password" });
-    }
-
     // ── 3-LAYER AUTHENTICATION PIPELINE FOR CHIEF SUPER ADMIN ──
     if (isSuperAdmin) {
       const { verifyTotpCode } = await import("./services/totp");
@@ -520,14 +515,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Scenario B: TOTP is configured, but no valid totpCode was submitted yet
       if (isTotpConfigured) {
-        const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
+        const jwt = (await import("jsonwebtoken")).default;
+        const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+        const tempToken = jwt.sign(
+          { userId: user.id, email: user.email, layer1Verified: true, step: "totp_pending" },
+          JWT_SECRET,
+          { expiresIn: "10m" }
+        );
         apiCache.set(`admin_login_flow_${tempToken}`, {
           userId: user.id,
           email: user.email,
           layer1Verified: true,
           layer2Verified: false,
-          expiresAt: Date.now() + 5 * 60 * 1000,
-        }, 300);
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        }, 600);
 
         return res.json({
           requireLayer2Totp: true,
@@ -604,13 +605,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(400).json({ message: "Session token and 6-digit TOTP code are required." });
     }
 
-    const flowData = apiCache.get(`admin_login_flow_${tempToken}`) as any;
-    if (!flowData || Date.now() > flowData.expiresAt || !flowData.layer1Verified) {
+    let resolvedUserId: number | null = null;
+    const jwt = (await import("jsonwebtoken")).default;
+    const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+    try {
+      const decoded = jwt.verify(String(tempToken), JWT_SECRET) as any;
+      if (decoded && decoded.userId) {
+        resolvedUserId = Number(decoded.userId);
+      }
+    } catch {
+      // Fallback to in-memory apiCache
+      const flowData = apiCache.get(`admin_login_flow_${tempToken}`) as any;
+      if (flowData && Date.now() <= flowData.expiresAt && flowData.layer1Verified) {
+        resolvedUserId = Number(flowData.userId);
+      }
+    }
+
+    if (!resolvedUserId) {
       return res.status(400).json({ message: "Login challenge expired. Please enter password again." });
     }
 
     const { storage } = await import("./storage");
-    const user = await storage.users.get(flowData.userId);
+    const user = await storage.users.get(resolvedUserId);
     const totpSecret = user?.totpSecret || (await storage.settings.get("admin_totp_secret"));
     if (!user || !totpSecret) {
       return res.status(400).json({ message: "TOTP not configured for this account." });
@@ -621,9 +637,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!isTotpValid) {
       return res.status(400).json({ message: "Invalid 6-digit TOTP code. Please check your Authenticator app." });
     }
-
-    flowData.layer2Verified = true;
-    apiCache.set(`admin_login_flow_${tempToken}`, flowData, 300);
 
     // Layer 2 Passed! Now proceed to Layer 3: Hardware Passkey (Touch ID)
     const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
@@ -723,11 +736,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { verifyStaff2faSession } = await import("./services/staff-otp");
     let result = await verifyStaff2faSession(String(tempToken), String(otp), method);
 
-    // Fallback to legacy telegram session if present
+    // Fallback to legacy telegram session or Admin TOTP token if present
     if (!result.success) {
       try {
         const { verify2faOtpSession } = await import("./services/telegram");
         result = verify2faOtpSession(String(tempToken), String(otp));
+      } catch {}
+    }
+
+    if (!result.success) {
+      try {
+        const jwt = (await import("jsonwebtoken")).default;
+        const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+        let adminUserId: number | null = null;
+        try {
+          const decoded = jwt.verify(String(tempToken), JWT_SECRET) as any;
+          if (decoded?.userId) adminUserId = Number(decoded.userId);
+        } catch {}
+        if (!adminUserId) {
+          const flowData = apiCache.get(`admin_login_flow_${tempToken}`) as any;
+          if (flowData?.userId) adminUserId = Number(flowData.userId);
+        }
+        if (adminUserId) {
+          const { storage } = await import("./storage");
+          const adminUser = await storage.users.get(adminUserId);
+          const adminTotpSecret = adminUser?.totpSecret || (await storage.settings.get("admin_totp_secret"));
+          if (adminTotpSecret) {
+            const { verifyTotpCode } = await import("./services/totp");
+            if (verifyTotpCode(adminTotpSecret, String(otp).trim())) {
+              result = { success: true, userId: adminUserId, message: "TOTP verified" };
+            }
+          }
+        }
       } catch {}
     }
 
@@ -2717,7 +2757,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       return res.status(403).json({ message: "Protected Root Admin account cannot be modified via customer edit." });
     }
 
-    const { name, email, phone, isVerified } = req.body || {};
+    const { name, email, phone, isVerified, isEmailVerified, isPhoneVerified } = req.body || {};
     const updates: Record<string, any> = {};
 
     if (typeof name === "string" && name.trim()) updates.name = name.trim();
@@ -2751,7 +2791,15 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         updates.phone = null;
       }
     }
-    if (isVerified !== undefined) updates.isVerified = Boolean(isVerified);
+    if (isEmailVerified !== undefined) updates.isEmailVerified = Boolean(isEmailVerified);
+    if (isPhoneVerified !== undefined) updates.isPhoneVerified = Boolean(isPhoneVerified);
+    if (isVerified !== undefined) {
+      updates.isVerified = Boolean(isVerified);
+    } else if (updates.isEmailVerified !== undefined || updates.isPhoneVerified !== undefined) {
+      const finalEmailVer = updates.isEmailVerified !== undefined ? updates.isEmailVerified : targetCustomer.isEmailVerified;
+      const finalPhoneVer = updates.isPhoneVerified !== undefined ? updates.isPhoneVerified : targetCustomer.isPhoneVerified;
+      updates.isVerified = Boolean(finalEmailVer && finalPhoneVer);
+    }
 
     // Hard-enforce zero elevation
     delete updates.isPrimaryAdmin;
@@ -2763,6 +2811,56 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     const [updated] = await db.update(users).set({ ...updates, updatedAt: new Date() }).where(eq(users.id, id)).returning();
     res.json({ message: "Customer profile details manually updated successfully by Super Admin.", customer: updated });
+  }));
+
+  /** POST /api/admin/customers/:id/toggle-email-verify — Toggle/Unverify customer email address separately */
+  app.post("/api/admin/customers/:id/toggle-email-verify", requireAdmin, h(async (req, res) => {
+    const isSuperAdmin = await isPrimaryAdminUser(req);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Only Chief Super Admin can modify verification status." });
+    }
+    const id = Number(req.params.id);
+    const [customer] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!customer) return res.status(404).json({ message: "Customer not found." });
+
+    const newEmailVerified = req.body?.isEmailVerified !== undefined ? Boolean(req.body.isEmailVerified) : !customer.isEmailVerified;
+    const newFullyVerified = Boolean(newEmailVerified && customer.isPhoneVerified);
+
+    const [updated] = await db.update(users).set({
+      isEmailVerified: newEmailVerified,
+      isVerified: newFullyVerified,
+      updatedAt: new Date(),
+    }).where(eq(users.id, id)).returning();
+
+    res.json({
+      message: newEmailVerified ? "Email marked as VERIFIED." : "Email marked as UNVERIFIED.",
+      customer: updated,
+    });
+  }));
+
+  /** POST /api/admin/customers/:id/toggle-phone-verify — Toggle/Unverify customer phone number separately */
+  app.post("/api/admin/customers/:id/toggle-phone-verify", requireAdmin, h(async (req, res) => {
+    const isSuperAdmin = await isPrimaryAdminUser(req);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Only Chief Super Admin can modify verification status." });
+    }
+    const id = Number(req.params.id);
+    const [customer] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!customer) return res.status(404).json({ message: "Customer not found." });
+
+    const newPhoneVerified = req.body?.isPhoneVerified !== undefined ? Boolean(req.body.isPhoneVerified) : !customer.isPhoneVerified;
+    const newFullyVerified = Boolean(customer.isEmailVerified && newPhoneVerified);
+
+    const [updated] = await db.update(users).set({
+      isPhoneVerified: newPhoneVerified,
+      isVerified: newFullyVerified,
+      updatedAt: new Date(),
+    }).where(eq(users.id, id)).returning();
+
+    res.json({
+      message: newPhoneVerified ? "Phone number marked as VERIFIED." : "Phone number marked as UNVERIFIED.",
+      customer: updated,
+    });
   }));
 
   /** POST /api/admin/customers/:id/send-email — Super Admin send custom branded email to customer */

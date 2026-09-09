@@ -763,14 +763,22 @@ export interface OrderSecurityNotificationParams {
 }
 
 export async function sendTelegramOrderSecurityNotification(params: OrderSecurityNotificationParams): Promise<boolean> {
-  const { botToken, chatIds } = await getTelegramSecurityCredentials();
-  if (!botToken || chatIds.length === 0) return false;
+  const sec = await getTelegramSecurityCredentials();
+  const gri = await getTelegramGrievanceCredentials();
+
+  const botToken = sec.botToken || gri.botToken;
+  const allChatIds = Array.from(new Set([...sec.chatIds, ...gri.chatIds])).filter(Boolean);
+
+  if (!botToken || allChatIds.length === 0) {
+    console.warn("[telegram] Order alert skipped: No Telegram bot token or chat ID configured in Admin Settings.");
+    return false;
+  }
 
   const itemLines = (params.items || [])
     .map((it) => `• <b>${it.name}</b> (${it.unit || "1 pc"}) × ${it.qty} = ₹${(Number(it.price) * it.qty).toFixed(0)}`)
     .join("\n");
 
-  const message = `🛍️ <b>NEW ORDER PLACED (SECURITY BOT)</b>
+  const message = `🛍️ <b>NEW ORDER PLACED</b> 🌿
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 🆔 <b>Order ID:</b> #${params.orderId}
 💰 <b>Grand Total:</b> ₹${Number(params.total).toFixed(0)} (${params.paymentMethod})
@@ -786,10 +794,12 @@ ${itemLines || "• General farm produce"}
 • Subtotal: ₹${Number(params.subtotal).toFixed(0)}
 ${Number(params.discount) > 0 ? `• Discount: -₹${Number(params.discount).toFixed(0)}\n` : ""}${Number(params.deliveryFee) > 0 ? `• Delivery Fee: ₹${Number(params.deliveryFee).toFixed(0)}\n` : "• Delivery: FREE\n"}• <b>Total: ₹${Number(params.total).toFixed(0)}</b>
 💳 <b>Payment Method:</b> ${params.paymentMethod}
-${params.couponCode ? `🏷️ <b>Coupon Code:</b> ${params.couponCode}\n` : ""}${params.orderType === "subscription" ? "📦 <b>Order Type:</b> Weekly Subscription Box\n" : ""}⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`;
+${params.couponCode ? `🏷️ <b>Coupon Code:</b> ${params.couponCode}\n` : ""}${params.orderType === "subscription" ? "📦 <b>Order Type:</b> Weekly Subscription Box\n" : ""}⏰ <b>Time:</b> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+
+🔗 <a href="https://farmfreshfarmer.com/admin/orders">View in Admin Orders Dashboard</a>`;
 
   const results = await Promise.all(
-    chatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
+    allChatIds.map((cId) => sendRawTelegramMessage(botToken, cId, message))
   );
   return results.some((r) => r === true);
 }

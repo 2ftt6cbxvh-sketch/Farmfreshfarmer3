@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient } from "@/lib/queryClient";
@@ -8,7 +8,7 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon, Sparkles, TrendingUp, Search, HeartPulse, PieChart, Send, X } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon, Sparkles, TrendingUp, Search, HeartPulse, PieChart, Send, X, LayoutGrid, List, CheckCircle2, XCircle, Copy, Check } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Input } from "@/components/ui/input";
@@ -36,8 +36,14 @@ export default function AdminCustomers() {
     currentUser?.isPrimaryAdmin ||
     currentUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
     currentUser?.role === "superadmin" ||
+    currentUser?.role === "admin" ||
+    currentUser?.role === "manager_admin" ||
     currentUser?.id === 1
   );
+
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const [starEditId, setStarEditId] = useState<number | null>(null);
   const [starEditVal, setStarEditVal] = useState<number>(0);
@@ -47,6 +53,8 @@ export default function AdminCustomers() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editVerified, setEditVerified] = useState(false);
+  const [editEmailVerified, setEditEmailVerified] = useState(false);
+  const [editPhoneVerified, setEditPhoneVerified] = useState(false);
 
   // Custom Email Dispatcher State
   const [emailTarget, setEmailTarget] = useState<Customer | null>(null);
@@ -60,6 +68,26 @@ export default function AdminCustomers() {
     queryKey: ["/api/admin/customers"],
     queryFn: () => apiGet<Customer[]>("/api/admin/customers"),
   });
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchQuery.trim()) return customers;
+    const q = searchQuery.toLowerCase().trim();
+    return customers.filter((c: Customer) =>
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.includes(q)) ||
+      (c.referralCode && c.referralCode.toLowerCase().includes(q)) ||
+      String(c.id).includes(q)
+    );
+  }, [customers, searchQuery]);
+
+  const handleCopy = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedText(text);
+    setTimeout(() => setCopiedText(null), 2000);
+    toast({ title: `${label} Copied!`, description: text });
+  };
 
   // Chief Executive Super Admin Behavioral Analytics
   const { data: behaviorAnalytics } = useQuery<{
@@ -88,8 +116,23 @@ export default function AdminCustomers() {
   });
 
   const updateCustomerMut = useMutation({
-    mutationFn: async ({ id, name, email, phone, isVerified }: { id: number; name: string; email: string; phone: string; isVerified: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/admin/customers/${id}`, { name, email, phone, isVerified });
+    mutationFn: async ({ id, name, email, phone, isVerified, isEmailVerified, isPhoneVerified }: {
+      id: number;
+      name: string;
+      email: string;
+      phone: string;
+      isVerified: boolean;
+      isEmailVerified?: boolean;
+      isPhoneVerified?: boolean;
+    }) => {
+      const res = await apiRequest("PATCH", `/api/admin/customers/${id}`, {
+        name,
+        email,
+        phone,
+        isVerified,
+        isEmailVerified,
+        isPhoneVerified,
+      });
       return res.json();
     },
     onSuccess: (data) => {
@@ -100,6 +143,36 @@ export default function AdminCustomers() {
     },
     onError: (err: any) => {
       toast({ title: "Update Failed", description: err.message || "Could not update customer", variant: "destructive" });
+    },
+  });
+
+  const toggleEmailVerifyMut = useMutation({
+    mutationFn: async ({ id, isEmailVerified }: { id: number; isEmailVerified?: boolean }) => {
+      const res = await apiRequest("POST", `/api/admin/customers/${id}/toggle-email-verify`, { isEmailVerified });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Email Verification Updated", description: data.message });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update email verification", variant: "destructive" });
+    },
+  });
+
+  const togglePhoneVerifyMut = useMutation({
+    mutationFn: async ({ id, isPhoneVerified }: { id: number; isPhoneVerified?: boolean }) => {
+      const res = await apiRequest("POST", `/api/admin/customers/${id}/toggle-phone-verify`, { isPhoneVerified });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Phone Verification Updated", description: data.message });
+    },
+    onError: (err: any) => {
+      toast({ title: "Update Failed", description: err.message || "Could not update phone verification", variant: "destructive" });
     },
   });
 
@@ -301,114 +374,469 @@ export default function AdminCustomers() {
         </div>
       )}
 
-      {isLoading ? <Skeleton className="h-64 rounded-xl" /> : (
+      {/* Search & View Switcher Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+        <div className="relative flex-1 max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by customer name, email, phone, referral code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-10 rounded-xl bg-card border-card-border text-xs"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-secondary/60 p-1 rounded-xl border border-card-border">
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === "cards"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-xs border border-emerald-500/30"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid size={14} />
+              <span>Customer Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-xs border border-emerald-500/30"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List size={14} />
+              <span>Table View</span>
+            </button>
+          </div>
+
+          <Badge variant="outline" className="h-9 px-3 rounded-xl border-card-border text-xs font-mono font-bold">
+            {filteredCustomers.length} {filteredCustomers.length === 1 ? "Customer" : "Customers"}
+          </Badge>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-64 rounded-xl" />
+      ) : isError ? (
+        <div className="p-8 text-center text-red-400 font-bold bg-card border border-red-500/30 rounded-2xl">
+          ⚠️ Error loading customers: {(error as any)?.message || "Session verification failed"}.
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-3 h-7 text-xs border-emerald-500/40 text-emerald-400">
+            Retry
+          </Button>
+        </div>
+      ) : filteredCustomers.length === 0 ? (
+        <div className="p-12 text-center text-muted-foreground bg-card border border-card-border rounded-2xl space-y-2">
+          <p className="text-sm font-semibold text-foreground">No customers found</p>
+          <p className="text-xs">Try adjusting your search criteria or register a new customer.</p>
+        </div>
+      ) : viewMode === "cards" ? (
+        /* ── MODE 1: RICH RESPONSIVE CUSTOMER CARDS ── */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4.5">
+          {filteredCustomers.map((c) => {
+            const isRootAdmin = Boolean(c.isPrimaryAdmin || c.email?.toLowerCase() === "admin@farmfreshfarmer.com" || c.id === 1);
+            return (
+              <div
+                key={c.id}
+                className="group relative rounded-2xl border border-card-border bg-card/95 hover:border-emerald-500/30 hover:shadow-xl transition-all p-5 flex flex-col justify-between space-y-4"
+                data-testid={`card-customer-${c.id}`}
+              >
+                {/* Top Section */}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-primary/20 border border-emerald-500/30 flex items-center justify-center font-serif text-lg font-black text-emerald-400 shrink-0">
+                        {c.name ? c.name.charAt(0).toUpperCase() : "C"}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-extrabold text-sm text-foreground truncate">{c.name || "Unnamed Customer"}</h3>
+                          {c.isEmailVerified && c.isPhoneVerified && <VerifiedBadge size="sm" />}
+                        </div>
+                        <span className="text-[10px] font-mono text-muted-foreground">Customer #{c.id}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {isRootAdmin ? (
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          👑 Root Admin
+                        </span>
+                      ) : (
+                        <Badge variant={c.status === "blocked" ? "destructive" : "default"} className="text-[10px] uppercase font-bold">
+                          {c.status}
+                        </Badge>
+                      )}
+                      {(c.isPermanentlyLocked || c.status === "locked") && (
+                        <Badge className="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-0.5">
+                          <Lock size={9} /> Locked
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contact Details */}
+                  <div className="space-y-1.5 p-2.5 rounded-xl bg-secondary/30 border border-card-border/60 text-xs font-mono">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Mail size={13} className="text-muted-foreground shrink-0" />
+                        <span className="truncate text-foreground font-medium">{c.email || "No Email"}</span>
+                      </div>
+                      {c.email && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(c.email, `email-${c.id}`)}
+                          className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                          title="Copy Email"
+                        >
+                          {copiedText === `email-${c.id}` ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Phone size={13} className="text-muted-foreground shrink-0" />
+                        <span className="truncate text-foreground font-medium">{c.phone || "No Phone"}</span>
+                      </div>
+                      {c.phone && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(c.phone!, `phone-${c.id}`)}
+                          className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                          title="Copy Phone"
+                        >
+                          {copiedText === `phone-${c.id}` ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded-xl bg-background border border-card-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Orders</span>
+                      <span className="font-mono text-xs font-bold text-foreground">{c.totalOrders || 0}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-background border border-card-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Total Spent</span>
+                      <span className="font-mono text-xs font-bold text-emerald-400">{formatINR(Number(c.totalSpent || 0))}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-background border border-card-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Loyalty</span>
+                      <button
+                        onClick={() => { setStarEditId(c.id); setStarEditVal(c.customerStars || 0); }}
+                        className="font-mono text-xs font-extrabold text-amber-400 hover:underline cursor-pointer"
+                        title="Click to edit stars"
+                      >
+                        {(c.customerStars || 0) > 0 ? `${c.customerStars}★` : "0★"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── SEPARATE VERIFICATION CONTROLS FOR EMAIL & PHONE ── */}
+                  <div className="p-2.5 rounded-xl bg-background/80 border border-card-border/80 space-y-2">
+                    <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                      <span>Verification Controls</span>
+                      {c.isEmailVerified && c.isPhoneVerified ? (
+                        <span className="text-[10px] text-emerald-400 font-extrabold flex items-center gap-1">
+                          <CheckCircle2 size={11} /> Fully Verified
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                          <AlertTriangle size={11} /> Pending
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Email Verification Row */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {c.isEmailVerified ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                            <CheckCircle2 size={12} className="text-emerald-400" />
+                            Email Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-400">
+                            <XCircle size={12} className="text-red-400" />
+                            Email Unverified
+                          </span>
+                        )}
+                      </div>
+
+                      {!isRootAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleEmailVerifyMut.mutate({ id: c.id, isEmailVerified: !c.isEmailVerified })}
+                          disabled={toggleEmailVerifyMut.isPending}
+                          className={`h-6 px-2 text-[10px] font-extrabold rounded-md cursor-pointer ${
+                            c.isEmailVerified
+                              ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          }`}
+                        >
+                          {c.isEmailVerified ? "Unverify Email" : "Verify Email"}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Phone Verification Row */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {c.isPhoneVerified ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                            <CheckCircle2 size={12} className="text-emerald-400" />
+                            Phone Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-400">
+                            <XCircle size={12} className="text-red-400" />
+                            Phone Unverified
+                          </span>
+                        )}
+                      </div>
+
+                      {!isRootAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => togglePhoneVerifyMut.mutate({ id: c.id, isPhoneVerified: !c.isPhoneVerified })}
+                          disabled={togglePhoneVerifyMut.isPending}
+                          className={`h-6 px-2 text-[10px] font-extrabold rounded-md cursor-pointer ${
+                            c.isPhoneVerified
+                              ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          }`}
+                        >
+                          {c.isPhoneVerified ? "Unverify Phone" : "Verify Phone"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Bottom Actions */}
+                <div className="space-y-2 pt-2 border-t border-card-border/80">
+                  {/* ✉️ PROMINENT "MAIL" BUTTON (VISIBLE ON CUSTOMER CARDS) */}
+                  {c.email && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEmailTarget(c);
+                        setEmailSubject(`A Special Message from FarmFreshFarmer, ${c.name?.split(" ")[0] || "Valued Customer"}`);
+                        setEmailHeadline("Direct Update from FarmFreshFarmer");
+                        setEmailMessage("");
+                        setEmailButtonText("Shop Fresh Harvest");
+                        setEmailButtonUrl("https://farmfreshfarmer.com");
+                      }}
+                      title="Send custom branded FarmFreshFarmer email to this customer"
+                      className="w-full h-9 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-950/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
+                    >
+                      <Mail size={15} />
+                      <span>Send Mail to {c.name?.split(" ")[0] || "Customer"}</span>
+                    </Button>
+                  )}
+
+                  {!isRootAdmin && (
+                    <div className="flex items-center justify-between gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditTarget(c);
+                          setEditName(c.name || "");
+                          setEditEmail(c.email || "");
+                          setEditPhone(c.phone || "");
+                          setEditVerified(Boolean(c.isVerified));
+                          setEditEmailVerified(Boolean(c.isEmailVerified));
+                          setEditPhoneVerified(Boolean(c.isPhoneVerified));
+                        }}
+                        className="flex-1 h-8 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Pencil size={12} /> Edit
+                      </Button>
+
+                      {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => unlockUserMut.mutate(c.id)}
+                          disabled={unlockUserMut.isPending}
+                          className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1 cursor-pointer"
+                        >
+                          <Unlock size={12} /> Unlock
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
+                        className="h-8 px-2.5 text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        {c.status === "blocked" ? "Unblock" : "Block"}
+                      </Button>
+
+                      {isSuperAdmin && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteTarget(c)}
+                          className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg cursor-pointer"
+                          title="Permanently Delete Customer"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── MODE 2: TABLE VIEW ── */
         <div className="rounded-xl border border-card-border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary text-left">
               <tr>
                 <th className="p-3 font-semibold">Customer</th>
                 <th className="p-3 font-semibold">Loyalty Stars</th>
-                <th className="p-3 font-semibold">Phone</th>
+                <th className="p-3 font-semibold">Phone &amp; Verification</th>
                 <th className="p-3 font-semibold">Orders</th>
-                <th className="p-3 font-semibold">Total spent</th>
-                <th className="p-3 font-semibold">First order</th>
-                <th className="p-3 font-semibold">Referral code</th>
-                <th className="p-3 font-semibold">Referral balance</th>
+                <th className="p-3 font-semibold">Total Spent</th>
+                <th className="p-3 font-semibold">First Order</th>
+                <th className="p-3 font-semibold">Referral Code</th>
+                <th className="p-3 font-semibold">Referral Balance</th>
                 <th className="p-3 font-semibold">Status</th>
                 <th className="p-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
-                <tr key={c.id} className="border-t border-card-border" data-testid={`row-customer-${c.id}`}>
-                  <td className="p-3">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="font-medium">{c.name}</p>
-                      {c.isEmailVerified && c.isPhoneVerified && <VerifiedBadge size="sm" />}
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <span>{c.email}</span>
-                      {c.isEmailVerified ? (
-                        <span className="text-emerald-400 font-bold text-[10px]">✓</span>
-                      ) : (
-                        <span className="text-red-400 font-bold text-[10px]">(Unverified)</span>
-                      )}
-                    </p>
-                  </td>
-                  <td className="p-3">
-                    <button
-                      onClick={() => { setStarEditId(c.id); setStarEditVal(c.customerStars || 0); }}
-                      className="flex flex-col gap-0.5 group p-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-left cursor-pointer shadow-xs"
-                      title="Click to edit loyalty stars"
-                    >
-                      <div className="flex items-center gap-1 font-extrabold text-xs text-amber-500 dark:text-yellow-400">
-                        {(c.customerStars || 0) > 0 ? (
-                          <span className="flex items-center gap-1 font-black">
-                            <span>{"⭐".repeat(Math.min(5, c.customerStars || 0))}</span>
-                            <span className="ml-0.5">{c.customerStars}★</span>
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic font-normal">No stars (0★)</span>
+              {filteredCustomers.map((c) => {
+                const isRootAdmin = Boolean(c.isPrimaryAdmin || c.email?.toLowerCase() === "admin@farmfreshfarmer.com" || c.id === 1);
+                return (
+                  <tr key={c.id} className="border-t border-card-border" data-testid={`row-customer-${c.id}`}>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-medium text-foreground">{c.name}</p>
+                        {c.isEmailVerified && c.isPhoneVerified && <VerifiedBadge size="sm" />}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground font-mono">{c.email}</span>
+                        {!isRootAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => toggleEmailVerifyMut.mutate({ id: c.id, isEmailVerified: !c.isEmailVerified })}
+                            className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded cursor-pointer ${
+                              c.isEmailVerified
+                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
+                                : "bg-red-500/10 text-red-400 hover:bg-emerald-500/10 hover:text-emerald-400"
+                            }`}
+                            title={c.isEmailVerified ? "Click to Unverify Email" : "Click to Verify Email"}
+                          >
+                            {c.isEmailVerified ? "✓ Email (Unverify?)" : "✗ Unverified (Verify?)"}
+                          </button>
                         )}
                       </div>
-                      <span className="text-[9px] text-amber-600 dark:text-yellow-400/80 group-hover:text-amber-500 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
-                    </button>
-                  </td>
-                  <td className="p-3">
-                    {c.phone ? (
-                      <div className="flex items-center gap-1.5 font-mono text-xs">
-                        <span className="text-foreground font-medium">{c.phone}</span>
-                        {c.isPhoneVerified ? (
-                          <span title="Mobile Number Verified via WhatsApp" className="inline-flex items-center gap-0.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
-                            ✓ Verified
-                          </span>
-                        ) : (
-                          <span title="Mobile Phone Not Verified" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-md border border-red-500/20">
-                            Unverified
-                          </span>
+                    </td>
+                    <td className="p-3">
+                      <button
+                        onClick={() => { setStarEditId(c.id); setStarEditVal(c.customerStars || 0); }}
+                        className="flex flex-col gap-0.5 group p-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-left cursor-pointer shadow-xs"
+                        title="Click to edit loyalty stars"
+                      >
+                        <div className="flex items-center gap-1 font-extrabold text-xs text-amber-500 dark:text-yellow-400">
+                          {(c.customerStars || 0) > 0 ? (
+                            <span className="flex items-center gap-1 font-black">
+                              <span>{"⭐".repeat(Math.min(5, c.customerStars || 0))}</span>
+                              <span className="ml-0.5">{c.customerStars}★</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic font-normal">No stars (0★)</span>
+                          )}
+                        </div>
+                        <span className="text-[9px] text-amber-600 dark:text-yellow-400/80 group-hover:text-amber-500 font-bold mt-0.5">Edit ({c.customerStars || 0}/5)</span>
+                      </button>
+                    </td>
+                    <td className="p-3">
+                      {c.phone ? (
+                        <div className="space-y-1">
+                          <span className="text-foreground font-mono text-xs font-medium">{c.phone}</span>
+                          {!isRootAdmin && (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => togglePhoneVerifyMut.mutate({ id: c.id, isPhoneVerified: !c.isPhoneVerified })}
+                                className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded cursor-pointer ${
+                                  c.isPhoneVerified
+                                    ? "bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
+                                    : "bg-red-500/10 text-red-400 hover:bg-emerald-500/10 hover:text-emerald-400"
+                                }`}
+                                title={c.isPhoneVerified ? "Click to Unverify Phone" : "Click to Verify Phone"}
+                              >
+                                {c.isPhoneVerified ? "✓ Phone (Unverify?)" : "✗ Unverified (Verify?)"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="p-3 font-mono">{c.totalOrders}</td>
+                    <td className="p-3 font-medium font-mono text-emerald-400">{formatINR(Number(c.totalSpent))}</td>
+                    <td className="p-3">{c.hasCompletedFirstOrder ? <Badge variant="default">Yes</Badge> : <Badge variant="outline">No</Badge>}</td>
+                    <td className="p-3 font-mono text-xs">{c.referralCode || "—"}</td>
+                    <td className="p-3 font-mono">{formatINR(Number(c.referralBalance))}</td>
+                    <td className="p-3">
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={c.status === "blocked" ? "destructive" : "default"} className="text-[10px] uppercase font-bold">
+                          {c.status}
+                        </Badge>
+                        {(c.isPermanentlyLocked || c.status === "locked") && (
+                          <Badge className="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-0.5">
+                            <Lock size={9} /> Locked
+                          </Badge>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground italic text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="p-3">{c.totalOrders}</td>
-                  <td className="p-3 font-medium">{formatINR(Number(c.totalSpent))}</td>
-                  <td className="p-3">{c.hasCompletedFirstOrder ? <Badge variant="default">Yes</Badge> : <Badge variant="outline">No</Badge>}</td>
-                  <td className="p-3 font-mono text-xs">{c.referralCode || "—"}</td>
-                  <td className="p-3">{formatINR(Number(c.referralBalance))}</td>
-                  <td className="p-3">
-                    <div className="flex flex-col gap-1">
-                      <Badge variant={c.status === "blocked" ? "destructive" : "default"}>{c.status}</Badge>
-                      {c.isEmailVerified && c.isPhoneVerified ? (
-                        <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
-                          <BadgeCheck size={9} /> Fully Verified
-                        </Badge>
-                      ) : c.isEmailVerified ? (
-                        <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 w-fit">
-                          ✉️ Email Only
-                        </Badge>
-                      ) : (
-                        <Badge className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
-                          Unverified
-                        </Badge>
-                      )}
-                      {(c.isPermanentlyLocked || c.status === "locked") && (
-                        <Badge className="text-[9px] bg-red-600/20 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
-                          <Lock size={9} /> Locked
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                      {(c.isPrimaryAdmin || c.email?.toLowerCase() === "admin@farmfreshfarmer.com" || c.id === 1) ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          👑 Protected Root Super Admin (Immutable)
-                        </span>
-                      ) : (
-                        <>
-                          {isSuperAdmin && (
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {isRootAdmin ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            👑 Protected Root Super Admin
+                          </span>
+                        ) : (
+                          <>
+                            {/* ✉️ Send Mail Button */}
+                            {c.email && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEmailTarget(c);
+                                  setEmailSubject(`A Special Message from FarmFreshFarmer, ${c.name?.split(" ")[0] || "Valued Customer"}`);
+                                  setEmailHeadline("Direct Update from FarmFreshFarmer");
+                                  setEmailMessage("");
+                                  setEmailButtonText("Shop Fresh Harvest");
+                                  setEmailButtonUrl("https://farmfreshfarmer.com");
+                                }}
+                                title="Send custom branded FarmFreshFarmer email to this customer"
+                                className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1 cursor-pointer"
+                              >
+                                <Mail size={12} /> Mail
+                              </Button>
+                            )}
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -418,103 +846,53 @@ export default function AdminCustomers() {
                                 setEditEmail(c.email || "");
                                 setEditPhone(c.phone || "");
                                 setEditVerified(Boolean(c.isVerified));
+                                setEditEmailVerified(Boolean(c.isEmailVerified));
+                                setEditPhoneVerified(Boolean(c.isPhoneVerified));
                               }}
-                              title="Manually edit customer phone, email & details (Super Admin Override)"
-                              className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1"
+                              className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1 cursor-pointer"
                             >
                               <Pencil size={12} /> Edit
                             </Button>
-                          )}
 
-                          {isSuperAdmin && c.email && (
+                            {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => unlockUserMut.mutate(c.id)}
+                                disabled={unlockUserMut.isPending}
+                                className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1 cursor-pointer"
+                              >
+                                <Unlock size={12} /> Unlock
+                              </Button>
+                            )}
+
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setEmailTarget(c);
-                                setEmailSubject(`A Special Message from FarmFreshFarmer, ${c.name?.split(" ")[0] || "Valued Customer"}`);
-                                setEmailHeadline("Direct Update from FarmFreshFarmer");
-                                setEmailMessage("");
-                                setEmailButtonText("Shop Fresh Harvest");
-                                setEmailButtonUrl("https://farmfreshfarmer.com");
-                              }}
-                              title="Send custom branded FarmFreshFarmer email to this customer"
-                              className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
+                              onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
+                              className="rounded-lg text-xs cursor-pointer"
                             >
-                              <Mail size={12} /> Email
+                              {c.status === "blocked" ? "Unblock" : "Block"}
                             </Button>
-                          )}
 
-                          {isSuperAdmin && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => verifyUserMut.mutate(c.id)}
-                              disabled={verifyUserMut.isPending}
-                              title={c.isVerified ? "Remove verification badge" : "Verify genuine customer with Blue Badge"}
-                              className={`h-8 px-2.5 text-xs font-bold rounded-lg flex items-center gap-1 ${
-                                c.isVerified
-                                  ? "text-sky-400 border-sky-500/40 hover:bg-sky-500/10"
-                                  : "text-muted-foreground border-border hover:text-sky-400 hover:border-sky-500/40"
-                              }`}
-                            >
-                              <BadgeCheck size={12} /> {c.isVerified ? "Verified" : "Verify"}
-                            </Button>
-                          )}
-
-                          {(c.isPermanentlyLocked || c.status === "locked" || (c.failedLoginAttempts || 0) > 0) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => unlockUserMut.mutate(c.id)}
-                              disabled={unlockUserMut.isPending}
-                              title="Unlock account and reset failed login attempts"
-                              className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
-                            >
-                              <Unlock size={12} /> Unlock
-                            </Button>
-                          )}
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setStatus.mutate({ id: c.id, status: c.status === "blocked" ? "active" : "blocked" })}
-                            data-testid={`button-toggle-block-${c.id}`}
-                            className="rounded-lg text-xs"
-                          >
-                            {c.status === "blocked" ? "Unblock" : "Block"}
-                          </Button>
-
-                          {isSuperAdmin && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setDeleteTarget(c)}
-                              title="Permanently delete customer from DB (Super Admin Only)"
-                              className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg transition-all"
-                            >
-                              <Trash2 size={13} />
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {isError && (
-                <tr>
-                  <td colSpan={10} className="p-8 text-center text-red-400 font-bold">
-                    ⚠️ Error loading customers: {(error as any)?.message || "Session verification failed"}.
-                    <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-3 h-7 text-xs border-emerald-500/40 text-emerald-400">
-                      Retry
-                    </Button>
-                  </td>
-                </tr>
-              )}
-              {!isError && customers.length === 0 && (
-                <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">No customers yet.</td></tr>
-              )}
+                            {isSuperAdmin && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setDeleteTarget(c)}
+                                className="h-8 px-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 rounded-lg cursor-pointer"
+                                title="Permanently delete customer"
+                              >
+                                <Trash2 size={12} />
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -531,7 +909,7 @@ export default function AdminCustomers() {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-foreground">Edit Customer Details</h3>
-                  <p className="text-xs text-amber-400 font-semibold">Super Admin Manual Override (No OTP Required)</p>
+                  <p className="text-xs text-amber-400 font-semibold">Super Admin Manual Override</p>
                 </div>
               </div>
               <button
@@ -552,79 +930,118 @@ export default function AdminCustomers() {
                   email: editEmail,
                   phone: editPhone,
                   isVerified: editVerified,
+                  isEmailVerified: editEmailVerified,
+                  isPhoneVerified: editPhoneVerified,
                 });
               }}
               className="flex flex-col flex-1 overflow-hidden min-h-0"
             >
               <div className="overflow-y-auto p-6 space-y-3.5 flex-1 overscroll-contain">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold text-foreground">Full Name</Label>
-                <div className="relative">
-                  <UserIcon size={14} className="absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="pl-9 rounded-xl text-xs font-medium"
-                    required
-                  />
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-foreground">Full Name</Label>
+                  <div className="relative">
+                    <UserIcon size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="pl-9 rounded-xl text-xs font-medium"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-bold text-foreground">Email Address</Label>
-                <div className="relative">
-                  <Mail size={14} className="absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    className="pl-9 rounded-xl text-xs font-medium"
-                    required
-                  />
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-foreground">Email Address</Label>
+                  <div className="relative">
+                    <Mail size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="pl-9 rounded-xl text-xs font-medium"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs font-bold text-foreground">Mobile Phone Number</Label>
-                <div className="relative">
-                  <Phone size={14} className="absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    type="tel"
-                    maxLength={10}
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="9876543210"
-                    className="pl-9 rounded-xl text-xs font-mono font-bold"
-                  />
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-foreground">Mobile Phone Number</Label>
+                  <div className="relative">
+                    <Phone size={14} className="absolute left-3 top-3 text-muted-foreground" />
+                    <Input
+                      type="tel"
+                      maxLength={10}
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="9876543210"
+                      className="pl-9 rounded-xl text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">10-digit Indian mobile number without +91</p>
                 </div>
-                <p className="text-[10px] text-muted-foreground">10-digit Indian mobile number without +91</p>
-              </div>
 
-              <div className="p-3 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1">
-                    Verified Customer Blue Badge
-                    <VerifiedBadge size="sm" />
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">Authorize customer for order placement</p>
+                {/* Separate Verification Controls */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <Label className="text-xs font-bold text-foreground">Verification Toggles</Label>
+
+                  <div className="p-3 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Mail size={13} className="text-emerald-400" />
+                        Email Address Verified
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Customer email verification status</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editEmailVerified}
+                      onChange={(e) => setEditEmailVerified(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Phone size={13} className="text-sky-400" />
+                        Mobile Phone (WhatsApp) Verified
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Customer mobile number verification status</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editPhoneVerified}
+                      onChange={(e) => setEditPhoneVerified(e.target.checked)}
+                      className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-secondary/50 border border-border flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1">
+                        Verified Customer Blue Badge
+                        <VerifiedBadge size="sm" />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Master platform trust badge</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editVerified}
+                      onChange={(e) => setEditVerified(e.target.checked)}
+                      className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={editVerified}
-                  onChange={(e) => setEditVerified(e.target.checked)}
-                  className="w-4 h-4 accent-sky-500 rounded cursor-pointer"
-                />
-              </div>
               </div>
 
               <div className="sticky bottom-0 z-10 bg-card p-4 border-t border-border flex gap-2 shrink-0">
-                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEditTarget(null)}>
+                <Button type="button" variant="outline" className="flex-1 rounded-xl cursor-pointer" onClick={() => setEditTarget(null)}>
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold"
+                  className="flex-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer"
                   disabled={updateCustomerMut.isPending}
                 >
                   {updateCustomerMut.isPending ? "Saving…" : "Save Changes"}

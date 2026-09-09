@@ -355,21 +355,108 @@ function AppRouter() {
         <Route path="/my-orders" component={Orders} />
         <Route path="/help" component={GrievancePage} />
 
-        {/* Intercept & Block Direct /admin access on Public Storefront */}
-        <Route path="/admin/login">
-          {() => <AdminDirectAccessWarning targetRoute="/admin/login" />}
-        </Route>
-        <Route path="/admin/login/">
-          {() => <AdminDirectAccessWarning targetRoute="/admin/login" />}
-        </Route>
+        {/* Admin Gateway & Protected Routes */}
+        <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/login/" component={AdminLogin} />
         <Route path="/admin">
-          {() => <AdminDirectAccessWarning targetRoute="/admin" />}
+          {() => <AdminGuard component={AdminDashboard} path="/admin" />}
         </Route>
         <Route path="/admin/">
-          {() => <AdminDirectAccessWarning targetRoute="/admin/" />}
+          {() => <AdminGuard component={AdminDashboard} path="/admin/" />}
         </Route>
-        <Route path="/admin/:rest*">
-          {() => <AdminDirectAccessWarning targetRoute="/admin" />}
+        <Route path="/admin/live-chat">
+          {() => <AdminGuard component={AdminLiveChat} path="/admin/live-chat" />}
+        </Route>
+        <Route path="/admin/tickets">
+          {() => <AdminGuard component={AdminTickets} path="/admin/tickets" />}
+        </Route>
+        <Route path="/admin/refunds">
+          {() => <AdminGuard component={AdminRefunds} path="/admin/refunds" />}
+        </Route>
+        <Route path="/admin/procurement-ai">
+          {() => <AdminGuard component={AdminProcurementAI} path="/admin/procurement-ai" />}
+        </Route>
+        <Route path="/admin/products">
+          {() => <AdminGuard component={AdminProducts} path="/admin/products" />}
+        </Route>
+        <Route path="/admin/categories">
+          {() => <AdminGuard component={AdminCategories} path="/admin/categories" />}
+        </Route>
+        <Route path="/admin/approvals">
+          {() => <AdminGuard component={AdminApprovals} path="/admin/approvals" />}
+        </Route>
+        <Route path="/admin/inventory">
+          {() => <AdminGuard component={AdminInventory} path="/admin/inventory" />}
+        </Route>
+        <Route path="/admin/orders">
+          {() => <AdminGuard component={AdminOrders} path="/admin/orders" />}
+        </Route>
+        <Route path="/admin/subscriptions">
+          {() => <AdminGuard component={AdminSubscriptions} path="/admin/subscriptions" />}
+        </Route>
+        <Route path="/admin/customers">
+          {() => <AdminGuard component={AdminCustomers} path="/admin/customers" />}
+        </Route>
+        <Route path="/admin/reviews">
+          {() => <AdminGuard component={AdminReviews} path="/admin/reviews" />}
+        </Route>
+        <Route path="/admin/coupons">
+          {() => <AdminGuard component={AdminCoupons} path="/admin/coupons" />}
+        </Route>
+        <Route path="/admin/discounts">
+          {() => <AdminGuard component={AdminDiscounts} path="/admin/discounts" />}
+        </Route>
+        <Route path="/admin/star-discount-rules">
+          {() => <AdminGuard component={AdminStarDiscountRules} path="/admin/star-discount-rules" />}
+        </Route>
+        <Route path="/admin/referrals">
+          {() => <AdminGuard component={AdminReferrals} path="/admin/referrals" />}
+        </Route>
+        <Route path="/admin/payments">
+          {() => <AdminGuard component={AdminPayments} path="/admin/payments" />}
+        </Route>
+        <Route path="/admin/security">
+          {() => <AdminGuard component={AdminSecurity} path="/admin/security" />}
+        </Route>
+        <Route path="/admin/warehouses">
+          {() => <AdminGuard component={AdminWarehouses} path="/admin/warehouses" />}
+        </Route>
+        <Route path="/admin/delivery">
+          {() => <AdminGuard component={AdminDelivery} path="/admin/delivery" />}
+        </Route>
+        <Route path="/admin/users">
+          {() => <AdminGuard component={AdminUsers} path="/admin/users" />}
+        </Route>
+        <Route path="/admin/staff">
+          {() => <AdminGuard component={AdminStaff} path="/admin/staff" />}
+        </Route>
+        <Route path="/admin/delivery-partners">
+          {() => <AdminGuard component={AdminDeliveryPartners} path="/admin/delivery-partners" />}
+        </Route>
+        <Route path="/admin/gst">
+          {() => <AdminGuard component={AdminGST} path="/admin/gst" />}
+        </Route>
+        <Route path="/admin/advertisements">
+          {() => <AdminGuard component={AdminAdvertisements} path="/admin/advertisements" />}
+        </Route>
+        <Route path="/admin/announcements">
+          {() => <AdminGuard component={AdminAdvertisements} path="/admin/announcements" />}
+        </Route>
+        <Route path="/admin/marketing">
+          {() => <AdminGuard component={AdminMarketing} path="/admin/marketing" />}
+        </Route>
+        <Route path="/admin/campaigns">
+          {() => <AdminGuard component={AdminMarketing} path="/admin/campaigns" />}
+        </Route>
+        <Route path="/admin/lakshmi-ai">
+          {() => <AdminGuard component={AdminLakshmiAI} path="/admin/lakshmi-ai" />}
+        </Route>
+        <Route path="/admin/lakshmi">
+          {() => <AdminGuard component={AdminLakshmiAI} path="/admin/lakshmi" />}
+        </Route>
+        <Route path="/partner-portal" component={DeliveryPartnerPortal} />
+        <Route path="/admin/settings">
+          {() => <AdminGuard component={AdminSettings} path="/admin/settings" />}
         </Route>
 
         {/* Root Home Route */}
@@ -384,7 +471,6 @@ function AppRouter() {
 
 function AdminGuard({ component: Component, path }: { component: React.ComponentType; path?: string }) {
   const { user, loading } = useAuth();
-  const isAdminHost = useIsAdminHost();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-black">Loading…</div>;
@@ -399,15 +485,14 @@ function AdminGuard({ component: Component, path }: { component: React.Component
     user && user.id && (
       user.isPrimaryAdmin === true ||
       user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      user.role === "superadmin" ||
+      user.role === "admin" ||
       STAFF_ROLES.includes(user.role)
     )
   );
 
   if (!isStaffOrAdmin) {
-    if (isAdminHost) {
-      return <AdminLogin />;
-    }
-    return <AdminDirectAccessWarning targetRoute={path || window.location.pathname} />;
+    return <AdminLogin />;
   }
 
   return <Component />;

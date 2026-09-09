@@ -16,11 +16,29 @@ async function migrateCi() {
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_title VARCHAR(128)`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN NOT NULL DEFAULT FALSE`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS star_rating INTEGER NOT NULL DEFAULT 5`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_rank VARCHAR(64) NOT NULL DEFAULT 'Specialist'`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS customer_stars INTEGER NOT NULL DEFAULT 0`);
   await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_pending BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pincode VARCHAR(16)`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMP WITH TIME ZONE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_tier INTEGER NOT NULL DEFAULT 0`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_permanently_locked BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_fa_method VARCHAR(32) NOT NULL DEFAULT 'both'`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT`);
   console.log("[migrate-ci] users table updated");
+
+  // Run comprehensive auto-migrations from server/db
+  try {
+    const { runAutoMigrations } = await import("../server/db");
+    await runAutoMigrations();
+  } catch (autoErr: any) {
+    console.warn("[migrate-ci] auto-migrations runner notice:", autoErr?.message);
+  }
 
   // Add columns to categories if missing
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) NOT NULL DEFAULT 'approved'`);

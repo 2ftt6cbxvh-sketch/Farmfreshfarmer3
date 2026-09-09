@@ -94,6 +94,32 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     discountBreakdown: price.breakdown,
   });
 
+  // ── DISPATCH INSTANT TELEGRAM ALERT FOR EVERY ORDER PLACED ──
+  try {
+    const { sendTelegramOrderSecurityNotification } = await import("../services/telegram");
+    sendTelegramOrderSecurityNotification({
+      orderId: order.id,
+      customerName: order.customerName,
+      phone: order.phone,
+      address: order.address,
+      items: lines.map((it: any) => ({
+        name: it.name,
+        unit: it.unit || "1 pc",
+        price: it.price,
+        qty: it.qty,
+      })),
+      subtotal: price.subtotal,
+      discount: price.discount,
+      deliveryFee: price.deliveryFee,
+      total: order.total,
+      paymentMethod: paymentMethod === "COD" ? "Cash on Delivery (COD)" : paymentMethod,
+      couponCode: order.couponCode,
+      orderType: order.orderType,
+    }).catch((e: any) => console.warn("[telegram] order notification error:", e?.message));
+  } catch (tgErr: any) {
+    console.warn("[telegram] failed to dispatch order alert:", tgErr?.message);
+  }
+
   // Increment coupon usage count for 1-time or limited use coupons
   if (price.couponCode) {
     try {

@@ -268,12 +268,20 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   const flatDisplayed = navToDisplay.flatMap((s) => s.items);
 
   const STAFF_ROLES = [
-    "admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin",
+    "admin", "superadmin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin",
     "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer"
   ];
 
   useEffect(() => {
-    const isStaffOrAdmin = adminUser && STAFF_ROLES.includes(adminUser.role);
+    const isStaffOrAdmin = Boolean(
+      adminUser && (
+        adminUser.isPrimaryAdmin ||
+        adminUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+        adminUser.role === "superadmin" ||
+        adminUser.role === "admin" ||
+        STAFF_ROLES.includes(adminUser.role)
+      )
+    );
     if (isStaffOrAdmin) {
       localStorage.setItem("adminUser", JSON.stringify(adminUser));
     } else if (user === null && !loading) {
@@ -386,7 +394,15 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
   }
 
-  const isStaffOrAdmin = adminUser && STAFF_ROLES.includes(adminUser.role);
+  const isStaffOrAdmin = Boolean(
+    adminUser && (
+      adminUser.isPrimaryAdmin ||
+      adminUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      adminUser.role === "superadmin" ||
+      adminUser.role === "admin" ||
+      STAFF_ROLES.includes(adminUser.role)
+    )
+  );
 
   const [mfaVerified, setMfaVerified] = useState<boolean>(() => {
     return sessionStorage.getItem("admin_mfa_verified") === "true";
@@ -418,7 +434,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
 
 
   if (!adminUser || !isStaffOrAdmin) {
-    return <AdminDirectAccessWarning />;
+    return <AdminLogin />;
   }
 
   const isSuperAdmin = adminUser?.role === "admin" || adminUser?.role === "superadmin" || adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com";

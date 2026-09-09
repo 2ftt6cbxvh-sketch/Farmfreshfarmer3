@@ -119,11 +119,7 @@ app.use((req, res, next) => {
 });
 
 export const routesReadyPromise = (async () => {
-  if (process.env.VERCEL !== "1") {
-    await runAutoMigrations();
-  } else {
-    runAutoMigrations().catch((e) => console.warn("[db] background migrations warning:", e?.message));
-  }
+  await runAutoMigrations().catch((e) => console.warn("[db] auto-migrations warning:", e?.message));
   await registerRoutes(httpServer, app);
 
   // Send Telegram deploy/update alert to Super Admins on server boot

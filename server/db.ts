@@ -106,6 +106,8 @@ export async function runAutoMigrations(): Promise<void> {
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS is_permanently_locked BOOLEAN NOT NULL DEFAULT FALSE", "users.is_permanently_locked"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS two_fa_method VARCHAR(32) NOT NULL DEFAULT 'both'", "users.two_fa_method"],
       ["ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT", "users.totp_secret"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_pending BOOLEAN NOT NULL DEFAULT FALSE", "users.recovery_pending"],
+      ["ALTER TABLE users ADD COLUMN IF NOT EXISTS pincode VARCHAR(16)", "users.pincode"],
       [`CREATE TABLE IF NOT EXISTS star_discount_rules (
           id SERIAL PRIMARY KEY,
           rule_type VARCHAR(16) NOT NULL DEFAULT 'customer',
