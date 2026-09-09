@@ -43,26 +43,44 @@ export function AdminExecutiveCopilotModal() {
     user?.id === 1
   );
 
-  const [messages, setMessages] = useState<CopilotMessage[]>([
-    {
-      id: "welcome_init",
-      role: "model",
-      content: `Hello **${user?.name || "Admin"}**! I am **Narayana AI**, powered by Google Gemini AI.\n\nI have real-time access to your live **sales, orders, inventory stock levels, delivery dispatches, customer searches, and security logs**.\n\nHow can I assist your operations right now?`,
-      suggestedFollowups: isSuperAdmin
-        ? [
-            "Give me today's financial summary & GMV",
-            "Which crops are running out of stock?",
-            "Are there any delayed order dispatches?",
-            "Create a 10% flash coupon FRESH10",
-          ]
-        : [
-            "Which crops are running out of stock?",
-            "How many orders are placed & packed right now?",
-            "What produce is high in demand today?",
-          ],
-      timestamp: new Date(),
-    },
-  ]);
+  const HISTORY_KEY = `narayana_chat_history_${user?.id || "admin"}`;
+  const WELCOME_MSG: CopilotMessage = {
+    id: "welcome_init",
+    role: "model",
+    content: `Hello **${user?.name || "Admin"}**! I am **Narayana AI**, powered by Google Gemini AI.\n\nI have real-time access to your live **sales, orders, inventory stock levels, delivery dispatches, customer searches, and security logs**.\n\nHow can I assist your operations right now?`,
+    suggestedFollowups: isSuperAdmin
+      ? [
+          "Give me today's financial summary & GMV",
+          "Which crops are running out of stock?",
+          "Are there any delayed order dispatches?",
+          "Create a 10% flash coupon FRESH10",
+        ]
+      : [
+          "Which crops are running out of stock?",
+          "How many orders are placed & packed right now?",
+          "What produce is high in demand today?",
+        ],
+    timestamp: new Date(),
+  };
+
+  const [messages, setMessages] = useState<CopilotMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY);
+      if (saved) {
+        const parsed: CopilotMessage[] = JSON.parse(saved);
+        // Restore Date objects and cap to last 60 messages to avoid bloat
+        return parsed.slice(-60).map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+      }
+    } catch {}
+    return [WELCOME_MSG];
+  });
+
+  // Persist history to localStorage whenever messages change
+  useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-60)));
+    } catch {}
+  }, [messages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -265,8 +283,8 @@ export function AdminExecutiveCopilotModal() {
 
       {/* ── COPILOT MODAL / SLIDE-OVER ── */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end sm:justify-end p-0 sm:p-6 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in duration-200">
-          <div className="w-full sm:w-[460px] h-[92vh] sm:h-[650px] bg-card border-t sm:border border-emerald-500/30 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden text-foreground">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end sm:justify-end p-0 sm:p-6 pointer-events-none">
+          <div className="w-full sm:w-[460px] h-[92vh] sm:h-[650px] bg-card border-t sm:border border-emerald-500/30 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden text-foreground pointer-events-auto">
 
             {/* ── MODAL HEADER ── */}
             <div className="p-4 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-amber-950/80 border-b border-emerald-500/20 flex items-center justify-between text-white shrink-0">
@@ -298,7 +316,11 @@ export function AdminExecutiveCopilotModal() {
                 </select>
 
                 <button
-                  onClick={() => setMessages([messages[0]])}
+                  onClick={() => {
+                  const fresh = [WELCOME_MSG];
+                  setMessages(fresh);
+                  try { localStorage.removeItem(HISTORY_KEY); } catch {}
+                }}
                   className="text-gray-400 hover:text-red-400 p-1.5 transition rounded-lg hover:bg-white/10"
                   title="Clear conversation"
                 >
