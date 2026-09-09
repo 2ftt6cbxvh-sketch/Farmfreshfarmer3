@@ -325,10 +325,28 @@ export const reviewStore = {
 
 /* =============================== ORDERS ============================= */
 export const orderStore = {
-  async list(opts?: { status?: string; type?: string }) {
+  async list(opts?: { status?: string; type?: string; onlyPlaced?: boolean }) {
     const conds = [];
     if (opts?.status) conds.push(eq(orders.status, opts.status));
     if (opts?.type) conds.push(eq(orders.orderType, opts.type));
+    if (opts?.onlyPlaced) {
+      // Strictly placed orders:
+      // Either COD (payment collected upon arrival) or paid online.
+      // Must not be in an awaiting/pending checkout phase.
+      conds.push(
+        or(
+          eq(orders.paymentMethod, "COD"),
+          eq(orders.paymentStatus, "paid")
+        )
+      );
+      conds.push(
+        and(
+          ne(orders.status, "Awaiting Payment"),
+          ne(orders.status, "Payment Pending"),
+          ne(orders.status, "awaiting_payment")
+        )
+      );
+    }
     const where = conds.length ? and(...conds) : undefined;
     return db.select().from(orders).where(where).orderBy(desc(orders.createdAt));
   },
@@ -355,9 +373,12 @@ export const orderStore = {
     orderType?: string; subscriptionId?: number | null; deliveryDay?: string | null;
     firstOrderDiscount?: number; referralDiscount?: number; referralRewardApplied?: number;
     referralCodeUsed?: string | null; paymentMethod?: string; paymentStatus?: string;
+    status?: string;
     items: { productId?: number | null; name: string; unit: string; price: number; qty: number }[];
     discountBreakdown?: { ruleType: string; label: string; amount: number }[];
   }) {
+    const isOnline = o.paymentMethod === "PHONEPE";
+    const initialStatus = o.status || (isOnline ? "Awaiting Payment" : "Placed");
     const [order] = await db.insert(orders).values({
       userId: o.userId, customerName: o.customerName, phone: o.phone, address: o.address,
       subtotal: String(o.subtotal), discount: String(o.discount), total: String(o.total),
@@ -369,6 +390,7 @@ export const orderStore = {
       referralCodeUsed: o.referralCodeUsed ?? null,
       paymentMethod: o.paymentMethod ?? "COD",
       paymentStatus: o.paymentStatus ?? "pending",
+      status: initialStatus,
     }).returning();
 
     if (o.items.length) {
@@ -383,13 +405,26 @@ export const orderStore = {
         orderId: order.id, ruleType: d.ruleType, label: d.label, amount: String(d.amount),
       })));
     }
-    await db.insert(orderStatusLogs).values({ orderId: order.id, status: order.status, note: "Order placed" });
+    await db.insert(orderStatusLogs).values({
+      orderId: order.id,
+      status: order.status,
+      note: isOnline ? "Awaiting online payment via PhonePe" : "Order placed (Cash on Delivery)",
+    });
     return order;
   },
   async setStatus(id: number, status: string, note?: string) {
     const [r] = await db.update(orders).set({ status, updatedAt: new Date() }).where(eq(orders.id, id)).returning();
-    if (r) await db.insert(orderStatusLogs).values({ orderId: id, status, note: note ?? null });
+    if (r) {
+      await db.insert(orderStatusLogs).values({ orderId: id, status, note: note || `Status updated to ${status}` });
+    }
     return r;
+  },
+  async delete(id: number) {
+    try { await db.delete(orderItems).where(eq(orderItems.orderId, id)); } catch (e) {}
+    try { await db.delete(orderStatusLogs).where(eq(orderStatusLogs.orderId, id)); } catch (e) {}
+    try { await db.delete(orderDiscounts).where(eq(orderDiscounts.orderId, id)); } catch (e) {}
+    try { await db.delete(payments).where(eq(payments.orderId, id)); } catch (e) {}
+    await db.delete(orders).where(eq(orders.id, id));
   },
   async setPaymentStatus(id: number, paymentStatus: string, paymentMethod?: string) {
     const patch: any = { paymentStatus, updatedAt: new Date() };

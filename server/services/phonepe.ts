@@ -23,14 +23,33 @@ import { storage } from "../storage";
 /* ------------------------------- config ------------------------------- */
 type PPEnv = "sandbox" | "production";
 
-function cfg() {
-  const env = (process.env.PHONEPE_ENV || "sandbox").toLowerCase() as PPEnv;
-  const clientId = process.env.PHONEPE_CLIENT_ID || "";
-  const clientSecret = process.env.PHONEPE_CLIENT_SECRET || "";
-  const clientVersion = process.env.PHONEPE_CLIENT_VERSION || "1";
-  const merchantId = process.env.PHONEPE_MERCHANT_ID || "";
-  const appBaseUrl = (process.env.APP_BASE_URL || "http://localhost:5001").replace(/\/+$/, "");
-  const configured = Boolean(clientId && clientSecret);
+let cachedSettings: Record<string, string> = {};
+let lastSettingsFetch = 0;
+
+export async function refreshPhonePeSettings(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (now - lastSettingsFetch < 15000 && Object.keys(cachedSettings).length > 0) {
+    return cachedSettings;
+  }
+  try {
+    cachedSettings = await storage.settings.all();
+    lastSettingsFetch = now;
+  } catch {
+    // fallback to existing
+  }
+  return cachedSettings;
+}
+
+export function cfg() {
+  const s = cachedSettings;
+  const env = (s.phonepe_env || process.env.PHONEPE_ENV || "sandbox").toLowerCase() as PPEnv;
+  const clientId = s.phonepe_client_id || process.env.PHONEPE_CLIENT_ID || "";
+  const clientSecret = s.phonepe_client_secret || process.env.PHONEPE_CLIENT_SECRET || "";
+  const clientVersion = s.phonepe_client_version || process.env.PHONEPE_CLIENT_VERSION || "1";
+  const merchantId = s.phonepe_merchant_id || process.env.PHONEPE_MERCHANT_ID || "";
+  const appBaseUrl = (s.app_base_url || process.env.APP_BASE_URL || "http://localhost:5001").replace(/\/+$/, "");
+  const isEnabled = s.phonepe_enabled !== "false";
+  const configured = Boolean(clientId && clientSecret && isEnabled);
   // Base hosts per PhonePe docs.
   const bases =
     env === "production"
@@ -42,10 +61,15 @@ function cfg() {
           auth: "https://api-preprod.phonepe.com/apis/pg-sandbox",
           pg: "https://api-preprod.phonepe.com/apis/pg-sandbox",
         };
-  return { env, clientId, clientSecret, clientVersion, merchantId, appBaseUrl, configured, bases };
+  return { env, clientId, clientSecret, clientVersion, merchantId, appBaseUrl, isEnabled, configured, bases };
 }
 
 export function isPhonePeConfigured(): boolean {
+  return cfg().configured;
+}
+
+export async function isPhonePeConfiguredAsync(): Promise<boolean> {
+  await refreshPhonePeSettings();
   return cfg().configured;
 }
 
@@ -62,7 +86,7 @@ function simulationAllowed(): boolean {
   const { configured } = cfg();
   if (configured) return false;
   if (process.env.NODE_ENV !== "production") return true;
-  return process.env.PHONEPE_ALLOW_SIMULATION === "true";
+  return process.env.PHONEPE_ALLOW_SIMULATION === "true" || cachedSettings.phonepe_allow_simulation === "true";
 }
 
 /* --------------------------- OAuth token cache ------------------------ */
@@ -134,6 +158,7 @@ export async function initiatePayment(args: {
   target: PaymentTarget;
   customerName?: string;
 }): Promise<InitiateResult> {
+  await refreshPhonePeSettings();
   const c = cfg();
   const amountPaisa = Math.round(Number(args.amountRupees) * 100);
   if (!(amountPaisa >= 100)) throw new Error("Payment amount must be at least ₹1");
@@ -299,8 +324,8 @@ async function applyResolution(
   if (payment.orderId) {
     if (status === "success") {
       await storage.orders.setPaymentStatus(payment.orderId, "paid", "PhonePe");
-      // Move a freshly-placed order into confirmed once paid.
-      await storage.orders.setStatus(payment.orderId, "confirmed", "Payment received via PhonePe");
+      // Move order to Placed upon verified payment receipt
+      await storage.orders.setStatus(payment.orderId, "Placed", "Payment received via PhonePe");
 
       // Notify Super Admin Security Bot
       try {
@@ -325,6 +350,7 @@ async function applyResolution(
       } catch (e) {}
     } else if (status === "failed") {
       await storage.orders.setPaymentStatus(payment.orderId, "failed", "PhonePe");
+      await storage.orders.setStatus(payment.orderId, "Cancelled", "PhonePe payment failed or was declined");
     }
   }
   if (payment.subscriptionCycleId) {

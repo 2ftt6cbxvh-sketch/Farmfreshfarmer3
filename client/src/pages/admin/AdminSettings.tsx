@@ -731,7 +731,13 @@ const STORE_KEYS = [
   { key: "governing_court_city", label: "Governing Law Court Jurisdiction City (e.g. Visakhapatnam)", type: "text" as const },
 ];
 const PAYMENT_KEYS = [
-  { key: "cod_enabled", label: "Allow Cash on Delivery at checkout", type: "bool" as const },
+  { key: "cod_enabled", label: "Allow Cash on Delivery (COD) at checkout", type: "bool" as const },
+  { key: "phonepe_enabled", label: "Enable PhonePe Online Gateway (UPI / Cards / Netbanking)", type: "bool" as const },
+  { key: "phonepe_env", label: "PhonePe Environment ('sandbox' for testing, 'production' for live)", type: "text" as const },
+  { key: "phonepe_merchant_id", label: "PhonePe Merchant ID", type: "text" as const },
+  { key: "phonepe_client_id", label: "PhonePe Client ID", type: "text" as const },
+  { key: "phonepe_client_secret", label: "PhonePe Client Secret Key", type: "text" as const },
+  { key: "phonepe_client_version", label: "PhonePe Client Version (default: 1)", type: "text" as const },
 ];
 const LEGAL_CONTACT_KEYS = [
   { key: "contact_phone", label: "Customer Support Phone / WhatsApp", type: "text" as const },

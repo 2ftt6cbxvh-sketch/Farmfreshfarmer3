@@ -1540,12 +1540,16 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   /* =================== CHECKOUT CONFIG (public) =================== */
   // Public flags the checkout page needs. COD is ON unless the admin has
   // explicitly disabled it (cod_enabled === "false").
+  // PhonePe is ON only if enabled and valid credentials are configured.
   app.get("/api/checkout-config", h(async (_req, res) => {
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
     const config = await apiCache.getOrSet("checkout-config:all", async () => {
       const codEnabled = (await storage.settings.get("cod_enabled")) !== "false";
-      return { codEnabled };
-    }, 120, ["settings", "checkout-config"]);
+      const { isPhonePeConfiguredAsync } = await import("./services/phonepe");
+      const phonepeConfigured = await isPhonePeConfiguredAsync();
+      const phonepeEnabled = (await storage.settings.get("phonepe_enabled")) !== "false" && phonepeConfigured;
+      return { codEnabled, phonepeEnabled };
+    }, 60, ["settings", "checkout-config"]);
     res.json(config);
   }));
 
@@ -1593,6 +1597,17 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     // Enforce the admin COD toggle server-side so it can't be bypassed.
     if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
       return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
+    }
+    // Verify PhonePe availability server-side BEFORE creating any order.
+    if (paymentMethod === "PHONEPE") {
+      const { isPhonePeConfiguredAsync } = await import("./services/phonepe");
+      const phonepeReady = await isPhonePeConfiguredAsync();
+      if (!phonepeReady) {
+        return res.status(400).json({
+          message: "Online payment via PhonePe is currently not enabled or configured. Please select Cash on Delivery (COD) to place your order.",
+          code: "PHONEPE_NOT_CONFIGURED"
+        });
+      }
     }
     const userId = extractUserId(req) || req.session?.userId;
     if (!userId) {
@@ -1710,36 +1725,27 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     // For PhonePe, initiate payment and return the redirect URL.
     if (paymentMethod === "PHONEPE") {
-      const pay = await initiatePayment({
-        amountRupees: Number(order.total),
-        target: { orderId: order.id, userId: order.userId },
-        customerName: order.customerName,
-      });
-      return res.json({
-        id: order.id, total: order.total, price,
-        payment: { merchantOrderId: pay.merchantOrderId, redirectUrl: pay.redirectUrl, simulated: pay.simulated },
-      });
+      try {
+        const pay = await initiatePayment({
+          amountRupees: Number(order.total),
+          target: { orderId: order.id, userId: order.userId },
+          customerName: order.customerName,
+        });
+        return res.json({
+          id: order.id, total: order.total, price,
+          payment: { merchantOrderId: pay.merchantOrderId, redirectUrl: pay.redirectUrl, simulated: pay.simulated },
+        });
+      } catch (payErr: any) {
+        console.error(`[payments] PhonePe initiation failed for Order #${order.id}. Rolling back draft order:`, payErr?.message);
+        await storage.orders.delete(order.id);
+        return res.status(502).json({
+          message: `Unable to initialize payment: ${payErr?.message || "Payment gateway connection failed"}. Please select Cash on Delivery.`,
+          code: "PHONEPE_INITIATE_FAILED",
+        });
+      }
     }
-    // COD: confirm immediately and dispatch Super Admin Security Bot alert.
-    await storage.orders.setStatus(order.id, "confirmed", "Order placed (Cash on Delivery)");
-
-    try {
-      const { sendTelegramOrderSecurityNotification } = await import("./services/telegram");
-      sendTelegramOrderSecurityNotification({
-        orderId: order.id,
-        customerName: order.customerName,
-        phone: order.phone,
-        address: order.address,
-        items,
-        subtotal: price.subtotal,
-        discount: price.discount,
-        deliveryFee: price.deliveryFee,
-        total: order.total,
-        paymentMethod: "Cash on Delivery (COD)",
-        couponCode: order.couponCode,
-        orderType: order.orderType,
-      }).catch((e) => console.warn('[telegram] COD order notification error:', e));
-    } catch (e) {}
+    // COD: confirm status as Placed
+    await storage.orders.setStatus(order.id, "Placed", "Order placed (Cash on Delivery)");
 
     res.json({ id: order.id, total: order.total, price });
   }));
@@ -1767,7 +1773,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.get("/api/orders", requireAdmin, h(async (req, res) => {
     const status = req.query.status ? String(req.query.status) : undefined;
     const type = req.query.type ? String(req.query.type) : undefined;
-    res.json(await storage.orders.list({ status, type }));
+    const showAll = req.query.all === "true";
+    res.json(await storage.orders.list({ status, type, onlyPlaced: !showAll }));
   }));
 
   app.patch("/api/orders/:id", requireAdmin, h(async (req, res) => {
@@ -3114,6 +3121,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       panindia_shipping_base: all.panindia_shipping_base || "60",
       cod_enabled: all.cod_enabled !== "false",
       allow_cod: all.allow_cod !== "false",
+      phonepe_enabled: (all.phonepe_enabled !== "false") && Boolean((all.phonepe_client_id && all.phonepe_client_secret) || (process.env.PHONEPE_CLIENT_ID && process.env.PHONEPE_CLIENT_SECRET)),
       store_name: all.store_name || "FarmFreshFarmer",
       store_city: all.store_city || "Vijayawada",
       shipping_policy_custom_notes: all.shipping_policy_custom_notes || "",
@@ -3312,9 +3320,8 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   /* ===================== ADMIN: sales summary ==================== */
   app.get("/api/admin/sales-summary", requireAdmin, h(async (_req, res) => {
-    const orders = await storage.orders.list();
-    const paidOrders = orders.filter((o) => o.paymentStatus === "paid" || o.paymentMethod === "COD");
-    const revenue = paidOrders.reduce((s, o) => s + Number(o.total), 0);
+    const orders = await storage.orders.list({ onlyPlaced: true });
+    const revenue = orders.reduce((s, o) => s + Number(o.total), 0);
     const byStatus: Record<string, number> = {};
     for (const o of orders) byStatus[o.status] = (byStatus[o.status] || 0) + 1;
     const activeSubs = (await storage.subscriptions.listActive()).length;
@@ -3323,7 +3330,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json({
       totalOrders: orders.length,
       totalRevenue: Math.round(revenue * 100) / 100,
-      averageOrderValue: paidOrders.length ? Math.round((revenue / paidOrders.length) * 100) / 100 : 0,
+      averageOrderValue: orders.length ? Math.round((revenue / orders.length) * 100) / 100 : 0,
       ordersByStatus: byStatus,
       activeSubscriptions: activeSubs,
       upcomingDeliveries: upcoming,

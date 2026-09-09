@@ -282,19 +282,22 @@ export default function Cart() {
   const deliveryEnabled = deliveryRules?.enabled ?? false;
 
   // Checkout config — whether Cash on Delivery is offered (admin toggle).
-  const { data: checkoutConfig } = useQuery<{ codEnabled: boolean }>({
+  const { data: checkoutConfig } = useQuery<{ codEnabled: boolean; phonepeEnabled: boolean }>({
     queryKey: ["/api/checkout-config"],
-    queryFn: () => apiGet<{ codEnabled: boolean }>("/api/checkout-config"),
+    queryFn: () => apiGet<{ codEnabled: boolean; phonepeEnabled: boolean }>("/api/checkout-config"),
   });
   const codEnabled = checkoutConfig?.codEnabled !== false;
+  const phonepeEnabled = checkoutConfig?.phonepeEnabled === true;
 
-  // If COD is disabled, make sure the selected method isn't COD.
+  // Auto-align selected payment method with currently enabled options
   useEffect(() => {
-    if (checkoutConfig && !codEnabled && paymentMethod === "COD") {
+    if (!checkoutConfig) return;
+    if (!codEnabled && phonepeEnabled && paymentMethod === "COD") {
       setPaymentMethod("PHONEPE");
+    } else if (!phonepeEnabled && paymentMethod === "PHONEPE") {
+      setPaymentMethod("COD");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkoutConfig, codEnabled]);
+  }, [checkoutConfig, codEnabled, phonepeEnabled, paymentMethod]);
 
   const [quote, setQuote] = useState<PriceQuote | null>(null);
 
@@ -1093,12 +1096,23 @@ export default function Cart() {
                       </Label>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 rounded-xl border border-input p-3 bg-secondary/20 hover:bg-secondary/40 transition-colors cursor-pointer">
-                    <RadioGroupItem value="PHONEPE" id="pay-phonepe" />
-                    <Label htmlFor="pay-phonepe" className="flex items-center gap-2 cursor-pointer text-xs font-bold text-foreground">
-                      <Smartphone size={15} className="text-emerald-400" /> Pay Online with PhonePe / UPI / Cards
-                    </Label>
-                  </div>
+                  {phonepeEnabled ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-input p-3 bg-secondary/20 hover:bg-secondary/40 transition-colors cursor-pointer">
+                      <RadioGroupItem value="PHONEPE" id="pay-phonepe" />
+                      <Label htmlFor="pay-phonepe" className="flex items-center gap-2 cursor-pointer text-xs font-bold text-foreground">
+                        <Smartphone size={15} className="text-emerald-400" /> Pay Online with PhonePe / UPI / Cards
+                      </Label>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between rounded-xl border border-input/40 p-3 bg-muted/20 opacity-60">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <Smartphone size={15} className="text-muted-foreground/60" /> Online Payment (PhonePe / UPI)
+                      </div>
+                      <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/25">
+                        Temporarily Offline · Pay via COD
+                      </span>
+                    </div>
+                  )}
                 </RadioGroup>
               </div>
 

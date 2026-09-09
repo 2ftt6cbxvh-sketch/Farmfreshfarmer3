@@ -396,6 +396,8 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.health_subscriptions"],
       ["CREATE INDEX IF NOT EXISTS health_subs_user_idx ON health_subscriptions(user_id)", "idx.health_subs_user"],
       ["CREATE INDEX IF NOT EXISTS health_subs_status_idx ON health_subscriptions(status)", "idx.health_subs_status"],
+      // ── CLEANUP UNPAID PHONEPE ORDERS ERRONEOUSLY MARKED AS PLACED ──
+      ["UPDATE orders SET status = 'Awaiting Payment' WHERE payment_method = 'PHONEPE' AND payment_status != 'paid' AND status = 'Placed'", "cleanup.unpaid_phonepe_orders"],
     ];
 
     for (const [sql, label] of stmts) {

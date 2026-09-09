@@ -35,9 +35,11 @@ export default function AdminOrders() {
   const [invoiceOrderId, setInvoiceOrderId] = useState<number | null>(null);
   const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
 
+  const [viewTab, setViewTab] = useState<"placed" | "incomplete">("placed");
+
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
-    queryFn: () => apiGet<Order[]>("/api/orders"),
+    queryFn: () => apiGet<Order[]>("/api/orders?all=true"),
     refetchInterval: 2500, // Live automatic sync every 2.5s!
   });
 
@@ -74,13 +76,72 @@ export default function AdminOrders() {
     },
   });
 
-  const filtered = orders.filter((o) =>
+  // Strictly filter to placed orders:
+  // An order is placed if it is COD (cash on arrival) OR paid online (paymentStatus === "paid").
+  // Orders with status "Awaiting Payment" / "Payment Pending" or uncompleted PhonePe payments are NOT placed orders!
+  const isOrderPlaced = (o: Order) => {
+    if (o.status === "Awaiting Payment" || o.status === "Payment Pending") return false;
+    if (o.paymentMethod === "PHONEPE" && o.paymentStatus !== "paid") return false;
+    return true;
+  };
+
+  const placedOrders = orders.filter(isOrderPlaced);
+  const incompleteOrders = orders.filter((o) => !isOrderPlaced(o));
+
+  const currentList = viewTab === "placed" ? placedOrders : incompleteOrders;
+
+  const filtered = currentList.filter((o) =>
     (statusFilter === "all" || o.status === statusFilter) &&
     (paymentFilter === "all" || o.paymentStatus === paymentFilter)
   );
 
   return (
     <AdminLayout title="Orders">
+      {/* View Switcher: Strictly Placed Orders vs Incomplete Checkouts */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewTab === "placed" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setViewTab("placed");
+              setStatusFilter("all");
+              setPaymentFilter("all");
+            }}
+            className="rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+          >
+            <span>📦 Placed Orders Only</span>
+            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 bg-background/30 text-current">
+              {placedOrders.length}
+            </Badge>
+          </Button>
+
+          {incompleteOrders.length > 0 && (
+            <Button
+              variant={viewTab === "incomplete" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewTab("incomplete");
+                setStatusFilter("all");
+                setPaymentFilter("all");
+              }}
+              className="rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer"
+            >
+              <span>⏳ Unpaid / Abandoned Checkouts</span>
+              <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
+                {incompleteOrders.length}
+              </Badge>
+            </Button>
+          )}
+        </div>
+
+        {viewTab === "incomplete" && (
+          <div className="text-[11px] text-amber-500 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20">
+            ⚠️ Showing customer checkout attempts where online payment was not completed or failed. These are not placed orders and should not be fulfilled.
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="w-48">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
