@@ -242,6 +242,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ? process.env.COOKIE_SECURE === "true"
       : process.env.NODE_ENV === "production";
 
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieDomain = isProd ? (process.env.COOKIE_DOMAIN || ".farmfreshfarmer.com") : undefined;
+
   app.use(
     session({
       // Production MUST set SESSION_SECRET; dev falls back to a fixed string.
@@ -253,7 +256,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         httpOnly: true,
         sameSite: "lax",
         secure: cookieSecure,
-        maxAge: 1000 * 60 * 60 * 2, // Strict 2 hours of inactivity timeout
+        domain: cookieDomain,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days active session
       },
     }),
   );

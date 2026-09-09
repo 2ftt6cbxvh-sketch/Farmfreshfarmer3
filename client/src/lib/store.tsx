@@ -105,8 +105,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(newUser);
-    } catch {
-      // If network fails, preserve existing local user if token is still valid
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (
+        msg.includes("Not logged in") ||
+        msg.includes("401") ||
+        msg.includes("Unauthorized") ||
+        msg.includes("Admin or Staff access required") ||
+        msg.includes("403")
+      ) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("adminUser");
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("token");
+        sessionStorage.removeItem("admin_mfa_verified");
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

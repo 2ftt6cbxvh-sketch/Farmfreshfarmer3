@@ -390,26 +390,16 @@ function AdminGuard({ component: Component, path }: { component: React.Component
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-black">Loading…</div>;
   }
 
-  const storedAdmin = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("adminUser") || "null");
-    } catch {
-      return null;
-    }
-  })();
-
-  const effectiveUser = (user && user.id) ? user : storedAdmin;
-
   const STAFF_ROLES = [
     "admin", "warehouse_admin", "manager_admin", "delivery_partner", "subadmin", "custom_subadmin",
     "customer_rep", "local_grievance_officer", "zonal_grievance_officer", "chief_grievance_officer", "superadmin"
   ];
 
   const isStaffOrAdmin = Boolean(
-    effectiveUser && (
-      effectiveUser.isPrimaryAdmin === true ||
-      effectiveUser.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
-      STAFF_ROLES.includes(effectiveUser.role)
+    user && user.id && (
+      user.isPrimaryAdmin === true ||
+      user.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      STAFF_ROLES.includes(user.role)
     )
   );
 

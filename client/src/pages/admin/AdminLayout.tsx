@@ -177,18 +177,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   });
 
   // Prefer live server data so any permission changes reflect immediately
-  let adminUser = (liveUser && (liveUser as any)?.id) ? liveUser as any : user;
-  if (!adminUser) {
-    try {
-      const stored = localStorage.getItem("adminUser");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && typeof parsed.role === "string") {
-          adminUser = parsed;
-        }
-      }
-    } catch(e) {}
-  }
+  const adminUser = (liveUser && (liveUser as any)?.id) ? (liveUser as any) : (user && user.id ? user : null);
 
   const isPrimaryAdmin = Boolean(
     adminUser?.email?.toLowerCase() === "admin@farmfreshfarmer.com" ||
