@@ -3074,6 +3074,24 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     return res.json(data);
   }));
 
+  /** GET /api/mandi-prices/parity — Live calculated Mandi parity for a specific produce */
+  app.get("/api/mandi-prices/parity", h(async (req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=1800");
+    const name = String(req.query.name || "").trim();
+    const price = Number(req.query.price) || 0;
+    const categorySlug = String(req.query.categorySlug || "").trim();
+    const unit = String(req.query.unit || "1 Kg").trim();
+    const productId = req.query.productId ? Number(req.query.productId) : undefined;
+
+    if (!name) {
+      return res.status(400).json({ error: "Produce name is required" });
+    }
+
+    const { calculateProductMandiParity } = await import("./services/mandi-prices");
+    const calculation = await calculateProductMandiParity(name, price, categorySlug, unit, productId);
+    return res.json(calculation);
+  }));
+
   /** POST /api/admin/mandi-prices/sync — Admin trigger live mandi sync */
   app.post("/api/admin/mandi-prices/sync", requireAdmin, h(async (_req, res) => {
     const { getLiveMandiPrices } = await import("./services/mandi-prices");
