@@ -144,6 +144,63 @@ export function PhoneVerificationModal({
     }
   };
 
+  // Auto-polling for Meta WhatsApp Inbound Webhook verification
+  useEffect(() => {
+    if (!open || method !== "whatsapp" || !waData?.code) return;
+
+    let isMounted = true;
+    const cleanPhone = (phone || user?.phone || "").replace(/\D/g, "").slice(-10);
+    const code = waData.code;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          code,
+          phone: cleanPhone,
+          userId: user?.id ? String(user.id) : "",
+        });
+        const res = await fetch(`/api/auth/whatsapp/status?${queryParams.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.verified && isMounted) {
+          clearInterval(intervalId);
+
+          const updatedUser = data.user || {
+            ...(user || {}),
+            isPhoneVerified: true,
+            phone: data.phone || cleanPhone,
+            isVerified: Boolean(user?.isEmailVerified),
+          };
+
+          if (user) {
+            setUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+          }
+
+          toast({
+            title: "🏅 Blue Badge Activated!",
+            description: "Mobile number verified via WhatsApp automatically! Order placement is now active.",
+          });
+
+          queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/customers"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+
+          onOpenChange(false);
+          if (onSuccess) onSuccess();
+        }
+      } catch {
+        // Silently continue polling
+      }
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [open, method, waData?.code, phone, user, onOpenChange, onSuccess, setUser, toast]);
+
   const handleOpenWhatsAppLink = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage(null);

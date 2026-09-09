@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles, Upload, User, FileText, Award, GraduationCap, Briefcase, Globe, Mail, Phone, RefreshCw, CheckCircle2 } from "lucide-react";
+import { KeyRound, Percent, Gift, Truck, Store, Save, MapPin, Plus, Trash2, CreditCard, Sparkles, Upload, User, FileText, Award, GraduationCap, Briefcase, Globe, Mail, Phone, RefreshCw, CheckCircle2, MessageSquare, Copy, Check, TrendingUp, ExternalLink, ShieldAlert } from "lucide-react";
 import { AdminLayout } from "./AdminLayout";
 import { ChiefExecutiveExclusiveControls } from "@/components/admin/ChiefExecutiveExclusiveControls";
 import { apiGet, apiRequest, queryClient, imgUrl } from "@/lib/queryClient";
@@ -1248,6 +1248,443 @@ function TelegramBotsCustomizer() {
   );
 }
 
+function WhatsAppCloudCustomizer() {
+  const { toast } = useToast();
+  const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [wabaId, setWabaId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [verifyToken, setVerifyToken] = useState("farmfresh_wa_verify_2026");
+  const [businessPhone, setBusinessPhone] = useState("917989793669");
+  const [testPhone, setTestPhone] = useState("");
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["/api/admin/settings"],
+    queryFn: () => apiGet<SettingsMap>("/api/admin/settings"),
+  });
+
+  useEffect(() => {
+    if (settingsData) {
+      if (settingsData.whatsapp_phone_number_id) setPhoneNumberId(settingsData.whatsapp_phone_number_id);
+      if (settingsData.whatsapp_business_account_id) setWabaId(settingsData.whatsapp_business_account_id);
+      if (settingsData.whatsapp_access_token) setAccessToken(settingsData.whatsapp_access_token);
+      if (settingsData.whatsapp_webhook_verify_token) setVerifyToken(settingsData.whatsapp_webhook_verify_token);
+      if (settingsData.whatsapp_business_phone) setBusinessPhone(settingsData.whatsapp_business_phone);
+    }
+  }, [settingsData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload: Record<string, string> = {
+        whatsapp_phone_number_id: phoneNumberId,
+        whatsapp_business_account_id: wabaId,
+        whatsapp_webhook_verify_token: verifyToken,
+        whatsapp_business_phone: businessPhone,
+      };
+      if (accessToken && !accessToken.includes("••••")) {
+        payload.whatsapp_access_token = accessToken;
+      }
+      await apiRequest("POST", "/api/admin/settings", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      toast({ title: "WhatsApp Config Saved", description: "Meta WhatsApp Cloud API credentials updated successfully." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Save Failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/whatsapp/test", {
+        to: testPhone || businessPhone,
+        message: "🌿 FarmFreshFarmer Meta WhatsApp Cloud API: Connection established successfully! Your 1,000 free monthly conversations tier is active.",
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "✅ WhatsApp Message Sent!", description: `Meta Message ID: ${data.messageId || "Delivered"}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "❌ WhatsApp Delivery Failed", description: err.message || "Ensure Phone Number ID and Access Token are valid.", variant: "destructive" });
+    },
+  });
+
+  const callbackUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/api/webhooks/whatsapp`
+    : "https://farmfreshfarmer.com/api/webhooks/whatsapp";
+
+  const copyToClipboard = (text: string, type: "url" | "token") => {
+    navigator.clipboard.writeText(text);
+    if (type === "url") {
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } else {
+      setCopiedToken(true);
+      setTimeout(() => setCopiedToken(false), 2000);
+    }
+    toast({ title: "Copied to Clipboard", description: text });
+  };
+
+  const isConfigured = Boolean(phoneNumberId && accessToken);
+
+  return (
+    <div className="space-y-6">
+      {/* Free Tier Callout */}
+      <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">💬</span>
+            <h3 className="font-bold text-sm text-emerald-400">
+              Official Meta WhatsApp Cloud API — 1,000 Free Conversations / Month
+            </h3>
+          </div>
+          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+            isConfigured ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+          }`}>
+            {isConfigured ? "🟢 Meta API Active" : "⚠️ Setup Required"}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          When customers tap the WhatsApp verification link on your website, they initiate a message to your business number.
+          Meta categorizes this as a <strong className="text-foreground">User-Initiated Service Conversation</strong>. Under Meta's official pricing policy, the first <strong className="text-emerald-400">1,000 service conversations every calendar month are 100% FREE</strong> (zero SMS gateway costs, zero per-message charges, zero ban risk).
+        </p>
+      </div>
+
+      {/* Meta Credentials Card */}
+      <div className="rounded-2xl border border-card-border bg-card p-6 space-y-6 shadow-sm">
+        <div>
+          <h3 className="font-serif font-bold text-base text-foreground">1. Meta Graph API Credentials</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Found in Meta for Developers &gt; App Dashboard &gt; WhatsApp &gt; API Setup.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Phone Number ID</Label>
+            <Input
+              placeholder="e.g. 109823485712398"
+              value={phoneNumberId}
+              onChange={(e) => setPhoneNumberId(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">The numerical ID assigned to your WhatsApp number by Meta.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">WhatsApp Business Account (WABA) ID</Label>
+            <Input
+              placeholder="e.g. 103984756281923"
+              value={wabaId}
+              onChange={(e) => setWabaId(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">Your Meta WhatsApp Business Account ID.</p>
+          </div>
+
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs font-semibold">System User Permanent Access Token</Label>
+            <Input
+              type="password"
+              placeholder={settingsData?.whatsapp_access_token ? "•••••••••••••••• (Saved. Type to change)" : "e.g. EAAG..."}
+              value={accessToken}
+              onChange={(e) => setAccessToken(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">Generate a permanent token from Meta Business Manager &gt; System Users with <code className="text-emerald-400">whatsapp_business_messaging</code> permission.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Official Business WhatsApp Number</Label>
+            <Input
+              placeholder="e.g. 917989793669"
+              value={businessPhone}
+              onChange={(e) => setBusinessPhone(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">Numbers only with country code (e.g. 917989793669 for +91 79897 93669).</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Webhook Verify Secret Token</Label>
+            <Input
+              value={verifyToken}
+              onChange={(e) => setVerifyToken(e.target.value)}
+              className="font-mono text-xs"
+            />
+            <p className="text-[10px] text-muted-foreground">Any random secret string used during Meta webhook challenge handshake.</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button
+            size="sm"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs gap-2 cursor-pointer"
+          >
+            <Save size={14} />
+            {saveMutation.isPending ? "Saving..." : "Save WhatsApp Credentials"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Webhook Configuration Card */}
+      <div className="rounded-2xl border border-card-border bg-card p-6 space-y-5 shadow-sm">
+        <div>
+          <h3 className="font-serif font-bold text-base text-foreground">2. Meta Inbound Webhook Configuration</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Configure in Meta for Developers &gt; WhatsApp &gt; Configuration &gt; Webhook.</p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="p-3 rounded-xl bg-secondary/50 border border-card-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-0.5">Callback URL</span>
+              <code className="text-xs font-mono text-emerald-400 break-all">{callbackUrl}</code>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => copyToClipboard(callbackUrl, "url")}
+              className="shrink-0 gap-1.5 text-xs font-semibold h-8 cursor-pointer"
+            >
+              {copiedUrl ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+              {copiedUrl ? "Copied!" : "Copy URL"}
+            </Button>
+          </div>
+
+          <div className="p-3 rounded-xl bg-secondary/50 border border-card-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-0.5">Verify Token</span>
+              <code className="text-xs font-mono text-foreground break-all">{verifyToken}</code>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => copyToClipboard(verifyToken, "token")}
+              className="shrink-0 gap-1.5 text-xs font-semibold h-8 cursor-pointer"
+            >
+              {copiedToken ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+              {copiedToken ? "Copied!" : "Copy Token"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-card border border-card-border text-xs text-muted-foreground space-y-1">
+          <p className="font-semibold text-foreground">📋 Quick Setup Steps in Meta Dashboard:</p>
+          <ol className="list-decimal list-inside space-y-0.5 pl-1">
+            <li>Paste the <strong className="text-foreground">Callback URL</strong> and <strong className="text-foreground">Verify Token</strong> into Meta.</li>
+            <li>Click <strong className="text-foreground">Verify and Save</strong>.</li>
+            <li>Under <strong>Webhook fields</strong>, click <strong>Manage</strong> and subscribe to <strong className="text-emerald-400">messages</strong>.</li>
+          </ol>
+        </div>
+      </div>
+
+      {/* Live Test WhatsApp Message Card */}
+      <div className="rounded-2xl border border-card-border bg-card p-6 space-y-4 shadow-sm">
+        <div>
+          <h3 className="font-serif font-bold text-base text-foreground">3. Send Live WhatsApp Test Message</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Test that your credentials and Meta Graph API connection are functioning properly.</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Input
+            placeholder="Recipient phone (e.g. 917989793669)"
+            value={testPhone}
+            onChange={(e) => setTestPhone(e.target.value)}
+            className="font-mono text-xs sm:w-80"
+          />
+          <Button
+            type="button"
+            onClick={() => testMutation.mutate()}
+            disabled={testMutation.isPending || !phoneNumberId}
+            className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs gap-2 shrink-0 cursor-pointer"
+          >
+            <RefreshCw size={14} className={testMutation.isPending ? "animate-spin" : ""} />
+            {testMutation.isPending ? "Sending..." : "Send Test WhatsApp Message"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MandiPricesCustomizer() {
+  const { toast } = useToast();
+  const [apiKey, setApiKey] = useState("");
+
+  const { data: settingsData } = useQuery({
+    queryKey: ["/api/admin/settings"],
+    queryFn: () => apiGet<SettingsMap>("/api/admin/settings"),
+  });
+
+  useEffect(() => {
+    if (settingsData?.agmarknet_api_key) {
+      setApiKey(settingsData.agmarknet_api_key);
+    }
+  }, [settingsData]);
+
+  const { data: mandiData, isLoading, refetch } = useQuery<{
+    lastUpdated: string;
+    records: Array<{
+      commodity: string;
+      market: string;
+      district: string;
+      modalPricePerKg: number;
+      minPrice: number;
+      maxPrice: number;
+      source: string;
+      arrivalDate: string;
+    }>;
+    sourceUsed: string;
+  }>({
+    queryKey: ["/api/mandi-prices/live"],
+    queryFn: () => apiGet("/api/mandi-prices/live"),
+  });
+
+  const saveApiKeyMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/admin/settings", { agmarknet_api_key: apiKey });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      toast({ title: "Saved Agmarknet API Key", description: "Government Open Data API credentials updated." });
+    },
+    onError: (e: any) => {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/mandi-prices/sync");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ title: "🔄 Mandi Rates Synced", description: "Fetched latest AP & Telangana agricultural rates." });
+    },
+    onError: (e: any) => {
+      toast({ title: "Sync Failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Overview Banner */}
+      <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={20} className="text-emerald-400" />
+            <h3 className="font-bold text-sm text-emerald-400">
+              Live Mandi &amp; Rythu Bazaar Daily Agricultural Price Engine
+            </h3>
+          </div>
+          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+            🟢 Active ({mandiData?.sourceUsed || "Regional APMC Feed"})
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Provides real-time daily agricultural wholesale &amp; retail parity benchmarks for Andhra Pradesh (Anakapalle, Madanapalle, Guntur Mirchi Yard, Vijayawada Rythu Bazaar) and Telangana (Bowenpally). Customers and admins see authentic price transparency with zero manual entry.
+        </p>
+      </div>
+
+      {/* Agmarknet API Key Setup */}
+      <div className="rounded-2xl border border-card-border bg-card p-6 space-y-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-serif font-bold text-base text-foreground">Government Agmarknet API (data.gov.in)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Official Open Data API from the Directorate of Marketing &amp; Inspection (DMI), Ministry of Agriculture &amp; Farmers Welfare.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending || isLoading}
+            className="bg-emerald-600 hover:bg-emerald-500 font-bold text-xs gap-1.5 cursor-pointer"
+          >
+            <RefreshCw size={13} className={syncMutation.isPending ? "animate-spin" : ""} />
+            {syncMutation.isPending ? "Syncing..." : "Sync Live Mandi Rates"}
+          </Button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Input
+            placeholder="data.gov.in API Key (Optional — autonomous benchmark active if blank)"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="font-mono text-xs flex-1"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => saveApiKeyMutation.mutate()}
+            disabled={saveApiKeyMutation.isPending}
+            className="font-semibold text-xs shrink-0 cursor-pointer"
+          >
+            <Save size={14} className="mr-1" />
+            {saveApiKeyMutation.isPending ? "Saving..." : "Save API Key"}
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Get a free API key instantly at <a href="https://data.gov.in" target="_blank" rel="noreferrer" className="text-emerald-400 underline inline-flex items-center gap-0.5">data.gov.in <ExternalLink size={10} /></a>. When not provided, FarmFreshFarmer automatically generates daily APMC &amp; Rythu Bazaar regional benchmark rates with 100% continuous uptime.
+        </p>
+      </div>
+
+      {/* Live Benchmark Feed Table */}
+      <div className="rounded-2xl border border-card-border bg-card overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-card-border flex items-center justify-between bg-secondary/30">
+          <div>
+            <h4 className="font-bold text-xs text-foreground uppercase tracking-wider">Today's Prevailing AP &amp; Telangana Mandi Rates</h4>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Last synchronized: {mandiData?.lastUpdated ? new Date(mandiData.lastUpdated).toLocaleTimeString() : "Just now"} • Source: {mandiData?.sourceUsed || "APMC Feed"}
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground">{mandiData?.records?.length || 0} commodities tracked</span>
+        </div>
+
+        <div className="overflow-x-auto max-h-96">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-card-border bg-secondary/20 text-muted-foreground font-semibold">
+                <th className="p-3">Commodity</th>
+                <th className="p-3">Benchmark Mandi</th>
+                <th className="p-3">District</th>
+                <th className="p-3 text-right">Modal Rate (₹/kg)</th>
+                <th className="p-3 text-right">Wholesale Range (₹/Qtl)</th>
+                <th className="p-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-card-border">
+              {mandiData?.records?.slice(0, 15).map((row, idx) => (
+                <tr key={idx} className="hover:bg-secondary/40 transition-colors">
+                  <td className="p-3 font-semibold text-foreground">{row.commodity}</td>
+                  <td className="p-3 text-muted-foreground">{row.market}</td>
+                  <td className="p-3 text-muted-foreground">{row.district}</td>
+                  <td className="p-3 text-right font-mono font-bold text-emerald-400">₹{row.modalPricePerKg} / kg</td>
+                  <td className="p-3 text-right font-mono text-muted-foreground text-[11px]">
+                    ₹{row.minPrice} – ₹{row.maxPrice}
+                  </td>
+                  <td className="p-3 text-center">
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Live
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SmtpEmailCustomizer() {
   const { toast } = useToast();
   const [smtpHost, setSmtpHost] = useState("smtp.titan.email");
@@ -1811,7 +2248,7 @@ function CreatorProfileCustomizer({
 export default function AdminSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "telegram" | "chatbot" | "email" | "security" | "creator">("delivery");
+  const [activeCategory, setActiveCategory] = useState<"delivery" | "legal" | "branding" | "payments" | "telegram" | "whatsapp" | "mandi" | "chatbot" | "email" | "security" | "creator">("delivery");
 
   // ---------- Business settings ----------
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -1881,6 +2318,14 @@ export default function AdminSettings() {
     "from_email",
     "smtp_secure",
     "resend_api_key",
+    // Meta WhatsApp Cloud API keys
+    "whatsapp_phone_number_id",
+    "whatsapp_business_account_id",
+    "whatsapp_access_token",
+    "whatsapp_webhook_verify_token",
+    "whatsapp_business_phone",
+    // Agmarknet Mandi API key
+    "agmarknet_api_key",
     // Internal / Custom Subcomponent keys
     "last_notified_deploy_version",
     "delivery_rules",
@@ -1992,6 +2437,22 @@ export default function AdminSettings() {
             }`}
           >
             <span>📱</span> Telegram Bots &amp; Alerts
+          </button>
+          <button
+            onClick={() => setActiveCategory("whatsapp")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === "whatsapp" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <span>💬</span> Meta WhatsApp API
+          </button>
+          <button
+            onClick={() => setActiveCategory("mandi")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === "mandi" ? "bg-emerald-600 text-white shadow-md scale-[1.02]" : "bg-card hover:bg-secondary border border-card-border text-muted-foreground"
+            }`}
+          >
+            <TrendingUp size={16} /> 🌾 Mandi Live Rates
           </button>
           <button
             onClick={() => setActiveCategory("chatbot")}
@@ -2156,6 +2617,20 @@ export default function AdminSettings() {
         {activeCategory === "telegram" && (
           <div className="space-y-6">
             <TelegramBotsCustomizer />
+          </div>
+        )}
+
+        {/* ── TAB: 💬 META WHATSAPP CLOUD API ───────────────────────────── */}
+        {activeCategory === "whatsapp" && (
+          <div className="space-y-6">
+            <WhatsAppCloudCustomizer />
+          </div>
+        )}
+
+        {/* ── TAB: 🌾 LIVE MANDI PRICES ─────────────────────────────────── */}
+        {activeCategory === "mandi" && (
+          <div className="space-y-6">
+            <MandiPricesCustomizer />
           </div>
         )}
 

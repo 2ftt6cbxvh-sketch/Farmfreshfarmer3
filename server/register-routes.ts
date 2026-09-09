@@ -85,6 +85,7 @@ import { registerVoiceSearchRoutes } from "./routes/voice-search";
 import { registerInstantRefundRoutes } from "./routes/instant-refund";
 import { registerCartReservationRoutes } from "./routes/cart-reservation";
 import { registerHealthSubscriptionRoutes } from "./routes/health-subscriptions";
+import { registerWhatsAppWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -2868,6 +2869,9 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     "password_reset_pepper",
     "emergency_codes",
     "jwt_secret",
+    "whatsapp_access_token",
+    "whatsapp_webhook_verify_token",
+    "agmarknet_api_key",
   ]);
 
   app.get("/api/admin/settings", requireAdmin, h(async (req, res) => {
@@ -2925,6 +2929,38 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     }
 
     res.json({ success: true, message: "Settings saved successfully" });
+  }));
+
+  /** POST /api/admin/whatsapp/test — Send test WhatsApp message from Meta Cloud API */
+  app.post("/api/admin/whatsapp/test", requireAdmin, h(async (req, res) => {
+    const { to, message } = req.body || {};
+    if (!to) {
+      return res.status(400).json({ success: false, message: "Target phone number required" });
+    }
+    const { sendWhatsAppTextMessage } = await import("./services/whatsapp-cloud");
+    const result = await sendWhatsAppTextMessage({
+      to: String(to),
+      text: message || "🌿 FarmFreshFarmer Meta WhatsApp Cloud API: Connection established successfully! Your 1,000 free monthly conversations tier is active.",
+    });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    return res.json({ success: true, message: "Test WhatsApp message sent successfully!", messageId: result.messageId });
+  }));
+
+  /** GET /api/mandi-prices/live — Live APMC & Rythu Bazaar price index */
+  app.get("/api/mandi-prices/live", h(async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=1800, stale-while-revalidate=3600");
+    const { getLiveMandiPrices } = await import("./services/mandi-prices");
+    const data = await getLiveMandiPrices(false);
+    return res.json(data);
+  }));
+
+  /** POST /api/admin/mandi-prices/sync — Admin trigger live mandi sync */
+  app.post("/api/admin/mandi-prices/sync", requireAdmin, h(async (_req, res) => {
+    const { getLiveMandiPrices } = await import("./services/mandi-prices");
+    const data = await getLiveMandiPrices(true);
+    return res.json({ success: true, message: "Live Mandi & Rythu Bazaar prices synced successfully!", data });
   }));
 
   /** GET /api/settings/public — Fetch public store settings (contact info, delivery rules, return hours) */
@@ -3266,6 +3302,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   registerInstantRefundRoutes(app);
   registerCartReservationRoutes(app);
   registerHealthSubscriptionRoutes(app);
+  registerWhatsAppWebhookRoutes(app);
 
   // ============================================================
   // RAZORPAY ROUTES

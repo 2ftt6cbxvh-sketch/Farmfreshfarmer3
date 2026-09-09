@@ -1402,8 +1402,6 @@ export function registerAuthJwtRoutes(app: Express) {
     }
   });
 
-  const WHATSAPP_BUSINESS_NUMBER = "917989793669";
-
   /** POST /api/auth/whatsapp/initiate — Start 100% Free WhatsApp Mobile Verification */
   app.post("/api/auth/whatsapp/initiate", authRateLimit, async (req: Request, res: Response) => {
     const { phone, userId, email } = req.body || {};
@@ -1435,17 +1433,102 @@ export function registerAuthJwtRoutes(app: Express) {
       expiresAt,
     });
 
+    const { getWhatsAppConfig } = await import("../services/whatsapp-cloud");
+    const waConfig = await getWhatsAppConfig();
+    const waBizNumber = waConfig.businessPhone ? waConfig.businessPhone.replace(/\D/g, "") : "917989793669";
+    const formattedBizPhone = waBizNumber.startsWith("91") && waBizNumber.length === 12
+      ? `+91 ${waBizNumber.slice(2, 7)} ${waBizNumber.slice(7)}`
+      : `+${waBizNumber}`;
+
     const prefilledText = encodeURIComponent(`Hello FarmFreshFarmer, please verify my mobile number with security code: ${formattedCode}`);
-    const waLink = `https://wa.me/${WHATSAPP_BUSINESS_NUMBER}?text=${prefilledText}`;
+    const waLink = `https://wa.me/${waBizNumber}?text=${prefilledText}`;
 
     return res.json({
       success: true,
       code,
       formattedCode,
-      businessPhone: "+91 7989793669",
+      businessPhone: formattedBizPhone,
       waLink,
       message: "WhatsApp verification session initiated successfully.",
     });
+  });
+
+  /** GET /api/auth/whatsapp/status — Polling endpoint for real-time verification status */
+  app.get("/api/auth/whatsapp/status", async (req: Request, res: Response) => {
+    const code = req.query.code ? String(req.query.code).replace(/[^0-9]/g, "") : "";
+    const phone = req.query.phone ? String(req.query.phone).replace(/\D/g, "").slice(-10) : "";
+    const userId = req.query.userId ? Number(req.query.userId) : (req.session as any)?.userId;
+
+    try {
+      if (code && code.length === 6) {
+        const bcryptModule = (await import("bcryptjs")).default;
+        const twentyMinsAgo = new Date(Date.now() - 20 * 60 * 1000);
+        const rows = await db
+          .select()
+          .from(otpCodes)
+          .where(
+            and(
+              eq(otpCodes.purpose, "whatsapp_verification"),
+              gt(otpCodes.expiresAt, twentyMinsAgo)
+            )
+          )
+          .orderBy(desc(otpCodes.id))
+          .limit(25);
+
+        for (const row of rows) {
+          const isMatch = await bcryptModule.compare(code, row.codeHash);
+          if (isMatch) {
+            if (row.verifiedAt) {
+              let targetUser: any = null;
+              const uid = row.userId || userId;
+              if (uid) {
+                const [u] = await db.select().from(users).where(eq(users.id, uid)).limit(1);
+                targetUser = u;
+              } else if (row.phone) {
+                const [u] = await db.select().from(users).where(eq(users.phone, row.phone)).limit(1);
+                targetUser = u;
+              }
+              return res.json({
+                verified: true,
+                phone: row.phone,
+                verifiedAt: row.verifiedAt,
+                user: targetUser ? {
+                  id: targetUser.id,
+                  email: targetUser.email,
+                  name: targetUser.name,
+                  phone: targetUser.phone,
+                  isPhoneVerified: targetUser.isPhoneVerified,
+                  isVerified: targetUser.isVerified,
+                } : undefined,
+              });
+            }
+            return res.json({ verified: false, pending: true });
+          }
+        }
+      }
+
+      if (userId) {
+        const [u] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (u && u.isPhoneVerified) {
+          return res.json({
+            verified: true,
+            phone: u.phone,
+            user: {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              phone: u.phone,
+              isPhoneVerified: u.isPhoneVerified,
+              isVerified: u.isVerified,
+            },
+          });
+        }
+      }
+
+      return res.json({ verified: false, pending: false });
+    } catch (err: any) {
+      return res.status(500).json({ verified: false, error: err.message });
+    }
   });
 
   /** POST /api/auth/whatsapp/verify — Confirm WhatsApp Code & Activate Blue Badge */
