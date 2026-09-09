@@ -153,93 +153,103 @@ export async function setMaintenance(
 }
 
 /**
- * Express middleware to intercept non-admin requests when maintenance mode is active
+/**
+ * Express middleware — Hard lockdown of ALL customer/public API routes during maintenance.
+ * Only verified staff/admin JWT holders pass through.
+ * Everything else → 503 immediately, no DB queries, no processing.
  */
 export async function maintenanceMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const url = req.originalUrl || req.url || req.path;
 
-  // 1. Health check exemption
-  if (req.path === "/health" || url === "/health") {
-    return next();
-  }
-
-  // 2. Telegram Webhook exemption
-  if (url.startsWith("/api/telegram") || url.startsWith("/telegram")) {
-    return next();
-  }
-
-  // 3. Maintenance & Public Status endpoints
-  if (
-    url.startsWith("/api/maintenance") ||
+  // ── ABSOLUTE EXEMPTIONS (always pass, even during maintenance) ──
+  // These are required for the maintenance screen itself to function
+  const alwaysAllow = (
+    url === "/health" ||
+    url === "/api/health" ||
+    url.startsWith("/api/maintenance") ||           // maintenance status polling
+    url.startsWith("/api/telegram") ||              // Telegram webhooks (order alerts etc.)
+    url.startsWith("/telegram") ||                  // Telegram webhook alt path
+    url.startsWith("/api/whatsapp") ||              // WhatsApp webhook
+    url.startsWith("/api/admin/login") ||           // Admin login (staff need to get in)
+    url.startsWith("/api/admin/auth") ||            // Admin auth endpoints
     url.startsWith("/api/admin/security/secret-unlock") ||
     url.startsWith("/api/admin/security/telegram-challenge") ||
     url.startsWith("/api/admin/security/check-telegram-approval") ||
     url.startsWith("/api/admin/security/lockdown") ||
-    url.startsWith("/api/admin/login") ||
-    url.startsWith("/api/settings/public")
-  ) {
+    url.startsWith("/api/admin/mfa") ||             // Admin MFA
+    url.startsWith("/api/admin/totp")               // Admin TOTP
+  );
+
+  if (alwaysAllow) return next();
+
+  // ── CHECK IF MAINTENANCE IS ACTIVE ──
+  let status: MaintenanceStatus;
+  try {
+    status = await getMaintenanceStatus();
+  } catch {
+    // On cache/DB error during check, fail open (let request through)
     return next();
   }
 
-  try {
-    const status = await getMaintenanceStatus();
-    if (status.active) {
-      // Check if user is staff/admin
-      let isStaffOrAdmin = false;
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.startsWith("Bearer ")
-        ? authHeader.substring(7)
-        : req.cookies?.accessToken || req.cookies?.token;
+  if (!status.active) return next();
 
-      if (token) {
-        try {
-          const jwt = (await import("jsonwebtoken")).default;
-          const { getJwtSecret } = await import("./encryption");
-          const decoded = jwt.verify(token, getJwtSecret()) as any;
-          if (decoded && (decoded.userId || decoded.sub)) {
-            const { users } = await import("@shared/schema");
-            const [user] = await db
-              .select()
-              .from(users)
-              .where(eq(users.id, Number(decoded.userId || decoded.sub)))
-              .limit(1);
-            if (
-              user &&
-              (user.email === "admin@farmfreshfarmer.com" ||
-                user.isPrimaryAdmin ||
-                user.role === "admin" ||
-                user.role === "superadmin" ||
-                user.role === "manager_admin" ||
-                user.role === "subadmin")
-            ) {
-              isStaffOrAdmin = true;
-            }
-          }
-        } catch {
-          // invalid token
-        }
-      }
+  // ── MAINTENANCE IS ACTIVE — verify admin/staff JWT ──
+  let isVerifiedStaff = false;
 
-      // If accessing admin API or admin routes and is admin, allow
-      if (isStaffOrAdmin || url.startsWith("/api/admin")) {
-        return next();
-      }
+  const authHeader = req.headers.authorization;
+  const token =
+    authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : req.cookies?.accessToken ||
+        req.cookies?.admin_token ||
+        req.cookies?.token;
 
-      // For public API routes, return 503 Service Unavailable with maintenance info
-      if (url.startsWith("/api/")) {
-        res.status(503).json({
-          maintenance: true,
-          status: 503,
-          message: status.message,
-          headline: status.headline,
-          estimatedEnd: status.estimatedEnd,
-        });
-        return;
+  if (token) {
+    try {
+      const jwt = (await import("jsonwebtoken")).default;
+      const { getJwtSecret } = await import("./encryption");
+      const decoded = jwt.verify(token, getJwtSecret()) as any;
+      const uid = Number(decoded?.userId || decoded?.sub || decoded?.id || 0);
+
+      if (uid > 0) {
+        const { users } = await import("@shared/schema");
+        const [user] = await db
+          .select({ role: users.role, email: users.email, isPrimaryAdmin: users.isPrimaryAdmin })
+          .from(users)
+          .where(eq(users.id, uid))
+          .limit(1);
+
+        isVerifiedStaff = !!(
+          user &&
+          (user.isPrimaryAdmin ||
+            user.email === "admin@farmfreshfarmer.com" ||
+            user.role === "admin" ||
+            user.role === "superadmin" ||
+            user.role === "manager_admin" ||
+            user.role === "subadmin" ||
+            user.role === "staff")
+        );
       }
+    } catch {
+      // Invalid / expired token → not staff
     }
-  } catch (err) {
-    console.error("[maintenanceMiddleware] Error checking status:", err);
   }
 
-  next();
+  // ── VERIFIED STAFF → PASS THROUGH ──
+  if (isVerifiedStaff) return next();
+
+  // ── EVERYONE ELSE → 503 HARD BLOCK ──
+  // Applies to: customers, guests, unauthenticated requests, all public APIs
+  // This includes: /api/products, /api/orders, /api/auth/*, /api/cart, /api/search, etc.
+  res.status(503).json({
+    maintenance: true,
+    status: 503,
+    error: "Service Unavailable",
+    headline: status.headline,
+    message: status.message,
+    estimatedEnd: status.estimatedEnd ?? null,
+    estimatedMinutes: status.estimatedMinutes ?? null,
+    retryAfter: status.estimatedMinutes ? status.estimatedMinutes * 60 : 1800,
+  });
 }
+
