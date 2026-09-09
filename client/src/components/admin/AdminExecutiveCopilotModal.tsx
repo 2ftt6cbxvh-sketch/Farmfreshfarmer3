@@ -43,8 +43,6 @@ export function AdminExecutiveCopilotModal() {
     user?.id === 1
   );
 
-  if (!isSuperAdmin) return null;
-
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: "welcome_init",
@@ -79,7 +77,7 @@ export function AdminExecutiveCopilotModal() {
   }>({
     queryKey: ["/api/admin/copilot/quick-insights"],
     queryFn: () => apiGet("/api/admin/copilot/quick-insights"),
-    enabled: isOpen,
+    enabled: isOpen && isSuperAdmin,
     staleTime: 30000,
   });
 
@@ -241,6 +239,8 @@ export function AdminExecutiveCopilotModal() {
     utterance.onerror = () => setSpeakingId(null);
     window.speechSynthesis.speak(utterance);
   };
+
+  if (!isSuperAdmin) return null;
 
   return (
     <>

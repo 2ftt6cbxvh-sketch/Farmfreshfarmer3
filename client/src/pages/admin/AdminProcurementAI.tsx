@@ -92,14 +92,11 @@ export default function AdminProcurementAI() {
   const [dispatchedBelts, setDispatchedBelts] = useState<Set<string>>(new Set());
   const [promoCreatedBelts, setPromoCreatedBelts] = useState<Set<string>>(new Set());
 
-  if (user && !isSuperAdmin) {
-    return <Forbidden403 />;
-  }
-
   // Fetch AI Procurement recommendations
   const { data, isLoading, isFetching, refetch } = useQuery<ProcurementAiResult>({
     queryKey: ["/api/admin/procurement-ai/recommendations"],
     queryFn: () => apiGet<ProcurementAiResult>("/api/admin/procurement-ai/recommendations"),
+    enabled: isSuperAdmin,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -119,6 +116,7 @@ export default function AdminProcurementAI() {
   }>({
     queryKey: ["/api/admin/demand/live-unmet-stream"],
     queryFn: () => apiGet("/api/admin/demand/live-unmet-stream"),
+    enabled: isSuperAdmin,
     refetchInterval: 10000,
     staleTime: 5000,
   });
@@ -332,6 +330,10 @@ export default function AdminProcurementAI() {
       toast({ title: "Test Alert Failed", description: err.message, variant: "destructive" });
     },
   });
+
+  if (user && !isSuperAdmin) {
+    return <Forbidden403 />;
+  }
 
   return (
     <AdminLayout title="AI Sourcing & Demand Intelligence">

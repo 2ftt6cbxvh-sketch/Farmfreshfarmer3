@@ -130,6 +130,17 @@ function getStorageHistoryKey(userId?: number | null): string {
 }
 
 export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } = {}) {
+  const [location] = useLocation();
+
+  // Do not show customer chatbot on internal admin pages or partner portal
+  if (location.startsWith("/admin") || location.startsWith("/partner-portal")) {
+    return null;
+  }
+
+  return <ChatbotLakshmiInner customGreeting={customGreeting} />;
+}
+
+function ChatbotLakshmiInner({ customGreeting }: { customGreeting?: string }) {
   const queryClient = useQueryClient();
   const [location, navigate] = useLocation();
   const { add, items, subtotal } = useCart();
@@ -157,11 +168,6 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Do not show customer chatbot on internal admin pages or partner portal
-  if (location.startsWith("/admin") || location.startsWith("/partner-portal")) {
-    return null;
-  }
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {

@@ -390,10 +390,6 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
     };
   }, [adminUser]);
 
-  if (loading && !adminUser) {
-    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
-  }
-
   const isStaffOrAdmin = Boolean(
     adminUser && (
       adminUser.isPrimaryAdmin ||
@@ -431,6 +427,10 @@ export function AdminLayout({ children, title }: { children: ReactNode; title: s
   });
 
   const waitingChatCount = liveSessionsData?.sessions?.filter((s) => s.status === "waiting_for_agent").length || 0;
+
+  if (loading && !adminUser) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>;
+  }
 
 
   if (!adminUser || !isStaffOrAdmin) {
