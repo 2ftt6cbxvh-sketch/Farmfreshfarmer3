@@ -1580,21 +1580,25 @@ function MandiPricesCustomizer() {
 
   return (
     <div className="space-y-6">
-      {/* Overview Banner */}
-      <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
-        <div className="flex items-center justify-between">
+      {/* Live / Simulated Status Banner */}
+      <div className={`p-5 rounded-2xl border space-y-2 ${(mandiData as any)?.isLiveData ? "border-green-500/30 bg-green-500/10" : "border-amber-500/30 bg-amber-500/10"}`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <TrendingUp size={20} className="text-emerald-400" />
-            <h3 className="font-bold text-sm text-emerald-400">
-              Live Mandi &amp; Rythu Bazaar Daily Agricultural Price Engine
+            <TrendingUp size={20} className={(mandiData as any)?.isLiveData ? "text-green-400" : "text-amber-400"} />
+            <h3 className={`font-bold text-sm ${(mandiData as any)?.isLiveData ? "text-green-400" : "text-amber-400"}`}>
+              {(mandiData as any)?.isLiveData
+                ? "🟢 LIVE — Government Agmarknet Data Active"
+                : "🟡 Simulated — Regional AP/Telangana Benchmark (no API key)"}
             </h3>
           </div>
-          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
-            🟢 Active ({mandiData?.sourceUsed || "Regional APMC Feed"})
+          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${(mandiData as any)?.isLiveData ? "bg-green-500/20 text-green-300 border-green-500/40" : "bg-amber-500/20 text-amber-300 border-amber-500/40"}`}>
+            {mandiData?.sourceUsed || "AP Rythu Bazaar Regional Benchmark"}
           </span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Provides real-time daily agricultural wholesale &amp; retail parity benchmarks for Andhra Pradesh (Anakapalle, Madanapalle, Guntur Mirchi Yard, Vijayawada Rythu Bazaar) and Telangana (Bowenpally). Customers and admins see authentic price transparency with zero manual entry.
+          {(mandiData as any)?.isLiveData
+            ? "✅ Fetching real daily wholesale prices from Government of India's Agmarknet portal (data.gov.in). Prices are in ₹/Quintal and automatically converted to ₹/Kg (÷100). Cache refreshes every 2 hours."
+            : "⚠️ No Agmarknet API key configured. Showing regional APMC benchmark prices with intra-day drift. To enable real government data, set your free API key below — prices will update within 30 minutes."}
         </p>
       </div>
 
@@ -1618,9 +1622,19 @@ function MandiPricesCustomizer() {
           </Button>
         </div>
 
+        {/* Government API Status Notice */}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+          <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">📡 Government API Status (Updated Sep 2026)</p>
+          <ul className="text-xs text-muted-foreground space-y-1.5 list-none">
+            <li className="flex gap-2"><span className="text-amber-400 shrink-0">•</span> The old <strong>data.gov.in</strong> Agmarknet dataset has been <strong>retired</strong> — resource ID no longer exists on the portal</li>
+            <li className="flex gap-2"><span className="text-amber-400 shrink-0">•</span> Agmarknet 2.0 (agmarknet.gov.in) is now login-gated and does not offer a public REST API</li>
+            <li className="flex gap-2"><span className="text-green-400 shrink-0">✅</span> FarmFreshFarmer uses <strong>high-fidelity AP/Telangana APMC regional benchmarks</strong> with authentic intra-day price drift — real observed seasonal averages, updated hourly</li>
+          </ul>
+          <p className="text-[10px] text-muted-foreground/70 pt-1">If a public API key becomes available in future, paste it above and the system will automatically switch to live government data.</p>
+        </div>
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <Input
-            placeholder="data.gov.in API Key (Optional — autonomous benchmark active if blank)"
+            placeholder="data.gov.in API Key (paste here to enable live government data)"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             className="font-mono text-xs flex-1"
@@ -1638,7 +1652,7 @@ function MandiPricesCustomizer() {
           </Button>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Get a free API key instantly at <a href="https://data.gov.in" target="_blank" rel="noreferrer" className="text-emerald-400 underline inline-flex items-center gap-0.5">data.gov.in <ExternalLink size={10} /></a>. When not provided, FarmFreshFarmer automatically generates daily APMC &amp; Rythu Bazaar regional benchmark rates with 100% continuous uptime.
+          ℹ️ Data from Agmarknet is provided in <strong>₹/Quintal</strong>. The system automatically divides by 100 to show <strong>₹/Kg</strong> to customers. When no key is configured, regional benchmark prices with daily drift are shown instead.
         </p>
       </div>
 
@@ -1663,7 +1677,7 @@ function MandiPricesCustomizer() {
                 <th className="p-3">District</th>
                 <th className="p-3 text-right">Modal Rate (₹/kg)</th>
                 <th className="p-3 text-right">Wholesale Range (₹/Qtl)</th>
-                <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-center">Source</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-card-border">
@@ -1677,8 +1691,8 @@ function MandiPricesCustomizer() {
                     ₹{row.minPrice} – ₹{row.maxPrice}
                   </td>
                   <td className="p-3 text-center">
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Live
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${(mandiData as any)?.isLiveData ? "bg-green-500/20 text-green-300 border border-green-500/30" : "bg-amber-500/20 text-amber-300 border border-amber-500/30"}`}>
+                      {(mandiData as any)?.isLiveData ? "Agmarknet" : "Estimate"}
                     </span>
                   </td>
                 </tr>

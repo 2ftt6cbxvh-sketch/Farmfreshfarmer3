@@ -23,6 +23,7 @@ export interface MandiParityCalculation {
   middlemenCommissionPercent: number;
   arrivalDate: string;
   source: string;
+  isLiveData?: boolean;
   isMorningDewEligible: boolean;
   lastUpdated: string;
 }
@@ -97,7 +98,8 @@ export function computeMandiParity(product: Product): MandiParityCalculation {
     middlemenCommissionSaved,
     middlemenCommissionPercent,
     arrivalDate: new Date().toISOString().split("T")[0],
-    source: "AP Rythu Bazaar & APMC Daily Feed",
+    source: "AP Rythu Bazaar & APMC Regional Benchmark",
+    isLiveData: false,
     isMorningDewEligible,
     lastUpdated: new Date().toISOString(),
   };
@@ -250,7 +252,18 @@ export function MandiParityBadge({
 
               {/* Live Feed Source & Date */}
               <div className="text-[10px] text-muted-foreground flex items-center justify-between border-t border-border/50 pt-2">
-                <span>📡 Feed: <strong className="font-medium text-foreground">{parity.source}</strong></span>
+                <span className="flex items-center gap-1">
+                  {parity.isLiveData ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 font-semibold text-[9px]">
+                      🟢 LIVE — Agmarknet
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold text-[9px]">
+                      🟡 Regional Estimate
+                    </span>
+                  )}
+                  <strong className="font-medium text-foreground truncate max-w-[120px]" title={parity.source}>{parity.source}</strong>
+                </span>
                 <span>Date: <strong className="font-medium text-foreground">{parity.arrivalDate}</strong></span>
               </div>
 
