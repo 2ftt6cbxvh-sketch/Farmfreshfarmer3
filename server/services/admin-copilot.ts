@@ -27,6 +27,10 @@ import { eq, desc, sql, gte, and, inArray, or } from "drizzle-orm";
 import { generateProduceQuantityTiersMatrix } from "@shared/schema";
 import { storage } from "../storage";
 import { getNarayanaApiKey } from "./gemini-keys";
+import { sendRealEmail, buildCustomAdminEmailHtml } from "./email";
+import { sendTelegramExecutiveAlert, sendTelegramSecurityAlert } from "./telegram";
+import { triggerHarvestBriefing, triggerFinancialDigest, runDispatchBottleneckCheck, runDemandSpikeCheck } from "./autonomous-radar";
+import { getPendingAbandonedCarts, triggerCartRecoveryEmail } from "./campaigns";
 
 export interface CopilotMessage {
   role: "user" | "model" | "assistant";
@@ -880,6 +884,312 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
+
+  // ── Action 12: Send Email (single customer or all customers) ──
+  if (actionName === "send_email" || actionName === "send_bulk_email") {
+    const { to, subject, body, headline, buttonText, buttonUrl, audience } = args;
+    if (!subject || !body) throw new Error("send_email requires subject and body.");
+
+    let recipients: { name: string; email: string }[] = [];
+
+    if (audience === "all_customers" || audience === "all") {
+      const allUsers = await db.select({ id: users.id, name: users.name, email: users.email })
+        .from(users).where(sql`${users.email} IS NOT NULL AND ${users.email} != ''`);
+      recipients = allUsers.filter(u => u.email).map(u => ({ name: u.name || "Valued Customer", email: u.email! }));
+    } else if (to) {
+      // single email or comma-separated
+      const emails = String(to).split(",").map(e => e.trim()).filter(Boolean);
+      for (const email of emails) {
+        const [u] = await db.select({ name: users.name }).from(users)
+          .where(sql`LOWER(${users.email}) = LOWER(${email})`).limit(1);
+        recipients.push({ name: u?.name || "Valued Customer", email });
+      }
+    }
+
+    if (recipients.length === 0) throw new Error("No recipients found. Specify 'to' or 'audience:all_customers'.");
+
+    let sent = 0; let failed = 0;
+    // Rate-limit: 30 emails per second max
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i];
+      const html = buildCustomAdminEmailHtml({
+        customerName: r.name,
+        headline: headline || subject,
+        message: body,
+        buttonText: buttonText || undefined,
+        buttonUrl: buttonUrl || undefined,
+      });
+      const ok = await sendRealEmail({ to: r.email, subject, html, text: body });
+      ok ? sent++ : failed++;
+      if (i > 0 && i % 30 === 0) await new Promise(res => setTimeout(res, 1000));
+    }
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "bulk_email_sent_by_narayana_ai",
+      severity: "info",
+      userId: adminUser.id,
+      actionTaken: `Sent email "${subject}" to ${sent} recipients (${failed} failed). Audience: ${audience || to}.`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "email_sent",
+      description: `📧 Email **"${subject}"** sent to **${sent}** recipients${failed > 0 ? ` (${failed} failed)` : " ✅"}.`,
+      details: { sent, failed, subject, audience: audience || to },
+    };
+  }
+
+  // ── Action 13: Send Telegram Alert ──
+  if (actionName === "send_telegram" || actionName === "send_telegram_alert") {
+    const { message, type: alertType } = args;
+    if (!message) throw new Error("send_telegram requires a message.");
+    const ok = await sendTelegramExecutiveAlert(`🪔 *Narayana AI Executive Alert*
+
+${message}
+
+_Sent by Super Admin ${adminUser.name || adminUser.email}_`);
+    return {
+      type: "telegram_sent",
+      description: `📱 Telegram alert sent${ok ? " ✅" : " (check Telegram bot config)"}`,
+      details: { message, delivered: ok },
+    };
+  }
+
+  // ── Action 14: Send Order Dispatch Email to Customer ──
+  if (actionName === "send_dispatch_email" || actionName === "notify_customer_order") {
+    const { orderId, customMessage } = args;
+    if (!orderId) throw new Error("send_dispatch_email requires orderId.");
+    const oid = Number(orderId);
+    const [order] = await db.select().from(orders).where(eq(orders.id, oid)).limit(1);
+    if (!order) throw new Error(`Order #${orderId} not found.`);
+    const [customer] = await db.select({ name: users.name, email: users.email })
+      .from(users).where(eq(users.id, order.userId!)).limit(1);
+    if (!customer?.email) throw new Error("Customer email not found for this order.");
+
+    const html = buildCustomAdminEmailHtml({
+      customerName: customer.name || "Valued Customer",
+      headline: `Your Order #${orderId} Update`,
+      message: customMessage || `Your order #${orderId} status has been updated to: **${order.status}**. Thank you for shopping with FarmFreshFarmer!`,
+      buttonText: "View Order",
+      buttonUrl: `https://farmfreshfarmer.com/orders`,
+    });
+    const ok = await sendRealEmail({ to: customer.email, subject: `Order #${orderId} Update — FarmFreshFarmer`, html, text: customMessage || `Order #${orderId} is now: ${order.status}` });
+
+    return {
+      type: "dispatch_email_sent",
+      description: `📧 Order notification sent to **${customer.name}** (${customer.email}) for order #${orderId} — Status: ${order.status}${ok ? " ✅" : " (email delivery failed)"}`,
+      details: { orderId, customer: customer.email, status: order.status },
+    };
+  }
+
+  // ── Action 15: Analytics Report ──
+  if (actionName === "get_analytics" || actionName === "get_report") {
+    const { period } = args; // today | week | month
+    const now = new Date();
+    const start = new Date();
+    if (period === "week") start.setDate(now.getDate() - 7);
+    else if (period === "month") start.setDate(now.getDate() - 30);
+    else start.setHours(0, 0, 0, 0); // today
+
+    const periodOrders = await db.select().from(orders)
+      .where(gte(orders.createdAt, start)).orderBy(desc(orders.createdAt));
+
+    const totalRevenue = periodOrders.reduce((s, o) => s + parseFloat(String(o.total || 0)), 0);
+    const uniqueCustomers = new Set(periodOrders.map(o => o.userId)).size;
+    const cancelled = periodOrders.filter(o => o.status?.toLowerCase().includes("cancel")).length;
+    const delivered = periodOrders.filter(o => o.status?.toLowerCase().includes("deliver")).length;
+
+    // Top products by frequency
+    const productCounts: Record<string, number> = {};
+    for (const o of periodOrders) {
+      try {
+        const items = typeof o.items === "string" ? JSON.parse(o.items) : (o.items || []);
+        for (const item of items) {
+          if (item.name) productCounts[item.name] = (productCounts[item.name] || 0) + (item.qty || 1);
+        }
+      } catch {}
+    }
+    const topProducts = Object.entries(productCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    return {
+      type: "analytics_report",
+      description: `📊 **${period || "Today"}'s Analytics**\n\n` +
+        `- **Revenue**: ₹${totalRevenue.toFixed(0)}
+` +
+        `- **Orders**: ${periodOrders.length} (${delivered} delivered, ${cancelled} cancelled)
+` +
+        `- **Unique Customers**: ${uniqueCustomers}
+` +
+        `- **Top Products**: ${topProducts.map(([n, q]) => `${n} (×${q})`).join(", ") || "N/A"}`,
+      details: { totalRevenue, orders: periodOrders.length, delivered, cancelled, uniqueCustomers, topProducts },
+    };
+  }
+
+  // ── Action 16: Trigger Cart Recovery Emails ──
+  if (actionName === "trigger_cart_recovery" || actionName === "send_cart_recovery") {
+    const carts = await getPendingAbandonedCarts();
+    if (!carts || (carts as any[]).length === 0) {
+      return { type: "cart_recovery", description: "No abandoned carts found to recover right now.", details: { count: 0 } };
+    }
+    let sent = 0;
+    for (const cart of (carts as any[])) {
+      try { await triggerCartRecoveryEmail(cart); sent++; } catch {}
+    }
+    return {
+      type: "cart_recovery_sent",
+      description: `🛒 Cart recovery emails sent to **${sent}** customers with abandoned carts.`,
+      details: { sent, total: (carts as any[]).length },
+    };
+  }
+
+  // ── Action 17: Delete Product (soft delete) ──
+  if (actionName === "delete_product" || actionName === "remove_product") {
+    const { productId, productName, reason } = args;
+    let product: any = null;
+    if (productId) {
+      [product] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+    } else if (productName) {
+      [product] = await db.select().from(products)
+        .where(sql`LOWER(${products.name}) LIKE LOWER(${"%" + productName + "%"})`).limit(1);
+    }
+    if (!product) throw new Error(`Product "${productId || productName}" not found.`);
+    await db.update(products).set({ active: false, approvalStatus: "rejected", approvalNote: reason || "Removed by Super Admin via Narayana AI", updatedAt: new Date() }).where(eq(products.id, product.id));
+    await db.insert(securityAuditLogs).values({
+      eventType: "product_deleted_by_narayana_ai", severity: "warning", userId: adminUser.id,
+      targetId: product.id, targetType: "product",
+      actionTaken: `Soft-deleted product "${product.name}" (#${product.id}). Reason: ${reason || "Super Admin command"}`,
+      platform: "admin_copilot",
+    });
+    return { type: "product_deleted", description: `🗑️ Product **"${product.name}"** removed from storefront. (Soft delete — recoverable from DB if needed.)`, details: { id: product.id, name: product.name } };
+  }
+
+  // ── Action 18: Feature / Unfeature Product ──
+  if (actionName === "feature_product" || actionName === "unfeature_product") {
+    const { productId, productName } = args;
+    const featured = actionName === "feature_product";
+    let product: any = null;
+    if (productId) [product] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+    else if (productName) [product] = await db.select().from(products).where(sql`LOWER(${products.name}) LIKE LOWER(${"%" + productName + "%"})`).limit(1);
+    if (!product) throw new Error(`Product not found.`);
+    await db.update(products).set({ featured, updatedAt: new Date() }).where(eq(products.id, product.id));
+    return { type: "product_featured", description: `⭐ Product **"${product.name}"** ${featured ? "marked as FEATURED — will appear in the featured section" : "removed from featured"}.`, details: { id: product.id, featured } };
+  }
+
+  // ── Action 19: Update Product Description ──
+  if (actionName === "update_product_description" || actionName === "update_product_name") {
+    const { productId, productName, newDescription, newName, nameTe } = args;
+    let product: any = null;
+    if (productId) [product] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+    else if (productName) [product] = await db.select().from(products).where(sql`LOWER(${products.name}) LIKE LOWER(${"%" + productName + "%"})`).limit(1);
+    if (!product) throw new Error(`Product not found.`);
+    const updates: any = { updatedAt: new Date() };
+    if (newDescription) updates.description = newDescription;
+    if (newName) updates.name = newName;
+    if (nameTe) updates.nameTe = nameTe;
+    await db.update(products).set(updates).where(eq(products.id, product.id));
+    return { type: "product_updated", description: `✏️ Product **"${product.name}"** updated${newName ? ` → renamed to "${newName}"` : ""}${newDescription ? " with new description" : ""}.`, details: { id: product.id } };
+  }
+
+  // ── Action 20: Bulk Discount by Category ──
+  if (actionName === "bulk_category_discount" || actionName === "set_category_discount") {
+    const { categorySlug, discountPercent, reason } = args;
+    if (!categorySlug || discountPercent == null) throw new Error("bulk_category_discount requires categorySlug and discountPercent.");
+    const pct = parseFloat(String(discountPercent));
+    if (isNaN(pct) || pct < 0 || pct > 90) throw new Error("discountPercent must be 0–90.");
+    const result = await db.update(products)
+      .set({ discountPercent: String(pct), updatedAt: new Date() })
+      .where(and(eq(products.categorySlug, categorySlug), eq(products.active, true)))
+      .returning({ id: products.id, name: products.name });
+    await db.insert(securityAuditLogs).values({
+      eventType: "bulk_discount_by_narayana_ai", severity: "warning", userId: adminUser.id,
+      actionTaken: `Applied ${pct}% discount to ${result.length} products in category "${categorySlug}". Reason: ${reason || "Super Admin command"}`,
+      platform: "admin_copilot",
+    });
+    return { type: "bulk_discount_applied", description: `🏷️ **${pct}% discount** applied to **${result.length} products** in **${categorySlug}** category.`, details: { categorySlug, discountPercent: pct, count: result.length } };
+  }
+
+  // ── Action 21: Trigger Harvest Briefing ──
+  if (actionName === "trigger_harvest_briefing" || actionName === "send_morning_briefing") {
+    await triggerHarvestBriefing();
+    return { type: "harvest_briefing_triggered", description: "🌅 Morning Harvest Briefing dispatched to Telegram now.", details: {} };
+  }
+
+  // ── Action 22: Trigger Financial Digest ──
+  if (actionName === "trigger_financial_digest" || actionName === "send_financial_report") {
+    await triggerFinancialDigest();
+    return { type: "financial_digest_triggered", description: "📈 Financial Digest dispatched to Telegram now.", details: {} };
+  }
+
+  // ── Action 23: Run Dispatch Bottleneck Check ──
+  if (actionName === "run_dispatch_check" || actionName === "check_dispatch_bottleneck") {
+    await runDispatchBottleneckCheck();
+    return { type: "dispatch_check_run", description: "🚚 Dispatch bottleneck check complete. Any stuck orders alerted to Telegram.", details: {} };
+  }
+
+  // ── Action 24: Run Demand Spike Check ──
+  if (actionName === "run_demand_spike_check") {
+    await runDemandSpikeCheck();
+    return { type: "demand_spike_checked", description: "📊 Demand spike check complete. Any spikes alerted to Telegram.", details: {} };
+  }
+
+  // ── Action 25: Get Low Stock / Out of Stock Products ──
+  if (actionName === "get_low_stock" || actionName === "get_out_of_stock") {
+    const threshold = actionName === "get_out_of_stock" ? 1 : 10;
+    const lowStock = await db.select({ id: products.id, name: products.name, stock: products.stock, categorySlug: products.categorySlug })
+      .from(products)
+      .where(and(eq(products.active, true), sql`${products.stock} < ${threshold}`))
+      .orderBy(products.stock);
+    return {
+      type: "low_stock_report",
+      description: `📦 **${lowStock.length} products** are ${actionName === "get_out_of_stock" ? "out of stock" : "low on stock"}:\n\n` +
+        lowStock.slice(0, 20).map(p => `- **${p.name}** (${p.categorySlug}) — Stock: ${p.stock}`).join("\n") +
+        (lowStock.length > 20 ? `\n_...and ${lowStock.length - 20} more_` : ""),
+      details: { count: lowStock.length, items: lowStock },
+    };
+  }
+
+  // ── Action 26: Get Pending Approvals ──
+  if (actionName === "get_pending_approvals" || actionName === "list_pending_products") {
+    const pending = await db.select({ id: products.id, name: products.name, categorySlug: products.categorySlug, price: products.price, createdAt: products.createdAt })
+      .from(products).where(eq(products.approvalStatus, "pending")).orderBy(desc(products.createdAt));
+    return {
+      type: "pending_approvals",
+      description: `⏳ **${pending.length} products** pending approval:\n\n` +
+        pending.map(p => `- **${p.name}** (${p.categorySlug}) — ₹${p.price} — ID: #${p.id}`).join("\n") || "No pending products right now.",
+      details: { count: pending.length, items: pending },
+    };
+  }
+
+  // ── Action 27: Get New Customer Count ──
+  if (actionName === "get_new_customers" || actionName === "get_customer_stats") {
+    const { period } = args;
+    const start = new Date();
+    if (period === "week") start.setDate(start.getDate() - 7);
+    else if (period === "month") start.setDate(start.getDate() - 30);
+    else start.setHours(0, 0, 0, 0);
+    const newUsers = await db.select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt })
+      .from(users).where(gte(users.createdAt, start)).orderBy(desc(users.createdAt));
+    return {
+      type: "customer_stats",
+      description: `👤 **${newUsers.length} new customers** signed up in the last ${period || "today"}.\n\n` +
+        newUsers.slice(0, 10).map(u => `- ${u.name || "Unknown"} (${u.email})`).join("\n"),
+      details: { count: newUsers.length, period: period || "today" },
+    };
+  }
+
+  // ── Action 28: Apply Discount to Single Product ──
+  if (actionName === "set_discount" || actionName === "apply_discount") {
+    const { productId, productName, discountPercent, reason } = args;
+    const pct = parseFloat(String(discountPercent));
+    if (isNaN(pct) || pct < 0 || pct > 90) throw new Error("discountPercent must be 0–90.");
+    let product: any = null;
+    if (productId) [product] = await db.select().from(products).where(eq(products.id, Number(productId))).limit(1);
+    else if (productName) [product] = await db.select().from(products).where(sql`LOWER(${products.name}) LIKE LOWER(${"%" + productName + "%"})`).limit(1);
+    if (!product) throw new Error(`Product not found.`);
+    await db.update(products).set({ discountPercent: String(pct), updatedAt: new Date() }).where(eq(products.id, product.id));
+    return { type: "discount_applied", description: `🏷️ **${pct}% discount** applied to **"${product.name}"**.${pct === 0 ? " Discount cleared." : ""}`, details: { id: product.id, name: product.name, discountPercent: pct } };
+  }
+
   return null;
 }
 
@@ -986,11 +1296,66 @@ You have executive authority to execute actions ONLY when commanded by the Super
 <<<ACTION:{"action":"bulk_restock","items":[{"productId":3,"newStock":50},{"productId":7,"newStock":30}]}>>>
 
 11. Create a New Product (directly to live catalog, auto-generates quantity tiers):
-<<<ACTION:{"action":"create_product","name":"Dragon Fruit","nameTe":"డ్రాగన్ ఫ్రూట్","description":"Fresh red dragon fruit from Kadapa farms.","categorySlug":"fruits","price":120,"unit":"1 Kg","stock":40,"dietTag":"veg","featured":false}>>>
-<<<ACTION:{"action":"create_product","name":"Ridge Gourd","categorySlug":"vegetables","price":35,"unit":"500g","stock":60}>>>
-- categorySlug must be one of: vegetables, fruits, millets, pulses, spices, pickles, honey-jaggery, rice, oils, dairy, dry-fruits (use exact slug)
-- nameTe, description, dietTag, featured are all optional — sensible defaults are applied automatically
-- quantity tiers (250g/500g/1kg/2kg etc.) are auto-generated from the price and unit
+<<<ACTION:{"action":"create_product","name":"Dragon Fruit","nameTe":"డ్రాగన్ ఫ్రూట్","description":"Fresh red dragon fruit.","categorySlug":"fruits","price":120,"unit":"1 Kg","stock":40}>>>
+- categorySlug: vegetables | fruits | millets | pulses | spices | pickles | honey-jaggery | rice | oils | dairy | dry-fruits
+
+12. Send Email to Customer or All Customers:
+<<<ACTION:{"action":"send_email","to":"customer@gmail.com","subject":"Your Order Update","body":"Dear customer, your order is on the way!","buttonText":"Track Order","buttonUrl":"https://farmfreshfarmer.com/orders"}>>>
+<<<ACTION:{"action":"send_email","audience":"all_customers","subject":"Diwali Special 20% Off!","headline":"Happy Diwali! 🪔","body":"Celebrate Diwali with fresh organic produce. Use code DIWALI20 for 20% off today only!","buttonText":"Shop Now","buttonUrl":"https://farmfreshfarmer.com"}>>>
+
+13. Send Telegram Alert to Super Admin channel:
+<<<ACTION:{"action":"send_telegram","message":"Flash sale going live in 10 minutes — Tomato ₹20/kg!"}>>>
+
+14. Send Dispatch / Order Notification Email to Customer:
+<<<ACTION:{"action":"send_dispatch_email","orderId":1042,"customMessage":"Your fresh vegetables are packed and out for delivery. Expected by 6 PM today!"}>>>
+
+15. Get Analytics Report:
+<<<ACTION:{"action":"get_analytics","period":"today"}>>>
+<<<ACTION:{"action":"get_analytics","period":"week"}>>>
+<<<ACTION:{"action":"get_analytics","period":"month"}>>>
+
+16. Trigger Cart Recovery Emails (to all abandoned cart customers):
+<<<ACTION:{"action":"trigger_cart_recovery"}>>>
+
+17. Delete / Remove a Product (soft delete):
+<<<ACTION:{"action":"delete_product","productName":"Test Product","reason":"Duplicate listing"}>>>
+
+18. Feature or Unfeature a Product:
+<<<ACTION:{"action":"feature_product","productName":"Alphonso Mango"}>>>
+<<<ACTION:{"action":"unfeature_product","productId":12}>>>
+
+19. Update Product Name or Description:
+<<<ACTION:{"action":"update_product_description","productName":"Ridge Gourd","newDescription":"Farm-fresh ridge gourd harvested at dawn from Vizag district partner farms."}>>>
+<<<ACTION:{"action":"update_product_name","productId":5,"newName":"Organic Gongura Leaves","nameTe":"గోంగూర ఆకులు"}>>>
+
+20. Apply Bulk Discount to an Entire Category:
+<<<ACTION:{"action":"bulk_category_discount","categorySlug":"vegetables","discountPercent":15,"reason":"Festive season offer"}>>>
+
+21. Trigger Morning Harvest Briefing to Telegram now:
+<<<ACTION:{"action":"trigger_harvest_briefing"}>>>
+
+22. Trigger Financial Digest to Telegram now:
+<<<ACTION:{"action":"trigger_financial_digest"}>>>
+
+23. Run Dispatch Bottleneck Check now:
+<<<ACTION:{"action":"run_dispatch_check"}>>>
+
+24. Run Demand Spike Check now:
+<<<ACTION:{"action":"run_demand_spike_check"}>>>
+
+25. Get Low Stock or Out of Stock products:
+<<<ACTION:{"action":"get_low_stock"}>>>
+<<<ACTION:{"action":"get_out_of_stock"}>>>
+
+26. Get Pending Product Approvals:
+<<<ACTION:{"action":"get_pending_approvals"}>>>
+
+27. Get New Customer Signups:
+<<<ACTION:{"action":"get_new_customers","period":"week"}>>>
+
+28. Apply Discount to a Single Product:
+<<<ACTION:{"action":"set_discount","productName":"Tomato","discountPercent":20}>>>
+<<<ACTION:{"action":"set_discount","productId":3,"discountPercent":0}>>> // 0 clears the discount
 
 GUIDELINES:
 - Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables.
