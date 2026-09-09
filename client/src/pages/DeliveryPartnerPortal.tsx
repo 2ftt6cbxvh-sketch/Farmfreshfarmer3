@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Truck, Phone, MapPin, CheckCircle2, AlertTriangle, Power,
-  Clock, PackageCheck, ShoppingBag, RefreshCw, Navigation, DollarSign
+  Clock, PackageCheck, ShoppingBag, RefreshCw, Navigation, DollarSign, ShieldCheck,
+  KeyRound, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/store";
@@ -16,6 +18,8 @@ export default function DeliveryPartnerPortal() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"assigned" | "unassigned">("assigned");
+  const [handshakeOrderId, setHandshakeOrderId] = useState<number | null>(null);
+  const [handshakeOtp, setHandshakeOtp] = useState("");
 
   // Fetch Delivery Partner Profile & Availability Status
   const { data: partnerData, isLoading: loadingPartner, refetch: refetchPartner } = useQuery<{ partner: any }>({
@@ -76,14 +80,16 @@ export default function DeliveryPartnerPortal() {
 
   // Update Order Delivery Status Mutation
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
-      const res = await apiRequest("POST", `/api/partner/orders/${orderId}/status`, { status });
+    mutationFn: async ({ orderId, status, otp }: { orderId: number; status: string; otp?: string }) => {
+      const res = await apiRequest("POST", `/api/partner/orders/${orderId}/status`, { status, otp });
       return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/partner/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/partner/me"] });
       toast({ title: "✨ Status Updated", description: data.message });
+      setHandshakeOrderId(null);
+      setHandshakeOtp("");
     },
     onError: (err: any) => {
       toast({ title: "Status Update Failed", description: err.message, variant: "destructive" });
@@ -297,11 +303,14 @@ export default function DeliveryPartnerPortal() {
                       {ord.status !== "Delivered" && (
                         <Button
                           size="sm"
-                          onClick={() => updateStatusMutation.mutate({ orderId: ord.id, status: "Delivered" })}
+                          onClick={() => {
+                            setHandshakeOrderId(ord.id);
+                            setHandshakeOtp("");
+                          }}
                           disabled={updateStatusMutation.isPending}
                           className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-900/30"
                         >
-                          <CheckCircle2 size={13} className="mr-1" /> Mark Delivered & Collect ₹{ord.total}
+                          <ShieldCheck size={13} className="mr-1" /> Handshake Delivery (Verify OTP)
                         </Button>
                       )}
                     </div>
@@ -309,6 +318,79 @@ export default function DeliveryPartnerPortal() {
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {/* Handshake OTP Verification Modal */}
+        {handshakeOrderId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-card border border-border/80 shadow-2xl rounded-3xl p-6 relative overflow-hidden space-y-5">
+              <button
+                onClick={() => { setHandshakeOrderId(null); setHandshakeOtp(""); }}
+                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-full bg-background/50 hover:bg-background"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
+                  <KeyRound size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-foreground">Zero-Trust Handover Handshake</h3>
+                  <p className="text-xs text-muted-foreground">Order #{handshakeOrderId} Handover Authentication</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-primary/5 border border-primary/15 text-xs space-y-1.5">
+                <p className="font-semibold text-foreground flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-primary" /> Cryptographic Handshake Required
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Ask the customer for the 4-digit Handshake OTP displayed in their active order tracking screen. This protects against misplaced parcels and verifies genuine customer receipt.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground">Customer 4-Digit Handshake OTP</label>
+                <Input
+                  type="text"
+                  maxLength={6}
+                  value={handshakeOtp}
+                  onChange={(e) => setHandshakeOtp(e.target.value.trim())}
+                  placeholder="e.g. 4829"
+                  className="text-center font-mono text-xl tracking-widest font-black h-12 rounded-xl bg-background border-border"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setHandshakeOrderId(null); setHandshakeOtp(""); }}
+                  className="flex-1 rounded-xl text-xs font-bold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!handshakeOtp || handshakeOtp.length < 4) {
+                      toast({ title: "Invalid OTP", description: "Please enter the 4-digit code provided by customer.", variant: "destructive" });
+                      return;
+                    }
+                    updateStatusMutation.mutate({
+                      orderId: handshakeOrderId,
+                      status: "Delivered",
+                      otp: handshakeOtp,
+                    });
+                  }}
+                  disabled={updateStatusMutation.isPending || handshakeOtp.length < 4}
+                  className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-900/30"
+                >
+                  {updateStatusMutation.isPending ? "Verifying..." : "Verify & Complete Delivery"}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

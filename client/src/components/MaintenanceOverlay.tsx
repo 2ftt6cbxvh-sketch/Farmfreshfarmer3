@@ -83,7 +83,7 @@ export default function MaintenanceOverlay({
       {/* Top Header */}
       <header className="relative z-10 flex items-center justify-between max-w-5xl w-full mx-auto pb-4">
         <div className="flex items-center gap-3">
-          <Logo size="md" />
+          <Logo />
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black bg-amber-500/15 text-amber-300 border border-amber-500/30 backdrop-blur-md shadow-md">

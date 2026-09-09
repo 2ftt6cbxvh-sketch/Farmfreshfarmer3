@@ -9,6 +9,7 @@ import { imgUrl } from "@/lib/queryClient";
 import { DietDot } from "./DietDot";
 import { useToast } from "@/hooks/use-toast";
 import { TiltCard } from "./TiltCard";
+import { MandiParityBadge } from "./MandiParityBadge";
 
 export function ProductCard({ product }: { product: Product }) {
   const { items, add, setQty: setCartQty, remove: removeFromCart } = useCart();
@@ -39,7 +40,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   useEffect(() => {
     if (tiers.length > 0) {
-      setSelectedTier((prev) => {
+      setSelectedTier((prev: QuantityTier | null) => {
         if (prev && tiers.some((t) => t.quantity === prev.quantity)) return prev;
         return tiers.find((t) => t.quantity === product.unit) || tiers[0];
       });
@@ -188,6 +189,9 @@ export function ProductCard({ product }: { product: Product }) {
               </p>
             )}
           </Link>
+
+          {/* Mandi & Rythu Bazaar Parity Index + Morning Dew Harvest Badge */}
+          <MandiParityBadge product={product} />
 
           {/* Clean Subtle Disclaimer */}
           <p className="text-[9px] text-muted-foreground/70 italic leading-tight mt-1">

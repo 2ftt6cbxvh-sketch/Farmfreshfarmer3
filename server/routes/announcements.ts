@@ -212,7 +212,7 @@ export function registerAnnouncementRoutes(app: Express) {
   app.patch("/api/admin/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       await ensureAnnouncementsTable();
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(String(req.params.id), 10);
       if (!id || isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
       const { title, message, category, productId, isActive, showPopup, priority, targetAudience, expiresAt } = req.body || {};
@@ -257,7 +257,7 @@ export function registerAnnouncementRoutes(app: Express) {
   app.delete("/api/admin/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       await ensureAnnouncementsTable();
-      const id = parseInt(req.params.id, 10);
+      const id = parseInt(String(req.params.id), 10);
       if (!id || isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
 
       await pool.query("DELETE FROM announcements WHERE id = $1", [id]);

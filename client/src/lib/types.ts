@@ -6,6 +6,7 @@ export type {
   Review,
   Order,
   User,
+  QuantityTier,
 } from "@shared/schema";
 
 export interface CartItem {

@@ -39,6 +39,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: varchar("phone", { length: 32 }),
   address: text("address"),
+  pincode: varchar("pincode", { length: 16 }),
   role: varchar("role", { length: 32 }).notNull().default("customer"), // customer | admin | warehouse_admin | manager_admin | delivery_partner | subadmin | customer_rep | local_grievance_officer | zonal_grievance_officer | chief_grievance_officer
   customTitle: varchar("custom_title", { length: 128 }),
   telegramChatId: varchar("telegram_chat_id", { length: 64 }),
@@ -286,6 +287,12 @@ export const orders = pgTable("orders", {
   status: varchar("status", { length: 24 }).notNull().default("Placed"), // Placed | Packed | Out for delivery | Delivered | Cancelled
   assignedPartnerId: integer("assigned_partner_id"),
   assignedAt: timestamp("assigned_at", { withTimezone: true }),
+  deliveryOtp: varchar("delivery_otp", { length: 8 }), // 4-digit cryptographic delivery handover OTP
+  isMorningDew: boolean("is_morning_dew").notNull().default(false), // 6:00 AM - 9:00 AM Pre-Harvest booking
+  instantRefundStatus: varchar("instant_refund_status", { length: 32 }).notNull().default("none"), // none | pending_inspection | auto_approved_netra | rejected
+  instantRefundAmount: numeric("instant_refund_amount", { precision: 10, scale: 2 }).default("0"),
+  instantRefundPhoto: text("instant_refund_photo"),
+  instantRefundReason: text("instant_refund_reason"),
   invoiceData: jsonb("invoice_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1529,3 +1536,39 @@ export function generateProduceQuantityTiersMatrix(
     },
   ];
 }
+
+/* ======================== CART RESERVATIONS (ANTI-HOARDING) ========================= */
+export const cartReservations = pgTable("cart_reservations", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 128 }).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull().default(1),
+  unit: varchar("unit", { length: 64 }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  sessionIdx: index("cart_reservations_session_idx").on(t.sessionId),
+  expiresIdx: index("cart_reservations_expires_idx").on(t.expiresAt),
+}));
+export type CartReservation = typeof cartReservations.$inferSelect;
+
+/* ======================== SUBHIKSHA HEALTH SUBSCRIPTIONS ========================= */
+export const healthSubscriptions = pgTable("health_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  planType: varchar("plan_type", { length: 64 }).notNull(), // diabetic_care | immunity_defense | andhra_pickles_sweets
+  frequency: varchar("frequency", { length: 32 }).notNull().default("bi-weekly"), // weekly | bi-weekly | monthly
+  deliveryDay: varchar("delivery_day", { length: 16 }).notNull().default("Saturday"), // Wednesday | Saturday
+  status: varchar("status", { length: 32 }).notNull().default("active"), // active | paused | cancelled
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  nextDeliveryDate: timestamp("next_delivery_date", { withTimezone: true }),
+  address: text("address").notNull(),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index("health_subs_user_idx").on(t.userId),
+  statusIdx: index("health_subs_status_idx").on(t.status),
+}));
+export type HealthSubscription = typeof healthSubscriptions.$inferSelect;
+

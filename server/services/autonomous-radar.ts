@@ -168,7 +168,7 @@ export async function triggerFinancialDigest(): Promise<void> {
       const sampleOrderIds = todayOrders.slice(0, 100).map((o) => o.id);
       if (sampleOrderIds.length > 0) {
         const allItems = await db
-          .select({ productId: orderItems.productId, price: orderItems.price, qty: orderItems.quantity })
+          .select({ productId: orderItems.productId, price: orderItems.price, qty: orderItems.qty })
           .from(orderItems)
           .where(sql`${orderItems.orderId} = ANY(${sampleOrderIds})`);
 

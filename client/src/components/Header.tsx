@@ -5,8 +5,9 @@ import {
   Search, ShoppingCart, Menu, X, Sun, Moon, Sparkles, TrendingUp,
   MapPin, ShieldCheck, Zap, ChevronRight, ChevronDown, CheckCircle2,
   Lock, Store, User as UserIcon, UserCircle2, PackageCheck, Gift,
-  Ticket, Shield, Truck, LogOut, ShoppingBag, Home
+  Ticket, Shield, Truck, LogOut, ShoppingBag, Home, Mic
 } from "lucide-react";
+import { TeluguVoiceSearchModal } from "./TeluguVoiceSearchModal";
 import { useCart, useAuth } from "@/lib/store";
 import { useTheme } from "@/lib/theme-provider";
 import { useQuery } from "@tanstack/react-query";
@@ -45,6 +46,7 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [cartPopped, setCartPopped] = useState(false);
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const prevCount = useRef(count);
   const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -316,6 +318,15 @@ export function Header() {
                       ⌘K
                     </kbd>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setVoiceModalOpen(true)}
+                    className="w-7 h-7 rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center transition-all cursor-pointer shadow-xs"
+                    title="మాట్లాడి ఆర్డర్ చేయండి (Telugu Voice Search)"
+                    aria-label="Telugu Voice Order"
+                  >
+                    <Mic size={13} />
+                  </button>
                   <button
                     type="submit"
                     className="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer"
@@ -667,18 +678,28 @@ export function Header() {
                   onChange={(e) => setSearch(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   placeholder="Search fruits, sweets, pickles..."
-                  className="w-full rounded-full border border-emerald-500/30 bg-secondary/80 pl-10 pr-10 py-2.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className="w-full rounded-full border border-emerald-500/30 bg-secondary/80 pl-10 pr-16 py-2.5 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
                 <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                {search && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold"
+                    onClick={() => setVoiceModalOpen(true)}
+                    className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center cursor-pointer"
+                    title="Telugu Voice Order"
                   >
-                    ✕
+                    <Mic size={12} />
                   </button>
-                )}
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="text-muted-foreground hover:text-foreground text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -852,6 +873,12 @@ export function Header() {
           })}
         </div>
       </div>
+
+      {/* Telugu Voice Search & Dialect Smart Add-to-Cart Modal */}
+      <TeluguVoiceSearchModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+      />
     </header>
   );
 }

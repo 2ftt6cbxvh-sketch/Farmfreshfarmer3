@@ -24,6 +24,7 @@ export interface RecommendationContext {
     city?: string;
     region?: string;
     country?: string;
+    isGps?: boolean;
   };
   activeCategory?: string;
   activeSearchQuery?: string;

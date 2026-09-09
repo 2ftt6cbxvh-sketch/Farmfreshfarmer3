@@ -10,7 +10,7 @@ import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (email: string, password: string, options?: { isStealthGateway?: boolean }) => Promise<any>;
   register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -412,7 +412,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       try {
         const cachedProducts = queryClient.getQueryData<Product[]>(["/api/products"]);
-        const productsList: Product[] = cachedProducts || await apiGet<Product[]>("/api/products");
+        const productsList: Product[] = cachedProducts || await fetch("/api/products").then((r) => r.json()).catch(() => []);
         if (isCancelled || !Array.isArray(productsList)) return;
 
         setItems((currentItems) => {
@@ -487,9 +487,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function syncCartOnLogin() {
+      const currentUserId = user?.id;
+      if (!currentUserId) return;
       try {
-        if (hasMergedUserRef.current !== user.id) {
-          hasMergedUserRef.current = user.id;
+        if (hasMergedUserRef.current !== currentUserId) {
+          hasMergedUserRef.current = currentUserId;
           const res = await apiRequest("GET", "/api/cart");
           const data = await res.json();
           if (!cancelled && Array.isArray(data.items)) {

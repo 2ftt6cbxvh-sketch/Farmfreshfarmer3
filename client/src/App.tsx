@@ -356,8 +356,12 @@ function AppRouter() {
         <Route path="/help" component={GrievancePage} />
 
         {/* Intercept & Block Direct /admin access on Public Storefront */}
-        <Route path="/admin/login" component={AdminDirectAccessWarning} />
-        <Route path="/admin/login/" component={AdminDirectAccessWarning} />
+        <Route path="/admin/login">
+          {() => <AdminDirectAccessWarning targetRoute="/admin/login" />}
+        </Route>
+        <Route path="/admin/login/">
+          {() => <AdminDirectAccessWarning targetRoute="/admin/login" />}
+        </Route>
         <Route path="/admin">
           {() => <AdminDirectAccessWarning targetRoute="/admin" />}
         </Route>
@@ -380,6 +384,7 @@ function AppRouter() {
 
 function AdminGuard({ component: Component, path }: { component: React.ComponentType; path?: string }) {
   const { user, loading } = useAuth();
+  const isAdminHost = useIsAdminHost();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground bg-black">Loading…</div>;
@@ -407,8 +412,6 @@ function AdminGuard({ component: Component, path }: { component: React.Component
       STAFF_ROLES.includes(effectiveUser.role)
     )
   );
-
-  const isAdminHost = useIsAdminHost();
 
   if (!isStaffOrAdmin) {
     if (isAdminHost) {

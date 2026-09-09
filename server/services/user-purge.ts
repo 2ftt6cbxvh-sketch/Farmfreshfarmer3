@@ -30,7 +30,6 @@ import {
   chatbotSessions,
   liveChatMessages,
   chatbotMissedQueries,
-  guestBehaviorSessions,
   unmetDemandEvents,
   customerLocationLogs,
   passwordResetTokens,
@@ -94,49 +93,28 @@ export async function purgeUserCompletelyFromDatabase(targetId: number, adminUse
 
   // 4. Clean up Behavior & Location Analytics
   try {
-    if (targetEmail) {
-      await db.delete(guestBehaviorSessions).where(
-        or(
-          eq(guestBehaviorSessions.userId, targetId),
-          ilike(guestBehaviorSessions.customerEmail, targetEmail)
-        )
-      ).catch(() => {});
-      await db.delete(unmetDemandEvents).where(
-        or(
-          eq(unmetDemandEvents.userId, targetId),
-          ilike(unmetDemandEvents.userEmail, targetEmail)
-        )
-      ).catch(() => {});
-    } else {
-      await db.delete(guestBehaviorSessions).where(eq(guestBehaviorSessions.userId, targetId)).catch(() => {});
-      await db.delete(unmetDemandEvents).where(eq(unmetDemandEvents.userId, targetId)).catch(() => {});
-    }
+    await db.delete(unmetDemandEvents).where(eq(unmetDemandEvents.userId, targetId)).catch(() => {});
     await db.delete(customerLocationLogs).where(eq(customerLocationLogs.userId, targetId)).catch(() => {});
   } catch {}
 
   // 5. Clean up Orders, Payments, Items & Discounts
   try {
     const userOrders = await db.select({ id: orders.id }).from(orders).where(
-      or(
-        eq(orders.userId, targetId),
-        targetEmail ? ilike(orders.customerEmail, targetEmail) : eq(orders.userId, targetId)
-      )
+      eq(orders.userId, targetId)
     ).catch(() => []);
 
     for (const o of userOrders) {
       await db.delete(orderItems).where(eq(orderItems.orderId, o.id)).catch(() => {});
       await db.delete(orderStatusLogs).where(eq(orderStatusLogs.orderId, o.id)).catch(() => {});
       await db.delete(orderDiscounts).where(eq(orderDiscounts.orderId, o.id)).catch(() => {});
-      await db.delete(refunds).where(eq(refunds.orderId, o.id)).catch(() => {});
+      const orderPayments = await db.select({ id: payments.id }).from(payments).where(eq(payments.orderId, o.id)).catch(() => []);
+      for (const p of orderPayments) {
+        await db.delete(refunds).where(eq(refunds.paymentId, p.id)).catch(() => {});
+      }
       await db.delete(payments).where(eq(payments.orderId, o.id)).catch(() => {});
     }
 
-    await db.delete(orders).where(
-      or(
-        eq(orders.userId, targetId),
-        targetEmail ? ilike(orders.customerEmail, targetEmail) : eq(orders.userId, targetId)
-      )
-    ).catch(() => {});
+    await db.delete(orders).where(eq(orders.userId, targetId)).catch(() => {});
   } catch {}
 
   // 6. Clean up Subscriptions and associated billing/item logs

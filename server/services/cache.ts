@@ -85,6 +85,12 @@ class FastMemoryCache {
     }
   }
 
+  /** Invalidate group by tag and prefix */
+  invalidateGroup(group: string): void {
+    this.invalidateTags([group]);
+    this.invalidatePrefix(group);
+  }
+
   /**
    * Clear entire cache
    */

@@ -382,7 +382,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     }
 
     try {
-      const { apiCache } = await import("../lib/api-cache");
+      const { apiCache } = await import("./cache");
       apiCache.delete("settings:all");
       apiCache.delete(`settings:${key}`);
     } catch {}
@@ -624,7 +624,7 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
       updates.failedLoginAttempts = 0;
       updates.lockoutUntil = null;
       description = `Unblocked customer account "${userRec.name}" (${userRec.email || userRec.phone}).`;
-    } else if (action === "delete" || action === "purge" || actionName === "delete_customer" || actionName === "delete_user") {
+    } else if (action === "delete" || action === "purge" || (actionName as string) === "delete_customer" || (actionName as string) === "delete_user") {
       const { purgeUserCompletelyFromDatabase } = await import("./user-purge");
       const result = await purgeUserCompletelyFromDatabase(userRec.id, adminUser.id);
       return {
@@ -979,7 +979,7 @@ GUIDELINES:
       // Also persist to settings
       await storage.settings.set("maintenance_mode", active ? "true" : "false");
       try {
-        const { apiCache } = await import("../lib/api-cache");
+        const { apiCache } = await import("./cache");
         apiCache.delete("settings:all");
         apiCache.delete("settings:maintenance_mode");
       } catch {}
@@ -1095,12 +1095,12 @@ GUIDELINES:
         // Execute the database update immediately!
         await db.update(users).set({
           customerStars: targetStars,
-          starRating: String(targetStars),
+          starRating: Number(targetStars),
           updatedAt: new Date(),
         }).where(eq(users.id, targetUserRec.id));
 
         // Invalidate API caches
-        const { apiCache } = await import("../storage");
+        const { apiCache } = await import("./cache");
         apiCache.invalidateTags(["users", "customers", "auth"]);
 
         // Write Security Audit Log

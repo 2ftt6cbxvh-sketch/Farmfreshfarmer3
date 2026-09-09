@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { WebAuthnStepUpModal } from "@/components/admin/WebAuthnStepUpModal";
 
 interface RefundTicket {
   id: number;
@@ -38,6 +39,7 @@ export default function AdminRefunds() {
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [stepUpTicket, setStepUpTicket] = useState<RefundTicket | null>(null);
 
   const { data, isLoading, refetch } = useQuery<{ tickets: RefundTicket[] }>({
     queryKey: ["/api/admin/support-tickets"],
@@ -338,7 +340,7 @@ export default function AdminRefunds() {
                       <Button
                         size="sm"
                         disabled={processRefundMutation.isPending}
-                        onClick={() => processRefundMutation.mutate(t.id)}
+                        onClick={() => setStepUpTicket(t)}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
                       >
                         {processRefundMutation.isPending ? "Executing..." : "💳 Approve & Process PhonePe Refund"}
@@ -424,6 +426,21 @@ export default function AdminRefunds() {
             </div>
           </div>
         )}
+
+        {/* WebAuthn Passkey Biometric Step-Up Modal for Financial Disbursal */}
+        <WebAuthnStepUpModal
+          open={Boolean(stepUpTicket)}
+          title="Authorize Financial Disbursal (Passkey Step-Up)"
+          description={`Authorize direct PhonePe refund release for Ticket #${stepUpTicket?.ticketId || stepUpTicket?.id} (Order #${stepUpTicket?.orderId || "N/A"}). Requires hardware biometric proof.`}
+          actionName={`Refund Disbursal #${stepUpTicket?.ticketId || stepUpTicket?.id}`}
+          onSuccess={() => {
+            if (stepUpTicket) {
+              processRefundMutation.mutate(stepUpTicket.id);
+              setStepUpTicket(null);
+            }
+          }}
+          onCancel={() => setStepUpTicket(null)}
+        />
       </div>
     </AdminLayout>
   );

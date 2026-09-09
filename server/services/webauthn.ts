@@ -14,7 +14,7 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
-} from "@simplewebauthn/server";
+} from "@simplewebauthn/types";
 import { db } from "../db";
 import { webauthnCredentials, users } from "@shared/schema";
 import { eq } from "drizzle-orm";

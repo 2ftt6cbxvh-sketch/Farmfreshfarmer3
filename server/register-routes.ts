@@ -81,6 +81,10 @@ import { registerAdminProcurementAiRoutes } from "./routes/admin/procurement-ai"
 import { registerAdminCopilotRoutes } from "./routes/admin/copilot";
 import { registerAdminAutonomousRadarRoutes } from "./routes/admin/autonomous-radar";
 import { registerUserBehaviorRoutes } from "./routes/user-behavior";
+import { registerVoiceSearchRoutes } from "./routes/voice-search";
+import { registerInstantRefundRoutes } from "./routes/instant-refund";
+import { registerCartReservationRoutes } from "./routes/cart-reservation";
+import { registerHealthSubscriptionRoutes } from "./routes/health-subscriptions";
 import { csrfProtection } from "./middleware/csrf";
 
 import {
@@ -1412,7 +1416,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
     const [updated] = await db.update(users).set({
       customerStars: stars,
-      starRating: String(stars),
+      starRating: stars,
       updatedAt: new Date()
     }).where(eq(users.id, userId)).returning();
 
@@ -1520,7 +1524,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   app.post("/api/orders", h(async (req, res) => {
     const items: CartLine[] = Array.isArray(req.body.items) ? req.body.items : [];
     if (items.length === 0) return res.status(400).json({ message: "Cart is empty" });
-    const paymentMethod: PaymentMethod = req.body.paymentMethod === "PHONEPE" ? "PHONEPE" : "COD";
+    const paymentMethod = req.body.paymentMethod === "PHONEPE" ? "PHONEPE" : "COD";
     // Enforce the admin COD toggle server-side so it can't be bypassed.
     if (paymentMethod === "COD" && (await storage.settings.get("cod_enabled")) === "false") {
       return res.status(400).json({ message: "Cash on Delivery is currently unavailable. Please pay online." });
@@ -2103,7 +2107,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
       return res.status(403).json({ message: "Forbidden: Only the Master/Super Admin can permanently delete user accounts." });
     }
 
-    const targetId = parseInt(req.params.id, 10);
+    const targetId = parseInt(String(req.params.id), 10);
     if (!targetId || isNaN(targetId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
@@ -2132,7 +2136,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   /** POST /api/admin/users/:id/unlock — Unlock locked / rate-limited user account */
   app.post("/api/admin/users/:id/unlock", requireAdmin, h(async (req, res) => {
-    const targetId = parseInt(req.params.id, 10);
+    const targetId = parseInt(String(req.params.id), 10);
     if (!targetId || isNaN(targetId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
@@ -2151,7 +2155,7 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
 
   /** POST /api/admin/users/:id/verify-badge — Toggle Super Admin Blue Verification Badge */
   app.post("/api/admin/users/:id/verify-badge", requireAdmin, h(async (req, res) => {
-    const targetId = parseInt(req.params.id, 10);
+    const targetId = parseInt(String(req.params.id), 10);
     if (!targetId || isNaN(targetId)) return res.status(400).json({ message: "Invalid user ID" });
 
     const [target] = await db.select().from(users).where(eq(users.id, targetId)).limit(1);
@@ -2774,6 +2778,45 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
     res.json({ message: "Customer profile details manually updated successfully by Super Admin.", customer: updated });
   }));
 
+  /** POST /api/admin/customers/:id/send-email — Super Admin send custom branded email to customer */
+  app.post("/api/admin/customers/:id/send-email", requireAdmin, h(async (req, res) => {
+    const isSuperAdmin = await isPrimaryAdminUser(req);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ message: "Only Chief Super Admin can dispatch custom emails to customers." });
+    }
+    const id = Number(req.params.id);
+    const [customer] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!customer || !customer.email) {
+      return res.status(404).json({ message: "Customer email not found." });
+    }
+
+    const { subject, headline, message, buttonText, buttonUrl } = req.body || {};
+    if (!subject || !message) {
+      return res.status(400).json({ message: "Email subject and message body are required." });
+    }
+
+    const { buildCustomAdminEmailHtml, sendRealEmailWithResult } = await import("./services/email");
+    const html = buildCustomAdminEmailHtml({
+      customerName: customer.name || "Valued Customer",
+      headline: headline || subject,
+      message,
+      buttonText: buttonText || "Visit FarmFreshFarmer",
+      buttonUrl: buttonUrl || "https://farmfreshfarmer.com",
+    });
+
+    const result = await sendRealEmailWithResult({
+      to: customer.email,
+      subject: subject.trim(),
+      html,
+    });
+
+    if (!result.success) {
+      return res.status(500).json({ message: `Failed to dispatch email: ${result.error || "Mail server error"}` });
+    }
+
+    return res.json({ success: true, message: `Branded email successfully sent to ${customer.email}!` });
+  }));
+
   /* ===================== ADMIN: review moderation ================= */
   app.get("/api/admin/reviews", requireAdmin, h(async (req, res) => {
     const status = req.query.status ? String(req.query.status) : undefined;
@@ -3215,6 +3258,10 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
   registerDeliveryPartnerPortalRoutes(app);
   registerPerkRoutes(app);
   registerHeroShowcaseRoutes(app);
+  registerVoiceSearchRoutes(app);
+  registerInstantRefundRoutes(app);
+  registerCartReservationRoutes(app);
+  registerHealthSubscriptionRoutes(app);
 
   // ============================================================
   // RAZORPAY ROUTES

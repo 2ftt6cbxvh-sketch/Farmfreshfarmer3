@@ -358,6 +358,42 @@ export async function runAutoMigrations(): Promise<void> {
         )`, "create.unmet_demand_events"],
       ["CREATE INDEX IF NOT EXISTS unmet_demand_query_idx ON unmet_demand_events (query)", "idx.unmet_demand_query_idx"],
       ["CREATE INDEX IF NOT EXISTS unmet_demand_created_idx ON unmet_demand_events (created_at)", "idx.unmet_demand_created_idx"],
+      // ── ORDER ZERO-TRUST HANDSHAKE, MORNING DEW & NETRA REFUND ──
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_otp VARCHAR(8)", "orders.delivery_otp"],
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_morning_dew BOOLEAN NOT NULL DEFAULT FALSE", "orders.is_morning_dew"],
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS instant_refund_status VARCHAR(32) DEFAULT 'none'", "orders.instant_refund_status"],
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS instant_refund_amount NUMERIC(10,2) DEFAULT 0", "orders.instant_refund_amount"],
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS instant_refund_photo TEXT", "orders.instant_refund_photo"],
+      ["ALTER TABLE orders ADD COLUMN IF NOT EXISTS instant_refund_reason TEXT", "orders.instant_refund_reason"],
+      // ── ANTI-HOARDING CART RESERVATIONS TABLE ──
+      [`CREATE TABLE IF NOT EXISTS cart_reservations (
+          id SERIAL PRIMARY KEY,
+          session_id VARCHAR(128) NOT NULL,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          quantity INTEGER NOT NULL DEFAULT 1,
+          unit VARCHAR(64),
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        )`, "create.cart_reservations"],
+      ["CREATE INDEX IF NOT EXISTS cart_res_session_idx ON cart_reservations(session_id)", "idx.cart_res_session"],
+      ["CREATE INDEX IF NOT EXISTS cart_res_expires_idx ON cart_reservations(expires_at)", "idx.cart_res_expires"],
+      // ── SUBHIKSHA HEALTH SUBSCRIPTIONS TABLE ──
+      [`CREATE TABLE IF NOT EXISTS health_subscriptions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          plan_type VARCHAR(64) NOT NULL,
+          frequency VARCHAR(32) NOT NULL DEFAULT 'bi-weekly',
+          delivery_day VARCHAR(16) NOT NULL DEFAULT 'Saturday',
+          status VARCHAR(32) NOT NULL DEFAULT 'active',
+          price NUMERIC(10,2) NOT NULL,
+          next_delivery_date TIMESTAMP WITH TIME ZONE,
+          address TEXT NOT NULL,
+          phone VARCHAR(32) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        )`, "create.health_subscriptions"],
+      ["CREATE INDEX IF NOT EXISTS health_subs_user_idx ON health_subscriptions(user_id)", "idx.health_subs_user"],
+      ["CREATE INDEX IF NOT EXISTS health_subs_status_idx ON health_subscriptions(status)", "idx.health_subs_status"],
     ];
 
     for (const [sql, label] of stmts) {

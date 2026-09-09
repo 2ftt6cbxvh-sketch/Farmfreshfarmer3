@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Search, Clock, CheckCircle2, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Search, Clock, CheckCircle2, AlertCircle, Sparkles, Loader2, Images, X } from "lucide-react";
+import { VERIFIED_PRODUCE_GALLERY, matchVerifiedProduceImage, type VerifiedProduceItem } from "@/lib/verifiedProduceGallery";
 import { AdminLayout } from "./AdminLayout";
 import { apiRequest, apiGet, queryClient, imgUrl } from "@/lib/queryClient";
 import { formatINR } from "@/lib/types";
@@ -302,64 +303,12 @@ export default function AdminProducts() {
   });
 
   const [isAutoGeneratingTelugu, setIsAutoGeneratingTelugu] = useState(false);
+  const [isGalleryPickerOpen, setIsGalleryPickerOpen] = useState(false);
+  const [gallerySearch, setGallerySearch] = useState("");
+  const [galleryCategory, setGalleryCategory] = useState<string>("all");
 
   function getClientStudioImage(productName: string, categorySlug = "general"): string {
-    const norm = productName.toLowerCase().trim();
-    if (norm.includes("garlic") || norm.includes("vellulli")) return "/images/produce/garlic.jpg";
-    if (norm.includes("ginger") || norm.includes("allam")) return "/images/produce/ginger.jpg";
-    if (norm.includes("bitter") || norm.includes("kakara") || norm.includes("karela")) return "/images/produce/bitter-gourd.jpg";
-    if (norm.includes("ridge") || norm.includes("beera")) return "/images/produce/ridge-gourd.jpg";
-    if (norm.includes("tindora") || norm.includes("donda")) return "/images/produce/tindora.jpg";
-    if (norm.includes("green") && (norm.includes("brinjal") || norm.includes("vankaya"))) return "/images/produce/green-brinjal.jpg";
-    if (norm.includes("brinjal") || norm.includes("eggplant") || norm.includes("vankaya")) return "/images/produce/purple-brinjal.jpg";
-    if (norm.includes("capsicum") || norm.includes("bell pepper") || norm.includes("shimla")) return "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("bottle") || norm.includes("sora") || norm.includes("anapa")) return "/images/produce/bottlegourd.jpg";
-    if (norm.includes("beetroot")) return "https://images.unsplash.com/photo-1593105544559-ecb03bf76f82?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("potato") || norm.includes("bangala")) return "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("onion") || norm.includes("ulli")) return "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("tomato") || norm.includes("tamota")) return "/images/p-tomato.jpg";
-    if (norm.includes("spinach") || norm.includes("palak")) return "https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("okra") || norm.includes("lady") || norm.includes("benda")) return "https://images.unsplash.com/photo-1425543103986-22abb7d7e8d2?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("carrot") || norm.includes("kyarettu")) return "/images/produce/carrots.jpg";
-    if (norm.includes("cauliflower")) return "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("cabbage")) return "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("green chilli") || norm.includes("mirchi")) return "/images/produce/green-chilli.jpg";
-    if (norm.includes("cucumber") || norm.includes("dosakaya")) return "https://images.unsplash.com/photo-1604977042946-1eecc30f769e?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("drumstick") || norm.includes("mulakkada")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("box") || norm.includes("fresh box")) return "/images/produce/weekly-fresh-box.jpg";
-    if (norm.includes("guava") || norm.includes("jamakaya")) return "/images/produce/guava.jpg";
-    if (norm.includes("sitaphal") || norm.includes("custard") || norm.includes("seetha")) return "/images/produce/custard-apple.jpg";
-    if (norm.includes("pomegranate") || norm.includes("danimma")) return "/images/produce/pomegranate.jpg";
-    if (norm.includes("pineapple") || norm.includes("anasa")) return "/images/produce/pineapple.jpg";
-    if (norm.includes("muskmelon") || norm.includes("kharbuja")) return "/images/produce/muskmelon.jpg";
-    if (norm.includes("papaya") || norm.includes("boppayi")) return "/images/produce/papaya.jpg";
-    if (norm.includes("dragon")) return "/images/produce/dragon-fruit.jpg";
-    if (norm.includes("mango") || norm.includes("mamidi")) return "/images/p-mango.jpg";
-    if (norm.includes("banana") || norm.includes("arati")) return "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("grapes") || norm.includes("draksha")) return "https://images.unsplash.com/photo-1596363505729-4190a9506133?w=1200&q=95&auto=format&fit=crop";
-    if (norm.includes("laddu")) return "/images/p-laddu.jpg";
-    if (norm.includes("katli") || norm.includes("kaju")) return "/images/produce/kaju-katli.jpg";
-    if (norm.includes("pak") || norm.includes("mysore")) return "/images/produce/mysore-pak.jpg";
-    if (norm.includes("mixture")) return "/images/p-mixture.jpg";
-    if (norm.includes("murukku") || norm.includes("janthikalu") || norm.includes("chakli")) return "/images/produce/murukku.jpg";
-    if (norm.includes("lemon pickle")) return "/images/produce/lemon-pickle.jpg";
-    if (norm.includes("gongura pickle") || norm.includes("gongura pachadi")) return "/images/produce/gongura-pickle.jpg";
-    if (norm.includes("chicken pickle")) return "/images/produce/chicken-pickle.jpg";
-    if (norm.includes("mutton pickle")) return "/images/produce/mutton-pickle.jpg";
-    if (norm.includes("prawn pickle")) return "/images/produce/prawn-pickle.jpg";
-    if (norm.includes("pickle") || norm.includes("pacchadi") || norm.includes("avakaya")) return "/images/produce/mango-pickle.jpg";
-    if (norm.includes("toor dal") || norm.includes("kandi")) return "/images/produce/toor-dal.jpg";
-    if (norm.includes("moong dal") || norm.includes("pesara") || norm.includes("minapa")) return "/images/produce/moong-dal.jpg";
-    if (norm.includes("chana dal") || norm.includes("senaga")) return "/images/produce/chana-dal.jpg";
-    if (norm.includes("korralu") || norm.includes("foxtail")) return "/images/produce/foxtail-millet.jpg";
-    if (norm.includes("sajjalu") || norm.includes("pearl millet") || norm.includes("bajra")) return "/images/produce/pearl-millet.jpg";
-    if (norm.includes("ragi") || norm.includes("ragulu") || norm.includes("finger millet")) return "/images/produce/finger-millet.jpg";
-    if (norm.includes("turmeric") || norm.includes("pasupu")) return "/images/produce/turmeric-powder.jpg";
-    if (norm.includes("chilli") || norm.includes("karam")) return "/images/produce/red-chilli-powder.jpg";
-    if (norm.includes("coriander") || norm.includes("dhaniyala")) return "/images/produce/coriander-powder.jpg";
-
-    if (categorySlug.includes("fruit")) return "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1200&q=95&auto=format&fit=crop";
-    return "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1200&q=95&auto=format&fit=crop";
+    return matchVerifiedProduceImage(productName, categorySlug);
   }
 
   async function handleGenerateAiStudio() {
@@ -1121,6 +1070,23 @@ export default function AdminProducts() {
                   className="text-xs h-9 bg-background"
                   data-testid="input-image-url"
                 />
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsGalleryPickerOpen(true);
+                      setGallerySearch("");
+                      setGalleryCategory("all");
+                    }}
+                    className="w-full text-xs font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl flex items-center justify-center gap-1.5 h-9"
+                  >
+                    <Images size={14} />
+                    🖼️ Browse Verified Library (50 Genuine Photos)
+                  </Button>
+                </div>
               </div>
 
               {/* AI Dynamic Multi-Quantity Pack Selection Matrix */}
@@ -1308,6 +1274,126 @@ export default function AdminProducts() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── Verified Produce Gallery Picker Modal (50 Genuine Photos) ── */}
+      <Dialog open={isGalleryPickerOpen} onOpenChange={setIsGalleryPickerOpen}>
+        <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[88vh] overflow-hidden flex flex-col p-6 bg-card/95 backdrop-blur-2xl border-2 border-emerald-500/30 shadow-2xl rounded-3xl">
+          <DialogHeader className="pb-3 border-b border-border/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
+                  <Images size={20} />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
+                    Verified Produce Photo Library
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                      50 Genuine Local Assets
+                    </span>
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Zero copyright strikes, zero external brand packaging. 1-Click assign to product.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Category Filter Pills */}
+            <div className="pt-3 space-y-2.5">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={gallerySearch}
+                  onChange={(e) => setGallerySearch(e.target.value)}
+                  placeholder="Search by English produce name or Telugu script (e.g. Tomato, టమోటా, Bellam, Gongura)..."
+                  className="pl-9 text-xs rounded-xl bg-background border-border h-9"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { key: "all", label: "All Items (50)" },
+                  { key: "vegetables", label: "🥦 Vegetables (16)" },
+                  { key: "fruits", label: "🍎 Fruits (13)" },
+                  { key: "sweets", label: "🍬 Sweets (3)" },
+                  { key: "namkeen", label: "🥨 Snacks (3)" },
+                  { key: "pickles", label: "🌶️ Pickles (6)" },
+                  { key: "pulses", label: "🌾 Pulses (3)" },
+                  { key: "millets", label: "🌾 Millets (3)" },
+                  { key: "spices", label: "🧂 Spices (3)" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setGalleryCategory(tab.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      galleryCategory === tab.key
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Grid View */}
+          <div className="flex-1 overflow-y-auto p-2 pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {VERIFIED_PRODUCE_GALLERY.filter((item) => {
+                const matchesCat = galleryCategory === "all" || item.category === galleryCategory;
+                const q = gallerySearch.toLowerCase().trim();
+                const matchesSearch = !q || item.name.toLowerCase().includes(q) || item.telugu.toLowerCase().includes(q) || item.category.toLowerCase().includes(q);
+                return matchesCat && matchesSearch;
+              }).map((item) => {
+                const isSelected = form.image === item.path;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({ ...prev, image: item.path }));
+                      setIsGalleryPickerOpen(false);
+                      toast({
+                        title: "Photo Assigned! 📸",
+                        description: `Selected genuine produce image: ${item.name}`,
+                      });
+                    }}
+                    className={`group text-left rounded-2xl p-2 border-2 transition-all hover:scale-[1.02] cursor-pointer flex flex-col ${
+                      isSelected
+                        ? "border-emerald-500 bg-emerald-500/10 shadow-md ring-2 ring-emerald-500/30"
+                        : "border-border/60 hover:border-emerald-500/50 bg-card hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-secondary mb-2">
+                      <img
+                        src={item.path}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-emerald-600/40 backdrop-blur-xs flex items-center justify-center">
+                          <CheckCircle2 size={24} className="text-white drop-shadow-md" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-foreground truncate">{item.name}</p>
+                      <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate">{item.telugu}</p>
+                      <span className="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-secondary text-muted-foreground uppercase">
+                        {item.category}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

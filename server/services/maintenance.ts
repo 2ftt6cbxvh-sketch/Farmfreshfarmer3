@@ -219,13 +219,14 @@ export async function maintenanceMiddleware(req: Request, res: Response, next: N
 
       // For public API routes, return 503 Service Unavailable with maintenance info
       if (url.startsWith("/api/")) {
-        return res.status(503).json({
+        res.status(503).json({
           maintenance: true,
           status: 503,
           message: status.message,
           headline: status.headline,
           estimatedEnd: status.estimatedEnd,
         });
+        return;
       }
     }
   } catch (err) {

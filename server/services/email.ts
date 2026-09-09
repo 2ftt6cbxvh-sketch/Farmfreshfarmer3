@@ -692,3 +692,94 @@ export function buildPasswordChangedSuccessEmailHtml(name: string, time?: string
   `;
 }
 
+/** Helper: Generate Branded Custom Admin Email for Individual Customers */
+export function buildCustomAdminEmailHtml(opts: {
+  customerName: string;
+  headline?: string;
+  message: string;
+  buttonText?: string;
+  buttonUrl?: string;
+}): string {
+  const { customerName, headline, message, buttonText, buttonUrl } = opts;
+  const paragraphs = message
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p style="margin: 0 0 16px; font-size: 14px; color: #334155; line-height: 1.65;">${p}</p>`)
+    .join("");
+
+  const ctaButton =
+    buttonText && buttonUrl
+      ? `
+        <div style="text-align: center; margin: 28px 0 12px;">
+          <a href="${buttonUrl}" style="display: inline-block; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-size: 14px; font-weight: 800; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);">
+            ${buttonText} ➔
+          </a>
+        </div>
+      `
+      : "";
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${headline || "Message from FarmFreshFarmer"}</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed;">
+        <tr>
+          <td align="center" style="padding: 24px 12px;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+              
+              <!-- Header -->
+              <tr>
+                <td align="center" style="background: linear-gradient(135deg, #0d3820 0%, #15803d 100%); padding: 32px 24px; color: #ffffff;">
+                  <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff;">🌿 FarmFreshFarmer</h1>
+                  <p style="margin: 6px 0 0; font-size: 12px; color: #bbf7d0; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Direct Farm-to-Table Freshness</p>
+                </td>
+              </tr>
+
+              <!-- Body -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  <h2 style="margin: 0 0 12px; font-size: 18px; color: #0f172a; font-weight: 800;">Hello ${customerName},</h2>
+                  ${headline ? `<h3 style="margin: 0 0 16px; font-size: 15px; color: #15803d; font-weight: 700;">${headline}</h3>` : ""}
+                  
+                  <div style="margin: 16px 0;">
+                    ${paragraphs}
+                  </div>
+
+                  ${ctaButton}
+
+                  <!-- Support Box -->
+                  <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 16px; margin-top: 28px; text-align: left;">
+                    <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #166534;">
+                      🌾 Need assistance or custom farm harvests?
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #14532d; line-height: 1.5;">
+                      Feel free to reply directly to this email or WhatsApp us anytime at <a href="https://wa.me/917989793669" style="color: #166534; text-decoration: underline; font-weight: 700;">+91 79897 93669</a>. We're always here for you.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+                  <p style="margin: 0 0 4px;">Sent by FarmFreshFarmer Executive Team · <a href="https://farmfreshfarmer.com" style="color: #16a34a; text-decoration: none;">farmfreshfarmer.com</a></p>
+                  <p style="margin: 0;">Visakhapatnam, Andhra Pradesh · © ${new Date().getFullYear()} FarmFreshFarmer. All rights reserved.</p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+

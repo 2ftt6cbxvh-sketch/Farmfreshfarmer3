@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Package, Camera, AlertTriangle, CheckCircle, X, FileText } from "lucide-react";
+import { Package, Camera, AlertTriangle, CheckCircle, X, FileText, Sparkles, ShieldCheck, Droplets } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/lib/store";
 import { apiGet, queryClient } from "@/lib/queryClient";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { TaxInvoiceModal } from "@/components/TaxInvoiceModal";
+import { NetraInstantRefundModal } from "@/components/NetraInstantRefundModal";
 
 function statusVariant(status: string): "default" | "secondary" | "outline" {
   if (status === "Delivered") return "default";
@@ -26,6 +27,7 @@ export default function Orders() {
   const { toast } = useToast();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [billOrderId, setBillOrderId] = useState<number | null>(null);
+  const [netraOrderId, setNetraOrderId] = useState<number | null>(null);
   const [reason, setReason] = useState("Damaged or Spoiled Perishables");
   const [comments, setComments] = useState("");
   const [photoDataUrl, setPhotoDataUrl] = useState("");
@@ -85,7 +87,7 @@ export default function Orders() {
         body: JSON.stringify({
           customerName: user?.name || activeOrder.customerName || "",
           customerPhone: activeOrder.phone || "",
-          customerEmail: user?.email || activeOrder.customerEmail || "",
+          customerEmail: user?.email || (activeOrder as any).customerEmail || "",
           concern: `${reason}: ${comments.trim()}`,
           photoUrl: photoDataUrl,
           refundAmount: activeOrder.total,
@@ -144,16 +146,59 @@ export default function Orders() {
             {orders.map((o) => (
               <li key={o.id} className="rounded-xl border border-card-border bg-card p-4 space-y-3" data-testid={`order-${o.id}`}>
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-base">Order #{o.id}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-base">Order #{o.id}</span>
+                    {o.isMorningDew && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
+                        <Droplets size={10} className="text-cyan-500" /> Morning Dew Harvest
+                      </span>
+                    )}
+                  </div>
                   <Badge variant={statusVariant(o.status)}>{o.status}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{new Date(o.createdAt).toLocaleString("en-IN")}</p>
+
+                {/* 🔐 Cryptographic Delivery Proof Handshake (Zero-Trust Delivery Handover OTP) */}
+                {o.status === "Out for delivery" && o.deliveryOtp && (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                        <ShieldCheck size={16} />
+                      </span>
+                      <div>
+                        <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                          🔐 Zero-Trust Delivery Handover OTP
+                        </p>
+                        <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                          Share this OTP with your delivery partner to confirm physical produce handover
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-3.5 py-1.5 bg-amber-500/20 border border-amber-500/40 rounded-xl font-mono text-base font-black tracking-widest text-amber-900 dark:text-amber-200 shadow-xs">
+                      {o.deliveryOtp}
+                    </div>
+                  </div>
+                )}
+
+                {/* 👁️ Netra AI Refund Notification if approved */}
+                {o.instantRefundStatus === "auto_approved_netra" && (
+                  <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <CheckCircle size={14} className="text-emerald-500" />
+                      <span>Netra AI Instant Refund Credited to Wallet</span>
+                    </div>
+                    <span className="font-serif font-black text-emerald-700 dark:text-emerald-300">
+                      +₹{o.instantRefundAmount}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-2 border-t border-card-border text-sm">
                   <span className="text-muted-foreground">{o.paymentMethod}{o.couponCode ? ` · ${o.couponCode}` : ""}</span>
                   <span className="font-bold text-base">{formatINR(Number(o.total))}</span>
                 </div>
 
-                <div className="flex justify-end items-center gap-2 pt-2 border-t border-card-border/60">
+                <div className="flex flex-wrap justify-end items-center gap-2 pt-2 border-t border-card-border/60">
                   {/* View / Download Official Bill */}
                   <Button
                     size="sm"
@@ -161,8 +206,20 @@ export default function Orders() {
                     onClick={() => setBillOrderId(o.id)}
                     className="border-sky-500/30 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/20 text-xs font-bold gap-1 rounded-xl"
                   >
-                    <FileText size={13} /> View / Download Bill
+                    <FileText size={13} /> View Bill
                   </Button>
+
+                  {/* Netra AI Instant Photo Refund Button for Delivered Orders */}
+                  {o.status === "Delivered" && o.instantRefundStatus !== "auto_approved_netra" && (
+                    <Button
+                      size="sm"
+                      onClick={() => setNetraOrderId(o.id)}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black gap-1.5 rounded-xl shadow-xs"
+                    >
+                      <Sparkles size={13} className="text-amber-300" />
+                      <span>Netra AI Instant Refund</span>
+                    </Button>
+                  )}
 
                   <Button
                     size="sm"
@@ -170,7 +227,7 @@ export default function Orders() {
                     onClick={() => setActiveOrder(o)}
                     className="border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-bold gap-1 rounded-xl"
                   >
-                    <Camera size={13} /> Request Return / Refund
+                    <Camera size={13} /> Standard Return
                   </Button>
                 </div>
               </li>
@@ -288,6 +345,18 @@ export default function Orders() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Netra AI Instant Photo Refund Modal */}
+      {netraOrderId != null && (
+        <NetraInstantRefundModal
+          orderId={netraOrderId}
+          isOpen={true}
+          onClose={() => setNetraOrderId(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/orders/mine"] });
+          }}
+        />
       )}
     </Layout>
   );

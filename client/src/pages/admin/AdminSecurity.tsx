@@ -11,6 +11,7 @@ import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Trash2, RefreshCw, Loc
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "./AdminLayout";
 import { ChiefExecutiveExclusiveControls } from "@/components/admin/ChiefExecutiveExclusiveControls";
+import { WebAuthnStepUpModal } from "@/components/admin/WebAuthnStepUpModal";
 import { apiRequest } from "@/lib/queryClient";
 
 function SuperAdminPasswordUpdateCard() {
@@ -724,6 +725,7 @@ export default function AdminSecurity() {
   const qc = useQueryClient();
   const [lockdownReason, setLockdownReason] = useState("");
   const [lockdownDialogOpen, setLockdownDialogOpen] = useState(false);
+  const [showLockdownStepUp, setShowLockdownStepUp] = useState(false);
 
   const { data: lockdownData, isLoading: lockdownLoading } = useQuery({
     queryKey: ["/api/admin/security/lockdown"],
@@ -1039,17 +1041,41 @@ export default function AdminSecurity() {
                 <div className="flex gap-2">
                   <Button
                     variant={isLocked ? "default" : "destructive"}
-                    onClick={() => lockdownMutation.mutate({ active: !isLocked, reason: lockdownReason || "Admin deactivation" })}
+                    onClick={() => {
+                      setLockdownDialogOpen(false);
+                      setShowLockdownStepUp(true);
+                    }}
                     disabled={lockdownMutation.isPending || (!isLocked && !lockdownReason)}
-                    className="flex-1"
+                    className="flex-1 font-bold text-xs"
                   >
-                    {lockdownMutation.isPending ? "Processing..." : isLocked ? "Deactivate" : "Activate Lockdown"}
+                    {lockdownMutation.isPending
+                      ? "Processing..."
+                      : isLocked
+                      ? "Verify Passkey & Deactivate"
+                      : "Verify Passkey & Activate Lockdown"}
                   </Button>
                   <Button variant="outline" onClick={() => setLockdownDialogOpen(false)}>Cancel</Button>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* WebAuthn Passkey Step-Up for Emergency Lockdown */}
+          <WebAuthnStepUpModal
+            open={showLockdownStepUp}
+            title={isLocked ? "Authorize Platform Resumption" : "Authorize Emergency Platform Lockdown"}
+            description={
+              isLocked
+                ? "Cryptographic hardware authentication required to resume consumer traffic."
+                : `Security alert: activating emergency lockdown immediately halts consumer traffic. Reason: "${lockdownReason}".`
+            }
+            actionName="Emergency Lockdown Protocol"
+            onSuccess={() => {
+              setShowLockdownStepUp(false);
+              lockdownMutation.mutate({ active: !isLocked, reason: lockdownReason || "Admin deactivation" });
+            }}
+            onCancel={() => setShowLockdownStepUp(false)}
+          />
         </CardContent>
       </Card>
 

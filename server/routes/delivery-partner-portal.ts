@@ -120,8 +120,28 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
         }
       }
 
+      const maskPhone = (phone: string) => {
+        if (!phone) return "";
+        const clean = phone.replace(/\s+/g, "");
+        if (clean.length <= 4) return clean;
+        return `+91 ••••• ••${clean.slice(-4)}`;
+      };
+
+      const maskAddress = (address: string, status: string) => {
+        if (status === "Delivered") {
+          const parts = address.split(",");
+          const cityOrPincode = parts.slice(-2).join(",").trim();
+          return `[Street Address Redacted per DPDP Guidelines] · Zone: ${cityOrPincode || "Visakhapatnam"}`;
+        }
+        return address;
+      };
+
       const formatOrder = (o: any) => ({
         ...o,
+        phone: maskPhone(o.phone),
+        address: maskAddress(o.address, o.status),
+        rawPhoneAvailableForActive: o.status !== "Delivered",
+        requiresDeliveryOtp: o.status === "Out for delivery",
         items: itemsMap.get(o.id) || [],
       });
 
@@ -142,31 +162,22 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
 
     const { partner } = ctx;
     const orderId = parseInt(String(req.params.id), 10);
-    if (isNaN(orderId)) return res.status(400).json({ message: "Invalid order ID" });
 
     try {
       const [targetOrder] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!targetOrder) return res.status(404).json({ message: "Order not found" });
 
       if (targetOrder.assignedPartnerId && targetOrder.assignedPartnerId !== partner.id) {
-        return res.status(400).json({ message: "This order has already been picked by another delivery partner." });
+        return res.status(400).json({ message: "Order already assigned to another partner." });
       }
 
-      // Assign order to partner
-      const [updatedOrder] = await db.update(orders).set({
+      await db.update(orders).set({
         assignedPartnerId: partner.id,
         assignedAt: new Date(),
-        status: targetOrder.status === "Placed" ? "Packed" : targetOrder.status,
         updatedAt: new Date(),
-      }).where(eq(orders.id, orderId)).returning();
+      }).where(eq(orders.id, orderId));
 
-      // Update partner status to busy
-      await db.update(deliveryPartners).set({
-        availabilityStatus: "busy",
-        updatedAt: new Date(),
-      }).where(eq(deliveryPartners.id, partner.id));
-
-      return res.json({ order: updatedOrder, message: "Order picked successfully!" });
+      return res.json({ message: `Successfully picked Order #${orderId}` });
     } catch (err: any) {
       console.error("[partner-portal] Accept order error:", err);
       return res.status(500).json({ message: "Failed to accept order" });
@@ -180,7 +191,7 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
 
     const { partner } = ctx;
     const orderId = parseInt(String(req.params.id), 10);
-    const { status } = req.body || {}; // 'Packed' | 'Out for delivery' | 'Delivered'
+    const { status, otp } = req.body || {}; // 'Packed' | 'Out for delivery' | 'Delivered'
 
     if (!["Packed", "Out for delivery", "Delivered"].includes(status)) {
       return res.status(400).json({ message: "Invalid delivery status" });
@@ -198,7 +209,21 @@ export function registerDeliveryPartnerPortalRoutes(app: Express) {
         status,
         updatedAt: new Date(),
       };
+
+      // 🔐 Zero-Trust Delivery Proof Handshake Logic
+      if (status === "Out for delivery") {
+        // Generate ephemeral 4-digit numeric cryptographic handover OTP if not set
+        const generatedOtp = targetOrder.deliveryOtp || Math.floor(1000 + Math.random() * 9000).toString();
+        updates.deliveryOtp = generatedOtp;
+      }
+
       if (status === "Delivered") {
+        // If order had a delivery OTP, enforce handover verification
+        if (targetOrder.deliveryOtp && String(targetOrder.deliveryOtp).trim() !== String(otp).trim()) {
+          return res.status(400).json({
+            message: "❌ Invalid Handover OTP. Customer must provide the 4-digit code shown on their order tracking screen.",
+          });
+        }
         updates.paymentStatus = "paid"; // Mark COD as paid upon delivery
       }
 

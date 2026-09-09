@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { sql, eq, desc, and, or, inArray, isNotNull, isNull } from 'drizzle-orm';
-import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders, customerProfiles, coupons, securityAuditLogs } from '@shared/schema';
+import { chatbotSessions, liveChatMessages, chatbotMissedQueries, users, carts, cartItems, products, orders, orderItems, customerProfiles, coupons, securityAuditLogs } from '@shared/schema';
 import { sendTelegramGrievanceAlert, sendTelegramSecurityAlert } from '../services/telegram';
 import { resolveByPincode } from '../services/delivery';
 import https from 'https';
@@ -11,6 +11,7 @@ import { resolveProductBenefit } from '@shared/produce-benefits';
 import { rankPersonalizedProducts } from '@shared/recommendation-engine';
 import { getLakshmiApiKey, getNetraVisionApiKey } from '../services/gemini-keys';
 import { routeAndAnalyzeVision } from '../services/netra-vision';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // High-performance persistent HTTPS Keep-Alive agent for Google AI API
 const googleApiHttpsAgent = new https.Agent({
@@ -498,7 +499,7 @@ function resolveSmartProductSuggestions(
       } else if (p.nameTe && lowerReply.includes(p.nameTe)) {
         score += 900;
       } else {
-        const significantPWords = pNameLower.split(/[\s,()\[\]\/-]+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+        const significantPWords = pNameLower.split(/[\s,()\[\]\/-]+/).filter((w: string) => w.length >= 3 && !STOP_WORDS.has(w));
         for (const spw of significantPWords) {
           if (lowerReply.includes(spw)) {
             score += 450;
@@ -1169,7 +1170,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
         systemInstruction: baseSystemPrompt,
         generationConfig: { maxOutputTokens: maxTokens, temperature },
       });
-      const result = await model.generateContent(contents);
+      const result = await model.generateContent({ contents: contents as any });
       const response = await result.response;
       let text = '';
       try { text = response.text(); } catch {}
@@ -1386,11 +1387,11 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
     try {
       const activeProducts = await storage.products.list();
       if (activeProducts && activeProducts.length > 0) {
-        const rawWords = message.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
+        const rawWords = message.toLowerCase().split(/\s+/).map((w: string) => w.replace(/[^a-z0-9]/g, '')).filter((w: string) => w.length >= 3 && !STOP_WORDS.has(w)).map(stemWord);
         const matching = activeProducts.filter((p: any) => {
           const pName = p.name.toLowerCase();
-          const pWords = pName.split(/\s+/).map(w => w.replace(/[^a-z0-9]/g, '')).filter(w => w.length >= 3).map(stemWord);
-          return rawWords.some(rw => pWords.some(pw => matchesWord(rw, pw)));
+          const pWords = pName.split(/\s+/).map((w: string) => w.replace(/[^a-z0-9]/g, '')).filter((w: string) => w.length >= 3).map(stemWord);
+          return rawWords.some((rw: string) => pWords.some((pw: string) => matchesWord(rw, pw)));
         });
 
         if (matching.length > 0) {
@@ -2127,9 +2128,18 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
         try {
           const [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
           if (userCart) {
-            const cartItemsList = await db.select({ price: cartItems.price, quantity: cartItems.quantity })
-              .from(cartItems).where(eq(cartItems.cartId, userCart.id));
-            cartSubtotalForCoupon = cartItemsList.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+            const items = await db.select().from(cartItems).where(eq(cartItems.cartId, userCart.id));
+            if (items.length > 0) {
+              const productIds = items.map(i => i.productId);
+              const productList = await db.select().from(products).where(inArray(products.id, productIds));
+              const productMap = new Map(productList.map(p => [p.id, p]));
+              for (const item of items) {
+                const p = productMap.get(item.productId);
+                if (!p) continue;
+                const price = Number(p.price) * (1 - Number(p.discountPercent || 0) / 100);
+                cartSubtotalForCoupon += price * Number(item.qty || 1);
+              }
+            }
           }
         } catch {}
         const couponResult = await validateCouponForChat(code, cartSubtotalForCoupon);
@@ -2144,7 +2154,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
         interface CartMatchResult {
           item: { rawProduct: string; rawQty: number; rawUnit: string };
           product: any;
-          qtyResult: { unitsToAdd: number; explanation?: string };
+          qtyResult: { unitsToAdd: number; explanation?: string | null; alternatives?: string[] | null };
         }
         
         const matchedItems: CartMatchResult[] = [];
@@ -3188,7 +3198,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
   app.delete('/api/chatbot/my-sessions/:sessionToken', async (req: Request, res: Response) => {
     try {
       const userId = await resolveCustomerUserId(req);
-      const { sessionToken } = req.params;
+      const sessionToken = String(req.params.sessionToken || '');
       if (!sessionToken) return res.status(400).json({ error: 'Session token required' });
 
       // Verify session exists and belongs to user (or admin)

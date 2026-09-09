@@ -222,7 +222,7 @@ export function BroadcastPopupModal() {
                       } as any);
                       toast({
                         title: "✨ Added to Cart",
-                        description: `${activePopup.product.name} (${formatINR(currentPrice)})`,
+                        description: `${activePopup.product?.name || "Product"} (${formatINR(currentPrice)})`,
                       });
                       handleClose();
                     }}

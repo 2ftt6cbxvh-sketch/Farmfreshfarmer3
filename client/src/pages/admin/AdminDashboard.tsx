@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -29,6 +29,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+
+class ChartErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-64 flex flex-col items-center justify-center p-4 text-center text-muted-foreground text-xs">
+          <p className="font-bold text-foreground">Orders Overview Chart</p>
+          <p className="text-[11px] opacity-80 mt-1">Live metrics are actively tracking in your Orders tab.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface SalesSummary {
   totalOrders: number;
@@ -560,15 +581,17 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground">No orders yet.</p>
           ) : (
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--card-border))" />
-                  <XAxis dataKey="status" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={50} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--card-border))", borderRadius: 12 }} />
-                  <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <ChartErrorBoundary>
+                <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={100}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--card-border))" />
+                    <XAxis dataKey="status" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={50} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--card-border))", borderRadius: 12 }} />
+                    <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartErrorBoundary>
             </div>
           )}
         </div>

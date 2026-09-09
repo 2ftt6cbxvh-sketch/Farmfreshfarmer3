@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle, Sparkles, LogIn, Mail, ShieldCheck } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Tag, Gift, Wallet, Smartphone, Globe, Navigation, AlertTriangle, Sparkles, LogIn, Mail, ShieldCheck, Clock } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useCart, useAuth } from "@/lib/store";
 import { formatINR } from "@/lib/types";
@@ -62,6 +62,10 @@ interface PriceQuote {
   couponDiscount: number;
   starDiscountAmount?: number;
   starDiscountPercent?: number;
+  taxableSubtotal?: number;
+  totalGst?: number;
+  cgst?: number;
+  sgst?: number;
   breakdown: PriceBreakdownLine[];
 }
 
@@ -116,6 +120,45 @@ export default function Cart() {
   });
 
   const [inputPincode, setInputPincode] = useState<string>(deliveryRes?.pincode || "");
+
+  // Anti-Hoarding Cart Reservation State
+  const [reservationRemaining, setReservationRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (!items.length) {
+      setReservationRemaining(0);
+      return;
+    }
+
+    let isMounted = true;
+    const reserveInventory = async () => {
+      try {
+        const payload = items.map((it) => ({
+          productId: it.productId,
+          quantity: it.qty,
+          unit: it.unit,
+        }));
+        const res = await apiRequest("POST", "/api/cart/reserve", { items: payload });
+        const data = await res.json();
+        if (isMounted && data?.remainingSeconds) {
+          setReservationRemaining(data.remainingSeconds);
+        }
+      } catch (err) {
+        console.warn("Reservation error:", err);
+      }
+    };
+
+    reserveInventory();
+
+    const interval = setInterval(() => {
+      setReservationRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [items.length]);
 
   useEffect(() => {
     if (deliveryRes?.pincode) {
@@ -461,7 +504,7 @@ export default function Cart() {
 
   const totalAllSavings = produceDiscountSavings + couponDiscountSavings + firstOrderSavings + referralDiscountSavings + referralRewardSavings + starLoyaltySavings + totalBundleSavings;
 
-  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? (deliveryRules?.freeAbove ?? 500)));
+  const freeDeliveryThreshold = Number(deliveryRes?.freeDeliveryAbove ?? (publicSettings?.free_delivery_min ?? ((deliveryRules as any)?.freeAbove ?? 500)));
   const isFreeDelivery = taxableBase >= freeDeliveryThreshold;
 
   const fallbackDeliveryFee = (isInternationalDelivery || isLocationUnserviceable || isFreeDelivery)
@@ -681,6 +724,31 @@ export default function Cart() {
             )}
           </div>
         </div>
+
+        {/* Anti-Hoarding Harvest Reservation Banner */}
+        {items.length > 0 && reservationRemaining > 0 && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between flex-wrap gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <Clock size={16} />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-amber-300">
+                  Seasonal Harvest Reserved Exclusively for You
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  To prevent hoarding, items are held for your session. Complete checkout before timer expires.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">Hold expires in:</span>
+              <span className="font-mono font-black text-sm text-amber-400 bg-amber-950/40 border border-amber-500/40 px-3 py-1 rounded-xl shadow-inner">
+                {Math.floor(reservationRemaining / 60).toString().padStart(2, "0")}:{(reservationRemaining % 60).toString().padStart(2, "0")}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* 2-Column Balanced Responsive Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

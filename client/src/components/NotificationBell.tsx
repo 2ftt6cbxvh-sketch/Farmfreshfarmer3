@@ -19,6 +19,7 @@ export interface AnnouncementItem {
   isActive: boolean;
   showPopup: boolean;
   priority: number;
+  targetAudience?: string;
   createdAt: string;
   product?: {
     id: number;

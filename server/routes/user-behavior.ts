@@ -10,7 +10,7 @@
 
 import type { Express, Request, Response } from "express";
 import { db } from "../db";
-import { customerProfiles, guestBehaviorSessions, unmetDemandEvents, users } from "@shared/schema";
+import { customerProfiles, guestBehaviorSessions, unmetDemandEvents, chatbotMissedQueries, users } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { getJwtSecret } from "../services/encryption";
 import { createHash, randomBytes } from "crypto";

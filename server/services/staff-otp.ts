@@ -165,6 +165,8 @@ export async function triggerStaffSmsFallback(
   };
 }
 
+export const resendStaffSmsOtp = triggerStaffSmsFallback;
+
 export async function verifyStaff2faSession(
   tempToken: string,
   userCode: string,

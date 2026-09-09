@@ -23,7 +23,7 @@ async function getCachedSettings(): Promise<Record<string, string>> {
     const all = await storage.settings.all();
     _cachedSettings = (all as any) || {};
     _lastCacheTime = now;
-    return _cachedSettings;
+    return _cachedSettings || {};
   } catch {
     return _cachedSettings || {};
   }

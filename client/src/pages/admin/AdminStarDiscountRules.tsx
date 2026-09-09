@@ -347,7 +347,7 @@ export default function AdminStarDiscountRules() {
                 ) : (
                   <>
                     <div className="flex items-center gap-2">
-                      <StarRow count={rule.starTo} color={rule.ruleType === 'customer' ? 'blue' : 'gold'} />
+                      <StarRow count={rule.starTo} themeEnabled={isStarThemeEnabled} />
                       <span className="text-sm font-extrabold text-foreground">{rule.starTo} Star{rule.starTo === 1 ? '' : 's'}</span>
                     </div>
                     <span className="text-2xl font-black text-primary">{rule.discountPercent}%</span>

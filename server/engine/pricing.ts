@@ -118,6 +118,7 @@ export interface PriceResult {
   sgstEnabled: boolean;
   itemBreakdown: ItemGstBreakdown[];
   couponCode: string | null;
+  couponDiscount: number;
   firstOrderDiscount: number;
   referralDiscount: number;
   referralRewardApplied: number;  // reward credit the referrer spent
@@ -516,7 +517,7 @@ export async function computePrice(req: PriceRequest): Promise<PriceResult> {
 
   try {
     const userPincode = req.pincode ?? null;
-    const resByPin = await resolveByPincode(userPincode, req.userId, subtotal);
+    const resByPin = await resolveByPincode(userPincode, req.userId ?? undefined, subtotal);
     const freeThreshold = resByPin?.freeDeliveryAbove || 500;
 
     if (resByPin && resByPin.serviceable && resByPin.locationArea) {

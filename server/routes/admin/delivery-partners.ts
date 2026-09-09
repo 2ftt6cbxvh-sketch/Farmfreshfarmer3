@@ -10,6 +10,8 @@ import { db } from "../../db";
 import { users, deliveryPartners, orders } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
+const STAFF_ROLES = ["admin", "superadmin", "manager_admin", "warehouse_admin", "subadmin", "custom_subadmin", "delivery_partner"];
+
 /** Helper: Ensure user is authenticated AND is Primary Admin */
 async function requirePrimaryAdmin(req: Request, res: Response, next: NextFunction) {
   try {

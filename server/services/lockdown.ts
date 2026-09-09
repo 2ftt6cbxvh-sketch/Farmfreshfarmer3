@@ -53,6 +53,10 @@ export async function setLockdown(active: boolean, reason: string, adminUserId?:
   console.log(`[lockdown] ${active ? "ACTIVATED" : "DEACTIVATED"} by admin ${adminUserId}: ${reason}`);
 }
 
+export async function setLockdownStatus(active: boolean, opts?: { reason?: string; adminUserId?: number }): Promise<void> {
+  return setLockdown(active, opts?.reason || "Administrative command", opts?.adminUserId);
+}
+
 export async function lockdownMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const url = req.originalUrl || req.url || req.path;
 

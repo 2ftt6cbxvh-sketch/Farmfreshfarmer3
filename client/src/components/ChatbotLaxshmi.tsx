@@ -1259,7 +1259,9 @@ export function ChatbotLakshmi({ customGreeting }: { customGreeting?: string } =
                     <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap mb-1 overflow-x-auto text-[11px] font-bold">
                       <span className="text-emerald-700 dark:text-emerald-300 font-extrabold">{msg.senderName}</span>
                       {msg.senderMeta?.isVerified !== false && (
-                        <CheckCircle2 size={12} className="text-sky-500 fill-sky-500/20 shrink-0" title="Verified Staff" />
+                        <span title="Verified Staff" className="inline-flex items-center">
+                          <CheckCircle2 size={12} className="text-sky-500 fill-sky-500/20 shrink-0" />
+                        </span>
                       )}
                       {msg.senderMeta?.isPrimaryAdmin ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-amber-500/20 border border-amber-400/40 text-amber-700 dark:text-amber-300 text-[9px] font-black shrink-0">

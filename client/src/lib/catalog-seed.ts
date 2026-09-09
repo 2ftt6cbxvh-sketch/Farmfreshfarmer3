@@ -1,6 +1,6 @@
 import type { Category, Product } from "./types";
 
-export const SEED_CATEGORIES: Category[] = [
+export const SEED_CATEGORIES: any[] = [
   {
     id: 1,
     name: "Fruits",
@@ -102,7 +102,7 @@ export const SEED_CATEGORIES: Category[] = [
   },
 ];
 
-export const SEED_PRODUCTS: Product[] = [
+export const SEED_PRODUCTS: any[] = [
   // Fruits
   { id: 1, name: "Alphonso Mango", categorySlug: "fruits", price: "350.00", unit: "1 Kg", image: "/images/produce/mango.jpg", dietTag: "veg", stock: 50, featured: true, discountPercent: "10.00", description: "Naturally ripened sweet Alphonso mangoes directly from Andhra orchards.", active: true, approvalStatus: "approved" },
   { id: 2, name: "Fresh Pomegranate", categorySlug: "fruits", price: "180.00", unit: "1 Kg", image: "/images/produce/pomegranate.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Ruby-red antioxidant-rich pomegranates fresh from orchards.", active: true, approvalStatus: "approved" },
@@ -156,7 +156,7 @@ export const SEED_PRODUCTS: Product[] = [
   { id: 40, name: "Coriander Powder", categorySlug: "spices", price: "90.00", unit: "250 Grams", image: "/images/produce/coriander-powder.jpg", dietTag: "veg", stock: 50, featured: false, discountPercent: "0.00", description: "Freshly ground coriander.", active: true, approvalStatus: "approved" },
 ];
 
-const CATALOG_VERSION_KEY = "fff_catalog_version_v14_macro";
+const CATALOG_VERSION_KEY = "fff_catalog_version_v19_all_authentic_local_db_synced";
 
 export function getInitialCategories(): Category[] {
   if (typeof window === "undefined") return SEED_CATEGORIES;

@@ -8,6 +8,8 @@ import { db } from "../../db";
 import { users } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
+const STAFF_ROLES = ["admin", "superadmin", "manager_admin", "warehouse_admin", "subadmin", "custom_subadmin", "delivery_partner"];
+
 async function requirePrimaryAdmin(req: Request, res: Response, next: Function) {
   try {
     let userId: number | undefined = (req.session as any)?.userId;

@@ -121,7 +121,7 @@ export const categoryStore = {
     const [r] = await db.insert(categories).values(c).returning();
     return r;
   },
-  async update(id: number, c: Partial<InsertCategory>) {
+  async update(id: number, c: Partial<Category> | Partial<InsertCategory>) {
     const [r] = await db.update(categories).set(c).where(eq(categories.id, id)).returning();
     return r;
   },
@@ -229,7 +229,7 @@ export const productStore = {
     } as any).returning();
     return r;
   },
-  async update(id: number, p: Partial<InsertProduct>) {
+  async update(id: number, p: Partial<Product> | Partial<InsertProduct>) {
     const patch: any = { ...p, updatedAt: new Date() };
     if (p.price != null) patch.price = String(p.price);
     if (p.discountPercent != null) patch.discountPercent = String(p.discountPercent);

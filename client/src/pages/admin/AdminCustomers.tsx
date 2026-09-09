@@ -8,11 +8,12 @@ import { getStarTheme } from "@/lib/starTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon, Sparkles, TrendingUp, Search, HeartPulse, PieChart } from "lucide-react";
+import { Trash2, AlertTriangle, Lock, Unlock, BadgeCheck, Pencil, Save, Mail, Phone, User as UserIcon, Sparkles, TrendingUp, Search, HeartPulse, PieChart, Send, X } from "lucide-react";
 import { useAuth } from "@/lib/store";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Customer {
   id: number; name: string; email: string; phone: string | null; status: string;
@@ -25,6 +26,7 @@ interface Customer {
   isVerified?: boolean;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
+  isPrimaryAdmin?: boolean;
 }
 
 export default function AdminCustomers() {
@@ -45,6 +47,14 @@ export default function AdminCustomers() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editVerified, setEditVerified] = useState(false);
+
+  // Custom Email Dispatcher State
+  const [emailTarget, setEmailTarget] = useState<Customer | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailHeadline, setEmailHeadline] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailButtonText, setEmailButtonText] = useState("Visit FarmFreshFarmer");
+  const [emailButtonUrl, setEmailButtonUrl] = useState("https://farmfreshfarmer.com");
 
   const { data: customers = [], isLoading, isError, error, refetch } = useQuery<Customer[]>({
     queryKey: ["/api/admin/customers"],
@@ -149,6 +159,36 @@ export default function AdminCustomers() {
     },
     onError: (err: any) => {
       toast({ title: "Verification update failed", description: err?.message, variant: "destructive" });
+    },
+  });
+
+  const sendEmailMut = useMutation({
+    mutationFn: async ({ id, subject, headline, message, buttonText, buttonUrl }: {
+      id: number;
+      subject: string;
+      headline?: string;
+      message: string;
+      buttonText?: string;
+      buttonUrl?: string;
+    }) => {
+      const res = await apiRequest("POST", `/api/admin/customers/${id}/send-email`, {
+        subject,
+        headline,
+        message,
+        buttonText,
+        buttonUrl,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Email Sent Successfully! ✉️", description: data.message || "Branded message delivered to customer inbox." });
+      setEmailTarget(null);
+      setEmailSubject("");
+      setEmailHeadline("");
+      setEmailMessage("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Email Dispatch Failed", description: err.message || "Could not deliver email.", variant: "destructive" });
     },
   });
 
@@ -383,6 +423,25 @@ export default function AdminCustomers() {
                               className="h-8 px-2.5 text-xs font-bold text-amber-400 border-amber-500/40 hover:bg-amber-500/10 rounded-lg flex items-center gap-1"
                             >
                               <Pencil size={12} /> Edit
+                            </Button>
+                          )}
+
+                          {isSuperAdmin && c.email && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEmailTarget(c);
+                                setEmailSubject(`A Special Message from FarmFreshFarmer, ${c.name?.split(" ")[0] || "Valued Customer"}`);
+                                setEmailHeadline("Direct Update from FarmFreshFarmer");
+                                setEmailMessage("");
+                                setEmailButtonText("Shop Fresh Harvest");
+                                setEmailButtonUrl("https://farmfreshfarmer.com");
+                              }}
+                              title="Send custom branded FarmFreshFarmer email to this customer"
+                              className="h-8 px-2.5 text-xs font-bold text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10 rounded-lg flex items-center gap-1"
+                            >
+                              <Mail size={12} /> Email
                             </Button>
                           )}
 
@@ -667,6 +726,134 @@ export default function AdminCustomers() {
                 {setStarsMut.isPending ? "Saving..." : "Save Stars"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Branded Email Composer Modal */}
+      {emailTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4" onClick={() => setEmailTarget(null)}>
+          <div className="bg-card border border-emerald-500/40 rounded-3xl w-full max-w-xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-md p-5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground flex items-center gap-2">
+                    Send Branded Email
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      Official Emerald Template
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    To: <strong className="text-foreground">{emailTarget.name}</strong> ({emailTarget.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmailTarget(null)}
+                className="w-8 h-8 rounded-xl bg-secondary/80 flex items-center justify-center text-muted-foreground hover:text-foreground transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!emailSubject.trim() || !emailMessage.trim()) {
+                  toast({ title: "Please fill subject and message body", variant: "destructive" });
+                  return;
+                }
+                sendEmailMut.mutate({
+                  id: emailTarget.id,
+                  subject: emailSubject.trim(),
+                  headline: emailHeadline.trim() || emailSubject.trim(),
+                  message: emailMessage.trim(),
+                  buttonText: emailButtonText.trim() || "Visit FarmFreshFarmer",
+                  buttonUrl: emailButtonUrl.trim() || "https://farmfreshfarmer.com",
+                });
+              }}
+              className="p-5 space-y-4 overflow-y-auto"
+            >
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 leading-relaxed">
+                🌿 This message will automatically be rendered inside the official FarmFreshFarmer emerald theme, including the logo, personalized greeting, customer support footer, and branded action button.
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Email Subject Line *</Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="e.g. Exclusive Weekend Organic Harvest Offer for You"
+                  className="rounded-xl border-border bg-background"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Hero Headline (Inside Email Banner)</Label>
+                <Input
+                  value={emailHeadline}
+                  onChange={(e) => setEmailHeadline(e.target.value)}
+                  placeholder="e.g. Fresh from Visakhapatnam & Guntur Farms"
+                  className="rounded-xl border-border bg-background"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Message Body *</Label>
+                <Textarea
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  placeholder="Write your message here... You can write multiple paragraphs."
+                  rows={6}
+                  className="rounded-xl border-border bg-background font-sans text-xs leading-relaxed"
+                  required
+                />
+                <p className="text-[11px] text-muted-foreground">Line breaks will automatically be formatted into clean, responsive email paragraphs.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground">Button Label</Label>
+                  <Input
+                    value={emailButtonText}
+                    onChange={(e) => setEmailButtonText(e.target.value)}
+                    placeholder="e.g. Claim Your Fresh Harvest"
+                    className="rounded-xl border-border bg-background"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground">Button Destination URL</Label>
+                  <Input
+                    value={emailButtonUrl}
+                    onChange={(e) => setEmailButtonUrl(e.target.value)}
+                    placeholder="https://farmfreshfarmer.com"
+                    className="rounded-xl border-border bg-background"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="sticky bottom-0 pt-4 flex gap-2 border-t border-border bg-card">
+                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setEmailTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={sendEmailMut.isPending}
+                  className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30"
+                >
+                  <Send size={14} />
+                  {sendEmailMut.isPending ? "Sending Branded Email…" : "Send Email Now"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

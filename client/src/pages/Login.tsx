@@ -244,17 +244,14 @@ export default function Login() {
 
       setLoginToken(data.loginToken || "");
       setLoginTargetUserId(data.userId || null);
-      if (data.phone) setLoginWaPhone(data.phone);
+      if (data.phone) setLoginSmsPhone(data.phone);
       setLoginStep("otp");
       setLoginOtpCode("");
       if (data.devOtp) setLoginDevOtp(data.devOtp);
 
-      // Auto-initiate WhatsApp session
-      initiateLoginWhatsApp(data.phone, data.userId);
-
       toast({
         title: "🛡️ Verification Required",
-        description: "Choose Email OTP or WhatsApp to complete sign-in.",
+        description: "Enter the OTP sent to your registered email or phone to complete sign-in.",
       });
     } catch (err: any) {
       const errorMsg = String(err?.message || "");

@@ -128,6 +128,8 @@ export async function isTelegramOtpConfigured(): Promise<boolean> {
   return !!botToken;
 }
 
+export const isTelegramEmergencyConfigured = isTelegramSecurityConfigured;
+
 /* ====================================================================
    1B. 2FA TELEGRAM OTP IN-MEMORY SESSION STORE
    ==================================================================== */
@@ -585,6 +587,8 @@ export async function sendTelegramSecurityAlert(message: string, req?: any): Pro
   );
   return results.some((r) => r === true);
 }
+
+export const sendTelegramEmergencySecurityAlert = sendTelegramSecurityAlert;
 
 export async function sendTelegramSecurityAlertThrottled(key: string, message: string, req?: any, cooldownMs = 30000): Promise<boolean> {
   const now = Date.now();
@@ -1309,14 +1313,16 @@ export async function processSecurityTelegramWebhook(update: any): Promise<{ han
   if (lowerText === "/briefing" || lowerText === "/morning") {
     await sendRawTelegramMessage(botToken, senderChatId, "🧠 Generating live Gemini AI Morning Harvest Briefing...");
     const { triggerHarvestBriefing } = await import("./autonomous-radar");
-    const res = await triggerHarvestBriefing();
-    return { handled: true, reply: res.briefingText };
+    await triggerHarvestBriefing();
+    const reply = "✅ Morning harvest briefing generated and dispatched.";
+    return { handled: true, reply };
   }
 
   if (lowerText === "/digest" || lowerText === "/sales" || lowerText === "/night") {
     const { triggerFinancialDigest } = await import("./autonomous-radar");
-    const res = await triggerFinancialDigest();
-    return { handled: true, reply: res.digestText };
+    await triggerFinancialDigest();
+    const reply = "✅ Financial digest generated and dispatched.";
+    return { handled: true, reply };
   }
 
   if (lowerText.startsWith("/stock ")) {
