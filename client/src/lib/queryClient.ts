@@ -183,6 +183,13 @@ async function throwIfResNotOk(res: Response) {
       if (res.status === 504) text = "Gateway Timeout: Server took too long to respond. Please try again.";
       else if (res.status === 502) text = "Bad Gateway: Backend service restarting. Please retry in a moment.";
       else text = `Server Error (${res.status}): Please try again.`;
+    } else {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && typeof parsed.message === "string") {
+          text = parsed.message;
+        }
+      } catch {}
     }
     throw new Error(`${text}`);
   }

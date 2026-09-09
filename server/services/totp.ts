@@ -73,6 +73,14 @@ export function generateTotpSecret(accountName = "admin@farmfreshfarmer.com"): {
   return { secret, uri };
 }
 
+/** Generate the current 6-digit TOTP code from a base32 secret */
+export function generateTotpCode(secret: string, offsetSteps = 0): string {
+  const secretBuffer = base32Decode(secret);
+  const timeStep = 30;
+  const currentCounter = Math.floor(Date.now() / 1000 / timeStep) + offsetSteps;
+  return generateHotp(secretBuffer, currentCounter);
+}
+
 /** Verify a 6-digit TOTP code against a base32 secret with ±1 time step tolerance (30s window) */
 export function verifyTotpCode(secret: string, code: string): boolean {
   if (!secret || !code) return false;

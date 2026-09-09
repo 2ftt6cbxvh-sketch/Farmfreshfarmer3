@@ -10,7 +10,7 @@ import { StaffPromotionOverlay } from "@/components/StaffPromotionOverlay";
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, options?: { isStealthGateway?: boolean }) => Promise<any>;
+  login: (email: string, password: string, options?: { isStealthGateway?: boolean; totpCode?: string }) => Promise<any>;
   register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -264,14 +264,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function login(email: string, password: string, options?: { isStealthGateway?: boolean }) {
+  async function login(email: string, password: string, options?: { isStealthGateway?: boolean; totpCode?: string }) {
     const res = await apiRequest("POST", "/api/login", {
       email,
       password,
+      totpCode: options?.totpCode,
       isStealthGateway: options?.isStealthGateway,
     });
     const data = await res.json();
-    if (data.require2fa || data.requirePasskey) {
+    if (data.require2fa || data.requirePasskey || data.requireLayer2Totp) {
       return data;
     }
     if (data.accessToken) {
@@ -285,6 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("user", JSON.stringify(data.user));
       if (data.user.role !== "customer") {
         localStorage.setItem("adminUser", JSON.stringify(data.user));
+        sessionStorage.setItem("admin_mfa_verified", "true");
       }
     }
     setUser(data.user);

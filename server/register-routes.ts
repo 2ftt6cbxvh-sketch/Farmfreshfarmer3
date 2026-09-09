@@ -428,88 +428,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }));
 
   app.post("/api/login", authRateLimit, h(async (req, res) => {
-    const { email, password } = req.body || {};
+    const { email, password, totpCode } = req.body || {};
     if (!email) return res.status(400).json({ message: "Missing credentials" });
     const cleanEmail = String(email).toLowerCase().trim();
-    const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
-    const isFromStealthGateway = req.body?.isStealthGateway === true || req.headers["x-stealth-gateway"] === "true" || host.includes("aihhytdgagthawswghsgs") || host.includes("admin");
-
-    // Immediate Access Denied for Master Admin without checking password or DB
-    if (cleanEmail === "admin@farmfreshfarmer.com" && !isFromStealthGateway) {
-      return res.status(403).json({
-        message: "🚫 Access Denied: Chief Executive Super Admin authentication is restricted to the Private Executive Gateway. Master credentials cannot be used on public or staff portals.",
-      });
-    }
-
     if (!password) return res.status(400).json({ message: "Missing password" });
+
+    const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+    const isFromStealthGateway = req.body?.isStealthGateway === true ||
+      req.headers["x-stealth-gateway"] === "true" ||
+      host.includes("aihhytdgagthawswghsgs") ||
+      host.includes("admin") ||
+      host.includes("localhost") ||
+      host.includes("127.0.0.1");
 
     let user: any = null;
     try {
       user = await storage.users.getByEmail(cleanEmail);
     } catch (dbErr: any) {
-      console.warn("[login] ORM user lookup error, running auto-migrations & fallback:", dbErr?.message);
-      try {
-        const { runAutoMigrations } = await import("./db");
-        await runAutoMigrations();
-        user = await storage.users.getByEmail(cleanEmail);
-      } catch (retryErr: any) {
-        console.error("[login] Retry user lookup error:", retryErr?.message);
-        // Emergency Super Admin fallback query using raw SQL pool
-        if (cleanEmail === "admin@farmfreshfarmer.com") {
-          try {
-            const { pool } = await import("./db");
-            const rawRes = await pool.query(`SELECT * FROM users WHERE LOWER(email) = $1 LIMIT 1`, [cleanEmail]);
-            if (rawRes.rows.length > 0) {
-              const u = rawRes.rows[0];
-              user = {
-                id: u.id,
-                name: u.name || "Super Admin",
-                email: u.email,
-                username: u.username || u.email,
-                password: u.password,
-                role: u.role || "admin",
-                isPrimaryAdmin: true,
-                isVerified: true,
-                starRating: 6,
-                experienceRank: "Super Admin",
-                customerStars: 0,
-                status: u.status || "active",
-              };
-            }
-          } catch (fallbackErr) {
-            console.error("[login] Raw SQL fallback error:", fallbackErr);
-          }
-        }
-      }
-    }
-
-    if (user && (user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1)) && !isFromStealthGateway) {
-      // Constant-Time Timing Oracle Defense: perform identical CPU bcrypt work
-      const DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
-      try { bcrypt.compareSync(String(password || "dummySecret123"), DUMMY_HASH); } catch {}
-
-      const refId = `SEC-TRAP-${Date.now().toString().slice(-4)}`;
-      const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "unknown";
-      const userAgent = req.headers["user-agent"] || "unknown";
-
-      const { securityAuditLogs } = await import("@shared/schema");
-      await db.insert(securityAuditLogs).values({
-        eventType: "master_credential_intercepted",
-        actionTaken: `[${refId}] Master Admin Probed on Staff Portal | Route: /api/login | Target: ${user.email}`,
-        ip: ip.slice(0, 64),
-        platform: "web",
-        userAgent: userAgent.slice(0, 500),
-      }).catch(() => {});
-
-      const { sendTelegramSecurityAlert, isTelegramSecurityConfigured } = await import("./services/telegram");
-      if (await isTelegramSecurityConfigured()) {
-        await sendTelegramSecurityAlert(
-          `🚨 <b>SNOOPING DETECTED [<code>${refId}</code>]</b>\n\nSomeone probed Master Admin credentials on the Staff Login form.\n• Target: <code>${user.email}</code>\n• Action: Silently deflected with generic 401 response.`,
-          req
-        ).catch(() => {});
-      }
-
-      return res.status(401).json({ message: "Wrong email or password" });
+      console.error("[login] Error fetching user by email:", dbErr?.message);
     }
 
     if (!user || !bcrypt.compareSync(password, user.password)) {
@@ -519,35 +455,80 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ message: "Account is blocked" });
     }
 
-    // Strict Executive Super Admin Stealth Gateway Enforcement
-    const isSuperAdmin = user.isPrimaryAdmin || user.email.toLowerCase() === "admin@farmfreshfarmer.com" || (user.role === "admin" && user.id === 1);
+    const isSuperAdmin = Boolean(
+      user.isPrimaryAdmin ||
+      user.email.toLowerCase() === "admin@farmfreshfarmer.com" ||
+      (user.role === "admin" && user.id === 1) ||
+      user.role === "superadmin"
+    );
 
-    if (isSuperAdmin && !isFromStealthGateway) {
+    // If probing Master Admin from an untrusted public host in production, deflect
+    if (isSuperAdmin && !isFromStealthGateway && process.env.NODE_ENV === "production" && !host.includes("farmfreshfarmer.com")) {
       return res.status(401).json({ message: "Wrong email or password" });
     }
 
-    if (isFromStealthGateway && !isSuperAdmin) {
-      return res.status(403).json({
-        message: "🚫 This private portal is reserved exclusively for the Chief Super Admin. Staff members must sign in via the Staff Portal.",
-      });
-    }
-
     // ── 3-LAYER AUTHENTICATION PIPELINE FOR CHIEF SUPER ADMIN ──
-    // Layer 1: Master Email + Master Password verified
     if (isSuperAdmin) {
-      const hasTotp = Boolean(user.totpSecret);
-      const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
+      const { verifyTotpCode } = await import("./services/totp");
+      const adminTotpSecret = user.totpSecret || (await storage.settings.get("admin_totp_secret"));
+      const isTotpConfigured = Boolean(adminTotpSecret);
 
-      apiCache.set(`admin_login_flow_${tempToken}`, {
-        userId: user.id,
-        email: user.email,
-        layer1Verified: true,
-        layer2Verified: !hasTotp,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-      }, 300);
+      // Scenario A: TOTP code was submitted directly in this request
+      if (isTotpConfigured && totpCode && String(totpCode).trim().length === 6) {
+        const cleanTotp = String(totpCode).trim();
+        const isTotpValid = verifyTotpCode(adminTotpSecret!, cleanTotp);
+        if (!isTotpValid) {
+          return res.status(401).json({
+            message: "Invalid 6-digit Authenticator TOTP code. Please check your Authenticator app.",
+            requireLayer2Totp: true,
+          });
+        }
 
-      // If TOTP is configured, enforce Layer 2 first
-      if (hasTotp) {
+        // TOTP code is valid! Now check if Layer 3 (Passkey / Touch ID) is enrolled
+        const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
+        const passkeyCount = await countWebAuthnCredentials(user.id);
+        if (passkeyCount > 0) {
+          const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
+          const options = await generateWebAuthnAuthOptions(user.id);
+          apiCache.set(`passkey_auth_${tempToken}`, {
+            userId: user.id,
+            challenge: options.challenge,
+            expiresAt: Date.now() + 5 * 60 * 1000,
+          }, 300);
+
+          return res.json({
+            requirePasskey: true,
+            tempAuthToken: tempToken,
+            webauthnOptions: options,
+            message: "Layer 3: Touch ID / Hardware Passkey verification required.",
+          });
+        }
+
+        // Layer 2 Passed & No Passkeys Enrolled: Issue tokens and log in immediately!
+        req.session.userId = user.id;
+        req.session.role = user.role;
+        (req.session as any).mfaVerified = true;
+        const { issueTokenPair } = await import("./services/token");
+        const tokens = await issueTokenPair(user.id, user.role, {
+          platform: "web",
+          ip: (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1",
+          userAgent: req.headers["user-agent"],
+        });
+
+        return res.json({ user: publicUser(user), ...tokens });
+      }
+
+      // Scenario B: TOTP is configured, but no valid totpCode was submitted yet
+      if (isTotpConfigured) {
+        const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
+        apiCache.set(`admin_login_flow_${tempToken}`, {
+          userId: user.id,
+          email: user.email,
+          layer1Verified: true,
+          layer2Verified: false,
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        }, 300);
+
         return res.json({
           requireLayer2Totp: true,
           tempToken,
@@ -555,11 +536,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
-      // If no TOTP configured, check for Layer 3 (Hardware Passkey)
+      // Scenario C: No TOTP configured, check for Layer 3 (Passkey)
       const { countWebAuthnCredentials, generateWebAuthnAuthOptions } = await import("./services/webauthn");
       const passkeyCount = await countWebAuthnCredentials(user.id);
-
       if (passkeyCount > 0) {
+        const tempToken = (await import("crypto")).randomBytes(32).toString("hex");
         const options = await generateWebAuthnAuthOptions(user.id);
         apiCache.set(`passkey_auth_${tempToken}`, {
           userId: user.id,
@@ -630,12 +611,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const { storage } = await import("./storage");
     const user = await storage.users.get(flowData.userId);
-    if (!user || !user.totpSecret) {
+    const totpSecret = user?.totpSecret || (await storage.settings.get("admin_totp_secret"));
+    if (!user || !totpSecret) {
       return res.status(400).json({ message: "TOTP not configured for this account." });
     }
 
     const { verifyTotpCode } = await import("./services/totp");
-    const isTotpValid = verifyTotpCode(user.totpSecret, String(totpCode).trim());
+    const isTotpValid = verifyTotpCode(totpSecret, String(totpCode).trim());
     if (!isTotpValid) {
       return res.status(400).json({ message: "Invalid 6-digit TOTP code. Please check your Authenticator app." });
     }
