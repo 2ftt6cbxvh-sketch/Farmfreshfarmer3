@@ -24,6 +24,7 @@ import {
   productApprovalHistory
 } from "@shared/schema";
 import { eq, desc, sql, gte, and, inArray, or } from "drizzle-orm";
+import { generateProduceQuantityTiersMatrix } from "@shared/schema";
 import { storage } from "../storage";
 import { getNarayanaApiKey } from "./gemini-keys";
 
@@ -807,6 +808,78 @@ async function executeAction(actionName: string, args: any, adminUser: any): Pro
     };
   }
 
+  // ── Action 11: Create New Product ──
+  if (actionName === "create_product" || actionName === "add_product") {
+    const {
+      name, nameTe, description, categorySlug, price,
+      unit, stock, dietTag, discountPercent, featured,
+      image
+    } = args;
+
+    if (!name || !categorySlug || !price) {
+      throw new Error("create_product requires at least: name, categorySlug, price.");
+    }
+
+    const priceVal = parseFloat(String(price));
+    if (isNaN(priceVal) || priceVal <= 0) throw new Error("Invalid price value.");
+
+    const unitStr = String(unit || "1 Kg").trim();
+    const stockVal = Number(stock ?? 50);
+
+    // Auto-generate quantity tiers from price + unit using the existing matrix generator
+    let quantityTiersJson: string | null = null;
+    try {
+      const tiers = generateProduceQuantityTiersMatrix(name, priceVal, unitStr, categorySlug);
+      if (tiers && tiers.length > 0) {
+        quantityTiersJson = JSON.stringify(tiers);
+      }
+    } catch {}
+
+    const [created] = await db.insert(products).values({
+      name: String(name).trim(),
+      nameTe: nameTe ? String(nameTe).trim() : null,
+      description: description ? String(description).trim() : `Fresh ${name} sourced directly from verified Telugu partner farms. Zero cold storage, 100% naturally matured.`,
+      categorySlug: String(categorySlug).trim().toLowerCase(),
+      price: String(priceVal),
+      discountPercent: String(discountPercent ?? "0"),
+      unit: unitStr,
+      quantityTiers: quantityTiersJson,
+      image: image ? String(image).trim() : "",
+      stock: stockVal,
+      lowStockThreshold: 10,
+      dietTag: dietTag ? String(dietTag) : "veg",
+      featured: Boolean(featured ?? false),
+      active: true,
+      approvalStatus: "approved",
+      submittedBy: adminUser.id,
+      approvalNote: `Created via Narayana AI by Super Admin ${adminUser.name || adminUser.email}`,
+    }).returning();
+
+    await db.insert(securityAuditLogs).values({
+      eventType: "product_created_by_narayana_ai",
+      severity: "info",
+      userId: adminUser.id,
+      targetId: created.id,
+      targetType: "product",
+      actionTaken: `Created new product "${created.name}" (ID: ${created.id}) in category "${categorySlug}" at ₹${priceVal}. Stock: ${stockVal}. Tiers auto-generated: ${quantityTiersJson ? "yes" : "no"}.`,
+      platform: "admin_copilot",
+    });
+
+    return {
+      type: "product_created",
+      description: `✅ New product **"${created.name}"** (ID: #${created.id}) created and live in **${categorySlug}** at **₹${priceVal}** with ${stockVal} units in stock. Quantity tiers auto-generated: ${quantityTiersJson ? "yes ✅" : "no — set manually in Admin Products"}.`,
+      details: {
+        id: created.id,
+        name: created.name,
+        categorySlug,
+        price: priceVal,
+        stock: stockVal,
+        unit: unitStr,
+        tiersGenerated: Boolean(quantityTiersJson),
+      },
+    };
+  }
+
   return null;
 }
 
@@ -912,9 +985,17 @@ You have executive authority to execute actions ONLY when commanded by the Super
 10. Bulk Restock Multiple Products:
 <<<ACTION:{"action":"bulk_restock","items":[{"productId":3,"newStock":50},{"productId":7,"newStock":30}]}>>>
 
+11. Create a New Product (directly to live catalog, auto-generates quantity tiers):
+<<<ACTION:{"action":"create_product","name":"Dragon Fruit","nameTe":"డ్రాగన్ ఫ్రూట్","description":"Fresh red dragon fruit from Kadapa farms.","categorySlug":"fruits","price":120,"unit":"1 Kg","stock":40,"dietTag":"veg","featured":false}>>>
+<<<ACTION:{"action":"create_product","name":"Ridge Gourd","categorySlug":"vegetables","price":35,"unit":"500g","stock":60}>>>
+- categorySlug must be one of: vegetables, fruits, millets, pulses, spices, pickles, honey-jaggery, rice, oils, dairy, dry-fruits (use exact slug)
+- nameTe, description, dietTag, featured are all optional — sensible defaults are applied automatically
+- quantity tiers (250g/500g/1kg/2kg etc.) are auto-generated from the price and unit
+
 GUIDELINES:
 - Deliver concise, highly executive, articulate answers formatted with bold numbers, bullet points, and clean tables.
-- When commanded to switch a toggle, approve a product, send for reconsideration, modify stock, modify a customer, or change an order, output the <<<ACTION:...>>> block followed by confirmation text explaining what was executed.
+- When commanded to switch a toggle, approve a product, create a new product, send for reconsideration, modify stock, modify a customer, or change an order, output the <<<ACTION:...>>> block followed by confirmation text explaining what was executed.
+- When creating a product, always confirm the name, category, price, and stock with the admin before outputting the ACTION block UNLESS the admin says "just do it" or similar direct command.
 - Respond in the requested language (English by default, authentic Telugu script if asked in Telugu).
 - At the end of your response, ALWAYS include 3 suggested follow-up questions formatted as:
 <<<FOLLOWUPS:["Question 1", "Question 2", "Question 3"]>>>
