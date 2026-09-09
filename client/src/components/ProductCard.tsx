@@ -128,14 +128,25 @@ export function ProductCard({ product }: { product: Product }) {
           className="relative block aspect-[4/3] overflow-hidden bg-emerald-950/20 m-2 rounded-xl sm:rounded-2xl"
         >
           {product.image && !imgFailed ? (
-            <img
-              src={imgUrl(product.image, product.name)}
-              alt={product.name}
-              loading="lazy"
-              decoding="async"
-              onError={() => setImgFailed(true)}
-              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-108"
-            />
+            (() => {
+              const baseSrc = imgUrl(product.image, product.name);
+              const webpSrc = baseSrc.includes(".jpg") ? baseSrc.replace(".jpg", ".webp") : null;
+              return (
+                <picture className="h-full w-full block">
+                  {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
+                  <img
+                    src={baseSrc}
+                    alt={product.name}
+                    width={320}
+                    height={240}
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setImgFailed(true)}
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-108"
+                  />
+                </picture>
+              );
+            })()
           ) : (
             <div className="h-full w-full flex flex-col items-center justify-center bg-emerald-950/30 text-emerald-300 p-2 text-center">
               <span className="text-3xl">🌱</span>

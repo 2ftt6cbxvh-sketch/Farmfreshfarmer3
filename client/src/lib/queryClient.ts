@@ -157,7 +157,7 @@ export function imgUrl(src?: string | null, productName?: string): string {
     return targetSrc;
   }
   const path = targetSrc.startsWith("/") ? targetSrc : `/${targetSrc}`;
-  return `${API_BASE}${path}?v=macro_2026_09_01_v12`;
+  return `${API_BASE}${path}?v=fff_fast_2026_09_09_v3`;
 }
 
 async function throwIfResNotOk(res: Response) {

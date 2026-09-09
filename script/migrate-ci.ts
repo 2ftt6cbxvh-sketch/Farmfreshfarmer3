@@ -65,7 +65,20 @@ async function migrateCi() {
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) NOT NULL DEFAULT 'approved'`);
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS submitted_by INTEGER`);
   await db.execute(sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS approval_note TEXT`);
-  console.log("[migrate-ci] categories table updated");
+  
+  // Sync authentic category images in DB
+  await db.execute(sql`
+    UPDATE categories SET image = '/images/cat-fruits.jpg' WHERE slug = 'fruits';
+    UPDATE categories SET image = '/images/cat-vegetables.jpg' WHERE slug = 'vegetables';
+    UPDATE categories SET image = '/images/cat-sweets.jpg' WHERE slug = 'homemade-sweets';
+    UPDATE categories SET image = '/images/cat-namkeen.jpg' WHERE slug = 'namkeen';
+    UPDATE categories SET image = '/images/cat-pickle-veg.jpg' WHERE slug = 'pickles-veg';
+    UPDATE categories SET image = '/images/cat-pickle-nonveg.jpg' WHERE slug = 'pickles-non-veg';
+    UPDATE categories SET image = '/images/cat-millets.jpg' WHERE slug = 'millets';
+    UPDATE categories SET image = '/images/cat-pulses.jpg' WHERE slug = 'pulses';
+    UPDATE categories SET image = '/images/cat-spices.jpg' WHERE slug = 'spices';
+  `);
+  console.log("[migrate-ci] categories table updated and images synced");
 
   // Create product_approval_history table
   await db.execute(sql`

@@ -17,16 +17,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { AnnouncementItem } from "@/components/NotificationBell";
 import { usePersonalizedRecommendations, clearActiveRecommendationFilters } from "@/lib/recommendation-store";
 
-const CAT_IMAGES: Record<string, string> = {
-  fruits: "/images/produce/pomegranate.jpg",
-  vegetables: "/images/produce/weekly-fresh-box.jpg",
-  "homemade-sweets": "/images/produce/mysore-pak.jpg",
-  namkeen: "/images/produce/murukku.jpg",
-  "pickles-veg": "/images/produce/mango-pickle.jpg",
-  "pickles-non-veg": "/images/produce/chicken-pickle.jpg",
-  millets: "/images/produce/foxtail-millet.jpg",
-  pulses: "/images/produce/toor-dal.jpg",
-  spices: "/images/produce/turmeric-powder.jpg",
+const CAT_IMAGE_MAP: Record<string, { jpg: string; webp: string }> = {
+  fruits: { jpg: "/images/cat-fruits.jpg", webp: "/images/cat-fruits.webp" },
+  vegetables: { jpg: "/images/cat-vegetables.jpg", webp: "/images/cat-vegetables.webp" },
+  "homemade-sweets": { jpg: "/images/cat-sweets.jpg", webp: "/images/cat-sweets.webp" },
+  namkeen: { jpg: "/images/cat-namkeen.jpg", webp: "/images/cat-namkeen.webp" },
+  "pickles-veg": { jpg: "/images/cat-pickle-veg.jpg", webp: "/images/cat-pickle-veg.webp" },
+  "pickles-non-veg": { jpg: "/images/cat-pickle-nonveg.jpg", webp: "/images/cat-pickle-nonveg.webp" },
+  millets: { jpg: "/images/cat-millets.jpg", webp: "/images/cat-millets.webp" },
+  pulses: { jpg: "/images/cat-pulses.jpg", webp: "/images/cat-pulses.webp" },
+  spices: { jpg: "/images/cat-spices.jpg", webp: "/images/cat-spices.webp" },
 };
 
 import {
@@ -388,13 +388,25 @@ export default function Home() {
                 data-testid={`card-category-${c.slug}`}
               >
                 <div className="relative w-28 h-28 rounded-full overflow-hidden mb-4 border-2 border-emerald-500/30 group-hover:border-primary transition-colors p-1 bg-gradient-to-b from-emerald-500/20 to-transparent">
-                  <img
-                    src={CAT_IMAGES[c.slug] || imgUrl(c.image)}
-                    alt={c.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-115"
-                  />
+                  {(() => {
+                    const catEntry = CAT_IMAGE_MAP[c.slug];
+                    const jpgSrc = catEntry ? catEntry.jpg : (c.image || "/images/cat-vegetables.jpg");
+                    const webpSrc = catEntry ? catEntry.webp : jpgSrc.replace(/\.jpg$/, ".webp");
+                    return (
+                      <picture className="w-full h-full block">
+                        <source srcSet={`${webpSrc}?v=fff_2026_09_09_v3`} type="image/webp" />
+                        <img
+                          src={`${jpgSrc}?v=fff_2026_09_09_v3`}
+                          alt={c.name}
+                          width={112}
+                          height={112}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-115"
+                        />
+                      </picture>
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-1.5">
