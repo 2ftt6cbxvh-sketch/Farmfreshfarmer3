@@ -567,6 +567,10 @@ function AppContent() {
     return null;
   });
 
+  // Debounce: require 2 consecutive inactive polls before dismissing overlay
+  // Prevents single slow/failed network response from flickering the overlay off
+  const inactiveConfirmCount = React.useRef(0);
+
   useEffect(() => {
     const checkPlatformStatus = async () => {
       try {
@@ -597,15 +601,21 @@ function AppContent() {
         if (maintRes.ok) {
           const mData = await maintRes.json();
           if (mData?.active) {
+            // Active → show immediately, reset inactive counter
+            inactiveConfirmCount.current = 0;
             setMaintenanceData(mData);
             try {
               localStorage.setItem("farmfresh_maintenance_state", JSON.stringify(mData));
             } catch {}
           } else {
-            setMaintenanceData(null);
-            try {
-              localStorage.removeItem("farmfresh_maintenance_state");
-            } catch {}
+            // Inactive → only dismiss after 2 consecutive inactive confirmations
+            inactiveConfirmCount.current += 1;
+            if (inactiveConfirmCount.current >= 2) {
+              setMaintenanceData(null);
+              try {
+                localStorage.removeItem("farmfresh_maintenance_state");
+              } catch {}
+            }
           }
         }
       } catch {
@@ -614,8 +624,9 @@ function AppContent() {
     };
 
     checkPlatformStatus();
-    // High-responsiveness 6s background check (instant on tab visibility & event-driven)
-    const interval = setInterval(checkPlatformStatus, 6000);
+    // Poll every 30s — server cache is 30s, no point polling faster.
+    // Overlay state is sticky: requires 2 consecutive "inactive" responses before dismissing.
+    const interval = setInterval(checkPlatformStatus, 30_000);
 
     // Instant event listeners for zero-latency overlay trigger
     const onMaintenanceActive = (e: any) => {

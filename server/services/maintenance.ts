@@ -20,7 +20,7 @@ export interface MaintenanceStatus {
 
 let cachedStatus: MaintenanceStatus | null = null;
 let cacheExpiry = 0;
-const CACHE_TTL_MS = 3_000;
+const CACHE_TTL_MS = 30_000; // 30s — enough for Neon cold starts, prevents hammering
 
 export async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
   const now = Date.now();
@@ -49,6 +49,9 @@ export async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
     return cachedStatus;
   } catch (e) {
     console.error("[maintenance] Failed to read maintenance state:", e);
+    // ⚠️ On DB error: return LAST KNOWN state (not active:false) to prevent flicker
+    // If we never had a state, default to inactive
+    if (cachedStatus) return cachedStatus;
     return {
       active: false,
       headline: "Scheduled Maintenance Underway",
@@ -56,6 +59,11 @@ export async function getMaintenanceStatus(): Promise<MaintenanceStatus> {
       allowAdminBypass: true,
     };
   }
+}
+
+/** Force-clear the server-side cache immediately (call after setMaintenance) */
+export function invalidateMaintenanceCache(): void {
+  cacheExpiry = 0;
 }
 
 export async function setMaintenance(
