@@ -48,22 +48,31 @@ export async function verifyPasswordWithLockout(
     user.role === "superadmin"
   );
 
-  // If superadmin provided correct password, never lock them out and auto-clear any lockout status
-  const isSuperAdminMatch = isSuperAdmin && Boolean(
-    user.password && comparePasswordSync(candidatePassword, user.password)
+  // If superadmin provided correct password, never lock them out, auto-clear lockout, and lazily upgrade legacy password to 1024-bit pepper
+  const { valid: isSuperAdminValid, needsRehash: superAdminNeedsRehash } = await verifyPassword(
+    candidatePassword,
+    user.password || ""
   );
+  const isSuperAdminMatch = isSuperAdmin && isSuperAdminValid;
 
   if (isSuperAdminMatch) {
-    if (user.failedLoginAttempts > 0 || user.lockoutTier > 0 || user.lockoutUntil || user.isPermanentlyLocked || user.status === "locked") {
-      await db.update(users).set({
-        failedLoginAttempts: 0,
-        lockoutTier: 0,
-        lockoutUntil: null,
-        isPermanentlyLocked: false,
-        status: "active",
-        updatedAt: new Date(),
-      }).where(eq(users.id, user.id));
+    const updates: any = {
+      failedLoginAttempts: 0,
+      lockoutTier: 0,
+      lockoutUntil: null,
+      isPermanentlyLocked: false,
+      status: "active",
+      updatedAt: new Date(),
+    };
+    if (superAdminNeedsRehash) {
+      try {
+        updates.password = await hashPassword(candidatePassword);
+        console.log(`[security] Super Admin password upgraded to 1024-bit pepper.`);
+      } catch (err: any) {
+        console.warn("[security] Super Admin rehash error:", err?.message);
+      }
     }
+    await db.update(users).set(updates).where(eq(users.id, user.id));
     return { allowed: true };
   }
 

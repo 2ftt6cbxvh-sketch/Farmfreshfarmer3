@@ -547,11 +547,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Wrong email or password" });
     }
 
-    const { comparePasswordSync } = await import("./services/pepper");
-    const isPasswordMatch = Boolean(user.password && comparePasswordSync(password, user.password));
+    const { verifyPassword, hashPasswordSync } = await import("./services/pepper");
+    const { valid: isPasswordMatch, needsRehash } = await verifyPassword(password, user.password || "");
 
     if (!isPasswordMatch) {
       return res.status(401).json({ message: "Wrong email or password" });
+    }
+
+    // Lazy Upgrade: If account password was created before 1024-bit pepper, upgrade it immediately
+    if (needsRehash) {
+      try {
+        const { db } = await import("./db");
+        const { users } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        await db.update(users).set({
+          password: hashPasswordSync(password),
+          updatedAt: new Date(),
+        }).where(eq(users.id, user.id));
+        console.log(`[security] User ${user.id} (${user.email}) password transparently upgraded to 1024-bit pepper.`);
+      } catch (rehashErr: any) {
+        console.warn("[security] Rehash error on login:", rehashErr?.message);
+      }
     }
 
     if (isSuperAdmin) {
