@@ -184,6 +184,20 @@ export async function maintenanceMiddleware(req: Request, res: Response, next: N
 
   if (alwaysAllow) return next();
 
+  // ── ADMIN SUBDOMAIN FULL BYPASS ──
+  // The private management subdomain is NEVER affected by maintenance mode.
+  // Admins preview changes, manage products, and turn off maintenance from here.
+  const reqHost = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+  const _adminSubdomain = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
+  const isAdminSubdomainRequest = (
+    (_adminSubdomain.length > 0 && reqHost.includes(_adminSubdomain)) ||
+    reqHost === "localhost" ||
+    reqHost.startsWith("localhost:") ||
+    reqHost === "127.0.0.1" ||
+    reqHost.startsWith("127.0.0.1:")
+  );
+  if (isAdminSubdomainRequest) return next();
+
   // ── CHECK IF MAINTENANCE IS ACTIVE ──
   let status: MaintenanceStatus;
   try {
