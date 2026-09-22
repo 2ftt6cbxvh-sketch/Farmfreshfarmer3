@@ -365,10 +365,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Lightweight liveness + DB readiness probe for AWS EB / load balancers.
   app.get("/health", h(async (_req, res) => {
     const { pingDb } = await import("./db");
+    const { getPepperDiagnostics } = await import("./services/pepper");
     const dbOk = await pingDb().catch(() => false);
     res.status(dbOk ? 200 : 503).json({
       status: dbOk ? "ok" : "degraded",
       db: dbOk,
+      pepper: getPepperDiagnostics(),
       phonepe: isPhonePeConfigured() ? "configured" : "simulation",
       time: new Date().toISOString(),
     });
