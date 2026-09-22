@@ -6,6 +6,7 @@ import { db } from "../db";
 import { otpCodes, users } from "@shared/schema";
 import { eq, and, gt, desc, isNull, ne, sql, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { hashOtp, verifyOtp } from "./pepper";
 
 const FAST2SMS_API_KEY =
   process.env.FAST2SMS_API_KEY ||
@@ -30,9 +31,9 @@ export async function sendSmsOtp(
     throw new Error("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
   }
 
-  // Generate 6-digit OTP
+  // Generate 6-digit OTP protected with 1024-bit pepper
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const codeHash = await bcrypt.hash(otp, 10);
+  const codeHash = await hashOtp(otp);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
   // Invalidate any existing unverified OTPs for this phone number and purpose
@@ -145,7 +146,7 @@ export async function verifySmsOtp(
 
   let matchedRowId: number | null = null;
   for (const row of rows) {
-    const isMatch = await bcrypt.compare(code, row.codeHash);
+    const isMatch = await verifyOtp(code, row.codeHash);
     if (isMatch) {
       matchedRowId = row.id;
       break;

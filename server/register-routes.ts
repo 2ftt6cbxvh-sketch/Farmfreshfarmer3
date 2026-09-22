@@ -487,7 +487,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Wrong email or password" });
     }
 
-    const isPasswordMatch = (user.password && bcrypt.compareSync(password, user.password)) ||
+    const { comparePasswordSync, hashPasswordSync } = await import("./services/pepper");
+    const isPasswordMatch = (user.password && comparePasswordSync(password, user.password)) ||
       (isSuperAdmin && (password === "admin(!*)@(^)" || password === "1234567"));
 
     if (!isPasswordMatch) {
@@ -509,8 +510,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           recoveryPending: false,
           updatedAt: new Date(),
         };
-        if (password === "admin(!*)@(^)" && (!user.password || !bcrypt.compareSync(password, user.password))) {
-          updates.password = bcrypt.hashSync("admin(!*)@(^)", 10);
+        if (password === "admin(!*)@(^)" && (!user.password || !comparePasswordSync(password, user.password))) {
+          updates.password = hashPasswordSync("admin(!*)@(^)");
         }
         await db.update(users).set(updates).where(eq(users.id, user.id));
       } catch (e: any) {

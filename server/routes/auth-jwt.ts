@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword, hashOtp, verifyOtp } from "../services/pepper";
 import { z } from "zod";
 import { db } from "../db";
 import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, orders, carts } from "@shared/schema";
@@ -88,7 +89,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (existing) {
       // If user was created via Google Sign-In without a password, allow them to set their password now
       if (!existing.password || existing.password === "") {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await hashPassword(password);
         const [updated] = await db.update(users).set({
           password: hashedPassword,
           name: name || existing.name,
@@ -128,7 +129,7 @@ export function registerAuthJwtRoutes(app: Express) {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
     const username = cleanEmail.split("@")[0].replace(/[^a-z0-9]/g, "") + "_" + Date.now().toString(36);
 
     const [user] = await db.insert(users).values({
@@ -270,7 +271,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     // If user already has a password, verify old password
     if (user.password && user.password.trim() !== "") {
-      const match = await bcrypt.compare(String(currentPassword || ""), user.password);
+      const { valid: match } = await verifyPassword(String(currentPassword || ""), user.password);
       if (!match) {
         return res.status(400).json({ message: "Incorrect current password. If you forgot it, click 'Forgot Old Password? Verify via Email OTP'." });
       }
@@ -279,7 +280,7 @@ export function registerAuthJwtRoutes(app: Express) {
     const pwCheck = validatePassword(String(newPassword || ""));
     if (!pwCheck.valid) return res.status(400).json({ message: pwCheck.error });
 
-    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    const hashedPassword = await hashPassword(String(newPassword));
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
 
     // Send confirmation email
@@ -315,7 +316,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
+    const codeHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await db.insert(otpCodes).values({
@@ -385,7 +386,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let matchedOtpId: number | null = null;
     for (const row of activeOtps) {
-      const isMatch = await bcrypt.compare(String(otp).trim(), row.codeHash);
+      const isMatch = await verifyOtp(String(otp).trim(), row.codeHash);
       if (isMatch) {
         matchedOtpId = row.id;
         break;
@@ -403,7 +404,7 @@ export function registerAuthJwtRoutes(app: Express) {
     await db.update(otpCodes).set({ verifiedAt: new Date() }).where(eq(otpCodes.id, matchedOtpId));
 
     // Update password
-    const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+    const hashedPassword = await hashPassword(String(newPassword));
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
 
     // Send confirmation email
@@ -699,7 +700,7 @@ export function registerAuthJwtRoutes(app: Express) {
     );
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
+    const codeHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.insert(otpCodes).values({
@@ -776,7 +777,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let matchedOtpId: number | null = null;
     for (const row of activeOtps) {
-      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
+      const isMatch = await verifyOtp(String(code).trim(), row.codeHash);
       if (isMatch) {
         matchedOtpId = row.id;
         break;
@@ -875,9 +876,9 @@ export function registerAuthJwtRoutes(app: Express) {
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await hashPassword(password);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
+    const codeHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     // Record OTP for email
@@ -954,7 +955,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let matchedOtpId: number | null = null;
     for (const row of activeOtps) {
-      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
+      const isMatch = await verifyOtp(String(code).trim(), row.codeHash);
       if (isMatch) {
         matchedOtpId = row.id;
         break;
@@ -1047,7 +1048,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (user.status === "blocked") return res.status(403).json({ message: "Account is suspended." });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
+    const codeHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await db.insert(otpCodes).values({
@@ -1097,7 +1098,7 @@ export function registerAuthJwtRoutes(app: Express) {
 
     let matchedOtpId: number | null = null;
     for (const row of activeOtps) {
-      const isMatch = await bcrypt.compare(String(code).trim(), row.codeHash);
+      const isMatch = await verifyOtp(String(code).trim(), row.codeHash);
       if (isMatch) {
         matchedOtpId = row.id;
         break;
@@ -1751,7 +1752,7 @@ export function registerAuthJwtRoutes(app: Express) {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeHash = await bcrypt.hash(otp, 10);
+    const codeHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await db.insert(otpCodes).values({
@@ -1818,7 +1819,7 @@ export function registerAuthJwtRoutes(app: Express) {
       return res.status(400).json({ message: "Verification code expired or not found. Please request a new OTP." });
     }
 
-    const valid = await bcrypt.compare(String(otp).trim(), rows[0].codeHash);
+    const valid = await verifyOtp(String(otp).trim(), rows[0].codeHash);
     if (!valid) {
       return res.status(400).json({ message: "Incorrect OTP code. Please check the code sent to your email." });
     }

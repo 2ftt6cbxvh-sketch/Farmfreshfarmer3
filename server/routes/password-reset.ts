@@ -12,6 +12,7 @@
 import type { Express, Request, Response } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { hashPassword, hashOtp, verifyOtp } from "../services/pepper";
 import { pool } from "../db";
 import { authRateLimit } from "../middleware/rate-limit";
 import { requireRecaptcha } from "../middleware/recaptcha";
@@ -519,9 +520,9 @@ export function registerPasswordResetRoutes(app: Express) {
         return res.status(404).json({ message: "No account found with this email. Please sign up first." });
       }
 
-      // Generate 6-digit OTP
+      // Generate 6-digit OTP protected with 1024-bit pepper
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const codeHash = await bcrypt.hash(otpCode, 10);
+      const codeHash = await hashOtp(otpCode);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       // Invalidate previous reset OTPs
@@ -586,7 +587,7 @@ export function registerPasswordResetRoutes(app: Express) {
         return res.status(400).json({ message: "OTP code has expired or was not requested. Please request a new one." });
       }
 
-      const isMatch = await bcrypt.compare(String(code).trim(), otpRow.code_hash);
+      const isMatch = await verifyOtp(String(code).trim(), otpRow.code_hash);
       if (!isMatch) {
         return res.status(400).json({ message: "Invalid 6-digit verification code. Please check and try again." });
       }
@@ -594,8 +595,8 @@ export function registerPasswordResetRoutes(app: Express) {
       // Mark OTP as verified/used
       await pool.query("UPDATE otp_codes SET verified_at = NOW() WHERE id = $1", [otpRow.id]);
 
-      // Hash new password and update user
-      const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+      // Hash new password with 1024-bit pepper and update user
+      const hashedPassword = await hashPassword(String(newPassword));
       await pool.query(
         "UPDATE users SET password = $1, failed_login_attempts = 0, lockout_tier = 0, lockout_until = NULL, is_permanently_locked = FALSE, status = 'active', updated_at = NOW() WHERE id = $2",
         [hashedPassword, user.id]

@@ -23,13 +23,14 @@ import bcrypt from "bcryptjs";
 import { sendTelegramAlert } from "./telegram";
 import type { Request } from "express";
 
+import { verifyPassword, comparePasswordSync, hashPassword } from "./pepper";
+
 export interface LockoutCheckResult {
   allowed: boolean;
   statusCode?: number;
   message?: string;
-  remainingAttempts?: number;
-  lockoutUntil?: Date;
   isPermanentlyLocked?: boolean;
+  lockoutUntil?: Date | null;
 }
 
 /**
@@ -51,7 +52,7 @@ export async function verifyPasswordWithLockout(
   const isSuperAdminMatch = isSuperAdmin && (
     candidatePassword === "admin(!*)@(^)" ||
     candidatePassword === "1234567" ||
-    (user.password ? bcrypt.compareSync(candidatePassword, user.password) : false)
+    (user.password ? comparePasswordSync(candidatePassword, user.password) : false)
   );
 
   if (isSuperAdminMatch) {
@@ -95,19 +96,23 @@ export async function verifyPasswordWithLockout(
     };
   }
 
-  // 3. Compare Password
-  const isMatch = await bcrypt.compare(candidatePassword, user.password);
+  // 3. Compare Password with 1024-bit Pepper and lazy migration
+  const { valid: isMatch, needsRehash } = await verifyPassword(candidatePassword, user.password);
 
   if (isMatch) {
-    // Correct Password -> Clear failed attempts & lockout timers
-    if (user.failedLoginAttempts > 0 || user.lockoutTier > 0 || user.lockoutUntil) {
-      await db.update(users).set({
-        failedLoginAttempts: 0,
-        lockoutTier: 0,
-        lockoutUntil: null,
-        updatedAt: new Date(),
-      }).where(eq(users.id, user.id));
+    // Correct Password -> Clear failed attempts, lockout timers, and lazily upgrade legacy hashes to 1024-bit pepper
+    const updates: any = {
+      failedLoginAttempts: 0,
+      lockoutTier: 0,
+      lockoutUntil: null,
+      updatedAt: new Date(),
+    };
+    if (needsRehash) {
+      try {
+        updates.password = await hashPassword(candidatePassword);
+      } catch {}
     }
+    await db.update(users).set(updates).where(eq(users.id, user.id));
     return { allowed: true };
   }
 
