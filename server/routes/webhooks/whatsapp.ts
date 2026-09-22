@@ -11,6 +11,7 @@ import { db } from "../../db";
 import { otpCodes, users } from "@shared/schema";
 import { eq, and, gt, isNull, desc, or, sql, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { verifyOtp } from "../../services/pepper";
 import { getWhatsAppConfig, sendWhatsAppVerificationConfirmation } from "../../services/whatsapp-cloud";
 
 export function registerWhatsAppWebhookRoutes(app: Express) {
@@ -94,7 +95,7 @@ export function registerWhatsAppWebhookRoutes(app: Express) {
 
       let matchedRow: typeof otpCodes.$inferSelect | null = null;
       for (const row of pendingRows) {
-        const isMatch = await bcrypt.compare(extractedCode, row.codeHash);
+        const isMatch = await verifyOtp(extractedCode, row.codeHash);
         if (isMatch) {
           matchedRow = row;
           break;

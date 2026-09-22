@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { db } from "../db";
 import { refreshTokens, users } from "@shared/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
+import { hashOtp, verifyOtp } from "./pepper";
 
 import { getJwtSecret } from "./encryption";
 
@@ -54,9 +55,9 @@ export async function issueTokenPair(
     expiresIn: tokenExpiry as any,
   });
 
-  // Generate a cryptographically random refresh token
+  // Generate a cryptographically random refresh token protected by 1024-bit pepper
   const rawRefreshToken = crypto.randomBytes(64).toString("hex");
-  const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
+  const tokenHash = await hashOtp(rawRefreshToken);
 
   const expiresAt = new Date();
   if (isAdminOrStaff) {
@@ -121,10 +122,10 @@ export async function rotateRefreshToken(
     )
     .limit(20);
 
-  // Find the matching token by comparing bcrypt hash
+  // Find the matching token by comparing peppered hash
   let matchedToken: (typeof tokens)[0] | null = null;
   for (const t of tokens) {
-    const match = await bcrypt.compare(rawToken, t.tokenHash);
+    const match = await verifyOtp(rawToken, t.tokenHash);
     if (match) {
       matchedToken = t;
       break;

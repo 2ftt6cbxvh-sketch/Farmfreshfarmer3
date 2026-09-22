@@ -6,6 +6,7 @@
  */
 import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import { hashPassword } from "../../services/pepper";
 import { db } from "../../db";
 import { users, deliveryPartners, orders } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
@@ -152,7 +153,7 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
       }
 
       if (!targetUser) {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await hashPassword(password);
         const [newUser] = await db.insert(users).values({
           name: name.trim(),
           email: cleanEmail,
@@ -241,7 +242,7 @@ export function registerAdminDeliveryPartnerRoutes(app: Express) {
       if (username) userUpdates.username = username.trim().toLowerCase();
       if (status) userUpdates.status = status;
       if (password && password.trim().length >= 6) {
-        userUpdates.password = await bcrypt.hash(password.trim(), 10);
+        userUpdates.password = await hashPassword(password.trim());
       }
 
       const [updatedUser] = await db.update(users).set(userUpdates).where(eq(users.id, partner.userId)).returning();

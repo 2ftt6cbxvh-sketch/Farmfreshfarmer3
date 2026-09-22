@@ -205,7 +205,7 @@ export function registerPasswordResetRoutes(app: Express) {
           );
 
           for (const recRow of recCodesRes.rows) {
-            const matches = await bcrypt.compare(rawRecCode, recRow.code_hash);
+            const matches = await verifyOtp(rawRecCode, recRow.code_hash);
             if (matches) {
               secondFactorVerified = true;
               // Mark single-use recovery code consumed
@@ -226,8 +226,8 @@ export function registerPasswordResetRoutes(app: Express) {
         }
       }
 
-      // Hash new password using bcrypt
-      const passwordHash = await bcrypt.hash(String(newPassword).trim(), 10);
+      // Hash new password using 1024-bit pepper
+      const passwordHash = await hashPassword(String(newPassword).trim());
 
       // 1. Update password in database
       await pool.query("UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2", [passwordHash, tokenRecord.userId]);
@@ -297,7 +297,7 @@ export function registerPasswordResetRoutes(app: Express) {
       for (let i = 0; i < 10; i++) {
         const plainCode = generateEmergencyCode();
         plainCodes.push(plainCode);
-        const codeHash = await bcrypt.hash(plainCode, 12);
+        const codeHash = await hashOtp(plainCode);
         await pool.query(
           "INSERT INTO emergency_recovery_codes (user_id, code_hash) VALUES ($1, $2)",
           [user.id, codeHash]
@@ -393,7 +393,7 @@ export function registerPasswordResetRoutes(app: Express) {
 
       let matchedCodeId: number | null = null;
       for (const recRow of recCodesRes.rows) {
-        const matches = await bcrypt.compare(rawRecCode, recRow.code_hash);
+        const matches = await verifyOtp(rawRecCode, recRow.code_hash);
         if (matches) {
           matchedCodeId = recRow.id;
           break;

@@ -23,6 +23,7 @@ import type { Server } from "node:http";
 import session from "express-session";
 import multer from "multer";
 import bcrypt from "bcryptjs";
+import { hashPasswordSync, comparePasswordSync } from "./services/pepper";
 import { storage } from "./storage";
 import { apiCache } from "./services/cache";
 import { db, runAutoMigrations } from "./db";
@@ -404,7 +405,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const lower = email.toLowerCase();
     const existing = await storage.users.getByEmail(lower);
     if (existing) return res.status(409).json({ message: "Email already registered" });
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = hashPasswordSync(password);
     const user = await storage.users.create({
       name, email: lower, username: lower, password: hash, phone: phone || null, address: null,
     } as any);
@@ -928,10 +929,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { currentPassword, newPassword } = req.body || {};
     if (!newPassword || String(newPassword).length < 4) return res.status(400).json({ message: "Password too short" });
     const me = await storage.users.get(req.session.userId!);
-    if (!me || !bcrypt.compareSync(String(currentPassword || ""), me.password)) {
+    if (!me || !comparePasswordSync(String(currentPassword || ""), me.password)) {
       return res.status(401).json({ message: "Current password incorrect" });
     }
-    await storage.users.updatePassword(me.id, bcrypt.hashSync(String(newPassword), 10));
+    await storage.users.updatePassword(me.id, hashPasswordSync(String(newPassword)));
     res.json({ ok: true });
   }));
   // Back-compat alias used by the existing admin UI.
@@ -939,10 +940,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { currentPassword, newPassword } = req.body || {};
     if (!newPassword || String(newPassword).length < 4) return res.status(400).json({ message: "Password too short" });
     const admin = await storage.users.get(req.session.userId!);
-    if (!admin || !bcrypt.compareSync(String(currentPassword || ""), admin.password)) {
+    if (!admin || !comparePasswordSync(String(currentPassword || ""), admin.password)) {
       return res.status(401).json({ message: "Current password incorrect" });
     }
-    await storage.users.updatePassword(admin.id, bcrypt.hashSync(String(newPassword), 10));
+    await storage.users.updatePassword(admin.id, hashPasswordSync(String(newPassword)));
     res.json({ ok: true });
   }));
 

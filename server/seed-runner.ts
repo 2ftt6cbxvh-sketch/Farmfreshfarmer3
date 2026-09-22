@@ -10,6 +10,7 @@
  * a fresh database is immediately usable, but it is a no-op once seeded.
  */
 import bcrypt from "bcryptjs";
+import { hashPasswordSync } from "./services/pepper";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import {
@@ -62,7 +63,7 @@ export async function ensureSeeded(opts?: { log?: boolean }): Promise<void> {
   // Admin user (+ profile + referral code)
   const admin = await db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
   if (admin.length === 0) {
-    const hash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10);
+    const hash = hashPasswordSync(ADMIN_DEFAULT_PASSWORD);
     const [created] = await db.insert(users).values({
       name: "Super Admin", email: ADMIN_EMAIL, username: "admin",
       password: hash, role: "admin",

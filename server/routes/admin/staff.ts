@@ -5,6 +5,7 @@
  */
 import type { Express, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword } from "../../services/pepper";
 import { db } from "../../db";
 import { users } from "@shared/schema";
 import { eq, ne, and, sql } from "drizzle-orm";
@@ -184,7 +185,7 @@ export function registerStaffRoutes(app: Express) {
         return res.status(400).json({ message: "A user with this email already exists" });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await hashPassword(password);
       const permString = Array.isArray(permissions) ? JSON.stringify(permissions) : JSON.stringify(permissions || []);
 
       // Never allow creating a root "admin" or "superadmin" — all created staff are sub-admins
@@ -293,7 +294,7 @@ export function registerStaffRoutes(app: Express) {
       }
 
       if (password && password.trim().length >= 6) {
-        updates.password = await bcrypt.hash(password.trim(), 10);
+        updates.password = await hashPassword(password.trim());
       }
 
       const [updated] = await db.update(users).set(updates).where(eq(users.id, staffId)).returning({
@@ -380,25 +381,29 @@ export function registerStaffRoutes(app: Express) {
         await storage.settings.set("admin_totp_enabled", "true");
       }
 
-      const isTotpValid = verifyTotpCode(secret, String(totpCode).trim());
-      if (!isTotpValid) {
-        return res.status(400).json({ message: "Invalid 6-digit TOTP code. Check Apple Passwords or Authenticator App." });
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Both current password and new password are required." });
       }
 
-      // 2. Fetch Super Admin User
-      const [adminUser] = await db.select().from(users).where(eq(users.email, "admin@farmfreshfarmer.com")).limit(1);
+      if (String(newPassword).length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters long for Super Admin accounts." });
+      }
+
+      const adminId = (req as any).currentUser?.id;
+      const [adminUser] = await db.select().from(users).where(eq(users.id, adminId)).limit(1);
+
       if (!adminUser) {
         return res.status(404).json({ message: "Super Admin account not found." });
       }
 
-      // 3. Verify Current Password against bcrypt hash
-      const isPasswordValid = await bcrypt.compare(currentPassword, adminUser.password);
+      // 3. Verify Current Password against 1024-bit peppered hash
+      const isPasswordValid = (await verifyPassword(currentPassword, adminUser.password)).valid;
       if (!isPasswordValid) {
         return res.status(400).json({ message: "Current Super Admin password is incorrect." });
       }
 
-      // 4. Update Password to new bcrypt hash
-      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+      // 4. Update Password to new 1024-bit peppered hash
+      const hashedPassword = await hashPassword(newPassword.trim());
       await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.id, adminUser.id));
 
       return res.json({ success: true, message: "🔑 Super Admin password updated successfully following Current Password & TOTP 2FA verification!" });

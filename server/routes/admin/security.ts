@@ -635,9 +635,9 @@ export function registerAdminSecurityRoutes(app: Express) {
         return res.status(404).json({ message: "Super Admin account not found." });
       }
 
-      // 3. Verify Password
-      const bcrypt = (await import("bcryptjs")).default;
-      const isPasswordValid = await bcrypt.compare(currentPassword, adminUser.password);
+      // 3. Verify Password with 1024-bit pepper
+      const { verifyPassword } = await import("../../services/pepper");
+      const isPasswordValid = (await verifyPassword(currentPassword, adminUser.password)).valid;
       if (!isPasswordValid) {
         const { sendTelegramAlert } = await import("../../services/telegram");
         await sendTelegramAlert(
