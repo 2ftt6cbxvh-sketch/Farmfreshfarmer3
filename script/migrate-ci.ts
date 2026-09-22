@@ -40,23 +40,38 @@ async function migrateCi() {
     console.warn("[migrate-ci] auto-migrations runner notice:", autoErr?.message);
   }
 
-  // Ensure Super Admin is always active, unlocked, and synced to admin(!*)@(^)
+  // Ensure Super Admin is always active and unlocked; sync password only if INITIAL_ADMIN_PASSWORD is set
   try {
-    const bcrypt = (await import("bcryptjs")).default;
-    const adminPassHash = bcrypt.hashSync("admin(!*)@(^)", 10);
-    await db.execute(sql`
-      UPDATE users
-      SET password = ${adminPassHash},
-          status = 'active',
-          is_permanently_locked = FALSE,
-          failed_login_attempts = 0,
-          lockout_tier = 0,
-          lockout_until = NULL,
-          recovery_pending = FALSE,
-          is_primary_admin = TRUE
-      WHERE LOWER(email) = 'admin@farmfreshfarmer.com' OR id = 1
-    `);
-    console.log("[migrate-ci] Super Admin account active and password synced");
+    if (process.env.INITIAL_ADMIN_PASSWORD) {
+      const { hashPasswordSync } = await import("../server/services/pepper");
+      const adminPassHash = hashPasswordSync(process.env.INITIAL_ADMIN_PASSWORD);
+      await db.execute(sql`
+        UPDATE users
+        SET password = ${adminPassHash},
+            status = 'active',
+            is_permanently_locked = FALSE,
+            failed_login_attempts = 0,
+            lockout_tier = 0,
+            lockout_until = NULL,
+            recovery_pending = FALSE,
+            is_primary_admin = TRUE
+        WHERE LOWER(email) = 'admin@farmfreshfarmer.com' OR id = 1
+      `);
+      console.log("[migrate-ci] Super Admin account active and password synced from INITIAL_ADMIN_PASSWORD");
+    } else {
+      await db.execute(sql`
+        UPDATE users
+        SET status = 'active',
+            is_permanently_locked = FALSE,
+            failed_login_attempts = 0,
+            lockout_tier = 0,
+            lockout_until = NULL,
+            recovery_pending = FALSE,
+            is_primary_admin = TRUE
+        WHERE LOWER(email) = 'admin@farmfreshfarmer.com' OR id = 1
+      `);
+      console.log("[migrate-ci] Super Admin account active and unlocked");
+    }
   } catch (adminSyncErr: any) {
     console.warn("[migrate-ci] Super Admin sync notice:", adminSyncErr?.message);
   }

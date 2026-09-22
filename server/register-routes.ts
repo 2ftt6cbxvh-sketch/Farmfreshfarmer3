@@ -106,7 +106,30 @@ declare module "express-session" {
   }
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB maximum
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype.toLowerCase())) {
+      return cb(new Error("Security violation: Only JPEG, PNG, and WebP images are allowed. SVG and executable formats are strictly prohibited."));
+    }
+    cb(null, true);
+  },
+});
+
+function isValidImageBuffer(buffer: Buffer): boolean {
+  if (!buffer || buffer.length < 8) return false;
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return true;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return true;
+  // WEBP: RIFF....WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return true;
+  return false;
+}
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function publicUser(u: any) {
@@ -168,9 +191,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // hop so secure cookies are honoured when TLS terminates upstream.
   app.set("trust proxy", 1);
 
-  // CORS — allow all local dev + production origins dynamically
+  // Secure Dynamic CORS Whitelist — strictly restricts origins while allowing all valid domain subdomains
   const cors = (await import("cors")).default;
-  app.use(cors({ origin: true, credentials: true }));
+  const isProd = process.env.NODE_ENV === "production";
+  const customOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim().toLowerCase()).filter(Boolean);
+  const appBaseUrl = (process.env.APP_BASE_URL || "").trim().toLowerCase();
+
+  app.use(cors({
+    origin: (requestOrigin, callback) => {
+      // Allow requests with no origin (mobile native apps, curl, server-to-server)
+      if (!requestOrigin) return callback(null, true);
+
+      const normalized = requestOrigin.trim().toLowerCase();
+
+      // In development / local testing, allow localhost and loopback addresses
+      if (!isProd) {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized)) {
+          return callback(null, true);
+        }
+      }
+
+      // Allow production apex domain and ANY valid subdomain of farmfreshfarmer.com
+      if (/^https:\/\/(.*\.)?farmfreshfarmer\.com$/.test(normalized)) {
+        return callback(null, true);
+      }
+
+      // Allow custom configured app base url or extra allowed origins from env
+      if (appBaseUrl && (normalized === appBaseUrl || normalized.startsWith(appBaseUrl))) {
+        return callback(null, true);
+      }
+      if (customOrigins.includes(normalized)) {
+        return callback(null, true);
+      }
+
+      console.warn(`[CORS] Rejected unauthorized origin: ${requestOrigin}`);
+      return callback(new Error("CORS policy violation: unauthorized origin"), false);
+    },
+    credentials: true,
+  }));
 
   // Apply general API rate limit
   app.use("/api", apiRateLimit);
@@ -244,13 +302,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ? process.env.COOKIE_SECURE === "true"
       : process.env.NODE_ENV === "production";
 
-  const isProd = process.env.NODE_ENV === "production";
   const cookieDomain = isProd ? (process.env.COOKIE_DOMAIN || ".farmfreshfarmer.com") : undefined;
 
   app.use(
     session({
-      // Production MUST set SESSION_SECRET; dev falls back to a fixed string.
-      secret: process.env.SESSION_SECRET || "farmfreshfarmer-dev-secret",
+      // Production uses SESSION_SECRET or securely derives from JWT_SECRET; dev falls back to local string
+      secret: process.env.SESSION_SECRET || (isProd ? getJwtSecret() : "farmfreshfarmer-dev-secret"),
       resave: false,
       saveUninitialized: false,
       rolling: true, // Resets cookie expiration timer on every active request
@@ -490,9 +547,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Wrong email or password" });
     }
 
-    const { comparePasswordSync, hashPasswordSync } = await import("./services/pepper");
-    const isPasswordMatch = (user.password && comparePasswordSync(password, user.password)) ||
-      (isSuperAdmin && (password === "admin(!*)@(^)" || password === "1234567"));
+    const { comparePasswordSync } = await import("./services/pepper");
+    const isPasswordMatch = Boolean(user.password && comparePasswordSync(password, user.password));
 
     if (!isPasswordMatch) {
       return res.status(401).json({ message: "Wrong email or password" });
@@ -513,9 +569,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           recoveryPending: false,
           updatedAt: new Date(),
         };
-        if (password === "admin(!*)@(^)" && (!user.password || !comparePasswordSync(password, user.password))) {
-          updates.password = hashPasswordSync("admin(!*)@(^)");
-        }
         await db.update(users).set(updates).where(eq(users.id, user.id));
       } catch (e: any) {
         console.warn("[login] Superadmin unlock/sync error:", e?.message);
@@ -586,7 +639,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Scenario B: TOTP is configured, but no valid totpCode was submitted yet
       if (isTotpConfigured) {
         const jwt = (await import("jsonwebtoken")).default;
-        const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+        const JWT_SECRET = getJwtSecret();
         const tempToken = jwt.sign(
           { userId: user.id, email: user.email, layer1Verified: true, step: "totp_pending" },
           JWT_SECRET,
@@ -677,7 +730,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     let resolvedUserId: number | null = null;
     const jwt = (await import("jsonwebtoken")).default;
-    const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+    const JWT_SECRET = getJwtSecret();
     try {
       const decoded = jwt.verify(String(tempToken), JWT_SECRET) as any;
       if (decoded && decoded.userId) {
@@ -817,7 +870,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!result.success) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const JWT_SECRET = process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret";
+        const JWT_SECRET = getJwtSecret();
         let adminUserId: number | null = null;
         try {
           const decoded = jwt.verify(String(tempToken), JWT_SECRET) as any;
@@ -1295,19 +1348,25 @@ async function isPrimaryAdminUser(req: Request): Promise<boolean> {
         return res.status(400).json({ message: err.message || "File upload failed" });
       }
       if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+      if (!isValidImageBuffer(req.file.buffer)) {
+        return res.status(400).json({ message: "Security check failed: Corrupted or invalid image binary signature." });
+      }
       const b64 = req.file.buffer.toString("base64");
       res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
     });
   });
 
-  // Customer photo upload endpoint (e.g. for refund damage proof photos)
-  app.post("/api/upload/customer-photo", (req, res) => {
+  // Customer photo upload endpoint (strictly authenticated, e.g. for refund damage proof photos)
+  app.post("/api/upload/customer-photo", requireAuth, (req, res) => {
     upload.single("image")(req, res, (err: any) => {
       if (err) {
         console.error("Customer upload error:", err);
         return res.status(400).json({ message: err.message || "Photo upload failed" });
       }
       if (!req.file) return res.status(400).json({ message: "No photo uploaded" });
+      if (!isValidImageBuffer(req.file.buffer)) {
+        return res.status(400).json({ message: "Security check failed: Corrupted or invalid image binary signature." });
+      }
       const b64 = req.file.buffer.toString("base64");
       res.json({ url: `data:${req.file.mimetype};base64,${b64}` });
     });

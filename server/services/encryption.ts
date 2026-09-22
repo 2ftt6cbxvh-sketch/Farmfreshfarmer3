@@ -11,14 +11,27 @@ const SECRET_KEY = process.env.ENCRYPTION_KEY || "farmfreshfarmer-32byte-secret-
 const FALLBACK_JWT_SECRET = "farmfreshfarmer-production-jwt-master-secret-key-2026-v1-secure";
 
 export function getJwtSecret(): string {
-  if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim().length >= 16) {
-    return process.env.JWT_SECRET.trim();
+  const secret = (process.env.JWT_SECRET || "").trim();
+  if (secret.length >= 16) {
+    return secret;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing or too short (minimum 16 characters). Production server cannot run without a secure JWT secret."
+    );
   }
   return FALLBACK_JWT_SECRET;
 }
 
 function getDerivedKey(): Buffer {
-  return crypto.scryptSync(SECRET_KEY, "fff_salt_context", 32);
+  const encKey = (process.env.ENCRYPTION_KEY || "").trim();
+  if (!encKey && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CRITICAL SECURITY ERROR: ENCRYPTION_KEY environment variable is missing. Production server cannot run without an encryption secret."
+    );
+  }
+  const keyToUse = encKey || SECRET_KEY;
+  return crypto.scryptSync(keyToUse, "fff_salt_context", 32);
 }
 
 /**

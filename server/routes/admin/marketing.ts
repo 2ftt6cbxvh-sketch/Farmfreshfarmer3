@@ -9,6 +9,7 @@ import {
   createOneTimeCoupon,
   buildSignupTermsEmailHtml,
 } from "../../services/campaigns";
+import { getJwtSecret } from "../../services/encryption";
 
 export function registerAdminMarketingRoutes(app: Express) {
   // Middleware: require admin
@@ -19,7 +20,7 @@ export function registerAdminMarketingRoutes(app: Express) {
     if (token) {
       try {
         const jwt = (await import("jsonwebtoken")).default;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret") as any;
+        const decoded = jwt.verify(token, getJwtSecret()) as any;
         userId = Number(decoded.userId || decoded.sub);
       } catch {}
     }

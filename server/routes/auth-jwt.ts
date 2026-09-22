@@ -451,17 +451,24 @@ export function registerAuthJwtRoutes(app: Express) {
           }
         } catch (tokenErr: any) {
           console.warn("[auth/google] verifyIdToken library note:", tokenErr?.message);
-          // Fallback: decode JWT payload directly
+          // Fallback: verify cryptographic validity directly with Google's tokeninfo API
           try {
-            const jwt = (await import("jsonwebtoken")).default;
-            const decoded = jwt.decode(idToken) as any;
-            if (decoded?.email) {
-              email = String(decoded.email).toLowerCase();
-              googleName = decoded.name || decoded.given_name || email.split("@")[0];
-              googleUserId = decoded.sub || `google_${Date.now()}`;
+            const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+            if (tokenInfoRes.ok) {
+              const tokenInfo = await tokenInfoRes.json() as any;
+              const allowedAudiences = [
+                "983416661519-hd22kfa2kc02hnh5plea83bckfej3o95.apps.googleusercontent.com",
+                "983416661519-lcur2retdisotv1mlksj7ck24fjtrpje.apps.googleusercontent.com",
+                process.env.GOOGLE_CLIENT_ID || "",
+              ].filter(Boolean);
+              if (tokenInfo?.email && allowedAudiences.includes(tokenInfo.aud)) {
+                email = String(tokenInfo.email).toLowerCase();
+                googleName = tokenInfo.name || tokenInfo.given_name || email.split("@")[0];
+                googleUserId = tokenInfo.sub;
+              }
             }
-          } catch (jwtErr: any) {
-            console.error("[auth/google] jwt.decode fallback error:", jwtErr?.message);
+          } catch (fetchErr: any) {
+            console.error("[auth/google] tokeninfo verification error:", fetchErr?.message);
           }
         }
       }

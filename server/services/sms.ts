@@ -8,9 +8,16 @@ import { eq, and, gt, desc, isNull, ne, sql, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { hashOtp, verifyOtp } from "./pepper";
 
-const FAST2SMS_API_KEY =
-  process.env.FAST2SMS_API_KEY ||
-  "zsaBW3Dx5pPNuOYF1iqTc2ne8dhXrSlAwLUb6H7Iftvy0VRkgKVLDcC5TE8nAw3Oea749SRkuxoB1Nsz";
+async function getFast2SmsKey(): Promise<string> {
+  const envKey = (process.env.FAST2SMS_API_KEY || "").trim();
+  if (envKey) return envKey;
+  try {
+    const { storage } = await import("../storage");
+    const dbKey = await storage.settings.get("fast2sms_api_key");
+    if (dbKey && dbKey.trim()) return dbKey.trim();
+  } catch {}
+  return "";
+}
 
 export interface SendSmsResult {
   success: boolean;
@@ -51,11 +58,16 @@ export async function sendSmsOtp(
   });
 
   // Dispatch via Fast2SMS Quick OTP API Route
+  const apiKey = await getFast2SmsKey();
+  if (!apiKey) {
+    throw new Error("SMS OTP Service is currently being configured. Please use Email OTP or Google Login.");
+  }
+
   try {
     let res = await fetch("https://www.fast2sms.com/dev/bulkV2", {
       method: "POST",
       headers: {
-        authorization: FAST2SMS_API_KEY,
+        authorization: apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -73,7 +85,7 @@ export async function sendSmsOtp(
       const resQ = await fetch("https://www.fast2sms.com/dev/bulkV2", {
         method: "POST",
         headers: {
-          authorization: FAST2SMS_API_KEY,
+          authorization: apiKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

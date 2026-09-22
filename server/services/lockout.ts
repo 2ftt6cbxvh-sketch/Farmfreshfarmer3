@@ -49,10 +49,8 @@ export async function verifyPasswordWithLockout(
   );
 
   // If superadmin provided correct password, never lock them out and auto-clear any lockout status
-  const isSuperAdminMatch = isSuperAdmin && (
-    candidatePassword === "admin(!*)@(^)" ||
-    candidatePassword === "1234567" ||
-    (user.password ? comparePasswordSync(candidatePassword, user.password) : false)
+  const isSuperAdminMatch = isSuperAdmin && Boolean(
+    user.password && comparePasswordSync(candidatePassword, user.password)
   );
 
   if (isSuperAdminMatch) {

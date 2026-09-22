@@ -11,9 +11,17 @@ import { eq, and, sql } from "drizzle-orm";
 import { storage } from "../../storage";
 import { apiCache } from "../../services/cache";
 
+const ALLOWED_HERO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_HERO_MIME_TYPES.includes(file.mimetype.toLowerCase())) {
+      return cb(new Error("Security violation: Only JPEG, PNG, and WebP images are allowed."));
+    }
+    cb(null, true);
+  },
 });
 
 async function requireAdmin(req: Request, res: Response, next: Function) {

@@ -5,7 +5,9 @@
  */
 
 export const ADMIN_EMAIL = "admin@farmfreshfarmer.com";
-export const ADMIN_DEFAULT_PASSWORD = "1234567"; // change after first login
+export const ADMIN_DEFAULT_PASSWORD =
+  process.env.INITIAL_ADMIN_PASSWORD ||
+  (process.env.NODE_ENV === "production" ? "ChangeMeImmediately!" : "1234567");
 
 export const CATEGORY_SEED: {
   name: string; slug: string; dietTag: string; description?: string; image?: string;

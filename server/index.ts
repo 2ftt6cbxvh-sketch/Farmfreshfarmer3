@@ -65,6 +65,10 @@ app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
 
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://apis.google.com https://accounts.google.com https://*.gstatic.com https://www.google.com https://www.gstatic.com/recaptcha/ https://www.google.com/recaptcha/ https://*.firebaseapp.com https://*.firebaseio.com https://checkout.razorpay.com https://*.razorpay.com https://*.phonepe.com https://challenges.cloudflare.com https://cdnjs.cloudflare.com",

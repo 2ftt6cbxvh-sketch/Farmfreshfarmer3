@@ -22,16 +22,7 @@ export function registerAdminCopilotRoutes(app: Express) {
       if (token) {
         try {
           const jwt = (await import("jsonwebtoken")).default;
-          let decoded: any = null;
-          try {
-            decoded = jwt.verify(token, getJwtSecret());
-          } catch {
-            try {
-              decoded = jwt.verify(token, process.env.JWT_SECRET || "farmfreshfarmer-jwt-secret");
-            } catch {
-              decoded = jwt.decode(token);
-            }
-          }
+          const decoded = jwt.verify(token, getJwtSecret()) as any;
           if (decoded) {
             userId = Number(decoded.userId || decoded.sub || decoded.id);
           }

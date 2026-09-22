@@ -70,7 +70,7 @@ export async function ensureSeeded(opts?: { log?: boolean }): Promise<void> {
     }).returning();
     await db.insert(referralCodes).values({ userId: created.id, code: generateReferralCode() });
     await db.insert(customerProfiles).values({ userId: created.id }).onConflictDoNothing();
-    log(`[seed] created admin user ${ADMIN_EMAIL} (password: ${ADMIN_DEFAULT_PASSWORD})`);
+    log(`[seed] created admin user ${ADMIN_EMAIL}`);
   }
 
   // Sample coupon
