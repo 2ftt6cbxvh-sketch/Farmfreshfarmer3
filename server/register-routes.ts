@@ -293,6 +293,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   ];
 
   async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+    // ── Host Guard: Admin API only available on the private management subdomain ──
+    // Requests from www.farmfreshfarmer.com or any non-admin host get a plain 404.
+    // This hides the existence of admin routes entirely from the public domain.
+    const reqHost = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+    const isAdminSubdomain = (
+      reqHost.includes("aihhytdgagthawswghsgs") ||
+      reqHost.includes("admin") ||
+      reqHost === "localhost" ||
+      reqHost.startsWith("localhost:") ||
+      reqHost === "127.0.0.1" ||
+      reqHost.startsWith("127.0.0.1:") ||
+      reqHost.startsWith("192.168.") ||
+      reqHost.startsWith("10.")
+    );
+    if (!isAdminSubdomain) {
+      // Return identical response to a 404 to avoid revealing route existence
+      return res.status(404).json({ message: "Not found" });
+    }
+
     let adminValid = false;
     let authUser: any = null;
 
