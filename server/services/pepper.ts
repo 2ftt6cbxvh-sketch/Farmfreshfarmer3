@@ -16,11 +16,33 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
 /**
+ * Resolves the raw pepper string from environment variables.
+ * Tolerates variations (uppercase/lowercase, accidental quotes, prefix formatting).
+ */
+export function resolveRawPepper(): string {
+  const candidate =
+    process.env.PASSWORD_PEPPER ||
+    process.env.password_pepper ||
+    process.env.PEPPER ||
+    process.env.pepper ||
+    "";
+
+  let val = candidate.trim();
+  if (val.startsWith("PASSWORD_PEPPER=")) {
+    val = val.substring("PASSWORD_PEPPER=".length).trim();
+  }
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    val = val.slice(1, -1).trim();
+  }
+  return val;
+}
+
+/**
  * Retrieves the 1024-bit Pepper with strict validation.
  * Throws a fatal security error if PASSWORD_PEPPER is missing or under 256 hex characters.
  */
 export function getPepper(): string {
-  const pepper = (process.env.PASSWORD_PEPPER || "").trim();
+  const pepper = resolveRawPepper();
   if (!pepper) {
     throw new Error(
       "CRITICAL SECURITY ERROR: 1024-bit PASSWORD_PEPPER environment variable is missing. Authentication cannot proceed without the security pepper."
@@ -39,7 +61,7 @@ export function getPepper(): string {
  * Never leaks the actual secret key.
  */
 export function getPepperDiagnostics() {
-  const pepper = (process.env.PASSWORD_PEPPER || "").trim();
+  const pepper = resolveRawPepper();
   const isValid = pepper.length >= 256;
   return {
     isConfigured: Boolean(pepper),
