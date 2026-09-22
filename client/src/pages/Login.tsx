@@ -741,19 +741,6 @@ export default function Login() {
               </p>
             </div>
 
-            {mode === "login" && loginStep === "credentials" && (
-              <button
-                type="button"
-                onClick={() => navigate("/admin/login")}
-                className="w-full flex items-center justify-between p-2.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Crown size={14} className="text-amber-400" />
-                  <span>FarmFreshFarmer Admin or Staff?</span>
-                </span>
-                <span className="text-[11px] underline font-semibold">Admin Gateway →</span>
-              </button>
-            )}
 
             {/* Mode Switcher Tabs */}
             {loginStep === "credentials" && signupStep === "form" && (
@@ -1285,24 +1272,7 @@ export default function Login() {
                 </button>
               </p>
 
-              <div className="text-center pt-2 flex flex-col items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin/login")}
-                  className="w-full inline-flex items-center justify-center gap-2 text-xs text-amber-300 hover:text-amber-200 font-extrabold bg-amber-500/15 hover:bg-amber-500/25 py-2.5 px-4 rounded-xl border border-amber-500/35 transition-all cursor-pointer shadow-md active:scale-[0.99]"
-                >
-                  <Crown size={15} className="text-amber-400" />
-                  <span>👑 Chief Executive Super Admin Login →</span>
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowStaffModal(true)}
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-1.5 rounded-xl border border-emerald-500/25 transition-all cursor-pointer"
-                >
-                  <span>🔐 Staff &amp; Delivery Partner Login</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>
