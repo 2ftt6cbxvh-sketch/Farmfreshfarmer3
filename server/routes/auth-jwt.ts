@@ -63,13 +63,12 @@ export function registerAuthJwtRoutes(app: Express) {
   /** GET /api/auth/host-context — Check if current host is the Admin Subdomain (zero secret exposure) */
   app.get("/api/auth/host-context", (req: Request, res: Response) => {
     const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+    // Secret subdomain name is ONLY in ADMIN_SUBDOMAIN env var — never in source code
     const adminSubdomain = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
-    const isSubdomainOfFarmFresh = host.endsWith("farmfreshfarmer.com") && !host.startsWith("www.") && host !== "farmfreshfarmer.com";
+    const isLocalDev = host === "localhost" || host.startsWith("localhost:") || host === "127.0.0.1" || host.startsWith("127.0.0.1:") || host.startsWith("192.168.") || host.startsWith("10.");
     const isAdminHost = Boolean(
-      (adminSubdomain && host.includes(adminSubdomain)) ||
-      isSubdomainOfFarmFresh ||
-      host.includes("admin") ||
-      host.includes("aihhytdgagthawswghsgs")
+      isLocalDev ||
+      (adminSubdomain && adminSubdomain.length > 0 && host.includes(adminSubdomain))
     );
     return res.json({ isAdminHost });
   });

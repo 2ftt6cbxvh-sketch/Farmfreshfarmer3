@@ -116,26 +116,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 function useIsAdminHost() {
-  const [isAdminHost, setIsAdminHost] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      if ((window as any).__IS_ADMIN_HOST__ === true) return true;
-      const hostname = window.location.hostname.toLowerCase();
-      const isPrivateSubdomain =
-        hostname.endsWith("farmfreshfarmer.com") &&
-        !hostname.startsWith("www.") &&
-        hostname !== "farmfreshfarmer.com";
-
-      if (
-        isPrivateSubdomain ||
-        hostname.includes("admin") ||
-        hostname.includes("aihhytdgagthawswghsgs") ||
-        (window.location.port && localStorage.getItem("dev_admin_mode") === "true")
-      ) {
-        return true;
-      }
-    }
-    return false;
-  });
+  // isAdminHost is determined ENTIRELY by the server via /api/auth/host-context.
+  // No subdomain name, URL pattern, or admin hint is stored in the frontend bundle.
+  // Default = false (www/customer mode) until server confirms admin host.
+  const [isAdminHost, setIsAdminHost] = useState<boolean>(false);
 
   useEffect(() => {
     fetch("/api/auth/host-context")
@@ -145,7 +129,9 @@ function useIsAdminHost() {
           setIsAdminHost(d.isAdminHost);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setIsAdminHost(false);
+      });
   }, []);
 
   return isAdminHost;

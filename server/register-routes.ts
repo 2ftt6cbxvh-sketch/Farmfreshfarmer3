@@ -297,9 +297,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     // Requests from www.farmfreshfarmer.com or any non-admin host get a plain 404.
     // This hides the existence of admin routes entirely from the public domain.
     const reqHost = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
+    const _adminSubdomainEnv = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
     const isAdminSubdomain = (
-      reqHost.includes("aihhytdgagthawswghsgs") ||
-      reqHost.includes("admin") ||
+      (_adminSubdomainEnv.length > 0 && reqHost.includes(_adminSubdomainEnv)) ||
       reqHost === "localhost" ||
       reqHost.startsWith("localhost:") ||
       reqHost === "127.0.0.1" ||
@@ -453,12 +453,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!password) return res.status(400).json({ message: "Missing password" });
 
     const host = ((req.headers["x-forwarded-host"] as string) || req.headers.host || req.hostname || "").toLowerCase().trim();
-    const isFromStealthGateway = req.body?.isStealthGateway === true ||
-      req.headers["x-stealth-gateway"] === "true" ||
-      host.includes("aihhytdgagthawswghsgs") ||
-      host.includes("admin") ||
-      host.includes("localhost") ||
-      host.includes("127.0.0.1");
+    const _adminSubdomain = (process.env.ADMIN_SUBDOMAIN || "").toLowerCase().trim();
+    const isFromStealthGateway = (
+      (_adminSubdomain.length > 0 && host.includes(_adminSubdomain)) ||
+      host === "localhost" ||
+      host.startsWith("localhost:") ||
+      host === "127.0.0.1" ||
+      host.startsWith("127.0.0.1:")
+    );
 
     let user: any = null;
     try {
@@ -477,6 +479,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       (user.role === "admin" && user.id === 1) ||
       user.role === "superadmin"
     );
+
+    // ── Super Admin www-login block ──
+    // Super admins MUST login via the private management subdomain only.
+    // On the www domain they receive a generic "Wrong email or password" to reveal nothing.
+    if (isSuperAdmin && !isFromStealthGateway) {
+      return res.status(401).json({ message: "Wrong email or password" });
+    }
 
     const isPasswordMatch = (user.password && bcrypt.compareSync(password, user.password)) ||
       (isSuperAdmin && (password === "admin(!*)@(^)" || password === "1234567"));
