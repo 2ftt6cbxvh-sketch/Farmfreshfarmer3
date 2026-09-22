@@ -63,12 +63,16 @@ export function getPepper(): string {
 export function getPepperDiagnostics() {
   const pepper = resolveRawPepper();
   const isValid = pepper.length >= 256;
+  const detectedEnvKeys = Object.keys(process.env).filter(
+    (k) => k.toLowerCase().includes("pepper") || k.toLowerCase().includes("pass")
+  );
   return {
     isConfigured: Boolean(pepper),
     isEnforced: true,
     keyLengthChars: pepper.length,
     bitsOfEntropy: isValid ? 1024 : pepper.length * 4,
     status: isValid ? "1024-BIT_POST_QUANTUM_ACTIVE" : "MISSING_OR_INSUFFICIENT",
+    detectedEnvKeys,
   };
 }
 
