@@ -199,26 +199,14 @@ export default function MaintenanceOverlay({
       <footer className="relative z-10 max-w-5xl w-full mx-auto pt-6 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-emerald-300/60">
         <p>© {new Date().getFullYear()} FarmFreshFarmer. Pure organic harvests delivered fresh daily.</p>
 
-        {allowAdminBypass && (
-          <div className="flex items-center gap-3">
-            <a
-              href="mailto:admin@farmfreshfarmer.com"
-              className="hover:text-white transition-colors flex items-center gap-1"
-            >
-              <Mail size={13} /> Support Email
-            </a>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = "/admin/login";
-              }}
-              className="hover:text-emerald-300 font-bold underline flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <KeyRound size={13} /> Executive Staff &amp; Admin Portal
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <a
+            href="mailto:admin@farmfreshfarmer.com"
+            className="hover:text-white transition-colors flex items-center gap-1"
+          >
+            <Mail size={13} /> Support Email
+          </a>
+        </div>
       </footer>
     </div>
   );
