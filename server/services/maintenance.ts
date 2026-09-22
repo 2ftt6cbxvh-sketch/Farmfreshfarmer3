@@ -177,7 +177,9 @@ export async function maintenanceMiddleware(req: Request, res: Response, next: N
     url.startsWith("/api/admin/security/check-telegram-approval") ||
     url.startsWith("/api/admin/security/lockdown") ||
     url.startsWith("/api/admin/mfa") ||             // Admin MFA
-    url.startsWith("/api/admin/totp")               // Admin TOTP
+    url.startsWith("/api/admin/totp") ||             // Admin TOTP
+    url.startsWith("/api/auth/host-context") ||      // App shell needs this to render correctly
+    url.startsWith("/api/settings/public")           // Public settings needed for maintenance screen
   );
 
   if (alwaysAllow) return next();

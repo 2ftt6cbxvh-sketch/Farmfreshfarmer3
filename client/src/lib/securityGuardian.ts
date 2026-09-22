@@ -23,13 +23,10 @@ export function initSecurityGuardian() {
     );
   } catch {}
 
-  // 2. Prevent Object Prototype Pollution on client
-  try {
-    if (Object.seal) {
-      // Protect default Object properties from malicious prototype override
-      Object.seal(Object.prototype);
-    }
-  } catch {}
+  // 2. NOTE: Object.seal(Object.prototype) intentionally removed.
+  // It breaks iOS Safari 15+, Chrome Mobile, and React's runtime by preventing
+  // any prototype property additions — causes complete white-screen crash on mobile.
+  // Server-side JWT + CSRF validation handles prototype pollution threats instead.
 
   // 3. Security DOM Mutation Watchdog
   // Ensures critical security overlays cannot be deleted or hidden via DevTools Inspector
