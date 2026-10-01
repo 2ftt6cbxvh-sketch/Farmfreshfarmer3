@@ -1530,8 +1530,10 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
 
 function detectETAIntent(message: string): boolean {
   const lower = message.toLowerCase();
-  const etaKeywords = [
-    'eta', 'delivery time', 'how fast', 'how long', 'how soon', 'how quickly',
+
+  // Multi-word phrases
+  const multiWordEta = [
+    'delivery time', 'how fast', 'how long', 'how soon', 'how quickly',
     'when will i get', 'when can i get', 'when will i receive', 'when can i receive',
     'delivery speed', 'how many minutes', 'how many hours', 'when will it arrive',
     'when will it reach', 'time to deliver', 'time for delivery', 'how quick',
@@ -1539,7 +1541,10 @@ function detectETAIntent(message: string): boolean {
     'when can i expect', 'how long does delivery', 'delivery duration', 'reach my location',
     'reach me', 'arrive at my', 'deliver to me', 'delivery to my', 'time of delivery'
   ];
-  return etaKeywords.some(kw => lower.includes(kw));
+  if (multiWordEta.some(kw => lower.includes(kw))) return true;
+
+  // Standalone word 'eta' or 'etas' with strict word boundaries
+  return /\b(eta|etas)\b/i.test(lower);
 }
 
 // === CART HELPER FUNCTIONS ===
