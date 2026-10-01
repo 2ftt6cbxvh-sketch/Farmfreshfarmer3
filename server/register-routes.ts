@@ -84,6 +84,7 @@ import { registerAdminAutonomousRadarRoutes } from "./routes/admin/autonomous-ra
 import { registerUserBehaviorRoutes } from "./routes/user-behavior";
 import { registerVoiceSearchRoutes } from "./routes/voice-search";
 import { registerInstantRefundRoutes } from "./routes/instant-refund";
+import { registerCartReservationRoutes } from "./routes/cart-reservation";
 import { registerHealthSubscriptionRoutes } from "./routes/health-subscriptions";
 import { registerWhatsAppWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { csrfProtection } from "./middleware/csrf";
