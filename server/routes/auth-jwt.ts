@@ -7,6 +7,7 @@ import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, or
 import { eq, ne, and, or, gt, isNull, sql, desc } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
+import { requireRecaptcha } from "../middleware/recaptcha";
 import { ensureReferralCode } from "../engine/referral";
 import { verifyPasswordWithLockout } from "../services/lockout";
 import { getJwtSecret } from "../services/encryption";
