@@ -1030,7 +1030,7 @@ async function validateCouponForChat(
     customerOrdersContext?: string,
     customerCartContext?: string,
     userId?: number | null,
-    selectedModel: string = 'gemini-2.0-flash',
+    selectedModel: string = 'gemini-3.1-flash-lite',
     temperature: number = 0.5,
     maxTokens: number = 450,
     customInstructions?: string
@@ -1160,13 +1160,13 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
       return actualPart?.text?.trim() || '';
     }
 
-    // Models sequence starting with the chosen model (if valid), prioritized by speed and intelligence:
+    // Models sequence starting with fast active models supported on Google Gemini API:
     const candidateModels = Array.from(new Set([
-      selectedModel || 'gemini-2.5-flash',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
+      (selectedModel && !selectedModel.includes('2.0') && !selectedModel.includes('2.5') && !selectedModel.includes('1.5')) ? selectedModel : 'gemini-3.1-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.8-flash',
     ])).filter(Boolean);
 
     // 1. Try Native REST API with keep-alive connection & fast 4.5s failover timeout
@@ -1210,7 +1210,7 @@ CONFIDENTIALITY & PRIVACY (CRITICAL - STRICT):
     try {
       const genAI = new GoogleGenerativeAI(cleanKey);
       const model = genAI.getGenerativeModel({
-        model: selectedModel || 'gemini-1.5-flash',
+        model: (selectedModel && !selectedModel.includes('1.5') && !selectedModel.includes('2.0') && !selectedModel.includes('2.5')) ? selectedModel : 'gemini-3.1-flash-lite',
         systemInstruction: baseSystemPrompt,
         generationConfig: { maxOutputTokens: maxTokens, temperature },
       });
@@ -2953,7 +2953,8 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
 
       // Read dynamic Gemini settings from multi-agent key cluster or process.env
       const geminiApiKey = await getLakshmiApiKey();
-      const geminiModel = (allSettings as any)?.gemini_model || 'gemini-2.5-flash';
+      const rawModel = (allSettings as any)?.gemini_model;
+      const geminiModel = (rawModel && !rawModel.includes('1.5') && !rawModel.includes('2.0') && !rawModel.includes('2.5')) ? rawModel : 'gemini-3.1-flash-lite';
       const geminiTemp = Number((allSettings as any)?.gemini_temperature ?? 0.5);
       const geminiMaxTokens = Math.max(Number((allSettings as any)?.gemini_max_tokens ?? 800), 750);
       const customSystemPrompt = (allSettings as any)?.lakshmi_custom_system_prompt || '';
