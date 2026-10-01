@@ -418,22 +418,31 @@ const STOP_WORDS = new Set([
   'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
   'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should',
   'now', 'give', 'show', 'tell', 'want', 'need', 'please', 'item', 'items', 'product', 'products',
+  'add', 'put', 'cart', 'basket', 'bag', 'suggest', 'suggested', 'suggestion', 'suggestions',
+  'recommend', 'recommended', 'recommendation', 'recommendations', 'these', 'those', 'them',
+  'buy', 'order', 'get', 'take', 'also', 'each', 'send', 'pack', 'packs', 'unit', 'units',
 ]);
 
 function stemWord(word: string): string {
   if (!word) return '';
-  return word
-    .toLowerCase()
-    .replace(/(?:ing|ies|es|s|ed|ly)$/, '')
+  const trimmed = word.toLowerCase().trim();
+  // Don't over-stem short words like 'red' into 'r'
+  if (trimmed.length <= 3) return trimmed;
+  return trimmed
+    .replace(/(?:ing|ies|es|ly)$/, '')
+    .replace(/(?<!r)ed$/, '')
+    .replace(/s$/, '')
     .trim();
 }
 
 function matchesWord(w1: string, w2: string): boolean {
   if (!w1 || !w2) return false;
-  if (w1 === w2) return true;
+  if (w1.toLowerCase() === w2.toLowerCase()) return true;
   const s1 = stemWord(w1);
   const s2 = stemWord(w2);
-  return s1.length >= 3 && (s1 === s2 || s1.includes(s2) || s2.includes(s1));
+  if (s1 === s2) return true;
+  // Require BOTH stems to be at least 3 characters for substring containment
+  return s1.length >= 3 && s2.length >= 3 && (s1.includes(s2) || s2.includes(s1));
 }
 
 function formatSingleProductSuggestion(p: any) {
@@ -855,21 +864,18 @@ async function validateCouponForChat(
       };
     }
 
-    // 2. Add Item to Cart
+    // 2. Add Item to Cart (Single or Multi-item)
     if (action === "add_to_cart") {
-      let pid = Number(actionData.productId);
-      const qty = Math.max(1, Number(actionData.qty || actionData.quantity || 1));
-
-      if (!pid && actionData.productName) {
-        const allProds = await db.select().from(products).where(eq(products.active, true));
-        const target = allProds.find(p => p.name.toLowerCase().includes(String(actionData.productName).toLowerCase().trim()));
-        if (target) pid = target.id;
+      const itemsToAdd: Array<{ productName?: string; productId?: number; qty?: number }> = [];
+      if (Array.isArray(actionData.items) && actionData.items.length > 0) {
+        itemsToAdd.push(...actionData.items);
+      } else {
+        itemsToAdd.push({
+          productId: actionData.productId,
+          productName: actionData.productName,
+          qty: actionData.qty || actionData.quantity || 1,
+        });
       }
-
-      if (!pid) throw new Error(`Product "${actionData.productName || actionData.productId}" not found.`);
-
-      const [product] = await db.select().from(products).where(eq(products.id, pid)).limit(1);
-      if (!product) throw new Error("Product not found.");
 
       let [userCart] = await db.select().from(carts).where(eq(carts.userId, userId)).limit(1);
       if (!userCart) {
@@ -877,27 +883,50 @@ async function validateCouponForChat(
         userCart = inserted;
       }
 
-      const [existingItem] = await db.select().from(cartItems)
-        .where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, pid)))
-        .limit(1);
+      const allActiveProds = await db.select().from(products).where(eq(products.active, true));
+      const addedDescriptions: string[] = [];
 
-      if (existingItem) {
-        await db.update(cartItems)
-          .set({ qty: existingItem.qty + qty })
-          .where(eq(cartItems.id, existingItem.id));
-      } else {
-        await db.insert(cartItems).values({
-          cartId: userCart.id,
-          productId: pid,
-          qty,
-        });
+      for (const itm of itemsToAdd) {
+        let pid = Number(itm.productId);
+        const qty = Math.max(1, Number(itm.qty || 1));
+
+        if (!pid && itm.productName) {
+          const target = allActiveProds.find(p => p.name.toLowerCase().includes(String(itm.productName).toLowerCase().trim()));
+          if (target) pid = target.id;
+        }
+
+        if (!pid) continue;
+
+        const product = allActiveProds.find(p => p.id === pid);
+        if (!product) continue;
+
+        const [existingItem] = await db.select().from(cartItems)
+          .where(and(eq(cartItems.cartId, userCart.id), eq(cartItems.productId, pid)))
+          .limit(1);
+
+        if (existingItem) {
+          await db.update(cartItems)
+            .set({ qty: existingItem.qty + qty })
+            .where(eq(cartItems.id, existingItem.id));
+        } else {
+          await db.insert(cartItems).values({
+            cartId: userCart.id,
+            productId: pid,
+            qty,
+          });
+        }
+        addedDescriptions.push(`${qty}x ${product.name}`);
+      }
+
+      if (addedDescriptions.length === 0) {
+        throw new Error(`Could not find specified products to add to cart.`);
       }
 
       return {
         success: true,
         type: "cart_item_added",
         cartUpdated: true,
-        description: `Added ${qty}x ${product.name} to cart.`,
+        description: `Added ${addedDescriptions.join(', ')} to cart.`,
       };
     }
 
@@ -1068,8 +1097,11 @@ CAPABILITIES & DIRECTIVES:
 
 2. LIVE CART MANAGEMENT (ADD, REMOVE, UPDATE, CLEAR):
    - You HAVE DIRECT AUTHORIZATION to modify the logged-in customer's cart upon their request!
-   - Add items (e.g. "add 2 kg mangoes"):
+   - Add single item (e.g. "add 2 kg mangoes"):
      * Output: <<<CUSTOMER_ACTION:{"action":"add_to_cart","productName":"mangoes","qty":2}>>> followed by confirmation!
+   - Add multiple items or previously suggested items (e.g. "can you add both suggested items to cart", "add both to cart", "add them to cart", "add 1kg tomatoes and 2kg onions"):
+     * Output: <<<CUSTOMER_ACTION:{"action":"add_to_cart","items":[{"productName":"<product 1>","qty":1},{"productName":"<product 2>","qty":1}]}>>> followed by confirmation!
+     * NEVER just recite prices when the customer asked you to ADD items to cart! You MUST output the <<<CUSTOMER_ACTION:{"action":"add_to_cart",...}>>> block so they are genuinely added to the database cart!
    - Remove/Delete items (e.g. "remove tomatoes from my cart", "delete mangoes"):
      * Output: <<<CUSTOMER_ACTION:{"action":"remove_from_cart","productName":"tomatoes"}>>> followed by confirmation!
    - Adjust quantity (e.g. "change mangoes to 1", "reduce tomatoes to 2"):
@@ -1568,6 +1600,72 @@ function detectMultiCartIntent(message: string): Array<{ rawProduct: string; raw
   return results;
 }
 
+/**
+ * Resolves contextual cart additions like "can you add both suggested items to cart",
+ * "add both to cart", "add them to cart", "add the recommended produce to cart"
+ * by extracting products mentioned in the recent assistant/bot message.
+ */
+function resolveContextualCartIntent(
+  message: string,
+  history: Array<{ role: string; content: string }>,
+  allProducts: any[]
+): Array<{ rawProduct: string; rawQty: number; rawUnit: string }> {
+  const lower = message.toLowerCase().trim();
+
+  const hasAddAction = /\b(?:add|put|order|buy|get|take|pack|include)\b/i.test(lower);
+  if (!hasAddAction) return [];
+
+  const hasCartWord = /\b(?:cart|basket|bag)\b/i.test(lower);
+
+  const hasContextRef =
+    /\b(?:both\s+suggested|suggested\s+items?|suggested\s+products?|suggested\s+produce|recommended\s+items?|recommended\s+products?|both\s+of\s+them|both\s+items?|both\s+to\s+cart|both\s+in\s+cart|these\s+items?|these\s+products?|these\s+to\s+cart|them\s+to\s+cart|them\s+in\s+cart|all\s+suggested|all\s+of\s+them|all\s+items)\b/i.test(lower) ||
+    /^(?:can\s+you\s+)?(?:please\s+)?(?:add|put)\s+(?:both|them|these|all)(?:\s+(?:suggested|recommended)?\s*(?:items?|products?)?)?\s*(?:to\s+(?:my\s+)?cart)?\??$/i.test(lower) ||
+    (hasCartWord && /\b(?:both|them|these|suggested|recommended)\b/i.test(lower));
+
+  if (!hasContextRef) return [];
+
+  // Find the most recent assistant/bot message in history
+  const assistantMsgs = (history || []).filter(h => h.role === 'model' || h.role === 'assistant' || h.role === 'bot');
+  if (assistantMsgs.length === 0) return [];
+  const lastBotMsg = assistantMsgs[assistantMsgs.length - 1].content;
+  if (!lastBotMsg) return [];
+
+  // Extract products mentioned in lastBotMsg
+  const matchedProducts: any[] = [];
+  for (const prod of allProducts) {
+    if (!prod || !prod.name || prod.name.trim().length < 3) continue;
+    const escaped = prod.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rx = new RegExp(`\\b${escaped}\\b`, 'i');
+    if (rx.test(lastBotMsg)) {
+      if (!matchedProducts.some(p => p.id === prod.id)) {
+        matchedProducts.push(prod);
+      }
+    }
+  }
+
+  // Also try case-insensitive substring for distinctive produce
+  if (matchedProducts.length === 0) {
+    for (const prod of allProducts) {
+      if (!prod || !prod.name || prod.name.length < 3) continue;
+      const pNameLower = prod.name.toLowerCase();
+      if (lastBotMsg.toLowerCase().includes(pNameLower)) {
+        if (!matchedProducts.some(p => p.id === prod.id)) {
+          matchedProducts.push(prod);
+        }
+      }
+    }
+  }
+
+  const maxItems = /\bboth\b/i.test(lower) ? 2 : 5;
+  const itemsToReturn = matchedProducts.slice(0, maxItems);
+
+  return itemsToReturn.map(p => ({
+    rawProduct: p.name,
+    rawQty: 1,
+    rawUnit: 'unit',
+  }));
+}
+
 function resolveCartQty(
   requestedQty: number,
   requestedUnit: string,
@@ -1912,6 +2010,26 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       const lang = ['en', 'hi', 'te'].includes(language) ? language : 'en';
       const token = sessionToken || `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+      // Resolve chat history: prefer body, fallback to recent messages from DB session
+      let chatHistory: Array<{ role: string; content: string }> = Array.isArray(history) && history.length > 0 ? history : [];
+      if (chatHistory.length === 0) {
+        try {
+          const recentDbMsgs = await db
+            .select({ sender: liveChatMessages.sender, message: liveChatMessages.message })
+            .from(liveChatMessages)
+            .where(eq(liveChatMessages.sessionToken, token))
+            .orderBy(desc(liveChatMessages.id))
+            .limit(8);
+
+          chatHistory = recentDbMsgs.reverse().map((m) => ({
+            role: m.sender === 'bot' ? 'model' : 'user',
+            content: m.message,
+          }));
+        } catch (dbHistErr) {
+          console.warn('[chatbot] Could not load history from db:', dbHistErr);
+        }
+      }
+
       // Securely resolve authenticated customer userId (never trusts unverified body/query claims)
       const userId: number | null = await resolveCustomerUserId(req);
 
@@ -2147,9 +2265,15 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
       }
 
       // Parse ALL items in the message (multi-item support e.g. "add 2kg tomatoes and 1kg onions")
-      const multiCartItems = detectMultiCartIntent(message);
+      const allProds = await storage.products.list();
+      let multiCartItems = detectMultiCartIntent(message);
+
+      // If direct regex didn't extract products, check if user is asking to add previously suggested items from chat history
+      if (multiCartItems.length === 0) {
+        multiCartItems = resolveContextualCartIntent(message, chatHistory, allProds);
+      }
+
       if (multiCartItems.length > 0) {
-        const allProds = await storage.products.list();
         
         interface CartMatchResult {
           item: { rawProduct: string; rawQty: number; rawUnit: string };
@@ -3027,7 +3151,7 @@ function detectOrderSupportIntent(message: string): { action: 'track' | 'cancel'
           legalContext,
           contactContext,
           lang,
-          history,
+          chatHistory,
           enableCreator ? creatorContext : '',
           customerName,
           enableAds ? activeOffersContext : '',

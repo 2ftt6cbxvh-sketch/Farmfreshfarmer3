@@ -531,6 +531,10 @@ function ChatbotLakshmiInner({ customGreeting }: { customGreeting?: string }) {
           language,
           userId: user?.id,
           customerName: user?.name,
+          history: messages.slice(-10).map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
           browsingContext: {
             activeCategory,
           },
