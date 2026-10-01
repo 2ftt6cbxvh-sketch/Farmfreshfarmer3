@@ -84,10 +84,10 @@ import { registerAdminAutonomousRadarRoutes } from "./routes/admin/autonomous-ra
 import { registerUserBehaviorRoutes } from "./routes/user-behavior";
 import { registerVoiceSearchRoutes } from "./routes/voice-search";
 import { registerInstantRefundRoutes } from "./routes/instant-refund";
-import { registerCartReservationRoutes } from "./routes/cart-reservation";
 import { registerHealthSubscriptionRoutes } from "./routes/health-subscriptions";
 import { registerWhatsAppWebhookRoutes } from "./routes/webhooks/whatsapp";
 import { csrfProtection } from "./middleware/csrf";
+import { verifySessionFingerprint, bindSessionFingerprint } from "./services/session-fingerprint";
 
 import {
   createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature,
@@ -323,6 +323,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // CSRF protection — validates Origin/Referer for state-changing requests
   app.use(csrfProtection);
+
+  // Cryptographic Session Binding & Anti-Hijacking Check
+  // Ensures any session token copied to another device/browser is destroyed immediately
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const isValid = await verifySessionFingerprint(req, res);
+      if (!isValid) {
+        return res.status(401).json({
+          message: "⚠️ Security Alert: Session mismatch detected. Session has been revoked.",
+          code: "SESSION_HIJACK_DETECTED",
+        });
+      }
+    } catch (e: any) {
+      console.warn("[session-fingerprint] Error verifying fingerprint:", e?.message);
+    }
+    next();
+  });
 
   async function requireAuth(req: Request, res: Response, next: NextFunction) {
     if (req.session?.userId) {
@@ -801,6 +818,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     req.session.userId = user.id;
     req.session.role = user.role;
     (req.session as any).mfaVerified = true;
+    bindSessionFingerprint(req);
     apiCache.del(`admin_login_flow_${tempToken}`);
 
     const { issueTokenPair } = await import("./services/token");
@@ -841,6 +859,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       req.session.role = user.role;
       (req.session as any).mfaVerified = true;
       (req.session as any).webauthnStepUpAt = Date.now();
+      bindSessionFingerprint(req);
 
       const { issueTokenPair } = await import("./services/token");
       const tokens = await issueTokenPair(user.id, user.role, {

@@ -28,6 +28,15 @@ async function requirePrimaryAdmin(req: Request, res: Response, next: Function) 
     return res.status(401).json({ message: "Authentication required" });
   }
 
+  const { verifySessionFingerprint } = await import("../../services/session-fingerprint");
+  const isFingerprintValid = await verifySessionFingerprint(req, res);
+  if (!isFingerprintValid) {
+    return res.status(401).json({
+      message: "⚠️ Security Alert: Session mismatch detected. Access denied.",
+      code: "SESSION_HIJACK_DETECTED",
+    });
+  }
+
   const { db } = await import("../../db");
   const { users } = await import("@shared/schema");
   const { eq } = await import("drizzle-orm");

@@ -7,10 +7,10 @@ import { users, customerProfiles, oauthAccounts, otpCodes, securityAuditLogs, or
 import { eq, ne, and, or, gt, isNull, sql, desc } from "drizzle-orm";
 import { issueTokenPair, rotateRefreshToken, revokeAllUserTokens } from "../services/token";
 import { authRateLimit, otpRateLimit } from "../middleware/rate-limit";
-import { requireRecaptcha } from "../middleware/recaptcha";
 import { ensureReferralCode } from "../engine/referral";
 import { verifyPasswordWithLockout } from "../services/lockout";
 import { getJwtSecret } from "../services/encryption";
+import { bindSessionFingerprint } from "../services/session-fingerprint";
 
 function validatePassword(password: string): { valid: boolean; error?: string } {
   if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters long." };
@@ -202,6 +202,7 @@ export function registerAuthJwtRoutes(app: Express) {
     if (req.session) {
       req.session.userId = user.id;
       req.session.role = user.role;
+      bindSessionFingerprint(req);
     }
 
     const tokens = await issueTokenPair(user.id, user.role, {
