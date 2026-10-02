@@ -583,6 +583,8 @@ function AppContent() {
     typeof window !== "undefined" &&
     (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/login"));
 
+  const isAdminHostNow = useIsAdminHost();
+
   // 🚨 Emergency Cyberattack Lockdown Mode: Unmount everything for non-superadmins
   // Admin subdomain is always exempt from lockdown overlay (admin must be able to deactivate it)
   if (lockdownActive && !isStaffOrAdminUser && !isAdminHostNow) {
@@ -591,7 +593,6 @@ function AppContent() {
 
   // 🛠️ Scheduled Under Maintenance Mode: Show polite branded maintenance screen for storefront visitors
   // Admin subdomain is ALWAYS exempt — admins need to preview and manage the site during maintenance
-  const isAdminHostNow = useIsAdminHost();
   if (maintenanceData?.active && !isStaffOrAdminUser && !isCurrentAdminPath && !isAdminHostNow) {
     return (
       <MaintenanceOverlay

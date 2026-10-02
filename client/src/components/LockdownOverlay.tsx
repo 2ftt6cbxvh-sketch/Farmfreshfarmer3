@@ -91,9 +91,15 @@ export default function LockdownOverlay({ active, reason }: LockdownOverlayProps
   const { data: publicSettings } = useQuery<{ contact_email?: string; store_name?: string }>({
     queryKey: ["/api/settings/public"],
     queryFn: async () => {
-      const res = await fetch("/api/settings/public");
-      return res.json();
+      try {
+        const res = await fetch("/api/settings/public");
+        if (!res.ok) return {};
+        return await res.json();
+      } catch {
+        return {};
+      }
     },
+    retry: false,
   });
 
   const email = publicSettings?.contact_email || "admin@farmfreshfarmer.com";
